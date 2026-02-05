@@ -9,7 +9,8 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 
 interface AdminModeProps {
@@ -38,6 +39,10 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = useState<string>('');
   const [downloadProgress, setDownloadProgress] = useState(0);
+
+  // 检测是否为 macOS
+  const isMacOS = navigator.platform.includes('Mac');
+  const isWindows = navigator.platform.includes('Win');
 
   useEffect(() => {
     loadSystemInfo();
@@ -98,6 +103,11 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
       setUpdateError(err.message || '安装更新失败');
       setUpdateStatus('error');
     }
+  };
+
+  // 打开 GitHub Releases 页面（用于 macOS 手动更新）
+  const openReleasePage = () => {
+    window.open('https://github.com/luweiCN/VideoStitcher/releases/latest', '_blank');
   };
 
   // 监听更新进度
@@ -288,7 +298,14 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
                 {updateInfo.releaseNotes && (
                   <div>
                     <span className="text-slate-400">更新说明：</span>
-                    <p className="text-white mt-1">{updateInfo.releaseNotes}</p>
+                    <p className="text-white mt-1 whitespace-pre-wrap">{updateInfo.releaseNotes}</p>
+                  </div>
+                )}
+                {isMacOS && (
+                  <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <p className="text-amber-400 text-xs">
+                      💡 macOS 用户：请点击下方按钮前往下载页面，手动下载新版本 DMG 文件进行更新。
+                    </p>
                   </div>
                 )}
               </div>
@@ -307,7 +324,19 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
                 </button>
               ) : null}
 
-              {updateStatus === 'available' && (
+              {/* macOS: 显示前往下载按钮 */}
+              {updateStatus === 'available' && isMacOS && (
+                <button
+                  onClick={openReleasePage}
+                  className="flex items-center gap-2 px-6 py-3 bg-amber-500/20 text-amber-400 rounded-xl hover:bg-amber-500/30 transition-colors font-medium"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  前往下载页面
+                </button>
+              )}
+
+              {/* Windows: 显示下载更新按钮 */}
+              {updateStatus === 'available' && isWindows && (
                 <button
                   onClick={handleDownloadUpdate}
                   className="flex items-center gap-2 px-6 py-3 bg-blue-500/20 text-blue-400 rounded-xl hover:bg-blue-500/30 transition-colors font-medium"
@@ -317,7 +346,8 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
                 </button>
               )}
 
-              {updateStatus === 'downloaded' && (
+              {/* 仅 Windows: 显示重启并安装按钮 */}
+              {updateStatus === 'downloaded' && isWindows && (
                 <button
                   onClick={handleInstallUpdate}
                   className="flex items-center gap-2 px-6 py-3 bg-green-500/20 text-green-400 rounded-xl hover:bg-green-500/30 transition-colors font-medium"
