@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Settings,
   ArrowLeft,
@@ -44,6 +44,14 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
   // 检测是否为 macOS
   const isMacOS = navigator.platform.includes('Mac');
   const isWindows = navigator.platform.includes('Win');
+
+  // 使用 ref 保存 isWindows 的值，避免闭包问题
+  const isWindowsRef = useRef(isWindows);
+  isWindowsRef.current = isWindows;
+
+  // 保存 setUpdateStatus 的原始引用
+  const setUpdateStatusRef = useRef(setUpdateStatus);
+  setUpdateStatusRef.current = setUpdateStatus;
 
   // 调试日志 - 平台检测
   console.log('[AdminMode] ========== 平台检测 ==========');
@@ -123,6 +131,17 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
         console.error('[AdminMode] 下载失败:', result.error);
         setUpdateError(result.error);
         setUpdateStatus('error');
+      } else {
+        // Windows: 下载成功后设置为 downloaded（使用 setTimeout 确保在所有其他状态更新之后）
+        if (isWindows) {
+          console.log('[AdminMode] Windows 下载成功，延迟设置状态为 downloaded');
+          setTimeout(() => {
+            console.log('[AdminMode] ========== 延迟设置状态 ==========');
+            console.log('[AdminMode] 当前状态:', updateStatus);
+            console.log('[AdminMode] 强制设置为 downloaded');
+            setUpdateStatus('downloaded');
+          }, 100);
+        }
       }
     } catch (err: any) {
       console.error('[AdminMode] downloadUpdate 异常:', err);
