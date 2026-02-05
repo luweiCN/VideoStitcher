@@ -266,11 +266,7 @@ jobs:
             $AppUpdateYml = Join-Path $SquirrelDir "app-update.yml"
             if (-not (Test-Path $AppUpdateYml)) {
               Write-Host "生成 app-update.yml 到 Squirrel 目录..."
-              @"
-owner: luweiCN
-repo: VideoStitcher
-provider: github
-"@ | Out-File -FilePath $AppUpdateYml -Encoding UTF8
+              "owner: luweiCN`nrepo: VideoStitcher`nprovider: github`n" | Out-File -FilePath $AppUpdateYml -Encoding UTF8
               Write-Host "✅ 已生成 app-update.yml"
             } else {
               Write-Host "✅ app-update.yml 已存在"
