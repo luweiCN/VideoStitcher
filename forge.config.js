@@ -7,8 +7,7 @@ module.exports = {
   packagerConfig: {
     asar: {
       unpack: [
-        'node_modules/ffmpeg-static/**',
-        '**/node_modules/{sharp,@img}/**',
+        '**/node_modules/{ffmpeg-static,sharp,@img}/**',
       ],
     },
     // Include renderer build directory despite .gitignore
