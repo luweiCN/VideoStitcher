@@ -97,12 +97,24 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
   };
 
   const handleDownloadUpdate = async () => {
+    console.log('[AdminMode] 下载更新按钮被点击');
+    console.log('[AdminMode] 当前更新信息:', updateInfo);
+
     setUpdateStatus('downloading');
     setUpdateError('');
 
     try {
-      await window.api.downloadUpdate();
+      console.log('[AdminMode] 调用 window.api.downloadUpdate()');
+      const result = await window.api.downloadUpdate();
+      console.log('[AdminMode] downloadUpdate 返回结果:', result);
+
+      if (result.error) {
+        console.error('[AdminMode] 下载失败:', result.error);
+        setUpdateError(result.error);
+        setUpdateStatus('error');
+      }
     } catch (err: any) {
+      console.error('[AdminMode] downloadUpdate 异常:', err);
       setUpdateError(err.message || '下载更新失败');
       setUpdateStatus('error');
     }
@@ -129,8 +141,10 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
     });
 
     const cleanupDownloaded = window.api.onUpdateDownloaded((data) => {
+      console.log('[AdminMode] 更新下载完成:', data);
       setUpdateInfo(data);
       setUpdateStatus('downloaded');
+      console.log('[AdminMode] 状态已设置为 downloaded');
     });
 
     const cleanupError = window.api.onUpdateError((data) => {
