@@ -189,35 +189,7 @@ jobs:
       - name: 生成 macOS 更新元数据
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          # 使用 ZIP 文件而不是 DMG，因为 electron-updater 在 macOS 上只支持 ZIP 格式
-          ZIP_FILE=$(find out/make -name "*darwin*.zip" | head -1)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "未找到 macOS ZIP 文件"
-            exit 1
-          fi
-          ZIP_NAME=$(basename "$ZIP_FILE")
-          ZIP_SIZE=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat -c%s "$ZIP_FILE")
-          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          SHA512=$(shasum -a 512 "$ZIP_FILE" | awk '{print $1}')
-
-          # 生成 YAML 格式（electron-updater 需要 .yml 文件）
-          cat > latest-mac.yml << EOF
-version: ${VERSION}
-date: "${DATE}"
-files:
-  - url: https://github.com/luweiCN/VideoStitcher/releases/download/v${VERSION}/${ZIP_NAME}
-    sha512: ${SHA512}
-    size: ${ZIP_SIZE}
-path: ${ZIP_NAME}
-sha512: ${SHA512}
-releaseNotes: "发布版本 v${VERSION}"
-EOF
-
-          echo "已生成 latest-mac.yml:"
-          cat latest-mac.yml
-
-          # 移动到构建目录以便上传
-          mv latest-mac.yml out/make/
+          bash .github/scripts/generate-latest-mac-yml.sh "$VERSION"
         continue-on-error: true
 
       - name: 上传 macOS 更新元数据
@@ -297,33 +269,7 @@ EOF
         shell: pwsh
         run: |
           $VERSION = "${{ needs.version.outputs.new_version }}"
-          $SquirrelDir = "out/make/squirrel.windows/x64"
-
-          # 查找 nupkg 文件
-          $NupkgFile = Get-ChildItem $SquirrelDir -Filter "*-full.nupkg" | Select-Object -First
-          if ($NupkgFile) {
-            $NupkgName = $NupkgFile.Name
-            $NupkgSize = $NupkgFile.Length
-            $NupkgHash = (Get-FileHash -Algorithm SHA256 -Path $NupkgFile.FullName).Hash.ToLower()
-
-            # 逐行生成 YAML 内容，避免 YAML 解析问题
-            $YamlLines = @(
-              "version: $VERSION",
-              "files:",
-              "  - url: https://github.com/luweiCN/VideoStitcher/releases/download/v$VERSION/$NupkgName",
-              "    sha512: $NupkgHash",
-              "    size: $NupkgSize",
-              "path: $NupkgName",
-              "sha512: $NupkgHash",
-              "releaseNotes: Release v$VERSION"
-            )
-            $YamlLines -join "`n" | Out-File -FilePath "$SquirrelDir/latest.yml" -Encoding UTF8
-
-            Write-Host "✅ 已生成 latest.yml"
-            Get-Content "$SquirrelDir/latest.yml"
-          } else {
-            Write-Host "⚠️ 未找到 full.nupkg 文件"
-          }
+          pwsh -File .github/scripts/generate-latest-yml.ps1 -Version $VERSION
         continue-on-error: true
 
       - name: 列出输出目录
