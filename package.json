@@ -5,6 +5,11 @@
   "author": "Your Name <your.email@example.com>",
   "main": "src/main.js",
   "private": true,
+  "publish": {
+    "provider": "github",
+    "owner": "luweiCN",
+    "repo": "VideoStitcher"
+  },
   "scripts": {
     "build:preload": "tsc -p tsconfig.preload.json",
     "dev:renderer": "vite",
@@ -25,6 +30,7 @@
     "@electron-forge/maker-zip": "^7.11.1",
     "@electron-forge/plugin-auto-unpack-natives": "^7.11.1",
     "@electron-forge/plugin-fuses": "^7.11.1",
+    "@electron-forge/publisher-github": "^7.11.1",
     "@electron/fuses": "^1.8.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/vite": "^4.1.18",

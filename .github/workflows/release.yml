@@ -186,6 +186,55 @@ jobs:
             out/make/**/*.zip
           if-no-files-found: error
 
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: |
+            out/make/**/*.dmg
+            out/make/**/*.zip
+          if-no-files-found: error
+
+      - name: Generate macOS update metadata
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          DMG_FILE=$(find out/make -name "*.dmg" | head -1)
+          DMG_NAME=$(basename "$DMG_FILE")
+          DMG_SIZE=$(stat -f%z "$DMG_FILE" 2>/dev/null || stat -c%s "$DMG_FILE")
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          cat > latest-mac.json << EOF
+          {
+            "version": "${VERSION}",
+            "date": "${DATE}",
+            "files": [
+              {
+                "url": "https://github.com/luweiCN/VideoStitcher/releases/download/v${VERSION}/${DMG_NAME}",
+                "sha512": "$(shasum -a 512 "$DMG_FILE" | awk '{print $1}')",
+                "size": ${DMG_SIZE}
+              }
+            ],
+            "path": "${DMG_NAME}",
+            "sha512": "$(shasum -a 512 "$DMG_FILE" | awk '{print $1}')",
+            "releaseNotes": "Release v${VERSION}"
+          }
+          EOF
+
+          echo "Generated latest-mac.json:"
+          cat latest-mac.json
+
+          # Upload as artifact
+          mv latest-mac.json out/make/
+        continue-on-error: true
+
+      - name: Upload macOS update metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-update-metadata
+          path: out/make/latest-mac.json
+        if: hashFiles('out/make/latest-mac.json') != ''
+        continue-on-error: true
+
   # Build Windows
   build-windows:
     name: Build Windows
@@ -241,6 +290,13 @@ jobs:
         continue-on-error: true
         with:
           name: macos-build
+          path: macos
+
+      - name: Download macOS update metadata
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: macos-update-metadata
           path: macos
 
       - name: Download Windows build

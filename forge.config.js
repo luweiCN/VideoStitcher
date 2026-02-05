@@ -17,6 +17,19 @@ module.exports = {
     ],
   },
   rebuildConfig: {},
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: {
+          owner: 'luweiCN',
+          name: 'VideoStitcher',
+        },
+        draft: false,
+        prerelease: false,
+      },
+    },
+  ],
   makers: [
     // macOS DMG 安装包
     {

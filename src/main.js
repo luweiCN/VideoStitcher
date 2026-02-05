@@ -123,19 +123,20 @@ app.whenReady().then(() => {
 
 // 自动更新配置和事件处理
 function setupAutoUpdater() {
-  // 从环境变量或 package.json 读取仓库信息
-  // 格式: owner/repo
-  const repoInfo = process.env.GITHUB_REPO || 'luweiCN/VideoStitcher';
-  const [owner, repo] = repoInfo.split('/');
-
-  autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: owner,
-    repo: repo,
-  });
+  // 从环境变量读取仓库信息（可选覆盖）
+  if (process.env.GITHUB_REPO) {
+    const [owner, repo] = process.env.GITHUB_REPO.split('/');
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: owner,
+      repo: repo,
+    });
+  }
+  // 如果没有环境变量，electron-updater 会自动从 package.json 的 publish 字段读取
 
   // 日志输出
   autoUpdater.logger = require("electron-log");
+  autoUpdater.logger.transports.file.level = "info";
   autoUpdater.autoDownload = false; // 不自动下载，由用户确认
 
   // 自动更新事件监听
