@@ -61,16 +61,23 @@ module.exports = {
       //   icon: './build/icon.ico',
       // },
     },
-    // Windows Squirrel 安装包（支持自动更新）
+    // Windows WiX 安装包（支持自动更新，替代已弃用的 Squirrel）
     {
-      name: '@electron-forge/maker-squirrel',
+      name: '@electron-forge/maker-wix',
       config: {
         name: 'VideoStitcher',
-        authors: 'Your Name',
+        manufacturer: 'Your Name',
         description: '全能视频批处理工具箱',
-        shortcutLocations: ['Desktop', 'StartMenu', 'Startup'],
-        noMsi: true,
-        noDelta: true,  // 禁用 delta 包，加快构建速度
+        // 创建桌面快捷方式
+        shortcutDesktop: true,
+        // 创建开始菜单快捷方式
+        shortcutStartMenu: true,
+        // 启用自动更新功能
+        appUserModelId: 'com.videostitcher.app',
+        // 安装目录
+        installDirectory: '%LOCALAPPDATA%\\VideoStitcher',
+        // 升级时无需管理员权限
+        perMachine: false,
       },
     },
     // Linux 相关（可选）

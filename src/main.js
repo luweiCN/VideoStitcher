@@ -163,6 +163,7 @@ function setupAutoUpdater() {
   autoUpdater.logger = log;
   autoUpdater.logger.transports.file.level = "info";
   autoUpdater.autoDownload = false; // 不自动下载，由用户确认
+  autoUpdater.autoInstallOnAppQuit = true; // 应用退出时自动安装已下载的更新
 
   // 自动更新事件监听
   autoUpdater.on("update-available", (info) => {
@@ -466,26 +467,25 @@ ipcMain.handle("install-update", async () => {
 
   // 输出到渲染进程控制台
   win.webContents.executeJavaScript(`
-    console.log('%c[安装更新]', 'background: #10b981; color: white; padding: 2px 5px; border-radius: 3px;', '开始安装更新');
+    console.log('%c[安装更新]', 'background: #10b981; color: white; padding: 2px 5px; border-radius: 3px;', '开始安装更新并重启应用');
   `);
 
   log.info("[安装更新] 开始安装并重启");
 
   try {
-    // 先关闭窗口
-    win.close();
-
-    // 然后执行更新安装
-    // isSilent=false: 显示安装界面
-    // isForceRunAfter=true: 安装完成后自动运行应用
-    autoUpdater.quitAndInstall(false, true);
+    // 对于 WiX/NSIS，直接调用 quitAndInstall() 即可
+    // 它会关闭应用、安装更新，然后重新启动
+    autoUpdater.quitAndInstall();
 
     return { success: true };
   } catch (err) {
     log.error("[安装更新] 失败:", err);
-    win.webContents.executeJavaScript(`
-      console.error('%c[安装失败]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', '${err.message}');
-    `);
+    // 如果窗口还开着，输出错误
+    if (win && !win.isDestroyed()) {
+      win.webContents.executeJavaScript(`
+        console.error('%c[安装失败]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', '${err.message}');
+      `);
+    }
     return { success: false, error: err.message };
   }
 });

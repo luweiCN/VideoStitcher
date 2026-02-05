@@ -42,6 +42,7 @@ const api = {
     checkForUpdates: () => electron_1.ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => electron_1.ipcRenderer.invoke('download-update'),
     installUpdate: () => electron_1.ipcRenderer.invoke('install-update'),
+    openExternal: (url) => electron_1.ipcRenderer.invoke('open-external', url),
     // 自动更新事件 - 返回清理函数
     onUpdateAvailable: (cb) => {
         const listener = (_e, data) => cb(data);

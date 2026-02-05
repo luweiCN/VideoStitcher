@@ -259,44 +259,32 @@ jobs:
           npm run make
           if ($LASTEXITCODE -ne 0) { throw "make 失败" }
 
-          # 详细检查 Squirrel 输出
-          Write-Host "=== 检查 Squirrel 构建输出 ==="
-          $SquirrelDir = "out/make/squirrel.windows/x64"
-          if (Test-Path $SquirrelDir) {
-            Write-Host "Squirrel 目录内容："
-            Get-ChildItem $SquirrelDir | ForEach-Object {
-              Write-Host "  - $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)"
+          # 检查 WiX 构建输出
+          Write-Host "=== 检查 WiX 构建输出 ==="
+          $WixDirs = Get-ChildItem "out/make" -Directory | Where-Object { $_.Name -like "wix*" }
+          if ($WixDirs) {
+            foreach ($Dir in $WixDirs) {
+              Write-Host "WiX 目录: $($Dir.FullName)"
+              Get-ChildItem $Dir.FullName | ForEach-Object {
+                Write-Host "  - $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)"
+              }
             }
 
-            # 检查是否有 setup.exe
-            $SetupExe = Get-ChildItem $SquirrelDir -Filter "*.exe" -ErrorAction SilentlyContinue
-            if ($SetupExe) {
-              Write-Host "✅ 找到 Setup.exe: $($SetupExe.Name)"
+            # 检查 MSI 文件
+            $MsiFiles = Get-ChildItem -Recurse "out/make/wix*" -Filter "*.msi" -ErrorAction SilentlyContinue
+            if ($MsiFiles) {
+              Write-Host "✅ 找到 MSI 文件: $($MsiFiles.Count) 个"
+              $MsiFiles | ForEach-Object {
+                Write-Host "  - $($_.FullName)"
+              }
             } else {
-              Write-Host "❌ 未找到 Setup.exe"
-              Write-Host "❌ Squirrel 可能未完成构建"
-            }
-
-            # 确保 app-update.yml 存在于 Squirrel 目录（用于 electron-updater）
-            $AppUpdateYml = Join-Path $SquirrelDir "app-update.yml"
-            if (-not (Test-Path $AppUpdateYml)) {
-              Write-Host "生成 app-update.yml 到 Squirrel 目录..."
-              "owner: luweiCN`nrepo: VideoStitcher`nprovider: github`n" | Out-File -FilePath $AppUpdateYml -Encoding UTF8
-              Write-Host "✅ 已生成 app-update.yml"
-            } else {
-              Write-Host "✅ app-update.yml 已存在"
+              Write-Host "❌ 未找到 MSI 文件"
+              throw "WiX 构建失败：未找到 MSI 文件"
             }
           } else {
-            Write-Host "❌ Squirrel 目录不存在"
-            throw "Squirrel 构建失败：目录不存在"
+            Write-Host "❌ WiX 目录不存在"
+            throw "WiX 构建失败：目录不存在"
           }
-
-      - name: 生成 Windows 更新元数据 (latest.yml)
-        shell: pwsh
-        run: |
-          $VERSION = "${{ needs.version.outputs.new_version }}"
-          pwsh -File .github/scripts/generate-latest-yml.ps1 -Version $VERSION
-        continue-on-error: true
 
       - name: 列出输出目录
         shell: pwsh
@@ -310,10 +298,8 @@ jobs:
         with:
           name: windows-build
           path: |
-            out/make/**/RELEASES
             out/make/**/*.zip
-            out/make/**/*.nupkg
-            out/make/**/*Setup.exe
+            out/make/**/wix*/**/*.msi
             out/make/**/latest.yml
           if-no-files-found: error
 
@@ -321,9 +307,9 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=== 验证上传的 artifact ==="
-          $ExeFiles = Get-ChildItem -Recurse out/make -File "*Setup.exe" -ErrorAction SilentlyContinue
-          Write-Host "找到 Setup.exe 文件: $($ExeFiles.Count) 个"
-          $ExeFiles | ForEach-Object {
+          $MsiFiles = Get-ChildItem -Recurse "out/make" -File "*.msi" -ErrorAction SilentlyContinue
+          Write-Host "找到 MSI 文件: $($MsiFiles.Count) 个"
+          $MsiFiles | ForEach-Object {
             Write-Host "  - $($_.FullName)"
           }
 
