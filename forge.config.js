@@ -8,37 +8,11 @@ module.exports = {
     asar: {
       unpack: [
         '**/node_modules/{ffmpeg-static,sharp,@img}/**',
-        'app-update.yml', // 确保 app-update.yml 不被打包进 asar
       ],
     },
-    // 在应用打包后、makers执行前添加 app-update.yml
-    afterExtract: [
-      (buildPath, electronVersion, platform, arch) => {
-        const fs = require('fs');
-        const path = require('path');
-
-        // 对于所有平台，添加 app-update.yml 到 resources 目录
-        let resourcesPath;
-        if (platform === 'darwin') {
-          // macOS: .app/Contents/Resources
-          const appEntry = fs.readdirSync(buildPath, { withFileTypes: true })
-            .find(e => e.name.endsWith('.app') && e.isDirectory());
-          if (appEntry) {
-            resourcesPath = path.join(buildPath, appEntry.name, 'Contents', 'Resources');
-          }
-        } else {
-          // Windows/Linux: resources
-          resourcesPath = path.join(buildPath, 'resources');
-        }
-
-        if (resourcesPath && fs.existsSync(resourcesPath)) {
-          const appUpdateYmlContent = 'owner: luweiCN\nrepo: VideoStitcher\nprovider: github\n';
-          const appUpdatePath = path.join(resourcesPath, 'app-update.yml');
-          fs.writeFileSync(appUpdatePath, appUpdateYmlContent, 'utf-8');
-          console.log('✅ Added app-update.yml to', resourcesPath);
-        }
-      }
-    ],
+    // 不生成单独的 packager 输出，只生成 makers 需要的
+    // 这会减少构建时间和磁盘使用
+    afterExtract: [/* 可以在这里添加清理逻辑 */],
     // Include renderer build directory despite .gitignore
     ignore: [
       /^\/out\/make/,
@@ -88,7 +62,6 @@ module.exports = {
     // Windows Squirrel 安装包（支持自动更新）
     {
       name: '@electron-forge/maker-squirrel',
-      platforms: ['win32'],
       config: {
         name: 'VideoStitcher',
         authors: 'Your Name',
@@ -147,6 +120,12 @@ module.exports = {
             copyDir(sourceFfmpeg, targetFfmpegDir);
             console.log('✅ Copied ffmpeg-static for macOS packaging');
           }
+
+          // 为 macOS 添加 app-update.yml
+          const appUpdateYmlContent = 'owner: luweiCN\nrepo: VideoStitcher\nprovider: github\n';
+          const appUpdatePath = resourcesPath + '/app-update.yml';
+          fs.writeFileSync(appUpdatePath, appUpdateYmlContent, 'utf-8');
+          console.log('✅ Added app-update.yml for macOS');
         }
       }
 
