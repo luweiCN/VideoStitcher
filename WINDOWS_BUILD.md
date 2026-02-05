@@ -25,18 +25,33 @@ npm install
 
 ### 3. 打包应用
 
+#### 方式一：NSIS 安装包（推荐）
+
+```bash
+npm run build
+```
+
+生成 `dist\VideoStitcher-0.1.0-setup.exe`，双击安装即可。
+
+#### 方式二：ZIP 免安装版
+
 ```bash
 npm run make
 ```
 
+生成 `out\make\zip\win32\x64\video-stitcher-win32-x64-0.1.0.zip`，解压后运行 `video-stitcher.exe`
+
 ### 4. 查看输出
 
-打包完成后，在以下位置找到文件：
+**NSIS 安装包：**
+```
+dist\VideoStitcher-0.1.0-setup.exe
+```
+
+**ZIP 免安装版：**
 ```
 out\make\zip\win32\x64\
 ```
-
-找到 `video-stitcher-win32-x64-0.1.0.zip`，解压后直接运行 `video-stitcher.exe` 即可
 
 ## 常见问题
 

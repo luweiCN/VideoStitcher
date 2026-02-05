@@ -15,15 +15,15 @@ module.exports = {
       name: '@electron-forge/maker-zip',
       platforms: ['darwin', 'win32'],
     },
-    // Windows Squirrel 安装包（可选，可能因路径问题失败）
-    // {
-    //   name: '@electron-forge/maker-squirrel',
-    //   config: {
-    //     name: 'VideoStitcher',
-    //     authors: 'Your Name',
-    //     description: '视频拼接工具 - 将两个视频文件前后拼接合成',
-    //   },
-    // },
+    // Windows Squirrel 安装包
+    {
+      name: '@electron-forge/maker-squirrel',
+      config: {
+        name: 'VideoStitcher',
+        authors: 'Your Name',
+        description: '视频拼接工具 - 将两个视频文件前后拼接合成',
+      },
+    },
     // Linux 相关（可选）
     {
       name: '@electron-forge/maker-deb',

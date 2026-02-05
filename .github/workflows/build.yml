@@ -26,8 +26,15 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build app
+      # macOS/Linux 使用 electron-forge
+      - name: Build with electron-forge
+        if: matrix.os != 'windows-latest'
         run: npm run make
+
+      # Windows 使用 electron-builder 构建 NSIS 安装包
+      - name: Build NSIS installer
+        if: matrix.os == 'windows-latest'
+        run: npm run build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -35,16 +42,19 @@ jobs:
           name: video-stitcher-${{ matrix.os }}
           path: |
             out/make/**/*
+            dist/**/*
             !out/make/**/*.log
+            !dist/**/*.yaml
+            dist/*.exe
           retention-days: 30
 
-      # Windows 特定：上传 zip
-      - name: Upload Windows ZIP
+      # Windows 特定：上传 NSIS 安装包
+      - name: Upload Windows NSIS
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: video-stitcher-windows-zip
-          path: out/make/zip/win32/x64/*.zip
+          name: video-stitcher-windows-nsis
+          path: dist/*.exe
           retention-days: 30
 
       # macOS 特定：上传 zip
