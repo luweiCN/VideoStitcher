@@ -88,6 +88,7 @@ module.exports = {
     // Windows Squirrel 安装包（支持自动更新）
     {
       name: '@electron-forge/maker-squirrel',
+      platforms: ['win32'],
       config: {
         name: 'VideoStitcher',
         authors: 'Your Name',
@@ -100,10 +101,12 @@ module.exports = {
     // Linux 相关（可选）
     {
       name: '@electron-forge/maker-deb',
+      platforms: ['linux'],
       config: {},
     },
     {
       name: '@electron-forge/maker-rpm',
+      platforms: ['linux'],
       config: {},
     },
   ],
