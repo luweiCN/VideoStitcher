@@ -215,6 +215,13 @@ jobs:
           npm run build:renderer
           npm run make
 
+      - name: List output directory
+        shell: pwsh
+        run: |
+          echo "=== out directory ==="
+          Get-ChildItem -Recurse out | Select-Object FullName
+        continue-on-error: true
+
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
