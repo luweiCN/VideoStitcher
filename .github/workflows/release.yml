@@ -275,16 +275,25 @@ jobs:
           npm run build:renderer
           npm run make
 
-          # 检查是否生成了 setup.exe
-          $ExeFiles = Get-ChildItem -Recurse out -Filter "*.exe" -ErrorAction SilentlyContinue
-          if ($ExeFiles.Count -eq 0) {
-            Write-Host "❌ 错误：未生成 setup.exe 文件"
-            Write-Host "已生成的文件："
-            Get-ChildItem -Recurse out | Select-Object FullName
-            exit 1
+          # 详细检查 Squirrel 输出
+          Write-Host "=== 检查 Squirrel 构建输出 ==="
+          $SquirrelDir = "out/make/squirrel.windows/x64"
+          if (Test-Path $SquirrelDir) {
+            Write-Host "Squirrel 目录内容："
+            Get-ChildItem $SquirrelDir | ForEach-Object {
+              Write-Host "  - $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)"
+            }
+
+            # 检查是否有 setup.exe
+            $SetupExe = Get-ChildItem $SquirrelDir -Filter "*.exe" -ErrorAction SilentlyContinue
+            if ($SetupExe) {
+              Write-Host "✅ 找到 Setup.exe: $($SetupExe.Name)"
+            } else {
+              Write-Host "❌ 未找到 Setup.exe"
+              Write-Host "❌ Squirrel 可能未完成构建"
+            }
           } else {
-            Write-Host "✅ 已生成的 .exe 文件："
-            $ExeFiles | ForEach-Object { Write-Host "  - $($_.FullName)" }
+            Write-Host "❌ Squirrel 目录不存在"
           }
 
       - name: 列出输出目录

@@ -66,13 +66,9 @@ module.exports = {
         name: 'VideoStitcher',
         authors: 'Your Name',
         description: '全能视频批处理工具箱',
-        // Note: setupIcon and loadingGif require ./build/ directory with icon.ico and install-spinner.gif
-        // setupIcon: './build/icon.ico',
-        // loadingGif: './build/install-spinner.gif',
-        // 移除 remoteReleases，避免尝试从远程同步旧版本文件
-        // remoteReleases: 'https://github.com/luweiCN/VideoStitcher',
         shortcutLocations: ['Desktop', 'StartMenu', 'Startup'],
         noMsi: true,
+        noDelta: true,  // 禁用 delta 包，加快构建速度
       },
     },
     // Linux 相关（可选）
