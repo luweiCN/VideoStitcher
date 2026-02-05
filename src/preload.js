@@ -37,5 +37,16 @@ const api = {
     onImageFinish: (cb) => electron_1.ipcRenderer.on('image-finish', (_e, data) => cb(data)),
     // 移除监听器
     removeAllListeners: (channel) => electron_1.ipcRenderer.removeAllListeners(channel),
+    // 自动更新 API
+    getAppVersion: () => electron_1.ipcRenderer.invoke('get-app-version'),
+    checkForUpdates: () => electron_1.ipcRenderer.invoke('check-for-updates'),
+    downloadUpdate: () => electron_1.ipcRenderer.invoke('download-update'),
+    installUpdate: () => electron_1.ipcRenderer.invoke('install-update'),
+    // 自动更新事件
+    onUpdateAvailable: (cb) => electron_1.ipcRenderer.on('update-available', (_e, data) => cb(data)),
+    onUpdateNotAvailable: (cb) => electron_1.ipcRenderer.on('update-not-available', (_e, data) => cb(data)),
+    onUpdateError: (cb) => electron_1.ipcRenderer.on('update-error', (_e, data) => cb(data)),
+    onUpdateDownloadProgress: (cb) => electron_1.ipcRenderer.on('update-download-progress', (_e, data) => cb(data)),
+    onUpdateDownloaded: (cb) => electron_1.ipcRenderer.on('update-downloaded', (_e, data) => cb(data)),
 };
 electron_1.contextBridge.exposeInMainWorld('api', api);

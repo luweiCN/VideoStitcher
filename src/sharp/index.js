@@ -226,13 +226,22 @@ async function processImageMaterial(inputPath, logoPath, outputDir, previewSize 
   const previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
   await fs.mkdir(path.dirname(previewPath), { recursive: true });
 
+  // 映射前端模式到 Sharp fit 参数
+  const fitMapping = {
+    'inside': 'inside',   // 保持比例，缩小到目标内
+    'cover': 'cover',     // 覆盖整个目标区域
+    'fill': 'fill',       // 拉伸填充
+    'pad': 'contain'      // 留白填充 -> 使用 contain 保持完整图片
+  };
+
   const previewResizeOptions = {
     width: 800,
     height: 800,
-    fit: previewSize,
+    fit: fitMapping[previewSize] || 'cover',
     withoutEnlargement: true
   };
 
+  // 留白填充模式：添加白色背景
   if (previewSize === 'pad') {
     previewResizeOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
   }
