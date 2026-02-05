@@ -5,11 +5,12 @@ const path = require('path');
 
 module.exports = {
   packagerConfig: {
-    asar: true,
-    asarUnpack: [
-      'node_modules/ffmpeg-static/**',
-      '**/node_modules/{sharp,@img}/**',
-    ],
+    asar: {
+      unpack: [
+        'node_modules/ffmpeg-static/**',
+        '**/node_modules/{sharp,@img}/**',
+      ],
+    },
     // Include renderer build directory despite .gitignore
     ignore: [
       /^\/out\/make/,
@@ -95,18 +96,7 @@ module.exports = {
           const resourcesPath = appPath + '/Contents/Resources';
           const asarUnpackedPath = resourcesPath + '/app.asar.unpacked';
 
-          // Copy Sharp libvips (macOS ARM64)
-          const sourceLibvips = process.cwd() + '/node_modules/@img/sharp-libvips-darwin-arm64';
-          if (fs.existsSync(sourceLibvips)) {
-            const targetImgDir = asarUnpackedPath + '/node_modules/@img';
-            const sharpLibvipsPath = targetImgDir + '/sharp-libvips-darwin-arm64';
-            fs.mkdirSync(targetImgDir, { recursive: true });
-            fs.mkdirSync(sharpLibvipsPath, { recursive: true });
-            copyDir(sourceLibvips, sharpLibvipsPath);
-            console.log('✅ Copied sharp-libvips-darwin-arm64 for macOS packaging');
-          }
-
-          // Copy ffmpeg-static
+          // Copy ffmpeg-static (note: sharp is handled by asar.unpack config)
           const sourceFfmpeg = process.cwd() + '/node_modules/ffmpeg-static';
           if (fs.existsSync(sourceFfmpeg)) {
             const targetFfmpegDir = asarUnpackedPath + '/node_modules/ffmpeg-static';
