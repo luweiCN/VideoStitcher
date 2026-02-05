@@ -176,6 +176,12 @@ jobs:
           npm run build:renderer
           npm run make
 
+      - name: 生成 macOS 更新元数据
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          bash .github/scripts/generate-latest-mac-yml.sh "$VERSION"
+        continue-on-error: true
+
       - name: 上传 macOS 构建产物
         uses: actions/upload-artifact@v4
         with:
@@ -183,14 +189,8 @@ jobs:
           path: |
             out/make/*.dmg
             out/make/*darwin*.zip
-            out/make/latest-mac.json
+            out/make/latest-mac.yml
           if-no-files-found: error
-
-      - name: 生成 macOS 更新元数据
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          bash .github/scripts/generate-latest-mac-yml.sh "$VERSION"
-        continue-on-error: true
 
       - name: 上传 macOS 更新元数据
         uses: actions/upload-artifact@v4
