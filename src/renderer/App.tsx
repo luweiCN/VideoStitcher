@@ -9,17 +9,7 @@ import LosslessGridMode from './features/LosslessGridMode';
 import ImageMaterialMode from './features/ImageMaterialMode';
 import ResizeMode from './features/ResizeMode';
 import VideoStitcherMode from './features/VideoStitcherMode';
-
-// 占位符组件 - 稍后实现
-const PlaceholderMode: React.FC<{ onBack: () => void; title: string }> = ({ onBack, title }) => (
-  <div className="min-h-screen bg-slate-950 text-white p-8">
-    <button onClick={onBack} className="mb-4 flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-      ← 返回首页
-    </button>
-    <h1 className="text-2xl font-bold">{title}</h1>
-    <p className="text-slate-400 mt-4">功能开发中...</p>
-  </div>
-);
+import AdminMode from './features/AdminMode';
 
 type View = 'home' | 'vertical' | 'horizontal' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress' | 'videoStitcher';
 
@@ -63,7 +53,7 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'admin') {
-    return <PlaceholderMode onBack={() => setCurrentView('home')} title="系统管理" />;
+    return <AdminMode onBack={() => setCurrentView('home')} />;
   }
 
   return (

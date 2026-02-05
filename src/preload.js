@@ -42,11 +42,31 @@ const api = {
     checkForUpdates: () => electron_1.ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => electron_1.ipcRenderer.invoke('download-update'),
     installUpdate: () => electron_1.ipcRenderer.invoke('install-update'),
-    // 自动更新事件
-    onUpdateAvailable: (cb) => electron_1.ipcRenderer.on('update-available', (_e, data) => cb(data)),
-    onUpdateNotAvailable: (cb) => electron_1.ipcRenderer.on('update-not-available', (_e, data) => cb(data)),
-    onUpdateError: (cb) => electron_1.ipcRenderer.on('update-error', (_e, data) => cb(data)),
-    onUpdateDownloadProgress: (cb) => electron_1.ipcRenderer.on('update-download-progress', (_e, data) => cb(data)),
-    onUpdateDownloaded: (cb) => electron_1.ipcRenderer.on('update-downloaded', (_e, data) => cb(data)),
+    // 自动更新事件 - 返回清理函数
+    onUpdateAvailable: (cb) => {
+        const listener = (_e, data) => cb(data);
+        electron_1.ipcRenderer.on('update-available', listener);
+        return () => electron_1.ipcRenderer.removeListener('update-available', listener);
+    },
+    onUpdateNotAvailable: (cb) => {
+        const listener = (_e, data) => cb(data);
+        electron_1.ipcRenderer.on('update-not-available', listener);
+        return () => electron_1.ipcRenderer.removeListener('update-not-available', listener);
+    },
+    onUpdateError: (cb) => {
+        const listener = (_e, data) => cb(data);
+        electron_1.ipcRenderer.on('update-error', listener);
+        return () => electron_1.ipcRenderer.removeListener('update-error', listener);
+    },
+    onUpdateDownloadProgress: (cb) => {
+        const listener = (_e, data) => cb(data);
+        electron_1.ipcRenderer.on('update-download-progress', listener);
+        return () => electron_1.ipcRenderer.removeListener('update-download-progress', listener);
+    },
+    onUpdateDownloaded: (cb) => {
+        const listener = (_e, data) => cb(data);
+        electron_1.ipcRenderer.on('update-downloaded', listener);
+        return () => electron_1.ipcRenderer.removeListener('update-downloaded', listener);
+    },
 };
 electron_1.contextBridge.exposeInMainWorld('api', api);

@@ -97,12 +97,12 @@ export interface ElectronAPI {
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
 
-  // 自动更新事件
-  onUpdateAvailable: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => void;
-  onUpdateNotAvailable: (callback: (data: { version: string }) => void) => void;
-  onUpdateError: (callback: (data: { message: string }) => void) => void;
-  onUpdateDownloadProgress: (callback: (data: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => void;
-  onUpdateDownloaded: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => void;
+  // 自动更新事件 - 返回清理函数
+  onUpdateAvailable: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => () => void;
+  onUpdateNotAvailable: (callback: (data: { version: string }) => void) => () => void;
+  onUpdateError: (callback: (data: { message: string }) => void) => () => void;
+  onUpdateDownloadProgress: (callback: (data: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => () => void;
+  onUpdateDownloaded: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -155,12 +155,32 @@ const api: ElectronAPI = {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
 
-  // 自动更新事件
-  onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_e, data) => cb(data)),
-  onUpdateNotAvailable: (cb) => ipcRenderer.on('update-not-available', (_e, data) => cb(data)),
-  onUpdateError: (cb) => ipcRenderer.on('update-error', (_e, data) => cb(data)),
-  onUpdateDownloadProgress: (cb) => ipcRenderer.on('update-download-progress', (_e, data) => cb(data)),
-  onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', (_e, data) => cb(data)),
+  // 自动更新事件 - 返回清理函数
+  onUpdateAvailable: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on('update-available', listener);
+    return () => ipcRenderer.removeListener('update-available', listener);
+  },
+  onUpdateNotAvailable: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on('update-not-available', listener);
+    return () => ipcRenderer.removeListener('update-not-available', listener);
+  },
+  onUpdateError: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on('update-error', listener);
+    return () => ipcRenderer.removeListener('update-error', listener);
+  },
+  onUpdateDownloadProgress: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on('update-download-progress', listener);
+    return () => ipcRenderer.removeListener('update-download-progress', listener);
+  },
+  onUpdateDownloaded: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on('update-downloaded', listener);
+    return () => ipcRenderer.removeListener('update-downloaded', listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);
