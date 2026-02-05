@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
 const os = require("os");
 const path = require("path");
 const { autoUpdater } = require("electron-updater");
@@ -393,4 +393,14 @@ ipcMain.handle("get-app-version", async () => {
     version: app.getVersion(),
     isDevelopment: isDevelopment,
   };
+});
+
+// 使用系统默认浏览器打开外部链接
+ipcMain.handle("open-external", async (_event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 });

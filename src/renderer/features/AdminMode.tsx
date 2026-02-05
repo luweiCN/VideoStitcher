@@ -111,8 +111,8 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
   };
 
   // 打开 GitHub Releases 页面（用于 macOS 手动更新）
-  const openReleasePage = () => {
-    window.open('https://github.com/luweiCN/VideoStitcher/releases/latest', '_blank');
+  const openReleasePage = async () => {
+    await window.api.openExternal('https://github.com/luweiCN/VideoStitcher/releases/latest');
   };
 
   // 监听更新进度

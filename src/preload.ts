@@ -96,6 +96,7 @@ export interface ElectronAPI {
   checkForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
+  openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
 
   // 自动更新事件 - 返回清理函数
   onUpdateAvailable: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => () => void;
@@ -154,6 +155,7 @@ const api: ElectronAPI = {
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
 
   // 自动更新事件 - 返回清理函数
   onUpdateAvailable: (cb) => {
