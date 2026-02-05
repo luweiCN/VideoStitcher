@@ -310,10 +310,10 @@ jobs:
         with:
           name: windows-build
           path: |
-            out/make/RELEASES
-            out/make/*.zip
-            out/make/VideoStitcher-*.nupkg
-            out/make/VideoStitcher-*.exe
+            out/make/**/RELEASES
+            out/make/**/*.zip
+            out/make/**/VideoStitcher-*.nupkg
+            out/make/**/VideoStitcher-*.exe
           if-no-files-found: error
 
   # 创建发布（需要所有构建完成）
