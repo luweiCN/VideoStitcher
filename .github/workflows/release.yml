@@ -314,6 +314,16 @@ jobs:
             out/make/**/*Setup.exe
           if-no-files-found: error
 
+      - name: 验证 artifact 内容
+        shell: pwsh
+        run: |
+          Write-Host "=== 验证上传的 artifact ==="
+          $ExeFiles = Get-ChildItem -Recurse out/make -File "*Setup.exe" -ErrorAction SilentlyContinue
+          Write-Host "找到 Setup.exe 文件: $($ExeFiles.Count) 个"
+          $ExeFiles | ForEach-Object {
+            Write-Host "  - $($_.FullName)"
+          }
+
   # 创建发布（需要所有构建完成）
   release:
     name: 创建发布
