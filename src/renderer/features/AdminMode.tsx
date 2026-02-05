@@ -216,13 +216,13 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
           </p>
         </div>
 
-        {/* 自动更新 */}
+        {/* 版本更新 */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 lg:col-span-2">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 bg-violet-500/20 rounded-xl flex items-center justify-center">
               <Download className="w-5 h-5 text-violet-400" />
             </div>
-            <h2 className="text-xl font-bold">自动更新</h2>
+            <h2 className="text-xl font-bold">版本更新</h2>
           </div>
 
           <div className="space-y-4">

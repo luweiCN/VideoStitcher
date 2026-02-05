@@ -115,13 +115,9 @@ app.whenReady().then(() => {
   registerVideoHandlers();
   // 注册图片处理 IPC 处理器
   registerImageHandlers();
-  // 配置自动更新（仅在生产环境）
-  if (!isDevelopment) {
-    setupAutoUpdater();
-  }
 });
 
-// 自动更新配置和事件处理
+// 自动更新配置和事件处理（手动触发）
 function setupAutoUpdater() {
   // 从环境变量或 package.json 读取仓库信息
   // 格式: owner/repo
@@ -176,22 +172,7 @@ function setupAutoUpdater() {
     });
   });
 
-  // 应用启动后 10 秒检查更新
-  setTimeout(() => {
-    autoUpdater.checkForUpdates().catch((err) => {
-      console.error("Failed to check for updates:", err);
-    });
-  }, 10000);
-
-  // 每 30 分钟检查一次更新
-  setInterval(
-    () => {
-      autoUpdater.checkForUpdates().catch((err) => {
-        console.error("Failed to check for updates:", err);
-      });
-    },
-    30 * 60 * 1000,
-  );
+  // 注意：不再自动检查更新，完全由用户手动触发
 }
 
 ipcMain.handle("pick-files", async (_e, { title, filters }) => {
@@ -305,6 +286,8 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
 // 自动更新相关的 IPC 处理器
 ipcMain.handle("check-for-updates", async () => {
   try {
+    // 首次检查时初始化配置
+    setupAutoUpdater();
     const result = await autoUpdater.checkForUpdates();
     return { success: true, updateInfo: result?.updateInfo };
   } catch (err) {
