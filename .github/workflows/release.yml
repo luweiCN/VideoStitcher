@@ -293,6 +293,38 @@ EOF
             Write-Host "❌ Squirrel 目录不存在"
           }
 
+      - name: 生成 Windows 更新元数据 (latest.yml)
+        shell: pwsh
+        run: |
+          $VERSION = "${{ needs.version.outputs.new_version }}"
+          $SquirrelDir = "out/make/squirrel.windows/x64"
+
+          # 查找 nupkg 文件
+          $NupkgFile = Get-ChildItem $SquirrelDir -Filter "*-full.nupkg" | Select-Object -First
+          if ($NupkgFile) {
+            $NupkgName = $NupkgFile.Name
+            $NupkgSize = $NupkgFile.Length
+            $NupkgHash = (Get-FileHash -Algorithm SHA256 -Path $NupkgFile.FullName).Hash.ToLower()
+
+            # 生成 YAML 格式（electron-updater 需要）
+            $YamlContent = @"
+version: $VERSION
+files:
+  - url: https://github.com/luweiCN/VideoStitcher/releases/download/v$VERSION/$NupkgName
+    sha512: $NupkgHash
+    size: $NupkgSize
+path: $NupkgName
+sha512: $NupkgHash
+releaseNotes: Release v$VERSION
+"@
+            $YamlContent | Out-File -FilePath "$SquirrelDir/latest.yml" -Encoding UTF8
+            Write-Host "✅ 已生成 latest.yml"
+            Get-Content "$SquirrelDir/latest.yml"
+          } else {
+            Write-Host "⚠️ 未找到 full.nupkg 文件"
+          }
+        continue-on-error: true
+
       - name: 列出输出目录
         shell: pwsh
         run: |
@@ -309,6 +341,7 @@ EOF
             out/make/**/*.zip
             out/make/**/*.nupkg
             out/make/**/*Setup.exe
+            out/make/**/latest.yml
           if-no-files-found: error
 
       - name: 验证 artifact 内容
