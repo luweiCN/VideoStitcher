@@ -143,11 +143,14 @@ function setupAutoUpdater() {
   // 也输出到渲染进程控制台（方便调试）
   setTimeout(() => {
     if (win && win.webContents) {
+      const configStr = JSON.stringify({ owner, repo });
+      const versionStr = JSON.stringify(app.getVersion());
+      const isPackagedStr = JSON.stringify(app.isPackaged);
       win.webContents.executeJavaScript(`
         console.log('%c[自动更新]', 'background: #10b981; color: white; padding: 2px 5px; border-radius: 3px;', '配置已加载');
-        console.log('仓库:', ${JSON.stringify({ owner, repo })});
-        console.log('当前版本:', '${app.getVersion()}');
-        console.log('是否打包:', ${app.isPackaged});
+        console.log('仓库:', ${configStr});
+        console.log('当前版本:', ${versionStr});
+        console.log('是否打包:', ${isPackagedStr});
       `);
     }
   }, 2000);
@@ -324,9 +327,10 @@ ipcMain.handle("check-for-updates", async () => {
     log.info('当前应用版本:', currentVersion);
 
     // 输出到渲染进程控制台
+    const currentVersionStr = JSON.stringify(currentVersion);
     win.webContents.executeJavaScript(`
       console.log('%c[检查更新]', 'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px;', '开始检查...');
-      console.log('当前版本:', '${currentVersion}');
+      console.log('当前版本:', ${currentVersionStr});
     `);
 
     const result = await autoUpdater.checkForUpdates();
@@ -336,13 +340,14 @@ ipcMain.handle("check-for-updates", async () => {
     // 输出详细结果到渲染进程
     if (result) {
       const hasUpdate = result.versionInfo && result.versionInfo.version !== currentVersion;
+      const resultStr = JSON.stringify({
+        hasUpdate,
+        currentVersion,
+        latestVersion: result.versionInfo?.version,
+        updateInfo: result.updateInfo
+      });
       win.webContents.executeJavaScript(`
-        console.log('检查结果:', ${JSON.stringify({
-          hasUpdate,
-          currentVersion,
-          latestVersion: result.versionInfo?.version,
-          updateInfo: result.updateInfo
-        })});
+        console.log('检查结果:', ${resultStr});
       `);
     }
 
@@ -352,8 +357,9 @@ ipcMain.handle("check-for-updates", async () => {
     log.error('检查更新失败:', err);
 
     // 输出错误到渲染进程
+    const errorMsg = JSON.stringify(err.message);
     win.webContents.executeJavaScript(`
-      console.error('%c[检查更新失败]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', '${err.message}');
+      console.error('%c[检查更新失败]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', ${errorMsg});
     `);
 
     return { success: false, error: err.message };
