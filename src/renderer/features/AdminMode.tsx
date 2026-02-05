@@ -15,6 +15,7 @@ import {
 
 interface AdminModeProps {
   onBack: () => void;
+  initialUpdateInfo?: UpdateInfo | null;
 }
 
 interface SystemInfo {
@@ -33,7 +34,7 @@ interface UpdateInfo {
   releaseNotes: string;
 }
 
-const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
+const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -46,7 +47,13 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
 
   useEffect(() => {
     loadSystemInfo();
-  }, []);
+
+    // 如果有初始更新信息（从全局状态传来），直接设置状态
+    if (initialUpdateInfo) {
+      setUpdateInfo(initialUpdateInfo);
+      setUpdateStatus('available');
+    }
+  }, [initialUpdateInfo]);
 
   const loadSystemInfo = async () => {
     try {
