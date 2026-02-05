@@ -347,16 +347,20 @@ const HorizontalMode: React.FC<HorizontalModeProps> = ({ onBack }) => {
             </h3>
             <div className="space-y-3">
               <div>
-                <label className="text-sm text-slate-400">并发数</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm text-slate-400">并发数</label>
+                  <span className="text-xs text-slate-600">推荐: CPU 核心数 - 1</span>
+                </div>
                 <input
                   type="number"
                   min="1"
                   max="8"
                   value={concurrency}
                   onChange={(e) => setConcurrency(Number(e.target.value))}
-                  className="w-full mt-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
                   disabled={isProcessing}
                 />
+                <p className="text-xs text-slate-500 mt-1">同时启动的 FFmpeg 进程数量</p>
               </div>
             </div>
           </div>

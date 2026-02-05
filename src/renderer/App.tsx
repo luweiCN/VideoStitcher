@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink } from 'lucide-react';
+import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Film } from 'lucide-react';
 import HorizontalMode from './features/HorizontalMode';
 import VerticalMode from './features/VerticalMode';
 import FileNameExtractorMode from './features/FileNameExtractorMode';
@@ -8,6 +8,7 @@ import CoverCompressMode from './features/CoverCompressMode';
 import LosslessGridMode from './features/LosslessGridMode';
 import ImageMaterialMode from './features/ImageMaterialMode';
 import ResizeMode from './features/ResizeMode';
+import VideoStitcherMode from './features/VideoStitcherMode';
 
 // 占位符组件 - 稍后实现
 const PlaceholderMode: React.FC<{ onBack: () => void; title: string }> = ({ onBack, title }) => (
@@ -20,7 +21,7 @@ const PlaceholderMode: React.FC<{ onBack: () => void; title: string }> = ({ onBa
   </div>
 );
 
-type View = 'home' | 'vertical' | 'horizontal' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress';
+type View = 'home' | 'vertical' | 'horizontal' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress' | 'videoStitcher';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
@@ -55,6 +56,10 @@ const App: React.FC = () => {
 
   if (currentView === 'resize') {
     return <ResizeMode onBack={() => setCurrentView('home')} />;
+  }
+
+  if (currentView === 'videoStitcher') {
+    return <VideoStitcherMode onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'admin') {
@@ -234,6 +239,27 @@ const App: React.FC = () => {
               <h2 className="text-lg font-bold mb-1 text-white group-hover:text-cyan-400 transition-colors">专业无损九宫格</h2>
               <p className="text-slate-400 text-sm leading-relaxed">
                 1:1原图，无损无压缩九宫格切割
+              </p>
+            </div>
+          </div>
+        </button>
+
+        {/* A+B 前后拼接入口 */}
+        <button
+          onClick={() => setCurrentView('videoStitcher')}
+          className="group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all hover:border-pink-500 hover:shadow-lg hover:shadow-pink-500/10 hover:-translate-y-0.5"
+        >
+          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
+            <Film className="w-16 h-16" />
+          </div>
+          <div className="relative z-10 space-y-3">
+            <div className="w-12 h-12 bg-pink-500/10 rounded-xl flex items-center justify-center group-hover:bg-pink-500 group-hover:text-white transition-colors text-pink-400">
+              <Film className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold mb-1 text-white group-hover:text-pink-400 transition-colors">A+B 前后拼接</h2>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                A面+B面视频前后拼接，横竖版可选
               </p>
             </div>
           </div>
