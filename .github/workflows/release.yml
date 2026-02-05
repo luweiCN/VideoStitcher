@@ -198,37 +198,34 @@ jobs:
           ZIP_NAME=$(basename "$ZIP_FILE")
           ZIP_SIZE=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat -c%s "$ZIP_FILE")
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          SHA512=$(shasum -a 512 "$ZIP_FILE" | awk '{print $1}')
 
-          cat > latest-mac.json << EOF
-          {
-            "version": "${VERSION}",
-            "date": "${DATE}",
-            "files": [
-              {
-                "url": "https://github.com/luweiCN/VideoStitcher/releases/download/v${VERSION}/${ZIP_NAME}",
-                "sha512": "$(shasum -a 512 "$ZIP_FILE" | awk '{print $1}')",
-                "size": ${ZIP_SIZE}
-              }
-            ],
-            "path": "${ZIP_NAME}",
-            "sha512": "$(shasum -a 512 "$ZIP_FILE" | awk '{print $1}')",
-            "releaseNotes": "发布版本 v${VERSION}"
-          }
-          EOF
+          # 生成 YAML 格式（electron-updater 需要 .yml 文件）
+          cat > latest-mac.yml << EOF
+version: ${VERSION}
+date: "${DATE}"
+files:
+  - url: https://github.com/luweiCN/VideoStitcher/releases/download/v${VERSION}/${ZIP_NAME}
+    sha512: ${SHA512}
+    size: ${ZIP_SIZE}
+path: ${ZIP_NAME}
+sha512: ${SHA512}
+releaseNotes: "发布版本 v${VERSION}"
+EOF
 
-          echo "已生成 latest-mac.json:"
-          cat latest-mac.json
+          echo "已生成 latest-mac.yml:"
+          cat latest-mac.yml
 
           # 移动到构建目录以便上传
-          mv latest-mac.json out/make/
+          mv latest-mac.yml out/make/
         continue-on-error: true
 
       - name: 上传 macOS 更新元数据
         uses: actions/upload-artifact@v4
         with:
           name: macos-update-metadata
-          path: out/make/latest-mac.json
-        if: hashFiles('out/make/latest-mac.json') != ''
+          path: out/make/latest-mac.yml
+        if: hashFiles('out/make/latest-mac.yml') != ''
         continue-on-error: true
 
   # 构建 Windows
