@@ -2,38 +2,137 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 export interface ElectronAPI {
   // 文件对话框
-  pickFiles: (title: string) => Promise<string[]>;
+  pickFiles: (title: string, filters?: { name: string; extensions: string[] }[]) => Promise<string[]>;
   pickOutDir: () => Promise<string>;
 
-  // 视频处理 (现有功能)
+  // === 原有视频处理功能 (保留兼容性) ===
   setLibs: (aFiles: string[], bFiles: string[], outputDir: string) => Promise<{ aCount: number; bCount: number; outDir: string }>;
   setConcurrency: (concurrency: number) => Promise<{ concurrency: number }>;
   startMerge: (orientation: 'landscape' | 'portrait') => Promise<{ done: number; failed: number; total: number }>;
 
-  // 事件监听
+  // === 新的视频处理 API ===
+  // 横屏合成
+  videoHorizontalMerge: (config: {
+    aVideos: string[];
+    bVideos: string[];
+    bgImage?: string;
+    outputDir: string;
+    concurrency?: number;
+  }) => Promise<{ done: number; failed: number; total: number }>;
+
+  // 竖屏合成
+  videoVerticalMerge: (config: {
+    mainVideos: string[];
+    bgImage?: string;
+    aVideos?: string[];
+    outputDir: string;
+    concurrency?: number;
+  }) => Promise<{ done: number; failed: number; total: number }>;
+
+  // 智能改尺寸
+  videoResize: (config: {
+    videos: string[];
+    mode: 'siya' | 'fishing' | 'unify_h' | 'unify_v';
+    blurAmount?: number;
+    outputDir: string;
+    concurrency?: number;
+  }) => Promise<{ done: number; failed: number; total: number }>;
+
+  // === 图片处理 API ===
+  // 图片压缩
+  imageCompress: (config: {
+    images: string[];
+    targetSizeKB?: number;
+    outputDir: string;
+  }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
+
+  // 封面格式转换
+  imageCoverFormat: (config: {
+    images: string[];
+    quality?: number;
+    outputDir: string;
+  }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
+
+  // 九宫格切割
+  imageGrid: (config: {
+    images: string[];
+    outputDir: string;
+  }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
+
+  // 图片素材处理
+  imageMaterial: (config: {
+    images: string[];
+    logoPath?: string;
+    outputDir: string;
+  }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
+
+  // === 事件监听 ===
+  // 原有任务事件
   onJobStart: (callback: (data: { total: number; orientation: string; concurrency: number }) => void) => void;
   onJobLog: (callback: (data: { msg: string }) => void) => void;
   onJobProgress: (callback: (data: { done: number; failed: number; total: number; index: number; outPath: string }) => void) => void;
   onJobFailed: (callback: (data: { done: number; failed: number; total: number; index: number; error: string }) => void) => void;
   onJobFinish: (callback: (data: { done: number; failed: number; total: number }) => void) => void;
 
+  // 新的视频处理事件
+  onVideoStart: (callback: (data: { total: number; mode: string; concurrency: number }) => void) => void;
+  onVideoProgress: (callback: (data: { done: number; failed: number; total: number; index: number; outputPath: string }) => void) => void;
+  onVideoFailed: (callback: (data: { done: number; failed: number; total: number; index: number; error: string }) => void) => void;
+  onVideoFinish: (callback: (data: { done: number; failed: number; total: number }) => void) => void;
+  onVideoLog: (callback: (data: { index: number; message: string }) => void) => void;
+
+  // 图片处理事件
+  onImageStart: (callback: (data: { total: number; mode: string }) => void) => void;
+  onImageProgress: (callback: (data: { done: number; failed: number; total: number; current: string; result?: any }) => void) => void;
+  onImageFailed: (callback: (data: { done: number; failed: number; total: number; current: string; error: string }) => void) => void;
+  onImageFinish: (callback: (data: { done: number; failed: number; total: number }) => void) => void;
+
   // 移除监听器
   removeAllListeners: (channel: string) => void;
 }
 
 const api: ElectronAPI = {
-  pickFiles: (title) => ipcRenderer.invoke('pick-files', { title }),
+  // 文件对话框
+  pickFiles: (title, filters) => ipcRenderer.invoke('pick-files', { title, filters }),
   pickOutDir: () => ipcRenderer.invoke('pick-outdir'),
+
+  // 原有视频处理功能
   setLibs: (aFiles, bFiles, outputDir) => ipcRenderer.invoke('set-libs', { aFiles, bFiles, outputDir }),
   setConcurrency: (concurrency) => ipcRenderer.invoke('set-concurrency', { concurrency }),
   startMerge: (orientation) => ipcRenderer.invoke('start-merge', { orientation }),
 
+  // 新的视频处理 API
+  videoHorizontalMerge: (config) => ipcRenderer.invoke('video-horizontal-merge', config),
+  videoVerticalMerge: (config) => ipcRenderer.invoke('video-vertical-merge', config),
+  videoResize: (config) => ipcRenderer.invoke('video-resize', config),
+
+  // 图片处理 API
+  imageCompress: (config) => ipcRenderer.invoke('image-compress', config),
+  imageCoverFormat: (config) => ipcRenderer.invoke('image-cover-format', config),
+  imageGrid: (config) => ipcRenderer.invoke('image-grid', config),
+  imageMaterial: (config) => ipcRenderer.invoke('image-material', config),
+
+  // 原有任务事件
   onJobStart: (cb) => ipcRenderer.on('job-start', (_e, data) => cb(data)),
   onJobLog: (cb) => ipcRenderer.on('job-log', (_e, data) => cb(data)),
   onJobProgress: (cb) => ipcRenderer.on('job-progress', (_e, data) => cb(data)),
   onJobFailed: (cb) => ipcRenderer.on('job-failed', (_e, data) => cb(data)),
   onJobFinish: (cb) => ipcRenderer.on('job-finish', (_e, data) => cb(data)),
 
+  // 新的视频处理事件
+  onVideoStart: (cb) => ipcRenderer.on('video-start', (_e, data) => cb(data)),
+  onVideoProgress: (cb) => ipcRenderer.on('video-progress', (_e, data) => cb(data)),
+  onVideoFailed: (cb) => ipcRenderer.on('video-failed', (_e, data) => cb(data)),
+  onVideoFinish: (cb) => ipcRenderer.on('video-finish', (_e, data) => cb(data)),
+  onVideoLog: (cb) => ipcRenderer.on('video-log', (_e, data) => cb(data)),
+
+  // 图片处理事件
+  onImageStart: (cb) => ipcRenderer.on('image-start', (_e, data) => cb(data)),
+  onImageProgress: (cb) => ipcRenderer.on('image-progress', (_e, data) => cb(data)),
+  onImageFailed: (cb) => ipcRenderer.on('image-failed', (_e, data) => cb(data)),
+  onImageFinish: (cb) => ipcRenderer.on('image-finish', (_e, data) => cb(data)),
+
+  // 移除监听器
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 };
 

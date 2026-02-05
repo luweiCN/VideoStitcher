@@ -6,6 +6,10 @@ const { buildPairs } = require("./ffmpeg/pair");
 const { TaskQueue } = require("./ffmpeg/queue");
 const { runFfmpeg } = require("./ffmpeg/ffmpegCmd");
 
+// 导入新的 IPC 处理器
+const { registerVideoHandlers } = require("./ipcHandlers/video");
+const { registerImageHandlers } = require("./ipcHandlers/image");
+
 let win;
 let A = [];
 let B = [];
@@ -33,7 +37,13 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  // 注册视频处理 IPC 处理器
+  registerVideoHandlers();
+  // 注册图片处理 IPC 处理器
+  registerImageHandlers();
+});
 
 ipcMain.handle("pick-files", async (_e, { title }) => {
   const res = await dialog.showOpenDialog(win, {
