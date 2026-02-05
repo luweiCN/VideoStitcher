@@ -99,7 +99,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-8 font-sans">
       <div className="text-center mb-16 space-y-4">
         <h1 className="text-5xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-violet-400 to-rose-400">
-          VideoMaster Pro
+          VideoStitcher
         </h1>
         <p className="text-slate-400 text-lg font-medium">全能视频批处理工具箱</p>
       </div>

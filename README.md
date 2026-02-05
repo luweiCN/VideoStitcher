@@ -58,7 +58,7 @@
 
 | 平台 | 推荐下载 |
 |------|---------|
-| **Windows** | `VideoMasterPro-setup.exe` (支持自动更新) |
+| **Windows** | `VideoStitcher-setup.exe` (支持自动更新) |
 | **macOS** | `VideoStitcher-*.dmg` |
 | **Linux** | `videostitcher_*.deb` 或 `.rpm` |
 

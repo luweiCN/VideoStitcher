@@ -60,7 +60,7 @@ module.exports = {
     {
       name: '@electron-forge/maker-squirrel',
       config: {
-        name: 'VideoMasterPro',
+        name: 'VideoStitcher',
         authors: 'Your Name',
         description: '全能视频批处理工具箱',
         // Note: setupIcon and loadingGif require ./build/ directory with icon.ico and install-spinner.gif

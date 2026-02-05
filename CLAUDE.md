@@ -2,7 +2,7 @@
 
 ## 项目概述
 
-**项目名称**: VideoStitcher (VideoMaster Pro)
+**项目名称**: VideoStitcher
 **描述**: 全能视频批处理工具箱
 **技术栈**: Electron + React + Vite + Tailwind CSS + FFmpeg
 

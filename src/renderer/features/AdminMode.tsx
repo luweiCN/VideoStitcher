@@ -166,7 +166,7 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
           <div className="space-y-3 text-sm">
             <div className="flex justify-between py-2 border-b border-slate-800">
               <span className="text-slate-400">应用名称</span>
-              <span className="text-white">VideoMaster Pro</span>
+              <span className="text-white">VideoStitcher</span>
             </div>
             <div className="flex justify-between py-2 border-b border-slate-800">
               <span className="text-slate-400">当前版本</span>
@@ -363,7 +363,7 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
 
       {/* 页脚 */}
       <div className="mt-8 text-center text-slate-600 text-sm">
-        <p>© 2026 VideoMaster Pro · 全能视频批处理工具箱</p>
+        <p>© 2026 VideoStitcher · 全能视频批处理工具箱</p>
       </div>
     </div>
   );
