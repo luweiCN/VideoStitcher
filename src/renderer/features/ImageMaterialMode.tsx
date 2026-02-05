@@ -5,13 +5,12 @@ interface ImageMaterialModeProps {
   onBack: () => void;
 }
 
-type PreviewSize = 'inside' | 'cover' | 'fill' | 'pad';
+type PreviewSize = 'inside' | 'cover' | 'fill';
 
 const PREVIEW_SIZE_OPTIONS = {
-  inside: { name: '保持比例', desc: '按比例缩放到800x800以内，不变形' },
+  inside: { name: '保持比例', desc: '按比例缩放到800x800以内，不变形，空白区域填充白色' },
   cover: { name: '裁剪正方形', desc: '裁剪为800x800正方形' },
   fill: { name: '拉伸填充', desc: '强制拉伸到800x800，可能变形' },
-  pad: { name: '留白填充', desc: '800x800正方形，空白区域填充白色' },
 };
 
 const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {

@@ -217,8 +217,7 @@ async function processImageMaterial(inputPath, logoPath, outputDir, previewSize 
   const fitMapping = {
     'cover': 'cover',      // 裁剪正方形
     'inside': 'contain',   // 保持比例，留白
-    'fill': 'fill',        // 强制拉伸
-    'pad': 'contain'       // 留白填充
+    'fill': 'fill'         // 强制拉伸
   };
 
   const previewOptions = {
@@ -227,8 +226,8 @@ async function processImageMaterial(inputPath, logoPath, outputDir, previewSize 
     fit: fitMapping[previewSize] || 'cover'
   };
 
-  // 留白填充和保持比例模式：添加白色背景
-  if (previewSize === 'pad' || previewSize === 'inside') {
+  // 保持比例模式：添加白色背景
+  if (previewSize === 'inside') {
     previewOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
   }
 

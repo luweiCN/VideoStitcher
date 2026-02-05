@@ -19,9 +19,10 @@ let outDir = "";
 const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 
 // 检测开发环境
-const isDevelopment = process.env.NODE_ENV === 'development' ||
-                       process.env.DEBUG === 'true' ||
-                       !app.isPackaged;
+const isDevelopment =
+  process.env.NODE_ENV === "development" ||
+  process.env.DEBUG === "true" ||
+  !app.isPackaged;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -32,19 +33,28 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true, // 保持 webSecurity 启用
-    }
+    },
   });
 
   // 开发模式下加载 Vite 服务器，生产模式加载构建文件
   if (isDevelopment) {
-    console.log('Development mode: loading Vite dev server at http://localhost:5173');
-    win.loadURL('http://localhost:5173').then(() => {
-      console.log('Vite dev server loaded successfully');
-      win.webContents.openDevTools();
-    }).catch((err) => {
-      console.error('Failed to load Vite dev server:', err);
-      // 显示错误页面
-      win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
+    console.log(
+      "🔥 Development mode: loading Vite dev server at http://localhost:5173 [RESTARTED at " +
+        new Date().toLocaleTimeString() +
+        "]",
+    );
+    win
+      .loadURL("http://localhost:5173")
+      .then(() => {
+        console.log("Vite dev server loaded successfully");
+        win.webContents.openDevTools();
+      })
+      .catch((err) => {
+        console.error("Failed to load Vite dev server:", err);
+        // 显示错误页面
+        win.loadURL(
+          "data:text/html;charset=utf-8," +
+            encodeURIComponent(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -73,19 +83,28 @@ function createWindow() {
           </div>
         </body>
         </html>
-      `));
-    });
+      `),
+        );
+      });
 
     // 监听加载失败
-    win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-      console.error('Failed to load:', errorCode, errorDescription, validatedURL);
-    });
+    win.webContents.on(
+      "did-fail-load",
+      (event, errorCode, errorDescription, validatedURL) => {
+        console.error(
+          "Failed to load:",
+          errorCode,
+          errorDescription,
+          validatedURL,
+        );
+      },
+    );
   } else {
-    console.log('Production mode: loading built files');
+    console.log("Production mode: loading built files");
     const htmlPath = path.join(__dirname, "../out/renderer/index.html");
-    console.log('Loading HTML from:', htmlPath);
+    console.log("Loading HTML from:", htmlPath);
     win.loadFile(htmlPath).catch((err) => {
-      console.error('Failed to load production build:', err);
+      console.error("Failed to load production build:", err);
     });
   }
 }
@@ -106,39 +125,39 @@ app.whenReady().then(() => {
 function setupAutoUpdater() {
   // 配置自动更新服务器
   // GitHub Releases: https://github.com/your-username/videomaster-pro/releases
-  const updateServer = 'https://github.com/your-username/videomaster-pro';
+  const updateServer = "https://github.com/your-username/videomaster-pro";
 
   autoUpdater.setFeedURL({
-    provider: 'generic',
+    provider: "generic",
     url: updateServer,
   });
 
   // 日志输出
-  autoUpdater.logger = require('electron-log');
+  autoUpdater.logger = require("electron-log");
   autoUpdater.autoDownload = false; // 不自动下载，由用户确认
 
   // 自动更新事件监听
-  autoUpdater.on('update-available', (info) => {
-    console.log('Update available:', info);
-    win.webContents.send('update-available', {
+  autoUpdater.on("update-available", (info) => {
+    console.log("Update available:", info);
+    win.webContents.send("update-available", {
       version: info.version,
       releaseDate: info.releaseDate,
       releaseNotes: info.releaseNotes,
     });
   });
 
-  autoUpdater.on('update-not-available', (info) => {
-    console.log('Update not available:', info);
-    win.webContents.send('update-not-available', { version: app.getVersion() });
+  autoUpdater.on("update-not-available", (info) => {
+    console.log("Update not available:", info);
+    win.webContents.send("update-not-available", { version: app.getVersion() });
   });
 
-  autoUpdater.on('error', (err) => {
-    console.error('Update error:', err);
-    win.webContents.send('update-error', { message: err.message });
+  autoUpdater.on("error", (err) => {
+    console.error("Update error:", err);
+    win.webContents.send("update-error", { message: err.message });
   });
 
-  autoUpdater.on('download-progress', (progress) => {
-    win.webContents.send('update-download-progress', {
+  autoUpdater.on("download-progress", (progress) => {
+    win.webContents.send("update-download-progress", {
       percent: progress.percent,
       bytesPerSecond: progress.bytesPerSecond,
       transferred: progress.transferred,
@@ -146,9 +165,9 @@ function setupAutoUpdater() {
     });
   });
 
-  autoUpdater.on('update-downloaded', (info) => {
-    console.log('Update downloaded:', info);
-    win.webContents.send('update-downloaded', {
+  autoUpdater.on("update-downloaded", (info) => {
+    console.log("Update downloaded:", info);
+    win.webContents.send("update-downloaded", {
       version: info.version,
       releaseDate: info.releaseDate,
       releaseNotes: info.releaseNotes,
@@ -157,23 +176,26 @@ function setupAutoUpdater() {
 
   // 定期检查更新（应用启动后 30 秒，然后每 4 小时检查一次）
   setTimeout(() => {
-    autoUpdater.checkForUpdates().catch(err => {
-      console.error('Failed to check for updates:', err);
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error("Failed to check for updates:", err);
     });
   }, 30000);
 
-  setInterval(() => {
-    autoUpdater.checkForUpdates().catch(err => {
-      console.error('Failed to check for updates:', err);
-    });
-  }, 4 * 60 * 60 * 1000);
+  setInterval(
+    () => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        console.error("Failed to check for updates:", err);
+      });
+    },
+    4 * 60 * 60 * 1000,
+  );
 }
 
 ipcMain.handle("pick-files", async (_e, { title, filters }) => {
   const res = await dialog.showOpenDialog(win, {
     title,
     properties: ["openFile", "multiSelections"],
-    filters: filters || [{ name: "All Files", extensions: ["*"] }]
+    filters: filters || [{ name: "All Files", extensions: ["*"] }],
   });
   if (res.canceled) return [];
   return res.filePaths;
@@ -182,7 +204,7 @@ ipcMain.handle("pick-files", async (_e, { title, filters }) => {
 ipcMain.handle("pick-outdir", async () => {
   const res = await dialog.showOpenDialog(win, {
     title: "选择输出目录",
-    properties: ["openDirectory", "createDirectory"]
+    properties: ["openDirectory", "createDirectory"],
   });
   if (res.canceled) return "";
   return res.filePaths[0];
@@ -210,7 +232,11 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
   let done = 0;
   let failed = 0;
 
-  win.webContents.send("job-start", { total, orientation, concurrency: queue.concurrency });
+  win.webContents.send("job-start", {
+    total,
+    orientation,
+    concurrency: queue.concurrency,
+  });
 
   const tasks = pairs.map(({ a, b, index }) => {
     return queue.push(async () => {
@@ -222,7 +248,9 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
       const payload = { aPath: a, bPath: b, outPath, orientation };
 
       const tryRun = async (attempt) => {
-        win.webContents.send("job-log", { msg: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n` });
+        win.webContents.send("job-log", {
+          msg: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n`,
+        });
         return runFfmpeg(payload, (s) => {
           win.webContents.send("job-log", { msg: s });
         });
@@ -231,16 +259,36 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
       try {
         await tryRun(1);
         done++;
-        win.webContents.send("job-progress", { done, failed, total, index, outPath });
+        win.webContents.send("job-progress", {
+          done,
+          failed,
+          total,
+          index,
+          outPath,
+        });
       } catch (err) {
-        win.webContents.send("job-log", { msg: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n` });
+        win.webContents.send("job-log", {
+          msg: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n`,
+        });
         try {
           await tryRun(2);
           done++;
-          win.webContents.send("job-progress", { done, failed, total, index, outPath });
+          win.webContents.send("job-progress", {
+            done,
+            failed,
+            total,
+            index,
+            outPath,
+          });
         } catch (err2) {
           failed++;
-          win.webContents.send("job-failed", { done, failed, total, index, error: err2.message });
+          win.webContents.send("job-failed", {
+            done,
+            failed,
+            total,
+            index,
+            error: err2.message,
+          });
         }
       }
     });
@@ -252,7 +300,7 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
 });
 
 // 自动更新相关的 IPC 处理器
-ipcMain.handle('check-for-updates', async () => {
+ipcMain.handle("check-for-updates", async () => {
   try {
     const result = await autoUpdater.checkForUpdates();
     return { success: true, updateInfo: result?.updateInfo };
@@ -261,7 +309,7 @@ ipcMain.handle('check-for-updates', async () => {
   }
 });
 
-ipcMain.handle('download-update', async () => {
+ipcMain.handle("download-update", async () => {
   try {
     await autoUpdater.downloadUpdate();
     return { success: true };
@@ -270,7 +318,7 @@ ipcMain.handle('download-update', async () => {
   }
 });
 
-ipcMain.handle('install-update', async () => {
+ipcMain.handle("install-update", async () => {
   try {
     setImmediate(() => {
       autoUpdater.quitAndInstall(false, true);
@@ -281,7 +329,7 @@ ipcMain.handle('install-update', async () => {
   }
 });
 
-ipcMain.handle('get-app-version', async () => {
+ipcMain.handle("get-app-version", async () => {
   return {
     version: app.getVersion(),
     isDevelopment: isDevelopment,
