@@ -66,7 +66,8 @@ module.exports = {
         // Note: setupIcon and loadingGif require ./build/ directory with icon.ico and install-spinner.gif
         // setupIcon: './build/icon.ico',
         // loadingGif: './build/install-spinner.gif',
-        remoteReleases: 'https://github.com/luweiCN/VideoStitcher',
+        // 移除 remoteReleases，避免尝试从远程同步旧版本文件
+        // remoteReleases: 'https://github.com/luweiCN/VideoStitcher',
         shortcutLocations: ['Desktop', 'StartMenu', 'Startup'],
         noMsi: true,
       },
