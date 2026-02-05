@@ -14,7 +14,7 @@
     "build": "npm run build:preload && npm run build:renderer && electron-builder --win --x64 --publish never",
     "start": "electron-forge start",
     "package": "electron-forge package",
-    "make": "electron-forge make"
+    "make": "npm run build:preload && npm run build:renderer && electron-forge make"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.11.1",

@@ -101,7 +101,7 @@ function createWindow() {
     );
   } else {
     console.log("Production mode: loading built files");
-    const htmlPath = path.join(__dirname, "../out/renderer/index.html");
+    const htmlPath = path.join(__dirname, "../dist/renderer/index.html");
     console.log("Loading HTML from:", htmlPath);
     win.loadFile(htmlPath).catch((err) => {
       console.error("Failed to load production build:", err);
