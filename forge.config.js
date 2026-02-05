@@ -53,7 +53,9 @@ module.exports = {
         // Note: setupIcon and loadingGif require ./build/ directory with icon.ico and install-spinner.gif
         // setupIcon: './build/icon.ico',
         // loadingGif: './build/install-spinner.gif',
-        remoteReleases: true,
+        remoteReleases: 'https://github.com/luweiCN/VideoStitcher',
+        shortcutLocations: ['Desktop', 'StartMenu', 'Startup'],
+        noMsi: true,
       },
     },
     // Linux 相关（可选）
