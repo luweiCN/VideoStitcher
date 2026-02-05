@@ -8,9 +8,7 @@ module.exports = {
     asar: true,
     asarUnpack: [
       'node_modules/ffmpeg-static/**',
-      'node_modules/sharp/**',
-      'node_modules/@img/sharp-darwin-arm64/**',
-      'node_modules/@img/sharp-libvips-darwin-arm64/**',
+      '**/node_modules/{sharp,@img}/**',
     ],
     // Include renderer build directory despite .gitignore
     ignore: [
@@ -40,9 +38,10 @@ module.exports = {
     {
       name: '@electron-forge/maker-zip',
       platforms: ['win32'],
-      config: {
-        icon: './build/icon.ico',
-      },
+      // Note: icon requires ./build/icon.ico to exist
+      // config: {
+      //   icon: './build/icon.ico',
+      // },
     },
     // Windows Squirrel 安装包（支持自动更新）
     {
@@ -51,8 +50,9 @@ module.exports = {
         name: 'VideoMasterPro',
         authors: 'Your Name',
         description: '全能视频批处理工具箱',
-        setupIcon: './build/icon.ico',
-        loadingGif: './build/install-spinner.gif',
+        // Note: setupIcon and loadingGif require ./build/ directory with icon.ico and install-spinner.gif
+        // setupIcon: './build/icon.ico',
+        // loadingGif: './build/install-spinner.gif',
         remoteReleases: true,
       },
     },
