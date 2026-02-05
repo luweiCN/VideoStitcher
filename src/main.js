@@ -134,12 +134,26 @@ function setupAutoUpdater() {
     repo: repo,
   });
 
-  console.log('自动更新配置:', { owner, repo });
-  console.log('当前应用版本:', app.getVersion());
-  console.log('是否为打包应用:', app.isPackaged);
+  // 输出到日志文件（electron-log）
+  const log = require("electron-log");
+  log.info('自动更新配置:', { owner, repo });
+  log.info('当前应用版本:', app.getVersion());
+  log.info('是否为打包应用:', app.isPackaged);
+
+  // 也输出到渲染进程控制台（方便调试）
+  setTimeout(() => {
+    if (win && win.webContents) {
+      win.webContents.executeJavaScript(`
+        console.log('%c[自动更新]', 'background: #10b981; color: white; padding: 2px 5px; border-radius: 3px;', '配置已加载');
+        console.log('仓库:', ${JSON.stringify({ owner, repo })});
+        console.log('当前版本:', '${app.getVersion()}');
+        console.log('是否打包:', ${app.isPackaged});
+      `);
+    }
+  }, 2000);
 
   // 日志输出
-  autoUpdater.logger = require("electron-log");
+  autoUpdater.logger = log;
   autoUpdater.logger.transports.file.level = "info";
   autoUpdater.autoDownload = false; // 不自动下载，由用户确认
 
@@ -303,17 +317,45 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
 // 自动更新相关的 IPC 处理器
 ipcMain.handle("check-for-updates", async () => {
   try {
-    console.log('开始检查更新...');
-    console.log('当前应用版本:', app.getVersion());
+    const log = require("electron-log");
+    const currentVersion = app.getVersion();
+
+    log.info('=== 开始检查更新 ===');
+    log.info('当前应用版本:', currentVersion);
+
+    // 输出到渲染进程控制台
+    win.webContents.executeJavaScript(`
+      console.log('%c[检查更新]', 'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px;', '开始检查...');
+      console.log('当前版本:', '${currentVersion}');
+    `);
+
     const result = await autoUpdater.checkForUpdates();
-    console.log('检查更新结果:', result);
+
+    log.info('检查更新结果:', JSON.stringify(result, null, 2));
+
+    // 输出详细结果到渲染进程
     if (result) {
-      console.log('更新信息:', result.updateInfo);
-      console.log('是否有更新:', result.versionInfo && result.versionInfo.version !== app.getVersion());
+      const hasUpdate = result.versionInfo && result.versionInfo.version !== currentVersion;
+      win.webContents.executeJavaScript(`
+        console.log('检查结果:', ${JSON.stringify({
+          hasUpdate,
+          currentVersion,
+          latestVersion: result.versionInfo?.version,
+          updateInfo: result.updateInfo
+        })});
+      `);
     }
+
     return { success: true, updateInfo: result?.updateInfo };
   } catch (err) {
-    console.error('检查更新失败:', err);
+    const log = require("electron-log");
+    log.error('检查更新失败:', err);
+
+    // 输出错误到渲染进程
+    win.webContents.executeJavaScript(`
+      console.error('%c[检查更新失败]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', '${err.message}');
+    `);
+
     return { success: false, error: err.message };
   }
 });
