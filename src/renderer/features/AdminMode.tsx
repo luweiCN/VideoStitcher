@@ -72,10 +72,15 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack }) => {
 
     try {
       const result = await window.api.checkForUpdates();
-      if (result.success && result.updateInfo) {
+      if (result.success && result.hasUpdate && result.updateInfo) {
+        // 有新版本可用
         setUpdateInfo(result.updateInfo);
         setUpdateStatus('available');
+      } else if (result.success && !result.hasUpdate) {
+        // 已是最新版本
+        setUpdateStatus('not-available');
       } else {
+        // 请求失败或其他情况
         setUpdateStatus('not-available');
       }
     } catch (err: any) {

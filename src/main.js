@@ -351,7 +351,9 @@ ipcMain.handle("check-for-updates", async () => {
       `);
     }
 
-    return { success: true, updateInfo: result?.updateInfo };
+    // 返回 hasUpdate 字段供前端判断
+    const hasUpdate = result?.versionInfo?.version !== currentVersion;
+    return { success: true, hasUpdate, updateInfo: result?.updateInfo };
   } catch (err) {
     const log = require("electron-log");
     log.error('检查更新失败:', err);

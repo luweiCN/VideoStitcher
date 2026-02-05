@@ -93,7 +93,7 @@ export interface ElectronAPI {
 
   // === 自动更新 API ===
   getAppVersion: () => Promise<{ version: string; isDevelopment: boolean }>;
-  checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>;
+  checkForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
 
