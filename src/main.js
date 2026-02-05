@@ -462,12 +462,30 @@ ipcMain.handle("download-update", async () => {
 });
 
 ipcMain.handle("install-update", async () => {
+  const log = require("electron-log");
+
+  // 输出到渲染进程控制台
+  win.webContents.executeJavaScript(`
+    console.log('%c[安装更新]', 'background: #10b981; color: white; padding: 2px 5px; border-radius: 3px;', '开始安装更新');
+  `);
+
+  log.info("[安装更新] 开始安装并重启");
+
   try {
-    setImmediate(() => {
-      autoUpdater.quitAndInstall(false, true);
-    });
+    // 先关闭窗口
+    win.close();
+
+    // 然后执行更新安装
+    // isSilent=false: 显示安装界面
+    // isForceRunAfter=true: 安装完成后自动运行应用
+    autoUpdater.quitAndInstall(false, true);
+
     return { success: true };
   } catch (err) {
+    log.error("[安装更新] 失败:", err);
+    win.webContents.executeJavaScript(`
+      console.error('%c[安装失败]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', '${err.message}');
+    `);
     return { success: false, error: err.message };
   }
 });
