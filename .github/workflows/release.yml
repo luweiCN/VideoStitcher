@@ -92,11 +92,6 @@ jobs:
           git commit -m "chore: 升级版本到 ${NEW_VERSION}"
           git push
 
-      - name: 创建 Git 标签
-        run: |
-          NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          git tag -a "v${NEW_VERSION}" -m "发布版本 v${NEW_VERSION}"
-          git push origin "v${NEW_VERSION}"
 
       - name: 生成更新日志
         id: release_notes
@@ -133,6 +128,13 @@ jobs:
           # 创建 JSON 格式以便安全处理多行内容
           NOTES_JSON=$(echo "$NOTES" | jq -Rs .)
           echo "notes=${NOTES_JSON}" >> $GITHUB_OUTPUT
+
+
+      - name: 创建 Git 标签
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          git tag -a "v${NEW_VERSION}" -m "发布版本 v${NEW_VERSION}"
+          git push origin "v${NEW_VERSION}"
 
       - name: 上传版本信息
         uses: actions/upload-artifact@v4
