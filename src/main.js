@@ -198,6 +198,13 @@ function setupAutoUpdater() {
     });
   });
 
+  // 应用启动后延迟检查更新（避免影响启动速度）
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error("Failed to check for updates on startup:", err);
+    });
+  }, 5000); // 5 秒后检查
+
   // 每 10 分钟自动检查更新
   setInterval(
     () => {
