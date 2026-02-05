@@ -97,11 +97,11 @@ app.whenReady().then(() => {
   registerImageHandlers();
 });
 
-ipcMain.handle("pick-files", async (_e, { title }) => {
+ipcMain.handle("pick-files", async (_e, { title, filters }) => {
   const res = await dialog.showOpenDialog(win, {
     title,
     properties: ["openFile", "multiSelections"],
-    filters: [{ name: "Videos", extensions: ["mp4", "mov", "mkv", "m4v", "avi"] }]
+    filters: filters || [{ name: "All Files", extensions: ["*"] }]
   });
   if (res.canceled) return [];
   return res.filePaths;

@@ -4,6 +4,7 @@
  */
 
 const { ipcMain } = require('electron');
+const path = require('path');
 const {
   compressImage,
   convertCoverFormat,
@@ -24,6 +25,14 @@ async function handleImageCompress(event, { images, targetSizeKB, outputDir }) {
 
   for (const imagePath of images) {
     try {
+      // 检查文件扩展名
+      const ext = path.extname(imagePath).toLowerCase();
+      const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
+
+      if (!validExtensions.includes(ext)) {
+        throw new Error(`不支持的文件格式: ${ext}。请选择图片文件 (jpg, png, webp 等)`);
+      }
+
       const result = await compressImage(imagePath, targetSizeKB);
       results.push(result);
       done++;
@@ -69,6 +78,14 @@ async function handleCoverFormat(event, { images, quality, outputDir }) {
 
   for (const imagePath of images) {
     try {
+      // 检查文件扩展名
+      const ext = path.extname(imagePath).toLowerCase();
+      const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
+
+      if (!validExtensions.includes(ext)) {
+        throw new Error(`不支持的文件格式: ${ext}。请选择图片文件 (jpg, png, webp 等)`);
+      }
+
       const result = await convertCoverFormat(imagePath, quality);
       results.push(result);
       done++;
@@ -114,6 +131,14 @@ async function handleGridImage(event, { images, outputDir }) {
 
   for (const imagePath of images) {
     try {
+      // 检查文件扩展名
+      const ext = path.extname(imagePath).toLowerCase();
+      const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
+
+      if (!validExtensions.includes(ext)) {
+        throw new Error(`不支持的文件格式: ${ext}。请选择图片文件 (jpg, png, webp 等)`);
+      }
+
       const result = await createGridImage(imagePath, outputDir);
       results.push(result);
       done++;
@@ -149,7 +174,7 @@ async function handleGridImage(event, { images, outputDir }) {
 /**
  * 图片素材处理 (Logo + 九宫格 + 预览)
  */
-async function handleImageMaterial(event, { images, logoPath, outputDir }) {
+async function handleImageMaterial(event, { images, logoPath, outputDir, previewSize = 'cover' }) {
   const results = [];
   const total = images.length;
   let done = 0;
@@ -159,7 +184,15 @@ async function handleImageMaterial(event, { images, logoPath, outputDir }) {
 
   for (const imagePath of images) {
     try {
-      const result = await processImageMaterial(imagePath, logoPath, outputDir);
+      // 检查文件扩展名
+      const ext = path.extname(imagePath).toLowerCase();
+      const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
+
+      if (!validExtensions.includes(ext)) {
+        throw new Error(`不支持的文件格式: ${ext}。请选择图片文件 (jpg, png, webp 等)`);
+      }
+
+      const result = await processImageMaterial(imagePath, logoPath, outputDir, previewSize);
       results.push(result);
       done++;
       event.sender.send('image-progress', {

@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink } from 'lucide-react';
 import HorizontalMode from './features/HorizontalMode';
+import VerticalMode from './features/VerticalMode';
+import FileNameExtractorMode from './features/FileNameExtractorMode';
+import CoverFormatMode from './features/CoverFormatMode';
+import CoverCompressMode from './features/CoverCompressMode';
+import LosslessGridMode from './features/LosslessGridMode';
+import ImageMaterialMode from './features/ImageMaterialMode';
+import ResizeMode from './features/ResizeMode';
 
 // 占位符组件 - 稍后实现
 const PlaceholderMode: React.FC<{ onBack: () => void; title: string }> = ({ onBack, title }) => (
@@ -19,35 +26,35 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
 
   if (currentView === 'vertical') {
-    return <PlaceholderMode onBack={() => setCurrentView('home')} title="竖屏极速合成" />;
+    return <VerticalMode onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'horizontal') {
     return <HorizontalMode onBack={() => setCurrentView('home')} />;
   }
 
-  if (currentView === 'resize') {
-    return <PlaceholderMode onBack={() => setCurrentView('home')} title="智能改尺寸" />;
-  }
-
   if (currentView === 'imageMaterial') {
-    return <PlaceholderMode onBack={() => setCurrentView('home')} title="图片素材处理工具" />;
+    return <ImageMaterialMode onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'fileNameExtractor') {
-    return <PlaceholderMode onBack={() => setCurrentView('home')} title="视频/图片文件名提取" />;
+    return <FileNameExtractorMode onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'coverFormat') {
-    return <PlaceholderMode onBack={() => setCurrentView('home')} title="封面格式转换器" />;
+    return <CoverFormatMode onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'coverCompress') {
-    return <PlaceholderMode onBack={() => setCurrentView('home')} title="封面压缩 (400K)" />;
+    return <CoverCompressMode onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'losslessGrid') {
-    return <PlaceholderMode onBack={() => setCurrentView('home')} title="专业无损九宫格" />;
+    return <LosslessGridMode onBack={() => setCurrentView('home')} />;
+  }
+
+  if (currentView === 'resize') {
+    return <ResizeMode onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'admin') {

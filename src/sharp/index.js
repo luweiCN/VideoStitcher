@@ -195,43 +195,64 @@ async function createGridImage(inputPath, outputDir) {
 /**
  * 图片素材处理服务
  * 批量添加 Logo 并导出九宫格和预览图
+ *
+ * 正确流程:
+ * 1. 先裁剪原图为正方形 (取中心区域, 保持短边长度)
+ * 2. 正方形图缩放到 800x800 作为预览图
+ * 3. 添加 Logo 生成带 Logo 的图片
+ * 4. 对带 Logo 的图片进行九宫格切片
  */
-async function processImageMaterial(inputPath, logoPath, outputDir) {
+async function processImageMaterial(inputPath, logoPath, outputDir, previewSize = 'cover') {
   const inputBaseName = path.parse(inputPath).name;
   const results = {};
 
-  // 1. 导出九宫格
-  const gridResult = await createGridImage(
-    inputPath,
-    path.join(outputDir, 'grid')
-  );
-  results.grid = gridResult;
+  // 获取原图尺寸
+  const metadata = await sharp(inputPath).metadata();
+  const minSide = Math.min(metadata.width, metadata.height);
 
-  // 2. 导出预览图 (800x800)
+  // 步骤 1: 先裁剪为正方形 (取中心区域)
+  const squarePath = path.join(outputDir, '.temp', `${inputBaseName}_square.jpg`);
+  await fs.mkdir(path.dirname(squarePath), { recursive: true });
+
+  await sharp(inputPath)
+    .resize(minSide, minSide, {
+      fit: 'cover',
+      position: 'center'
+    })
+    .jpeg({ quality: 95 })
+    .toFile(squarePath);
+
+  // 步骤 2: 正方形图缩放到 800x800 作为预览图
   const previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
   await fs.mkdir(path.dirname(previewPath), { recursive: true });
 
-  await sharp(inputPath)
-    .resize(800, 800, {
-      fit: 'inside',
-      withoutEnlargement: true
-    })
+  const previewResizeOptions = {
+    width: 800,
+    height: 800,
+    fit: previewSize,
+    withoutEnlargement: true
+  };
+
+  if (previewSize === 'pad') {
+    previewResizeOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
+  }
+
+  await sharp(squarePath)
+    .resize(previewResizeOptions)
     .jpeg({ quality: 90 })
     .toFile(previewPath);
 
   results.preview = previewPath;
 
-  // 3. 如果有 Logo, 添加 Logo 到图片
+  // 步骤 3: 添加 Logo 生成带 Logo 的图片 (用于九宫格切片)
+  let logoImagePath = previewPath; // 如果没有 Logo，使用预览图
   if (logoPath) {
-    const logoWithImagePath = path.join(outputDir, 'logo', `${inputBaseName}_logo.jpg`);
-    await fs.mkdir(path.dirname(logoWithImagePath), { recursive: true });
+    logoImagePath = path.join(outputDir, 'logo', `${inputBaseName}_logo.jpg`);
+    await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
 
-    // 获取原始图片尺寸
-    const inputMetadata = await sharp(inputPath).metadata();
-    // Logo 放在右下角, 尺寸为原图的 15%
-    const logoSize = Math.floor(Math.min(inputMetadata.width, inputMetadata.height) * 0.15);
+    const logoSize = Math.floor(800 * 0.15); // Logo 为 800x800 的 15% (约120px)
 
-    await sharp(inputPath)
+    await sharp(previewPath)
       .composite([
         {
           input: await sharp(logoPath)
@@ -242,10 +263,21 @@ async function processImageMaterial(inputPath, logoPath, outputDir) {
         }
       ])
       .jpeg({ quality: 95 })
-      .toFile(logoWithImagePath);
+      .toFile(logoImagePath);
 
-    results.logo = logoWithImagePath;
+    results.logo = logoImagePath;
   }
+
+  // 步骤 4: 对带 Logo 的图片进行九宫格切片
+  const gridResult = await createGridImage(
+    logoImagePath,
+    path.join(outputDir, 'grid')
+  );
+  results.grid = gridResult;
+
+  // 清理临时文件
+  await fs.unlink(squarePath).catch(() => {});
+  await fs.rmdir(path.dirname(squarePath)).catch(() => {});
 
   return {
     success: true,

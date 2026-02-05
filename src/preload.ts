@@ -64,6 +64,7 @@ export interface ElectronAPI {
     images: string[];
     logoPath?: string;
     outputDir: string;
+    previewSize?: 'inside' | 'cover' | 'fill' | 'pad';
   }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
 
   // === 事件监听 ===
