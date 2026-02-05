@@ -259,38 +259,14 @@ jobs:
           }
         timeout-minutes: 15
 
-      - name: 下载旧版 RELEASES 文件（用于生成增量更新）
+      - name: 清理旧的构建产物
         shell: pwsh
         run: |
-          echo "准备下载旧版本 RELEASES 文件以支持增量更新..."
-
-          # 获取最新版本号（排除当前正在构建的版本）
-          $LatestRelease = Invoke-WebRequest -Uri "https://api.github.com/repos/luweiCN/VideoStitcher/releases/latest" | ConvertFrom-Json
-          $LatestVersion = $LatestRelease.tag_name -replace 'v', ''
-          $CurrentVersion = "${{ needs.version.outputs.new_version }}"
-
-          Write-Host "最新版本: $LatestVersion"
-          Write-Host "当前构建版本: $CurrentVersion"
-
-          if ($LatestVersion -lt $CurrentVersion) {
-            $ReleasesUrl = "https://github.com/luweiCN/VideoStitcher/releases/download/v$LatestVersion/RELEASES"
-            $OutputDir = "out/make/squirrel.windows/x64"
-            $OutputFile = "$OutputDir/RELEASES"
-
-            # 确保目录存在
-            New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
-
-            try {
-              Invoke-WebRequest -Uri $ReleasesUrl -OutFile $OutputFile
-              Write-Host "✅ 已下载 v$LatestVersion 的 RELEASES 文件，将生成增量更新包"
-              Get-Content $OutputFile
-            } catch {
-              Write-Host "⚠️ 无法下载旧版本 RELEASES，将生成完整更新包"
-            }
-          } else {
-            Write-Host "当前版本已是最新或更早，无法生成增量更新"
+          if (Test-Path "out") {
+            Write-Host "清理旧的构建产物..."
+            Remove-Item -Recurse -Force "out"
+            Write-Host "✅ 已清理 out 目录"
           }
-        continue-on-error: true
 
       - name: 构建 Windows
         run: |
