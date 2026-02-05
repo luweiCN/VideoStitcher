@@ -317,7 +317,7 @@ EOF
               "sha512: $NupkgHash",
               "releaseNotes: Release v$VERSION"
             )
-            $YamlLines -join [Environment]::NewLine | Out-File -FilePath "$SquirrelDir/latest.yml" -Encoding UTF8
+            $YamlLines -join "`n" | Out-File -FilePath "$SquirrelDir/latest.yml" -Encoding UTF8
 
             Write-Host "✅ 已生成 latest.yml"
             Get-Content "$SquirrelDir/latest.yml"
