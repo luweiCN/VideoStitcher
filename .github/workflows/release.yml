@@ -226,8 +226,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: out/make/**
-          if-no-files-found: error
+          path: |
+            out/make/zip/win32/x64/*.zip
+            out/make/squirrel.windows/*.nupkg
+            out/make/squirrel.windows/RELEASES
+            out/make/squirrel.windows/*.exe
+          if-no-files-found: warn
 
   # Create release (needs all builds)
   release:
@@ -258,13 +262,7 @@ jobs:
           body: ${{ fromJSON(needs.version.outputs.release_notes) }}
           draft: false
           prerelease: ${{ inputs.pre_release }}
-          files: |
-            macos/*.dmg
-            macos/**/*.zip
-            windows/**/*.zip
-            windows/**/*.nupkg
-            windows/**/RELEASES
-            windows/**/*.exe
+          files: macos/**/*,windows/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
