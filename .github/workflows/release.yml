@@ -306,8 +306,8 @@ EOF
             $NupkgSize = $NupkgFile.Length
             $NupkgHash = (Get-FileHash -Algorithm SHA256 -Path $NupkgFile.FullName).Hash.ToLower()
 
-            # 生成 YAML 格式（electron-updater 需要）
-            $YamlContent = @"
+            # 使用 Here-String 生成 YAML，避免 YAML 解析问题
+          @"
 version: $VERSION
 files:
   - url: https://github.com/luweiCN/VideoStitcher/releases/download/v$VERSION/$NupkgName
@@ -316,8 +316,8 @@ files:
 path: $NupkgName
 sha512: $NupkgHash
 releaseNotes: Release v$VERSION
-"@
-            $YamlContent | Out-File -FilePath "$SquirrelDir/latest.yml" -Encoding UTF8
+"@ | Out-File -FilePath "$SquirrelDir/latest.yml" -Encoding UTF8
+
             Write-Host "✅ 已生成 latest.yml"
             Get-Content "$SquirrelDir/latest.yml"
           } else {
