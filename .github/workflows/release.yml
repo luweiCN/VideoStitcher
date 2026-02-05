@@ -306,17 +306,18 @@ EOF
             $NupkgSize = $NupkgFile.Length
             $NupkgHash = (Get-FileHash -Algorithm SHA256 -Path $NupkgFile.FullName).Hash.ToLower()
 
-            # 使用 Here-String 生成 YAML，避免 YAML 解析问题
-          @"
-version: $VERSION
-files:
-  - url: https://github.com/luweiCN/VideoStitcher/releases/download/v$VERSION/$NupkgName
-    sha512: $NupkgHash
-    size: $NupkgSize
-path: $NupkgName
-sha512: $NupkgHash
-releaseNotes: Release v$VERSION
-"@ | Out-File -FilePath "$SquirrelDir/latest.yml" -Encoding UTF8
+            # 逐行生成 YAML 内容，避免 YAML 解析问题
+            $YamlLines = @(
+              "version: $VERSION",
+              "files:",
+              "  - url: https://github.com/luweiCN/VideoStitcher/releases/download/v$VERSION/$NupkgName",
+              "    sha512: $NupkgHash",
+              "    size: $NupkgSize",
+              "path: $NupkgName",
+              "sha512: $NupkgHash",
+              "releaseNotes: Release v$VERSION"
+            )
+            $YamlLines -join [Environment]::NewLine | Out-File -FilePath "$SquirrelDir/latest.yml" -Encoding UTF8
 
             Write-Host "✅ 已生成 latest.yml"
             Get-Content "$SquirrelDir/latest.yml"
