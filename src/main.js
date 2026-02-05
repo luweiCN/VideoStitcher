@@ -15,14 +15,22 @@ const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1100,
-    height: 750,
+    width: 1400,
+    height: 900,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true
+      contextIsolation: true,
+      nodeIntegration: false,
     }
   });
-  win.loadFile(path.join(__dirname, "renderer/index.html"));
+
+  // 开发模式下加载 Vite 服务器，生产模式加载构建文件
+  if (process.env.NODE_ENV === 'development') {
+    win.loadURL('http://localhost:5173');
+    win.webContents.openDevTools();
+  } else {
+    win.loadFile(path.join(__dirname, "../out/renderer/index.html"));
+  }
 }
 
 app.whenReady().then(createWindow);

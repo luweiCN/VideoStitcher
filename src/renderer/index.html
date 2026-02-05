@@ -2,47 +2,11 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>VideoStitcher</title>
-  <link rel="stylesheet" href="./style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VideoMaster Pro - 全能视频批处理工具箱</title>
 </head>
 <body>
-  <div class="wrap">
-    <h2>VideoStitcher（A+B 前后拼接）</h2>
-
-    <div class="row">
-      <button id="pickA">选择 A面库（批量）</button>
-      <span id="aCount">0</span>
-    </div>
-
-    <div class="row">
-      <button id="pickB">选择 素材库B（批量）</button>
-      <span id="bCount">0</span>
-    </div>
-
-    <div class="row">
-      <button id="pickOut">选择输出目录</button>
-      <span id="outDir">未选择</span>
-    </div>
-
-    <div class="row">
-      <label>并发数：</label>
-      <input id="concurrency" type="number" min="1" value="3" />
-      <button id="applyConcurrency">应用</button>
-      <span id="ccInfo"></span>
-    </div>
-
-    <div class="row">
-      <button id="mergeLandscape" class="primary">合成横版（1920×1080, 30fps，黑边保全画面）</button>
-      <button id="mergePortrait" class="primary">合成竖版（1080×1920, 30fps，黑边保全画面）</button>
-    </div>
-
-    <div class="row">
-      <div class="status" id="status">等待开始</div>
-    </div>
-
-    <textarea id="log" spellcheck="false"></textarea>
-  </div>
-
-  <script src="./renderer.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/renderer/main.tsx"></script>
 </body>
 </html>
