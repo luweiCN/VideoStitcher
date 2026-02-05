@@ -135,6 +135,8 @@ function setupAutoUpdater() {
   });
 
   console.log('自动更新配置:', { owner, repo });
+  console.log('当前应用版本:', app.getVersion());
+  console.log('是否为打包应用:', app.isPackaged);
 
   // 日志输出
   autoUpdater.logger = require("electron-log");
@@ -301,9 +303,17 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
 // 自动更新相关的 IPC 处理器
 ipcMain.handle("check-for-updates", async () => {
   try {
+    console.log('开始检查更新...');
+    console.log('当前应用版本:', app.getVersion());
     const result = await autoUpdater.checkForUpdates();
+    console.log('检查更新结果:', result);
+    if (result) {
+      console.log('更新信息:', result.updateInfo);
+      console.log('是否有更新:', result.versionInfo && result.versionInfo.version !== app.getVersion());
+    }
     return { success: true, updateInfo: result?.updateInfo };
   } catch (err) {
+    console.error('检查更新失败:', err);
     return { success: false, error: err.message };
   }
 });
