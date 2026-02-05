@@ -188,9 +188,14 @@ jobs:
       - name: 生成 macOS 更新元数据
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          DMG_FILE=$(find out/make -name "*.dmg" | head -1)
-          DMG_NAME=$(basename "$DMG_FILE")
-          DMG_SIZE=$(stat -f%z "$DMG_FILE" 2>/dev/null || stat -c%s "$DMG_FILE")
+          # 使用 ZIP 文件而不是 DMG，因为 electron-updater 在 macOS 上只支持 ZIP 格式
+          ZIP_FILE=$(find out/make -name "*darwin*.zip" | head -1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "未找到 macOS ZIP 文件"
+            exit 1
+          fi
+          ZIP_NAME=$(basename "$ZIP_FILE")
+          ZIP_SIZE=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat -c%s "$ZIP_FILE")
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
           cat > latest-mac.json << EOF
@@ -199,13 +204,13 @@ jobs:
             "date": "${DATE}",
             "files": [
               {
-                "url": "https://github.com/luweiCN/VideoStitcher/releases/download/v${VERSION}/${DMG_NAME}",
-                "sha512": "$(shasum -a 512 "$DMG_FILE" | awk '{print $1}')",
-                "size": ${DMG_SIZE}
+                "url": "https://github.com/luweiCN/VideoStitcher/releases/download/v${VERSION}/${ZIP_NAME}",
+                "sha512": "$(shasum -a 512 "$ZIP_FILE" | awk '{print $1}')",
+                "size": ${ZIP_SIZE}
               }
             ],
-            "path": "${DMG_NAME}",
-            "sha512": "$(shasum -a 512 "$DMG_FILE" | awk '{print $1}')",
+            "path": "${ZIP_NAME}",
+            "sha512": "$(shasum -a 512 "$ZIP_FILE" | awk '{print $1}')",
             "releaseNotes": "发布版本 v${VERSION}"
           }
           EOF
