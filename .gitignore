@@ -19,5 +19,8 @@ npm-debug.log*
 # Editor directories
 .vscode/
 
+# Git worktrees
+.worktrees/
+
 # OS generated files
 Thumbs.db
