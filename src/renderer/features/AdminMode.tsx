@@ -45,6 +45,13 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
   const isMacOS = navigator.platform.includes('Mac');
   const isWindows = navigator.platform.includes('Win');
 
+  // 调试日志 - 平台检测
+  console.log('[AdminMode] ========== 平台检测 ==========');
+  console.log('[AdminMode] navigator.platform:', navigator.platform);
+  console.log('[AdminMode] isMacOS:', isMacOS);
+  console.log('[AdminMode] isWindows:', isWindows);
+  console.log('[AdminMode] 当前 updateStatus:', updateStatus);
+
   useEffect(() => {
     loadSystemInfo();
 
@@ -97,16 +104,20 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
   };
 
   const handleDownloadUpdate = async () => {
-    console.log('[AdminMode] 下载更新按钮被点击');
+    console.log('[AdminMode] ========== 点击下载更新 ==========');
+    console.log('[AdminMode] 点击时状态:', { updateStatus, isWindows, isMacOS });
     console.log('[AdminMode] 当前更新信息:', updateInfo);
 
     setUpdateStatus('downloading');
     setUpdateError('');
+    console.log('[AdminMode] 状态已设置为 downloading');
 
     try {
       console.log('[AdminMode] 调用 window.api.downloadUpdate()');
       const result = await window.api.downloadUpdate();
-      console.log('[AdminMode] downloadUpdate 返回结果:', result);
+      console.log('[AdminMode] ========== downloadUpdate 返回 ==========');
+      console.log('[AdminMode] 返回结果:', result);
+      console.log('[AdminMode] 返回后 updateStatus:', updateStatus);
 
       if (result.error) {
         console.error('[AdminMode] 下载失败:', result.error);
@@ -141,13 +152,16 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
     });
 
     const cleanupDownloaded = window.api.onUpdateDownloaded((data) => {
-      console.log('[AdminMode] 更新下载完成:', data);
+      console.log('[AdminMode] ========== onUpdateDownloaded 触发 ==========');
+      console.log('[AdminMode] 接收到的数据:', data);
+      console.log('[AdminMode] 设置前状态:', updateStatus);
       setUpdateInfo(data);
       setUpdateStatus('downloaded');
       console.log('[AdminMode] 状态已设置为 downloaded');
     });
 
     const cleanupError = window.api.onUpdateError((data) => {
+      console.error('[AdminMode] 更新错误:', data);
       setUpdateError(data.message);
       setUpdateStatus('error');
     });
@@ -158,6 +172,17 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
       cleanupError();
     };
   }, []);
+
+  // 调试：监控按钮显示条件
+  useEffect(() => {
+    console.log('[AdminMode] ========== updateStatus 变化 ==========');
+    console.log('[AdminMode] updateStatus:', updateStatus);
+    console.log('[AdminMode] isWindows:', isWindows);
+    console.log('[AdminMode] 按钮显示条件检查:');
+    console.log('  - updateStatus === "downloaded":', updateStatus === 'downloaded');
+    console.log('  - isWindows:', isWindows);
+    console.log('  - 应该显示安装按钮:', updateStatus === 'downloaded' && isWindows);
+  }, [updateStatus, isWindows]);
 
   const formatMemory = (bytes: number) => {
     if (!bytes) return '未知';
@@ -339,6 +364,21 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
 
             {/* 操作按钮 */}
             <div className="flex gap-3">
+              {(() => {
+                console.log('[AdminMode 渲染] ========== 按钮区域渲染 ==========');
+                console.log('[AdminMode] updateStatus:', updateStatus);
+                console.log('[AdminMode] isWindows:', isWindows);
+                console.log('[AdminMode] isMacOS:', isMacOS);
+                const showCheck = updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error';
+                const showDownload = updateStatus === 'available' && isWindows;
+                const showInstall = updateStatus === 'downloaded' && isWindows;
+                console.log('[AdminMode] 应显示的按钮:');
+                console.log('  - 检查更新:', showCheck);
+                console.log('  - 下载更新 (Windows):', showDownload);
+                console.log('  - 立即安装 (Windows):', showInstall);
+                return null;
+              })()}
+
               {updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error' ? (
                 <button
                   onClick={handleCheckUpdates}
@@ -373,7 +413,11 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
               )}
 
               {/* 仅 Windows: 显示重启并安装按钮 */}
-              {updateStatus === 'downloaded' && isWindows && (
+              {updateStatus === 'downloaded' && isWindows && (() => {
+                console.log('[AdminMode 渲染] ========== 渲染安装按钮 ==========');
+                console.log('[AdminMode] 条件满足，应该显示安装按钮');
+                return true;
+              })() && (
                 <button
                   onClick={handleInstallUpdate}
                   className="flex items-center gap-2 px-6 py-3 bg-green-500/20 text-green-400 rounded-xl hover:bg-green-500/30 transition-colors font-medium"
