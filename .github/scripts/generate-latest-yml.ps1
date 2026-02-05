@@ -35,7 +35,7 @@ Write-Host "大小: $NupkgSize bytes"
 $YamlContent = @"
 version: $Version
 files:
-  - url: https://github.com/luweiCN/VideoStitcher/releases/download/v$Version/$NupkgName
+  - url: $NupkgName
     sha512: $NupkgHash
     size: $NupkgSize
 path: $NupkgName

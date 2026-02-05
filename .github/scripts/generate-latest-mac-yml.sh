@@ -38,7 +38,7 @@ cat > out/make/latest-mac.yml << EOF
 version: ${VERSION}
 date: "${DATE}"
 files:
-  - url: https://github.com/luweiCN/VideoStitcher/releases/download/v${VERSION}/${ZIP_NAME}
+  - url: ${ZIP_NAME}
     sha512: ${SHA512}
     size: ${ZIP_SIZE}
 path: ${ZIP_NAME}
