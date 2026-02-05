@@ -10,9 +10,14 @@ module.exports = {
         '**/node_modules/{ffmpeg-static,sharp,@img}/**',
       ],
     },
-    // 不生成单独的 packager 输出，只生成 makers 需要的
-    // 这会减少构建时间和磁盘使用
-    afterExtract: [/* 可以在这里添加清理逻辑 */],
+    // 在打包前确保 app-update.yml 存在
+    // 使用 extraResource 将文件复制到 resources 目录
+    extraResource: [
+      {
+        from: 'build/app-update.yml',
+        to: 'app-update.yml',
+      },
+    ],
     // Include renderer build directory despite .gitignore
     ignore: [
       /^\/out\/make/,
