@@ -196,11 +196,17 @@ async function createGridImage(inputPath, outputDir) {
  * 图片素材处理服务
  * 批量添加 Logo 并导出九宫格和预览图
  *
- * 正确流程:
- * 1. 先裁剪原图为正方形 (取中心区域, 保持短边长度)
- * 2. 正方形图缩放到 800x800 作为预览图
- * 3. 添加 Logo 生成带 Logo 的图片
- * 4. 对带 Logo 的图片进行九宫格切片
+ * 处理流程:
+ * 1. 根据用户选择的模式生成预览图（preview 文件夹）
+ * 2. 生成 800x800 正方形图用于九宫格切片（始终裁剪）
+ * 3. 添加 Logo 到正方形图
+ * 4. 对正方形图进行九宫格切片
+ *
+ * 预览模式说明:
+ * - cover: 裁剪正方形 (取中心区域) -> 800x800
+ * - inside: 保持比例缩放到 800x800 以内（不裁剪）
+ * - fill: 强制拉伸到 800x800（可能变形）
+ * - pad: 800x800 正方形，空白区域填充白色（不裁剪）
  */
 async function processImageMaterial(inputPath, logoPath, outputDir, previewSize = 'cover') {
   const inputBaseName = path.parse(inputPath).name;
@@ -208,11 +214,86 @@ async function processImageMaterial(inputPath, logoPath, outputDir, previewSize 
 
   // 获取原图尺寸
   const metadata = await sharp(inputPath).metadata();
-  const minSide = Math.min(metadata.width, metadata.height);
 
-  // 步骤 1: 先裁剪为正方形 (取中心区域)
-  const squarePath = path.join(outputDir, '.temp', `${inputBaseName}_square.jpg`);
-  await fs.mkdir(path.dirname(squarePath), { recursive: true });
+  // ========== 步骤 1: 根据用户选择的模式生成预览图 ==========
+  let previewPath;
+
+  if (previewSize === 'cover') {
+    // 裁剪正方形模式：先裁剪，再缩放到 800x800
+    const minSide = Math.min(metadata.width, metadata.height);
+    const squarePath = path.join(outputDir, '.temp', `${inputBaseName}_square.jpg`);
+    await fs.mkdir(path.dirname(squarePath), { recursive: true });
+
+    await sharp(inputPath)
+      .resize(minSide, minSide, {
+        fit: 'cover',
+        position: 'center'
+      })
+      .jpeg({ quality: 95 })
+      .toFile(squarePath);
+
+    previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
+    await fs.mkdir(path.dirname(previewPath), { recursive: true });
+
+    await sharp(squarePath)
+      .resize(800, 800, {
+        fit: 'cover',
+        withoutEnlargement: true
+      })
+      .jpeg({ quality: 90 })
+      .toFile(previewPath);
+
+    // 清理临时文件
+    await fs.unlink(squarePath).catch(() => {});
+    await fs.rmdir(path.dirname(squarePath)).catch(() => {});
+
+  } else if (previewSize === 'pad') {
+    // 留白填充模式：800x800 正方形，保持原图完整，空白填白色
+    previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
+    await fs.mkdir(path.dirname(previewPath), { recursive: true });
+
+    await sharp(inputPath)
+      .resize(800, 800, {
+        fit: 'contain',
+        withoutEnlargement: true,
+        background: { r: 255, g: 255, b: 255, alpha: 1 }
+      })
+      .jpeg({ quality: 90 })
+      .toFile(previewPath);
+
+  } else if (previewSize === 'inside') {
+    // 保持比例模式：缩放到 800x800 以内（不一定是正方形）
+    previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
+    await fs.mkdir(path.dirname(previewPath), { recursive: true });
+
+    await sharp(inputPath)
+      .resize(800, 800, {
+        fit: 'inside',
+        withoutEnlargement: true
+      })
+      .jpeg({ quality: 90 })
+      .toFile(previewPath);
+
+  } else {
+    // fill 模式：强制拉伸到 800x800
+    previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
+    await fs.mkdir(path.dirname(previewPath), { recursive: true });
+
+    await sharp(inputPath)
+      .resize(800, 800, {
+        fit: 'fill',
+        withoutEnlargement: false
+      })
+      .jpeg({ quality: 90 })
+      .toFile(previewPath);
+  }
+
+  results.preview = previewPath;
+
+  // ========== 步骤 2: 生成 800x800 正方形图用于九宫格切片（始终裁剪） ==========
+  const minSide = Math.min(metadata.width, metadata.height);
+  const squareForGridPath = path.join(outputDir, '.temp', `${inputBaseName}_grid_square.jpg`);
+  await fs.mkdir(path.dirname(squareForGridPath), { recursive: true });
 
   await sharp(inputPath)
     .resize(minSide, minSide, {
@@ -220,48 +301,27 @@ async function processImageMaterial(inputPath, logoPath, outputDir, previewSize 
       position: 'center'
     })
     .jpeg({ quality: 95 })
-    .toFile(squarePath);
+    .toFile(squareForGridPath);
 
-  // 步骤 2: 正方形图缩放到 800x800 作为预览图
-  const previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
-  await fs.mkdir(path.dirname(previewPath), { recursive: true });
+  // 缩放到 800x800
+  const gridBasePath = path.join(outputDir, '.temp', `${inputBaseName}_grid_base.jpg`);
+  await sharp(squareForGridPath)
+    .resize(800, 800, {
+      fit: 'cover',
+      withoutEnlargement: true
+    })
+    .jpeg({ quality: 95 })
+    .toFile(gridBasePath);
 
-  // 映射前端模式到 Sharp fit 参数
-  const fitMapping = {
-    'inside': 'inside',   // 保持比例，缩小到目标内
-    'cover': 'cover',     // 覆盖整个目标区域
-    'fill': 'fill',       // 拉伸填充
-    'pad': 'contain'      // 留白填充 -> 使用 contain 保持完整图片
-  };
-
-  const previewResizeOptions = {
-    width: 800,
-    height: 800,
-    fit: fitMapping[previewSize] || 'cover',
-    withoutEnlargement: true
-  };
-
-  // 留白填充模式：添加白色背景
-  if (previewSize === 'pad') {
-    previewResizeOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
-  }
-
-  await sharp(squarePath)
-    .resize(previewResizeOptions)
-    .jpeg({ quality: 90 })
-    .toFile(previewPath);
-
-  results.preview = previewPath;
-
-  // 步骤 3: 添加 Logo 生成带 Logo 的图片 (用于九宫格切片)
-  let logoImagePath = previewPath; // 如果没有 Logo，使用预览图
+  // ========== 步骤 3: 添加 Logo 到正方形图 ==========
+  let logoImagePath = gridBasePath;
   if (logoPath) {
     logoImagePath = path.join(outputDir, 'logo', `${inputBaseName}_logo.jpg`);
     await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
 
     const logoSize = Math.floor(800 * 0.15); // Logo 为 800x800 的 15% (约120px)
 
-    await sharp(previewPath)
+    await sharp(gridBasePath)
       .composite([
         {
           input: await sharp(logoPath)
@@ -277,16 +337,17 @@ async function processImageMaterial(inputPath, logoPath, outputDir, previewSize 
     results.logo = logoImagePath;
   }
 
-  // 步骤 4: 对带 Logo 的图片进行九宫格切片
+  // ========== 步骤 4: 对带 Logo 的正方形图进行九宫格切片 ==========
   const gridResult = await createGridImage(
     logoImagePath,
     path.join(outputDir, 'grid')
   );
   results.grid = gridResult;
 
-  // 清理临时文件
-  await fs.unlink(squarePath).catch(() => {});
-  await fs.rmdir(path.dirname(squarePath)).catch(() => {});
+  // ========== 清理临时文件 ==========
+  await fs.unlink(squareForGridPath).catch(() => {});
+  await fs.unlink(gridBasePath).catch(() => {});
+  await fs.rmdir(path.dirname(squareForGridPath)).catch(() => {});
 
   return {
     success: true,
