@@ -13,10 +13,7 @@ module.exports = {
     // 在打包前确保 app-update.yml 存在
     // 使用 extraResource 将文件复制到 resources 目录
     extraResource: [
-      {
-        from: 'build/app-update.yml',
-        to: 'app-update.yml',
-      },
+      'build/app-update.yml',
     ],
     // Include renderer build directory despite .gitignore
     ignore: [
