@@ -261,6 +261,20 @@ jobs:
               Write-Host "❌ 未找到 Setup.exe"
               Write-Host "❌ Squirrel 可能未完成构建"
             }
+
+            # 确保 app-update.yml 存在于 Squirrel 目录（用于 electron-updater）
+            $AppUpdateYml = Join-Path $SquirrelDir "app-update.yml"
+            if (-not (Test-Path $AppUpdateYml)) {
+              Write-Host "生成 app-update.yml 到 Squirrel 目录..."
+              @"
+owner: luweiCN
+repo: VideoStitcher
+provider: github
+"@ | Out-File -FilePath $AppUpdateYml -Encoding UTF8
+              Write-Host "✅ 已生成 app-update.yml"
+            } else {
+              Write-Host "✅ app-update.yml 已存在"
+            }
           } else {
             Write-Host "❌ Squirrel 目录不存在"
           }
