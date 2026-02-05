@@ -182,8 +182,9 @@ jobs:
         with:
           name: macos-build
           path: |
-            out/make/*.dmg
-            out/make/zip/darwin/arm64/*.zip
+            out/make/**/*.dmg
+            out/make/**/*.zip
+          if-no-files-found: error
 
   # Build Windows
   build-windows:
@@ -218,11 +219,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: |
-            out/make/*.zip
-            out/make/squirrel-windows/*.nupkg
-            out/make/squirrel-windows/RELEASES
-            out/make/squirrel-windows/*.exe
+          path: out/make/**
+          if-no-files-found: error
 
   # Create release (needs all builds)
   release:
