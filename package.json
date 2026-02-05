@@ -1,6 +1,6 @@
 {
   "name": "video-stitcher",
-  "version": "0.1.36",
+  "version": "0.1.37",
   "description": "视频拼接工具 - 将两个视频文件前后拼接合成",
   "author": "Your Name <your.email@example.com>",
   "main": "src/main.js",
