@@ -30,10 +30,10 @@ jobs:
       release_notes: ${{ steps.release_notes.outputs.notes }}
 
     steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -226,12 +226,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: |
-            out/make/zip/win32/x64/*.zip
-            out/make/squirrel.windows/*.nupkg
-            out/make/squirrel.windows/RELEASES
-            out/make/squirrel.windows/*.exe
-          if-no-files-found: warn
+          path: out/make/
+          if-no-files-found: error
 
   # Create release (needs all builds)
   release:
