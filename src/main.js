@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const os = require("os");
 const path = require("path");
+const { autoUpdater } = require("electron-updater");
 
 const { buildPairs } = require("./ffmpeg/pair");
 const { TaskQueue } = require("./ffmpeg/queue");
@@ -95,7 +96,78 @@ app.whenReady().then(() => {
   registerVideoHandlers();
   // 注册图片处理 IPC 处理器
   registerImageHandlers();
+  // 配置自动更新（仅在生产环境）
+  if (!isDevelopment) {
+    setupAutoUpdater();
+  }
 });
+
+// 自动更新配置和事件处理
+function setupAutoUpdater() {
+  // 配置自动更新服务器
+  // GitHub Releases: https://github.com/your-username/videomaster-pro/releases
+  const updateServer = 'https://github.com/your-username/videomaster-pro';
+
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: updateServer,
+  });
+
+  // 日志输出
+  autoUpdater.logger = require('electron-log');
+  autoUpdater.autoDownload = false; // 不自动下载，由用户确认
+
+  // 自动更新事件监听
+  autoUpdater.on('update-available', (info) => {
+    console.log('Update available:', info);
+    win.webContents.send('update-available', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes,
+    });
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('Update not available:', info);
+    win.webContents.send('update-not-available', { version: app.getVersion() });
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('Update error:', err);
+    win.webContents.send('update-error', { message: err.message });
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    win.webContents.send('update-download-progress', {
+      percent: progress.percent,
+      bytesPerSecond: progress.bytesPerSecond,
+      transferred: progress.transferred,
+      total: progress.total,
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('Update downloaded:', info);
+    win.webContents.send('update-downloaded', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes,
+    });
+  });
+
+  // 定期检查更新（应用启动后 30 秒，然后每 4 小时检查一次）
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(err => {
+      console.error('Failed to check for updates:', err);
+    });
+  }, 30000);
+
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(err => {
+      console.error('Failed to check for updates:', err);
+    });
+  }, 4 * 60 * 60 * 1000);
+}
 
 ipcMain.handle("pick-files", async (_e, { title, filters }) => {
   const res = await dialog.showOpenDialog(win, {
@@ -177,4 +249,41 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
   await Promise.allSettled(tasks);
   win.webContents.send("job-finish", { done, failed, total });
   return { done, failed, total };
+});
+
+// 自动更新相关的 IPC 处理器
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, updateInfo: result?.updateInfo };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('install-update', async () => {
+  try {
+    setImmediate(() => {
+      autoUpdater.quitAndInstall(false, true);
+    });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('get-app-version', async () => {
+  return {
+    version: app.getVersion(),
+    isDevelopment: isDevelopment,
+  };
 });

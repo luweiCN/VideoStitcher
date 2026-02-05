@@ -90,6 +90,19 @@ export interface ElectronAPI {
 
   // 移除监听器
   removeAllListeners: (channel: string) => void;
+
+  // === 自动更新 API ===
+  getAppVersion: () => Promise<{ version: string; isDevelopment: boolean }>;
+  checkForUpdates: () => Promise<{ success: boolean; updateInfo?: any; error?: string }>;
+  downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
+  installUpdate: () => Promise<{ success: boolean; error?: string }>;
+
+  // 自动更新事件
+  onUpdateAvailable: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => void;
+  onUpdateNotAvailable: (callback: (data: { version: string }) => void) => void;
+  onUpdateError: (callback: (data: { message: string }) => void) => void;
+  onUpdateDownloadProgress: (callback: (data: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => void;
+  onUpdateDownloaded: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => void;
 }
 
 const api: ElectronAPI = {
@@ -135,6 +148,19 @@ const api: ElectronAPI = {
 
   // 移除监听器
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
+
+  // 自动更新 API
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadUpdate: () => ipcRenderer.invoke('download-update'),
+  installUpdate: () => ipcRenderer.invoke('install-update'),
+
+  // 自动更新事件
+  onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_e, data) => cb(data)),
+  onUpdateNotAvailable: (cb) => ipcRenderer.on('update-not-available', (_e, data) => cb(data)),
+  onUpdateError: (cb) => ipcRenderer.on('update-error', (_e, data) => cb(data)),
+  onUpdateDownloadProgress: (cb) => ipcRenderer.on('update-download-progress', (_e, data) => cb(data)),
+  onUpdateDownloaded: (cb) => ipcRenderer.on('update-downloaded', (_e, data) => cb(data)),
 };
 
 contextBridge.exposeInMainWorld('api', api);
