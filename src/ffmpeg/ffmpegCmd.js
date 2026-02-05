@@ -3,15 +3,18 @@ const path = require("path");
 const { app } = require("electron");
 
 function getFfmpegPath() {
-  const staticPath = require("ffmpeg-static");
-  // 在打包后，ffmpeg 被解压到 app.asar.unpacked 目录
   if (app.isPackaged) {
-    // Windows 和 macOS 路径处理
-    let unpackedPath = staticPath.replace("app.asar", "app.asar.unpacked");
-    // 确保路径使用正确的分隔符
-    return path.normalize(unpackedPath);
+    // 打包后：ffmpeg 在 app.asar.unpacked/node_modules/ffmpeg-static/
+    const resourcesPath = process.resourcesPath;
+    const unpackedPath = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules', 'ffmpeg-static');
+
+    // 根据 platform 选择正确的可执行文件名
+    const ffmpegBin = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+    return path.join(unpackedPath, ffmpegBin);
   }
-  return staticPath;
+
+  // 开发环境：使用 ffmpeg-static 提供的路径
+  return require("ffmpeg-static");
 }
 
 function buildArgs({ aPath, bPath, outPath, orientation }) {

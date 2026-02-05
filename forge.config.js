@@ -80,7 +80,7 @@ module.exports = {
   ],
   hooks: {
     postPackage: async (forgeConfig, buildPath, electronVersion, platform, arch) => {
-      // macOS: Copy Sharp libvips dependencies to fix runtime loading
+      // macOS: Copy native dependencies to fix runtime loading
       // buildPath.outputPaths[0] contains the directory with the .app bundle
       const packageDir = buildPath.outputPaths[0];
       const entries = fs.readdirSync(packageDir, { withFileTypes: true });
@@ -91,22 +91,8 @@ module.exports = {
       }
 
       const appPath = packageDir + '/' + appEntry.name;
-      const sourceLibvips = process.cwd() + '/node_modules/@img/sharp-libvips-darwin-arm64';
-
-      if (!fs.existsSync(sourceLibvips)) {
-        console.log('⚠️ Sharp libvips not found, skipping copy');
-        return;
-      }
-
-      // Target paths
       const resourcesPath = appPath + '/Contents/Resources';
       const asarUnpackedPath = resourcesPath + '/app.asar.unpacked';
-      const targetImgDir = asarUnpackedPath + '/node_modules/@img';
-      const sharpLibvipsPath = targetImgDir + '/sharp-libvips-darwin-arm64';
-
-      // Create target directories
-      fs.mkdirSync(targetImgDir, { recursive: true });
-      fs.mkdirSync(sharpLibvipsPath, { recursive: true });
 
       // Recursively copy directory
       const copyDir = (src, dest) => {
@@ -123,8 +109,25 @@ module.exports = {
         });
       };
 
-      copyDir(sourceLibvips, sharpLibvipsPath);
-      console.log('✅ Copied sharp-libvips-darwin-arm64 for macOS packaging');
+      // Copy Sharp libvips
+      const sourceLibvips = process.cwd() + '/node_modules/@img/sharp-libvips-darwin-arm64';
+      if (fs.existsSync(sourceLibvips)) {
+        const targetImgDir = asarUnpackedPath + '/node_modules/@img';
+        const sharpLibvipsPath = targetImgDir + '/sharp-libvips-darwin-arm64';
+        fs.mkdirSync(targetImgDir, { recursive: true });
+        fs.mkdirSync(sharpLibvipsPath, { recursive: true });
+        copyDir(sourceLibvips, sharpLibvipsPath);
+        console.log('✅ Copied sharp-libvips-darwin-arm64 for macOS packaging');
+      }
+
+      // Copy ffmpeg-static
+      const sourceFfmpeg = process.cwd() + '/node_modules/ffmpeg-static';
+      if (fs.existsSync(sourceFfmpeg)) {
+        const targetFfmpegDir = asarUnpackedPath + '/node_modules/ffmpeg-static';
+        fs.mkdirSync(targetFfmpegDir, { recursive: true });
+        copyDir(sourceFfmpeg, targetFfmpegDir);
+        console.log('✅ Copied ffmpeg-static for macOS packaging');
+      }
     },
   },
   plugins: [
