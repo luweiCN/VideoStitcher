@@ -269,10 +269,23 @@ jobs:
           }
 
       - name: 构建 Windows
+        shell: pwsh
         run: |
           npm run build:preload
           npm run build:renderer
           npm run make
+
+          # 检查是否生成了 setup.exe
+          $ExeFiles = Get-ChildItem -Recurse out -Filter "*.exe" -ErrorAction SilentlyContinue
+          if ($ExeFiles.Count -eq 0) {
+            Write-Host "❌ 错误：未生成 setup.exe 文件"
+            Write-Host "已生成的文件："
+            Get-ChildItem -Recurse out | Select-Object FullName
+            exit 1
+          } else {
+            Write-Host "✅ 已生成的 .exe 文件："
+            $ExeFiles | ForEach-Object { Write-Host "  - $($_.FullName)" }
+          }
 
       - name: 列出输出目录
         shell: pwsh
