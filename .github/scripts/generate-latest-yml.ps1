@@ -26,9 +26,9 @@ Write-Host "找到包: $($NupkgFile.Name)"
 
 $NupkgName = $NupkgFile.Name
 $NupkgSize = $NupkgFile.Length
-$NupkgHash = (Get-FileHash -Algorithm SHA256 -Path $NupkgFile.FullName).Hash.ToLower()
+$NupkgHash = (Get-FileHash -Algorithm SHA512 -Path $NupkgFile.FullName).Hash.ToLower()
 
-Write-Host "SHA256: $NupkgHash"
+Write-Host "SHA512: $NupkgHash"
 Write-Host "大小: $NupkgSize bytes"
 
 # 生成 YAML 内容
