@@ -123,7 +123,7 @@ app.whenReady().then(() => {
 function setupAutoUpdater() {
   // 从环境变量或 package.json 读取仓库信息
   // 格式: owner/repo
-  const repoInfo = process.env.GITHUB_REPO || 'your-username/videomaster-pro';
+  const repoInfo = process.env.GITHUB_REPO || 'luweiCN/VideoStitcher';
   const [owner, repo] = repoInfo.split('/');
 
   autoUpdater.setFeedURL({
