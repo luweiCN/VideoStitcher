@@ -181,8 +181,9 @@ jobs:
         with:
           name: macos-build
           path: |
-            out/make/**/*.dmg
-            out/make/**/*.zip
+            out/make/*.dmg
+            out/make/*darwin*.zip
+            out/make/latest-mac.json
           if-no-files-found: error
 
       - name: 生成 macOS 更新元数据
@@ -275,7 +276,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: out/make/
+          path: |
+            out/make/RELEASES
+            out/make/*.zip
+            out/make/VideoStitcher-*.nupkg
+            out/make/VideoStitcher-*.exe
           if-no-files-found: error
 
   # 创建发布（需要所有构建完成）
