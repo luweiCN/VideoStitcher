@@ -123,13 +123,15 @@ app.whenReady().then(() => {
 
 // 自动更新配置和事件处理
 function setupAutoUpdater() {
-  // 配置自动更新服务器
-  // GitHub Releases: https://github.com/your-username/videomaster-pro/releases
-  const updateServer = "https://github.com/your-username/videomaster-pro";
+  // 从环境变量或 package.json 读取仓库信息
+  // 格式: owner/repo
+  const repoInfo = process.env.GITHUB_REPO || 'your-username/videomaster-pro';
+  const [owner, repo] = repoInfo.split('/');
 
   autoUpdater.setFeedURL({
-    provider: "generic",
-    url: updateServer,
+    provider: 'github',
+    owner: owner,
+    repo: repo,
   });
 
   // 日志输出
@@ -174,20 +176,21 @@ function setupAutoUpdater() {
     });
   });
 
-  // 定期检查更新（应用启动后 30 秒，然后每 4 小时检查一次）
+  // 应用启动后 10 秒检查更新
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch((err) => {
       console.error("Failed to check for updates:", err);
     });
-  }, 30000);
+  }, 10000);
 
+  // 每 30 分钟检查一次更新
   setInterval(
     () => {
       autoUpdater.checkForUpdates().catch((err) => {
         console.error("Failed to check for updates:", err);
       });
     },
-    4 * 60 * 60 * 1000,
+    30 * 60 * 1000,
   );
 }
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Film } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Film, Download, AlertCircle } from 'lucide-react';
 import HorizontalMode from './features/HorizontalMode';
 import VerticalMode from './features/VerticalMode';
 import FileNameExtractorMode from './features/FileNameExtractorMode';
@@ -15,6 +15,45 @@ type View = 'home' | 'vertical' | 'horizontal' | 'resize' | 'imageMaterial' | 'a
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
+  const [appVersion, setAppVersion] = useState<string>('加载中...');
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<{ version: string; releaseNotes: string } | null>(null);
+
+  // 获取应用版本
+  useEffect(() => {
+    const fetchVersion = async () => {
+      try {
+        const info = await window.api.getAppVersion();
+        setAppVersion(`v${info.version}`);
+      } catch {
+        setAppVersion('v?.?.?');
+      }
+    };
+    fetchVersion();
+  }, []);
+
+  // 监听更新事件
+  useEffect(() => {
+    const cleanupAvailable = window.api.onUpdateAvailable((data) => {
+      setUpdateAvailable(true);
+      setUpdateInfo({ version: data.version, releaseNotes: data.releaseNotes });
+    });
+
+    const cleanupDownloaded = window.api.onUpdateDownloaded((data) => {
+      setUpdateAvailable(true);
+      setUpdateInfo({ version: data.version, releaseNotes: data.releaseNotes });
+    });
+
+    const cleanupError = window.api.onUpdateError(() => {
+      // 静默处理错误
+    });
+
+    return () => {
+      cleanupAvailable();
+      cleanupDownloaded();
+      cleanupError();
+    };
+  }, []);
 
   if (currentView === 'vertical') {
     return <VerticalMode onBack={() => setCurrentView('home')} />;
@@ -257,7 +296,17 @@ const App: React.FC = () => {
       </div>
 
       <footer className="mt-20 text-slate-600 text-sm font-medium flex items-center gap-4">
-        <span>v2.1.0 · Electron Desktop</span>
+        <span>{appVersion} · Electron Desktop</span>
+        {updateAvailable && (
+          <button
+            onClick={() => setCurrentView('admin')}
+            className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors"
+            title={`新版本 ${updateInfo?.version} 可用`}
+          >
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span>有更新</span>
+          </button>
+        )}
         <button
           onClick={() => setCurrentView('admin')}
           className="p-1 hover:text-indigo-400 transition-colors"

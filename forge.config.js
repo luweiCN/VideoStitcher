@@ -19,18 +19,6 @@ module.exports = {
     ],
   },
   rebuildConfig: {},
-  publishers: [
-    {
-      name: '@electron-forge/publisher-github',
-      config: {
-        repository: {
-          owner: 'your-username',
-          name: 'videomaster-pro',
-        },
-        prerelease: false,
-      },
-    },
-  ],
   makers: [
     // macOS DMG 安装包
     {
