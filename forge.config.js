@@ -68,19 +68,7 @@ module.exports = {
   ],
   hooks: {
     postPackage: async (forgeConfig, buildPath, electronVersion, platform, arch) => {
-      // macOS: Copy native dependencies to fix runtime loading
-      // buildPath.outputPaths[0] contains the directory with the .app bundle
       const packageDir = buildPath.outputPaths[0];
-      const entries = fs.readdirSync(packageDir, { withFileTypes: true });
-      const appEntry = entries.find(e => e.name.endsWith('.app') && e.isDirectory());
-
-      if (!appEntry) {
-        return; // Not macOS, skip this hook
-      }
-
-      const appPath = packageDir + '/' + appEntry.name;
-      const resourcesPath = appPath + '/Contents/Resources';
-      const asarUnpackedPath = resourcesPath + '/app.asar.unpacked';
 
       // Recursively copy directory
       const copyDir = (src, dest) => {
@@ -97,24 +85,52 @@ module.exports = {
         });
       };
 
-      // Copy Sharp libvips
-      const sourceLibvips = process.cwd() + '/node_modules/@img/sharp-libvips-darwin-arm64';
-      if (fs.existsSync(sourceLibvips)) {
-        const targetImgDir = asarUnpackedPath + '/node_modules/@img';
-        const sharpLibvipsPath = targetImgDir + '/sharp-libvips-darwin-arm64';
-        fs.mkdirSync(targetImgDir, { recursive: true });
-        fs.mkdirSync(sharpLibvipsPath, { recursive: true });
-        copyDir(sourceLibvips, sharpLibvipsPath);
-        console.log('✅ Copied sharp-libvips-darwin-arm64 for macOS packaging');
+      // macOS handling
+      if (platform === 'darwin') {
+        const entries = fs.readdirSync(packageDir, { withFileTypes: true });
+        const appEntry = entries.find(e => e.name.endsWith('.app') && e.isDirectory());
+
+        if (appEntry) {
+          const appPath = packageDir + '/' + appEntry.name;
+          const resourcesPath = appPath + '/Contents/Resources';
+          const asarUnpackedPath = resourcesPath + '/app.asar.unpacked';
+
+          // Copy Sharp libvips (macOS ARM64)
+          const sourceLibvips = process.cwd() + '/node_modules/@img/sharp-libvips-darwin-arm64';
+          if (fs.existsSync(sourceLibvips)) {
+            const targetImgDir = asarUnpackedPath + '/node_modules/@img';
+            const sharpLibvipsPath = targetImgDir + '/sharp-libvips-darwin-arm64';
+            fs.mkdirSync(targetImgDir, { recursive: true });
+            fs.mkdirSync(sharpLibvipsPath, { recursive: true });
+            copyDir(sourceLibvips, sharpLibvipsPath);
+            console.log('✅ Copied sharp-libvips-darwin-arm64 for macOS packaging');
+          }
+
+          // Copy ffmpeg-static
+          const sourceFfmpeg = process.cwd() + '/node_modules/ffmpeg-static';
+          if (fs.existsSync(sourceFfmpeg)) {
+            const targetFfmpegDir = asarUnpackedPath + '/node_modules/ffmpeg-static';
+            fs.mkdirSync(targetFfmpegDir, { recursive: true });
+            copyDir(sourceFfmpeg, targetFfmpegDir);
+            console.log('✅ Copied ffmpeg-static for macOS packaging');
+          }
+        }
       }
 
-      // Copy ffmpeg-static
-      const sourceFfmpeg = process.cwd() + '/node_modules/ffmpeg-static';
-      if (fs.existsSync(sourceFfmpeg)) {
-        const targetFfmpegDir = asarUnpackedPath + '/node_modules/ffmpeg-static';
-        fs.mkdirSync(targetFfmpegDir, { recursive: true });
-        copyDir(sourceFfmpeg, targetFfmpegDir);
-        console.log('✅ Copied ffmpeg-static for macOS packaging');
+      // Windows handling
+      if (platform === 'win32') {
+        // Windows: resourcesPath is the exe directory
+        const resourcesPath = packageDir + '/resources';
+        const asarUnpackedPath = resourcesPath + '/app.asar.unpacked';
+
+        // Copy ffmpeg-static
+        const sourceFfmpeg = process.cwd() + '/node_modules/ffmpeg-static';
+        if (fs.existsSync(sourceFfmpeg)) {
+          const targetFfmpegDir = asarUnpackedPath + '/node_modules/ffmpeg-static';
+          fs.mkdirSync(targetFfmpegDir, { recursive: true });
+          copyDir(sourceFfmpeg, targetFfmpegDir);
+          console.log('✅ Copied ffmpeg-static for Windows packaging');
+        }
       }
     },
   },

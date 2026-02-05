@@ -16,19 +16,18 @@ on:
         required: false
         type: boolean
         default: false
-      create_tag:
-        description: '创建 Git Tag'
-        required: false
-        type: boolean
-        default: true
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build and Release
-    runs-on: macos-latest
+  # Version bump job - runs once
+  version:
+    name: Update Version
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.new_version.outputs.version }}
+      release_notes: ${{ steps.release_notes.outputs.notes }}
 
     steps:
       - name: Checkout code
@@ -40,9 +39,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Get current version
         id: version
@@ -87,17 +83,25 @@ jobs:
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
           npm version $NEW_VERSION --no-git-tag-version
 
-      - name: Build macOS
+      - name: Commit and push version change
         run: |
-          npm run build:preload
-          npm run build:renderer
-          npm run make
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore: bump version to ${NEW_VERSION}"
+          git push
+
+      - name: Create Git Tag
+        run: |
+          NEW_VERSION="${{ steps.new_version.outputs.version }}"
+          git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
+          git push origin "v${NEW_VERSION}"
 
       - name: Generate release notes
         id: release_notes
         run: |
           NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          PRE_RELEASE="${{ inputs.pre_release }}"
 
           # Get commits since last tag
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
@@ -116,57 +120,151 @@ jobs:
           ${COMMITS}
 
           ### 📥 Downloads
-          - **macOS DMG:** Recommended for installation
-          - **macOS ZIP:** Portable, no installation required
+
+          #### macOS
+          - **DMG:** Recommended for installation (.dmg)
+          - **ZIP:** Portable, no installation required
+
+          #### Windows
+          - **ZIP:** Portable, no installation required (.zip)
+          - **Installer:** Squirrel installer for auto-update support (.nupkg)
           "
 
-          # Write notes to file for multiline output
-          echo "$NOTES" > /tmp/release_notes.txt
-
-          # Also create a JSON version for safe multiline handling
+          # Create JSON version for safe multiline handling
           NOTES_JSON=$(echo "$NOTES" | jq -Rs .)
           echo "notes=${NOTES_JSON}" >> $GITHUB_OUTPUT
 
-      - name: Create Git Tag
-        if: inputs.create_tag == true
+      - name: Upload version info
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-info
+          path: |
+            package.json
+            package-lock.json
+
+  # Build macOS
+  build-macos:
+    name: Build macOS
+    needs: version
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download version info
+        uses: actions/download-artifact@v4
+        with:
+          name: version-info
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS
         run: |
-          NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          git commit -m "chore: bump version to ${NEW_VERSION}"
-          git tag -a "v${NEW_VERSION}" -m "Release v${NEW_VERSION}"
-          git push origin "v${NEW_VERSION}"
+          npm run build:preload
+          npm run build:renderer
+          npm run make
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: |
+            out/make/*.dmg
+            out/make/zip/darwin/arm64/*.zip
+
+  # Build Windows
+  build-windows:
+    name: Build Windows
+    needs: version
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download version info
+        uses: actions/download-artifact@v4
+        with:
+          name: version-info
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Windows
+        run: |
+          npm run build:preload
+          npm run build:renderer
+          npm run make
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            out/make/*.zip
+            out/make/squirrel-windows/*.nupkg
+            out/make/squirrel-windows/RELEASES
+            out/make/squirrel-windows/*.exe
+
+  # Create release (needs all builds)
+  release:
+    name: Create Release
+    needs: [version, build-macos, build-windows]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download macOS build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-build
+          path: macos
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: windows
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.new_version.outputs.version }}
-          name: Release v${{ steps.new_version.outputs.version }}
-          body: ${{ fromJSON(steps.release_notes.outputs.notes) }}
+          tag_name: v${{ needs.version.outputs.new_version }}
+          name: Release v${{ needs.version.outputs.new_version }}
+          body: ${{ fromJSON(needs.version.outputs.release_notes) }}
           draft: false
           prerelease: ${{ inputs.pre_release }}
           files: |
-            out/make/*.dmg
-            out/make/zip/darwin/arm64/*.zip
+            macos/*.dmg
+            macos/**/*.zip
+            windows/**/*.zip
+            windows/**/*.nupkg
+            windows/**/RELEASES
+            windows/**/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-files
-          path: |
-            out/make/*.dmg
-            out/make/zip/darwin/arm64/*.zip
-          retention-days: 30
 
       - name: Release Summary
         run: |
           echo "### ✅ Release Created!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** v${{ steps.new_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ needs.version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Type:** ${{ inputs.version_type }}" >> $GITHUB_STEP_SUMMARY
           echo "**Pre-release:** ${{ inputs.pre_release }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📦 [Download Release](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.new_version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          echo "#### 📦 Build Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- macOS: DMG + ZIP" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows: ZIP + Squirrel installer" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📥 [Download Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version.outputs.new_version }})" >> $GITHUB_STEP_SUMMARY
