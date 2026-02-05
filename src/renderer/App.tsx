@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink } from 'lucide-react';
+import HorizontalMode from './features/HorizontalMode';
 
 // 占位符组件 - 稍后实现
 const PlaceholderMode: React.FC<{ onBack: () => void; title: string }> = ({ onBack, title }) => (
@@ -22,7 +23,7 @@ const App: React.FC = () => {
   }
 
   if (currentView === 'horizontal') {
-    return <PlaceholderMode onBack={() => setCurrentView('home')} title="横屏极速合成" />;
+    return <HorizontalMode onBack={() => setCurrentView('home')} />;
   }
 
   if (currentView === 'resize') {

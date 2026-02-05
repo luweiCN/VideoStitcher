@@ -17,6 +17,11 @@ let outDir = "";
 
 const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 
+// 检测开发环境
+const isDevelopment = process.env.NODE_ENV === 'development' ||
+                       process.env.DEBUG === 'true' ||
+                       !app.isPackaged;
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1400,
@@ -25,15 +30,62 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: true, // 保持 webSecurity 启用
     }
   });
 
   // 开发模式下加载 Vite 服务器，生产模式加载构建文件
-  if (process.env.NODE_ENV === 'development') {
-    win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools();
+  if (isDevelopment) {
+    console.log('Development mode: loading Vite dev server at http://localhost:5173');
+    win.loadURL('http://localhost:5173').then(() => {
+      console.log('Vite dev server loaded successfully');
+      win.webContents.openDevTools();
+    }).catch((err) => {
+      console.error('Failed to load Vite dev server:', err);
+      // 显示错误页面
+      win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>开发服务器未启动</title>
+          <style>
+            body { font-family: system-ui; padding: 40px; background: #1e1e1e; color: #fff; }
+            h1 { color: #e74c3c; }
+            code { background: #333; padding: 4px 8px; border-radius: 4px; }
+            .step { margin: 20px 0; padding: 15px; background: #2a2a2a; border-left: 4px solid #e74c3c; }
+          </style>
+        </head>
+        <body>
+          <h1>⚠️ Vite 开发服务器未启动</h1>
+          <p>请先启动 Vite 开发服务器：</p>
+          <div class="step">
+            <code>npm run dev</code>
+          </div>
+          <p>然后在另一个终端启动 Electron：</p>
+          <div class="step">
+            <code>npx electron .</code>
+          </div>
+          <p>或者使用环境变量直接启动：</p>
+          <div class="step">
+            <code>NODE_ENV=development npx electron .</code>
+          </div>
+        </body>
+        </html>
+      `));
+    });
+
+    // 监听加载失败
+    win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      console.error('Failed to load:', errorCode, errorDescription, validatedURL);
+    });
   } else {
-    win.loadFile(path.join(__dirname, "../out/renderer/index.html"));
+    console.log('Production mode: loading built files');
+    const htmlPath = path.join(__dirname, "../out/renderer/index.html");
+    console.log('Loading HTML from:', htmlPath);
+    win.loadFile(htmlPath).catch((err) => {
+      console.error('Failed to load production build:', err);
+    });
   }
 }
 

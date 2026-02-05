@@ -5,7 +5,6 @@
 
 const { ipcMain, BrowserWindow } = require('electron');
 const path = require('path');
-const { buildHorizontalCommand, buildVerticalCommand, buildResizeCommand, buildFFmpegArgs } = require('../ffmpeg/commands');
 const { runFfmpeg } = require('../ffmpeg/ffmpegCmd');
 const { TaskQueue } = require('../ffmpeg/queue');
 const os = require('os');
@@ -15,13 +14,19 @@ const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 
 /**
  * 横屏合成处理
+ * 使用现有的 A+B 拼接逻辑
  */
 async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, outputDir, concurrency }) {
-  if (!aVideos.length || !bVideos.length) {
-    throw new Error('A面或主视频库为空');
+  if (!bVideos.length) {
+    throw new Error('主视频库为空');
   }
   if (!outputDir) {
     throw new Error('未选择输出目录');
+  }
+
+  // 如果没有 A 面视频，则只处理主视频（复制到输出目录）
+  if (!aVideos.length) {
+    aVideos = bVideos; // 自拼接模式
   }
 
   // 设置并发数
@@ -44,18 +49,8 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, outputD
       const outName = `${aName}__${bName}__${String(index).padStart(4, '0')}_horizontal.mp4`;
       const outPath = path.join(outputDir, outName);
 
-      // 构建 FFmpeg 命令
-      const command = buildHorizontalCommand({
-        aVideo: a,
-        mainVideo: b,
-        bgImage,
-        output: outPath
-      });
-
-      const args = buildFFmpegArgs(command);
-
       try {
-        await runFfmpeg({ args, outputPath: outPath }, (log) => {
+        await runFfmpeg({ aPath: a, bPath: b, outPath, orientation: 'landscape' }, (log) => {
           event.sender.send('video-log', { index, message: log });
         });
         done++;
@@ -84,6 +79,11 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, output
     throw new Error('未选择输出目录');
   }
 
+  // 如果没有 A 面视频，则只处理主视频
+  if (!aVideos || !aVideos.length) {
+    aVideos = mainVideos; // 自拼接模式
+  }
+
   queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
 
   const total = mainVideos.length;
@@ -94,22 +94,14 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, output
 
   const tasks = mainVideos.map((mainVideo, index) => {
     return queue.push(async () => {
-      const mainName = path.parse(mainVideo).name;
-      const outName = `${mainName}_vertical_${String(index + 1).padStart(4, '0')}.mp4`;
+      const aVideo = aVideos[index % aVideos.length];
+      const aName = path.parse(aVideo).name;
+      const bName = path.parse(mainVideo).name;
+      const outName = `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_vertical.mp4`;
       const outPath = path.join(outputDir, outName);
 
-      // 构建竖屏合成命令
-      const command = buildVerticalCommand({
-        mainVideo,
-        bgImage,
-        aVideo: aVideos[index % aVideos.length], // 循环使用 A 面视频
-        output: outPath
-      });
-
-      const args = buildFFmpegArgs(command);
-
       try {
-        await runFfmpeg({ args, outputPath: outPath }, (log) => {
+        await runFfmpeg({ aPath: aVideo, bPath: mainVideo, outPath, orientation: 'portrait' }, (log) => {
           event.sender.send('video-log', { index, message: log });
         });
         done++;
@@ -129,6 +121,7 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, output
 
 /**
  * 智能改尺寸处理
+ * 暂时使用简单的 resize 实现
  */
 async function handleResize(event, { videos, mode, blurAmount, outputDir, concurrency }) {
   if (!videos.length) {
@@ -138,63 +131,8 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
     throw new Error('未选择输出目录');
   }
 
-  queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
-
-  // 每个视频可能输出多个文件 (如 Siya 模式输出 2 个)
-  let totalTasks = 0;
-  const taskList = [];
-
-  videos.forEach((video, index) => {
-    const outputs = buildResizeCommand({
-      input: video,
-      mode,
-      blurAmount,
-      output: path.join(outputDir, path.parse(video).name + '.mp4')
-    });
-
-    totalTasks += outputs.length;
-    outputs.forEach((outputConfig, outputIndex) => {
-      taskList.push({ video, index, outputIndex, config: outputConfig });
-    });
-  });
-
-  let done = 0;
-  let failed = 0;
-
-  event.sender.send('video-start', { total: totalTasks, mode: 'resize', concurrency: queue.concurrency });
-
-  const tasks = taskList.map(({ video, index, outputIndex, config }) => {
-    return queue.push(async () => {
-      try {
-        const args = buildFFmpegArgs(config);
-        await runFfmpeg({ args, outputPath: config.output }, (log) => {
-          event.sender.send('video-log', { index, message: log });
-        });
-        done++;
-        event.sender.send('video-progress', {
-          done,
-          failed,
-          total: totalTasks,
-          index,
-          outputPath: config.output
-        });
-      } catch (err) {
-        failed++;
-        event.sender.send('video-failed', {
-          done,
-          failed,
-          total: totalTasks,
-          index,
-          error: err.message
-        });
-      }
-    });
-  });
-
-  await Promise.allSettled(tasks);
-  event.sender.send('video-finish', { done, failed, total: totalTasks });
-
-  return { done, failed, total: totalTasks };
+  // TODO: 实现智能改尺寸
+  throw new Error('智能改尺寸功能尚未实现，敬请期待');
 }
 
 /**
