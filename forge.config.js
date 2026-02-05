@@ -135,6 +135,12 @@ module.exports = {
           copyDir(sourceFfmpeg, targetFfmpegDir);
           console.log('✅ Copied ffmpeg-static for Windows packaging');
         }
+
+        // 生成 app-update.yml (electron-updater 需要此文件来配置更新服务器)
+        const appUpdateYmlContent = 'owner: luweiCN\nrepo: VideoStitcher\nprovider: github\n';
+        const appUpdatePath = resourcesPath + '/app-update.yml';
+        fs.writeFileSync(appUpdatePath, appUpdateYmlContent, 'utf-8');
+        console.log('✅ Generated app-update.yml for Windows auto-update');
       }
     },
   },
