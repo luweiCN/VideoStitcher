@@ -310,8 +310,8 @@ jobs:
           path: |
             out/make/**/RELEASES
             out/make/**/*.zip
-            out/make/**/VideoStitcher-*.nupkg
-            out/make/**/VideoStitcher-*.exe
+            out/make/**/*.nupkg
+            out/make/**/*Setup.exe
           if-no-files-found: error
 
   # 创建发布（需要所有构建完成）
