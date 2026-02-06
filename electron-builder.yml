@@ -40,11 +40,15 @@ asarUnpack:
   - node_modules/sharp/**/*
   - node_modules/@img/**/*
 
-# macOS 配置 - 只生成 DMG，分离架构
+# macOS 配置 - DMG 用于手动安装，ZIP 用于自动更新
 mac:
   category: public.app-category.video
   target:
-    - target: dmg
+    - target: dmg      # 手动安装
+      arch:
+        - x64
+        - arm64
+    - target: zip      # 自动更新需要
       arch:
         - x64
         - arm64

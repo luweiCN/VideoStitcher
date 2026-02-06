@@ -362,7 +362,10 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                 {updateInfo.releaseNotes && (
                   <div>
                     <span className="text-slate-400">更新说明：</span>
-                    <p className="text-white mt-1 whitespace-pre-wrap">{updateInfo.releaseNotes}</p>
+                    <div
+                      className="text-white mt-1 release-notes-html"
+                      dangerouslySetInnerHTML={{ __html: updateInfo.releaseNotes }}
+                    />
                   </div>
                 )}
               </div>
