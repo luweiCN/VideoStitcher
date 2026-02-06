@@ -184,6 +184,10 @@ jobs:
           echo "=== 检查 dist 目录 ==="
           ls -la dist/ || echo "dist 目录不存在"
 
+      - name: 清理不需要的调试文件
+        run: |
+          rm -f dist/builder-debug.yml || true
+
       - name: 上传 macOS 构建产物
         uses: actions/upload-artifact@v4
         with:
@@ -245,6 +249,14 @@ jobs:
             dist/*.yml
             dist/*.blockmap
           if-no-files-found: error
+
+      - name: 清理不需要的调试文件
+        shell: pwsh
+        run: |
+          if (Test-Path "dist/builder-debug.yml") {
+            Remove-Item "dist/builder-debug.yml"
+          }
+        continue-on-error: true
 
   # 创建发布（需要所有构建完成）
   release:
