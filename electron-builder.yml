@@ -52,7 +52,6 @@ win:
 nsis:
   oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: VideoStitcher
