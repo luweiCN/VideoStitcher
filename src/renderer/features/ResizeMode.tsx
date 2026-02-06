@@ -273,7 +273,14 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
     setCurrentTime(time);
+    // 前景视频
     videoRefs.current.forEach(video => {
+      if (video) {
+        video.currentTime = time;
+      }
+    });
+    // 背景视频也要同步
+    backgroundVideoRefs.current.forEach(video => {
       if (video) {
         video.currentTime = time;
       }
@@ -335,6 +342,13 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const handleEnded = () => {
     setIsPlaying(false);
     setCurrentTime(0);
+    // 暂停并重置所有背景视频
+    backgroundVideoRefs.current.forEach(video => {
+      if (video) {
+        video.pause();
+        video.currentTime = 0;
+      }
+    });
   };
 
   const startProcessing = async () => {
@@ -523,7 +537,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                             transform: 'scale(1.1)',
                           }}
                           muted={true}
-                          loop
                           playsInline
                         />
                         {/* 遮罩层 */}
