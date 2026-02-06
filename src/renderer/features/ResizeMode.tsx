@@ -244,12 +244,18 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     const offsetX = (outputWidth - displayWidth) / 2;
     const offsetY = (outputHeight - displayHeight) / 2;
 
+    // 转换为百分比（相对于容器尺寸）
+    const widthPercent = (displayWidth / outputWidth) * 100;
+    const heightPercent = (displayHeight / outputHeight) * 100;
+    const leftPercent = (offsetX / outputWidth) * 100;
+    const topPercent = (offsetY / outputHeight) * 100;
+
     return {
       containerAspectRatio: outputWidth / outputHeight,
-      displayWidth,
-      displayHeight,
-      offsetX,
-      offsetY,
+      widthPercent,
+      heightPercent,
+      leftPercent,
+      topPercent,
     };
   };
 
@@ -377,14 +383,12 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                         {/* 前景层（清晰视频，可播放） */}
                         <video
                           src={preview.url}
-                          className="absolute inset-0 bg-transparent"
+                          className="absolute bg-transparent"
                           style={{
-                            width: `${style.displayWidth}px`,
-                            height: `${style.displayHeight}px`,
-                            left: `${style.offsetX}px`,
-                            top: `${style.offsetY}px`,
-                            maxWidth: '100%',
-                            maxHeight: '100%',
+                            width: `${style.widthPercent}%`,
+                            height: `${style.heightPercent}%`,
+                            left: `${style.leftPercent}%`,
+                            top: `${style.topPercent}%`,
                             objectFit: 'contain',
                           }}
                           controls
