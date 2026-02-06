@@ -19,8 +19,11 @@ publish:
   owner: luweiCN
   repo: VideoStitcher
 
-# 文件包含/排除（默认会打包 src/* 到 asar）
+# 文件包含/排除（明确指定要打包进 asar 的文件）
 files:
+  - src/**/*
+  - package.json
+  - node_modules/**/*
   - "!**/.vscode/*"
   - "!**/.git/*"
   - "!**/.github/*"
@@ -29,7 +32,7 @@ files:
   - "!**/.eslintrc*"
   - "!**/README.md"
   - "!**/CLAUDE.md"
-  - "!dist/renderer/**/*"  # 排除 dist/renderer，通过 extraResources 复制到 resources
+  - "!dist/**/*"  # 排除整个 dist 目录
 
 # asar 打包配置
 asarUnpack:
