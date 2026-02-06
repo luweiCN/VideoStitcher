@@ -53,10 +53,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     setIsGeneratingPreview(true);
     setPreviewError(null);
 
-    // 清理旧的预览
-    previewImages.forEach(p => URL.revokeObjectURL(p.url));
-    setPreviewImages([]);
-
     try {
       const videoPath = videos[currentVideoIndex];
       addLog(`生成预览: ${videoPath.split('/').pop()}`);
@@ -67,12 +63,21 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
         throw new Error(previewResult.error || '获取预览 URL 失败');
       }
 
-      // 获取视频元数据
-      const metadata = await window.api.getVideoMetadata(videoPath);
+      // 使用 video 元素获取视频尺寸（不需要 ffprobe）
+      const video = document.createElement('video');
+      video.src = previewResult.url;
+      video.muted = true;
+      video.playsInline = true;
 
-      // 存储原始视频 URL
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error('视频加载失败'));
+        video.load();
+      });
+
+      // 存储原始视频 URL 和尺寸
       setOriginalVideoUrl(previewResult.url);
-      setOriginalVideoSize({ width: metadata.width, height: metadata.height });
+      setOriginalVideoSize({ width: video.videoWidth, height: video.videoHeight });
 
       // 为每个输出尺寸创建预览配置
       const outputs = MODE_CONFIG[mode].outputs;
@@ -95,7 +100,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     } finally {
       setIsGeneratingPreview(false);
     }
-  }, [videos, currentVideoIndex, mode, previewImages, addLog]);
+  }, [videos, currentVideoIndex, mode, addLog]);
 
   // 监听视频处理事件
   useEffect(() => {
