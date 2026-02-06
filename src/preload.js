@@ -21,6 +21,8 @@ const api = {
     imageMaterial: (config) => electron_1.ipcRenderer.invoke('image-material', config),
     previewImageMaterial: (config) => electron_1.ipcRenderer.invoke('preview-image-material', config),
     // 预览功能 API
+    generateStitchPreview: (config) => electron_1.ipcRenderer.invoke('generate-stitch-preview', config),
+    deleteTempPreview: (tempPath) => electron_1.ipcRenderer.invoke('delete-temp-preview', tempPath),
     previewHorizontal: (config) => electron_1.ipcRenderer.invoke('preview-horizontal', config),
     previewVertical: (config) => electron_1.ipcRenderer.invoke('preview-vertical', config),
     clearPreviews: () => electron_1.ipcRenderer.invoke('clear-previews'),
@@ -37,6 +39,7 @@ const api = {
     onPreviewLog: (cb) => electron_1.ipcRenderer.on('preview-log', (_e, data) => cb(data)),
     // 原有任务事件
     onJobStart: (cb) => electron_1.ipcRenderer.on('job-start', (_e, data) => cb(data)),
+    onJobTaskStart: (cb) => electron_1.ipcRenderer.on('job-task-start', (_e, data) => cb(data)),
     onJobLog: (cb) => electron_1.ipcRenderer.on('job-log', (_e, data) => cb(data)),
     onJobProgress: (cb) => electron_1.ipcRenderer.on('job-progress', (_e, data) => cb(data)),
     onJobFailed: (cb) => electron_1.ipcRenderer.on('job-failed', (_e, data) => cb(data)),

@@ -307,6 +307,9 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
       const outName = `${aName}__${bName}__${String(index).padStart(4, "0")}.mp4`;
       const outPath = path.join(outDir, outName);
 
+      // 发送任务开始处理事件
+      win.webContents.send("job-task-start", { index });
+
       const payload = { aPath: a, bPath: b, outPath, orientation };
 
       const tryRun = async (attempt) => {
@@ -495,6 +498,69 @@ ipcMain.handle("get-file-info", async (_event, filePath) => {
       }
     };
   } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// 快速生成 A+B 拼接预览视频
+ipcMain.handle("generate-stitch-preview", async (_event, { aPath, bPath, orientation }) => {
+  try {
+    const { buildStitchCommand } = require("./ffmpeg/runFfmpeg");
+    const os = require("os");
+    const crypto = require("crypto");
+
+    // 生成临时文件路径
+    const tempDir = os.tmpdir();
+    const tempId = crypto.randomBytes(8).toString("hex");
+    const tempPath = path.join(tempDir, `preview_${tempId}.mp4`);
+
+    // 构建快速预览命令（低质量，快速编码）
+    const config = {
+      aPath,
+      bPath,
+      outPath: tempPath,
+      orientation
+    };
+
+    const args = buildStitchCommand(config);
+
+    // 修改编码参数为快速预览模式
+    const quickArgs = args.map((arg, index) => {
+      if (arg === '-preset') return '-preset';  // 保持 preset
+      if (args[index - 1] === '-preset') return 'ultrafast';  // 使用最快预设
+      if (arg === '-crf') return '-crf';
+      if (args[index - 1] === '-crf') return '35';  // 更低质量，更快
+      return arg;
+    });
+
+    console.log('[预览生成] 开始生成快速预览视频...');
+
+    await runFfmpeg(quickArgs, (log) => {
+      console.log('[预览生成]', log);
+    });
+
+    console.log('[预览生成] 完成，临时文件:', tempPath);
+
+    return {
+      success: true,
+      tempPath
+    };
+  } catch (err) {
+    console.error('[预览生成] 失败:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// 删除临时预览文件
+ipcMain.handle("delete-temp-preview", async (_event, tempPath) => {
+  try {
+    if (tempPath && fs.existsSync(tempPath)) {
+      fs.unlinkSync(tempPath);
+      console.log('[预览清理] 已删除临时文件:', tempPath);
+    }
+    return { success: true };
+  } catch (err) {
+    console.error('[预览清理] 删除失败:', err);
     return { success: false, error: err.message };
   }
 });

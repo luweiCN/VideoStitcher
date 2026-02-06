@@ -96,6 +96,16 @@ export interface ElectronAPI {
   }) => Promise<{ success: boolean; preview?: string; logo?: string; grid?: any[]; error?: string }>;
 
   // === 预览功能 API ===
+  // 快速生成 A+B 拼接预览视频
+  generateStitchPreview: (config: {
+    aPath: string;
+    bPath: string;
+    orientation: 'landscape' | 'portrait';
+  }) => Promise<{ success: boolean; tempPath?: string; error?: string }>;
+
+  // 删除临时预览文件
+  deleteTempPreview: (tempPath: string) => Promise<{ success: boolean; error?: string }>;
+
   // 横屏合成预览
   previewHorizontal: (config: {
     aVideo?: string;
@@ -134,6 +144,7 @@ export interface ElectronAPI {
   // === 事件监听 ===
   // 原有任务事件
   onJobStart: (callback: (data: { total: number; orientation: string; concurrency: number }) => void) => void;
+  onJobTaskStart: (callback: (data: { index: number }) => void) => void;
   onJobLog: (callback: (data: { msg: string }) => void) => void;
   onJobProgress: (callback: (data: { done: number; failed: number; total: number; index: number; outPath: string }) => void) => void;
   onJobFailed: (callback: (data: { done: number; failed: number; total: number; index: number; error: string }) => void) => void;
@@ -200,6 +211,8 @@ const api: ElectronAPI = {
   previewImageMaterial: (config) => ipcRenderer.invoke('preview-image-material', config),
 
   // 预览功能 API
+  generateStitchPreview: (config) => ipcRenderer.invoke('generate-stitch-preview', config),
+  deleteTempPreview: (tempPath) => ipcRenderer.invoke('delete-temp-preview', tempPath),
   previewHorizontal: (config) => ipcRenderer.invoke('preview-horizontal', config),
   previewVertical: (config) => ipcRenderer.invoke('preview-vertical', config),
   clearPreviews: () => ipcRenderer.invoke('clear-previews'),
@@ -219,6 +232,7 @@ const api: ElectronAPI = {
 
   // 原有任务事件
   onJobStart: (cb) => ipcRenderer.on('job-start', (_e, data) => cb(data)),
+  onJobTaskStart: (cb) => ipcRenderer.on('job-task-start', (_e, data) => cb(data)),
   onJobLog: (cb) => ipcRenderer.on('job-log', (_e, data) => cb(data)),
   onJobProgress: (cb) => ipcRenderer.on('job-progress', (_e, data) => cb(data)),
   onJobFailed: (cb) => ipcRenderer.on('job-failed', (_e, data) => cb(data)),
