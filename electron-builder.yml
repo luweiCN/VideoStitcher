@@ -33,7 +33,6 @@ asarUnpack:
 # macOS 配置 - 只生成 DMG，分离架构
 mac:
   category: public.app-category.video
-  icon: build/icon.icns
   target:
     - target: dmg
       arch:
@@ -44,7 +43,6 @@ mac:
 
 # Windows 配置 - 只生成 NSIS 安装包
 win:
-  icon: build/icon.ico
   target:
     - target: nsis
       arch:
@@ -58,14 +56,11 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: VideoStitcher
-  installerIcon: build/icon.ico
-  uninstallerIcon: build/icon.ico
   artifactName: ${productName}-${version}-${arch}.${ext}
   deleteAppDataOnUninstall: false
 
 # Linux 配置
 linux:
-  icon: build/icons
   category: Video
   target:
     - target: deb
