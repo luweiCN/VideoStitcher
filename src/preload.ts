@@ -105,6 +105,16 @@ export interface ElectronAPI {
   // 清理预览文件
   clearPreviews: () => Promise<{ success: boolean; error?: string }>;
 
+  // 智能改尺寸预览
+  generateResizePreviews: (config: {
+    videoPath: string;
+    mode: 'siya' | 'fishing' | 'unify_h' | 'unify_v';
+    blurAmount: number;
+  }) => Promise<{ success: boolean; previews?: Array<{ path: string; width: number; height: number; label: string }>; error?: string }>;
+
+  // 清理指定预览文件
+  clearResizePreviews: (previewPaths: string[]) => Promise<{ success: boolean; error?: string }>;
+
   // 获取预览文件的 URL
   getPreviewUrl: (filePath: string) => Promise<{ success: boolean; url?: string; error?: string }>;
   // 获取文件信息
@@ -186,6 +196,10 @@ const api: ElectronAPI = {
   getPreviewUrl: (filePath) => ipcRenderer.invoke('get-preview-url', filePath),
   getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
   getVideoMetadata: (filePath) => ipcRenderer.invoke('video-get-metadata', filePath),
+
+  // 智能改尺寸预览
+  generateResizePreviews: (config) => ipcRenderer.invoke('generate-resize-previews', config),
+  clearResizePreviews: (previewPaths) => ipcRenderer.invoke('clear-resize-previews', previewPaths),
 
   // 预览事件
   onPreviewStart: (cb) => ipcRenderer.on('preview-start', (_e, data) => cb(data)),

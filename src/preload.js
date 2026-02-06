@@ -26,6 +26,9 @@ const api = {
     getPreviewUrl: (filePath) => electron_1.ipcRenderer.invoke('get-preview-url', filePath),
     getFileInfo: (filePath) => electron_1.ipcRenderer.invoke('get-file-info', filePath),
     getVideoMetadata: (filePath) => electron_1.ipcRenderer.invoke('video-get-metadata', filePath),
+    // 智能改尺寸预览
+    generateResizePreviews: (config) => electron_1.ipcRenderer.invoke('generate-resize-previews', config),
+    clearResizePreviews: (previewPaths) => electron_1.ipcRenderer.invoke('clear-resize-previews', previewPaths),
     // 预览事件
     onPreviewStart: (cb) => electron_1.ipcRenderer.on('preview-start', (_e, data) => cb(data)),
     onPreviewComplete: (cb) => electron_1.ipcRenderer.on('preview-complete', (_e, data) => cb(data)),

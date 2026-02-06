@@ -8,8 +8,10 @@ const path = require('path');
 const { runFfmpeg } = require('../ffmpeg/runFfmpeg');
 const { buildArgs } = require('../ffmpeg/videoMerge');
 const { TaskQueue } = require('../ffmpeg/queue');
+const { generatePreviews, cleanupPreviews } = require('../ffmpeg/videoResize');
 const os = require('os');
 const { spawn } = require('child_process');
+const app = require('electron').app ?? require('@electron/remote');
 
 // 创建任务队列 (复用现有逻辑)
 const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
@@ -480,6 +482,65 @@ async function handleClearPreviews() {
 }
 
 /**
+ * 智能改尺寸预览处理
+ * 生成真实的预览视频文件
+ *
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 参数对象
+ * @param {string} params.videoPath - 视频文件路径
+ * @param {string} params.mode - 模式 (siya | fishing | unify_h | unify_v)
+ * @param {number} params.blurAmount - 模糊程度
+ * @returns {Promise<Object>} 预览结果
+ */
+async function handleGenerateResizePreviews(event, { videoPath, mode, blurAmount }) {
+  const os = require('os');
+  const path = require('path');
+
+  const tempDir = path.join(os.tmpdir(), 'videostitcher-preview');
+
+  try {
+    event.sender.send('preview-start', { mode });
+
+    const previews = await generatePreviews({
+      inputPath: videoPath,
+      tempDir,
+      mode,
+      blurAmount,
+      onProgress: (progress) => {
+        event.sender.send('preview-log', { message: `处理进度: ${Math.floor(progress)}%` });
+      },
+      onLog: (log) => {
+        event.sender.send('preview-log', { message: log });
+      },
+    });
+
+    event.sender.send('preview-complete', { previewPaths: previews.map(p => p.path) });
+
+    return { success: true, previews };
+  } catch (err) {
+    event.sender.send('preview-error', { error: err.message });
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 清理指定的智能改尺寸预览文件
+ *
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 参数对象
+ * @param {string[]} params.previewPaths - 预览文件路径数组
+ * @returns {Promise<Object>} 清理结果
+ */
+async function handleClearResizePreviews(event, { previewPaths }) {
+  try {
+    cleanupPreviews(previewPaths);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * 注册所有视频处理 IPC 处理器
  */
 function registerVideoHandlers() {
@@ -513,6 +574,16 @@ function registerVideoHandlers() {
     return handleClearPreviews();
   });
 
+  // 智能改尺寸预览
+  ipcMain.handle('generate-resize-previews', async (event, config) => {
+    return handleGenerateResizePreviews(event, config);
+  });
+
+  // 清理智能改尺寸预览
+  ipcMain.handle('clear-resize-previews', async (event, config) => {
+    return handleClearResizePreviews(event, config);
+  });
+
   // 获取视频元数据
   ipcMain.handle('video-get-metadata', async (event, filePath) => {
     return getVideoMetadata(filePath);
@@ -527,5 +598,7 @@ module.exports = {
   handleHorizontalPreview,
   handleVerticalPreview,
   handleClearPreviews,
+  handleGenerateResizePreviews,
+  handleClearResizePreviews,
   getVideoMetadata
 };

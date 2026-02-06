@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FileVideo, Play, Trash2, Loader2, ArrowLeft, FolderOpen, Settings, CheckCircle, Maximize2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { FileVideo, Play, Trash2, Loader2, ArrowLeft, FolderOpen, Settings, CheckCircle, Maximize2, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ResizeModeProps {
   onBack: () => void;
@@ -7,11 +7,20 @@ interface ResizeModeProps {
 
 type ResizeMode = 'siya' | 'fishing' | 'unify_h' | 'unify_v';
 
+// 预览视频数据结构
+interface PreviewVideo {
+  path: string;
+  url: string;
+  width: number;
+  height: number;
+  label: string;
+}
+
 const MODE_CONFIG = {
-  siya: { name: 'Siya模式', desc: '智能模糊背景填充，保持画面比例', targetSize: '1920x1080' },
-  fishing: { name: '海外捕鱼', desc: '特定游戏画面优化', targetSize: '1920x1080' },
-  unify_h: { name: '统一横屏', desc: '强制转为横屏比例', targetSize: '1920x1080' },
-  unify_v: { name: '统一竖屏', desc: '强制转为竖屏比例', targetSize: '1080x1920' },
+  siya: { name: 'Siya模式', desc: '竖屏转横屏/方形', outputs: ['1920x1080', '1920x1920'] },
+  fishing: { name: '海外捕鱼', desc: '横屏转竖屏/方形', outputs: ['1080x1920', '1920x1920'] },
+  unify_h: { name: '统一横屏', desc: '强制转为横屏比例', outputs: ['1920x1080'] },
+  unify_v: { name: '统一竖屏', desc: '强制转为竖屏比例', outputs: ['1080x1920'] },
 };
 
 const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
@@ -21,14 +30,35 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const [blurAmount, setBlurAmount] = useState(20);
   const [showHelp, setShowHelp] = useState(false);
 
+  // 预览相关状态
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [previewVideos, setPreviewVideos] = useState<PreviewVideo[]>([]);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
   const [logs, setLogs] = useState<string[]>([]);
 
-  const addLog = (msg: string) => {
+  // 添加日志
+  const addLog = useCallback((msg: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  };
+  }, []);
 
+  // 清理预览资源
+  useEffect(() => {
+    return () => {
+      // 清理预览超时
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+      }
+      // 清理预览文件的 URL
+      previewVideos.forEach(p => URL.revokeObjectURL(p.url));
+    };
+  }, [previewVideos]);
+
+  // 监听视频处理事件
   useEffect(() => {
     const cleanup = () => {
       window.api.removeAllListeners('video-start');
@@ -62,7 +92,64 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     });
 
     return cleanup;
-  }, []);
+  }, [addLog]);
+
+  // 当视频列表或模式改变时，重新生成预览
+  useEffect(() => {
+    if (videos.length > 0 && currentVideoIndex < videos.length) {
+      generatePreviews();
+    } else {
+      // 清空预览
+      setPreviewVideos([]);
+      setPreviewError(null);
+    }
+  }, [videos, currentVideoIndex, mode, blurAmount]);
+
+  // 生成预览视频
+  const generatePreviews = async () => {
+    if (videos.length === 0 || currentVideoIndex >= videos.length) return;
+
+    setIsGeneratingPreview(true);
+    setPreviewError(null);
+
+    // 清理旧的预览
+    previewVideos.forEach(p => URL.revokeObjectURL(p.url));
+    setPreviewVideos([]);
+
+    try {
+      addLog(`生成预览: ${videos[currentVideoIndex]}`);
+
+      const result = await window.api.generateResizePreviews({
+        videoPath: videos[currentVideoIndex],
+        mode,
+        blurAmount,
+      });
+
+      if (result.success && result.previews) {
+        // 为每个预览创建 URL
+        const previewsWithUrls = await Promise.all(
+          result.previews.map(async (p) => {
+            const urlResult = await window.api.getPreviewUrl(p.path);
+            return {
+              ...p,
+              url: urlResult.url || '',
+            };
+          })
+        );
+
+        setPreviewVideos(previewsWithUrls);
+        addLog(`预览生成完成: ${previewsWithUrls.length} 个版本`);
+      } else {
+        setPreviewError(result.error || '生成预览失败');
+        addLog(`预览生成失败: ${result.error}`);
+      }
+    } catch (err: any) {
+      setPreviewError(err.message || '生成预览失败');
+      addLog(`预览生成异常: ${err.message}`);
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
 
   const handleSelectVideos = async () => {
     try {
@@ -71,6 +158,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       ]);
       if (files.length > 0) {
         setVideos(files);
+        setCurrentVideoIndex(0);
         addLog(`已选择 ${files.length} 个视频`);
       }
     } catch (err) {
@@ -90,6 +178,18 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     }
   };
 
+  const handlePrevVideo = () => {
+    if (currentVideoIndex > 0) {
+      setCurrentVideoIndex(currentVideoIndex - 1);
+    }
+  };
+
+  const handleNextVideo = () => {
+    if (currentVideoIndex < videos.length - 1) {
+      setCurrentVideoIndex(currentVideoIndex + 1);
+    }
+  };
+
   const startProcessing = async () => {
     if (videos.length === 0) {
       addLog('⚠️ 请先选择视频');
@@ -106,6 +206,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     addLog('开始智能改尺寸处理...');
     addLog(`视频: ${videos.length} 个`);
     addLog(`模式: ${MODE_CONFIG[mode].name}`);
+    addLog(`输出: ${MODE_CONFIG[mode].outputs.join(', ')}`);
     addLog(`模糊程度: ${blurAmount}`);
 
     try {
@@ -122,205 +223,330 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     }
   };
 
+  // 计算预览容器的宽高比
+  const getPreviewAspectRatio = (width: number, height: number) => {
+    if (width === 1920 && height === 1080) return 'aspect-video'; // 16:9
+    if (width === 1080 && height === 1920) return 'aspect-[9/16]'; // 9:16
+    if (width === 1920 && height === 1920) return 'aspect-square'; // 1:1
+    return 'aspect-video';
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6">
+    <div className="h-screen bg-slate-950 text-white flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="h-14 border-b border-slate-800 flex items-center px-4 bg-slate-900/50 shrink-0">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mr-4"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4" />
           返回
         </button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-rose-400">智能改尺寸</h1>
+        <h1 className="text-lg font-bold text-rose-400">智能改尺寸</h1>
+        <div className="ml-auto flex items-center gap-2">
+          {videos.length > 0 && (
+            <span className="text-sm text-slate-400">
+              {currentVideoIndex + 1} / {videos.length}
+            </span>
+          )}
           <button
             onClick={() => setShowHelp(!showHelp)}
             className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
             title="帮助"
           >
-            <Settings className="w-5 h-5 text-slate-400" />
+            <Settings className="w-4 h-4 text-slate-400" />
           </button>
         </div>
       </div>
 
       {/* Help Panel */}
       {showHelp && (
-        <div className="mb-6 p-4 bg-slate-900 border border-slate-800 rounded-xl">
-          <h3 className="font-bold mb-2 text-rose-400">使用说明</h3>
-          <ul className="text-sm text-slate-300 space-y-1">
-            <li>• 智能模糊背景填充，保持画面比例不拉伸</li>
-            <li>• <strong>Siya模式</strong>: 通用场景，自动适配目标尺寸</li>
-            <li>• <strong>海外捕鱼</strong>: 针对捕鱼游戏画面优化</li>
-            <li>• <strong>统一横屏/竖屏</strong>: 强制转换到指定比例</li>
-            <li>• 模糊背景可调节强度 (1-50)</li>
-          </ul>
+        <div className="p-4 bg-slate-900/50 border-b border-slate-800 shrink-0">
+          <div className="max-w-4xl mx-auto">
+            <h3 className="font-bold mb-2 text-rose-400 text-sm">使用说明</h3>
+            <div className="grid grid-cols-2 gap-4 text-xs text-slate-300">
+              <div>
+                <strong className="text-rose-300">Siya模式</strong>: 竖屏转横屏/方形
+              </div>
+              <div>
+                <strong className="text-rose-300">海外捕鱼</strong>: 横屏转竖屏/方形
+              </div>
+              <div>
+                <strong className="text-rose-300">统一横屏</strong>: 强制转横屏
+              </div>
+              <div>
+                <strong className="text-rose-300">统一竖屏</strong>: 强制转竖屏
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Panel - Inputs */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Mode Selection */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <label className="font-medium flex items-center gap-2 mb-3">
-              <Maximize2 className="w-4 h-4 text-rose-400" />
-              处理模式
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {(Object.keys(MODE_CONFIG) as ResizeMode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={`p-3 rounded-lg border text-left transition-all ${
-                    mode === m
-                      ? 'border-rose-500 bg-rose-500/20 text-rose-400'
-                      : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600'
-                  }`}
-                  disabled={isProcessing}
-                >
-                  <div className="font-medium">{MODE_CONFIG[m].name}</div>
-                  <div className="text-xs opacity-80 mt-1">{MODE_CONFIG[m].desc}</div>
-                  <div className="text-xs font-mono opacity-60 mt-1">{MODE_CONFIG[m].targetSize}</div>
-                </button>
-              ))}
-            </div>
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel - Preview */}
+        <div className="w-[400px] bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
+          <div className="p-4 border-b border-slate-800 shrink-0">
+            <h2 className="font-medium flex items-center gap-2 text-sm text-slate-300">
+              <Eye className="w-4 h-4 text-rose-400" />
+              效果预览
+            </h2>
           </div>
 
-          {/* Video Selection */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <label className="font-medium flex items-center gap-2">
-                <FileVideo className="w-4 h-4 text-rose-400" />
-                选择视频 - 必填
+          <div className="flex-1 p-4 overflow-y-auto">
+            {videos.length === 0 ? (
+              <div className="text-center py-12 text-slate-500 text-sm">
+                <Eye className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>选择视频后生成预览</p>
+              </div>
+            ) : isGeneratingPreview ? (
+              <div className="text-center py-12">
+                <Loader2 className="w-8 h-8 mx-auto mb-3 text-rose-400 animate-spin" />
+                <p className="text-sm text-slate-400">生成预览中...</p>
+              </div>
+            ) : previewError ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-red-400">{previewError}</p>
+              </div>
+            ) : previewVideos.length === 0 ? (
+              <div className="text-center py-12 text-slate-500 text-sm">
+                暂无预览
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {previewVideos.map((preview, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono text-slate-400">{preview.label}</span>
+                    </div>
+                    <div className="bg-black rounded-lg overflow-hidden border border-slate-800">
+                      <video
+                        key={preview.path}
+                        src={preview.url}
+                        className={`w-full ${getPreviewAspectRatio(preview.width, preview.height)}`}
+                        controls
+                        preload="metadata"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Video Navigation */}
+          {videos.length > 1 && (
+            <div className="p-4 border-t border-slate-800 shrink-0">
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={handlePrevVideo}
+                  disabled={currentVideoIndex === 0 || isGeneratingPreview}
+                  className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-600 rounded-lg text-sm transition-colors flex items-center justify-center gap-1"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  上一个
+                </button>
+                <button
+                  onClick={handleNextVideo}
+                  disabled={currentVideoIndex === videos.length - 1 || isGeneratingPreview}
+                  className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-600 rounded-lg text-sm transition-colors flex items-center justify-center gap-1"
+                >
+                  下一个
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Middle Panel - Controls */}
+        <div className="w-[320px] bg-slate-950 border-r border-slate-800 flex flex-col shrink-0 overflow-y-auto">
+          <div className="p-4 space-y-4">
+            {/* Mode Selection */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <label className="font-medium flex items-center gap-2 mb-2 text-xs">
+                <Maximize2 className="w-3 h-3 text-rose-400" />
+                处理模式
               </label>
-              <div className="flex items-center gap-2">
+              <div className="space-y-2">
+                {(Object.keys(MODE_CONFIG) as ResizeMode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className={`w-full p-2 rounded-lg border text-left transition-all text-xs ${
+                      mode === m
+                        ? 'border-rose-500 bg-rose-500/20 text-rose-400'
+                        : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600'
+                    }`}
+                    disabled={isProcessing || isGeneratingPreview}
+                  >
+                    <div className="font-medium">{MODE_CONFIG[m].name}</div>
+                    <div className="text-[10px] opacity-80 mt-0.5">{MODE_CONFIG[m].desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Video Selection */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-medium flex items-center gap-2 text-xs">
+                  <FileVideo className="w-3 h-3 text-rose-400" />
+                  选择视频
+                </label>
                 {videos.length > 0 && (
                   <button
                     onClick={() => setVideos([])}
-                    className="p-1.5 text-slate-400 hover:text-red-400 transition-colors"
+                    className="p-1 text-slate-400 hover:text-red-400 transition-colors"
                     title="清空"
+                    disabled={isProcessing || isGeneratingPreview}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3 h-3" />
                   </button>
                 )}
-                <button
-                  onClick={handleSelectVideos}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors text-sm"
-                >
-                  <FolderOpen className="w-4 h-4" />
-                  选择视频
-                </button>
               </div>
+              <button
+                onClick={handleSelectVideos}
+                disabled={isProcessing || isGeneratingPreview}
+                className="w-full py-2 px-3 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors text-xs flex items-center justify-center gap-2"
+              >
+                <FolderOpen className="w-3 h-3" />
+                选择视频文件
+              </button>
+              {videos.length > 0 && (
+                <div className="mt-2 text-xs text-slate-400">已选择 {videos.length} 个</div>
+              )}
             </div>
-            {videos.length > 0 && (
-              <div className="text-sm text-slate-400">
-                已选择 {videos.length} 个视频
-              </div>
-            )}
-          </div>
 
-          {/* Output Directory */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <label className="font-medium flex items-center gap-2">
-                <FolderOpen className="w-4 h-4 text-rose-400" />
-                输出目录 - 必填
-              </label>
+            {/* Output Directory */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-medium flex items-center gap-2 text-xs">
+                  <FolderOpen className="w-3 h-3 text-rose-400" />
+                  输出目录
+                </label>
+              </div>
               <button
                 onClick={handleSelectOutputDir}
-                className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors text-sm"
+                disabled={isProcessing || isGeneratingPreview}
+                className="w-full py-2 px-3 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors text-xs flex items-center justify-center gap-2"
               >
-                选择目录
+                <FolderOpen className="w-3 h-3" />
+                选择输出目录
               </button>
+              {outputDir && (
+                <div className="mt-2 text-xs text-slate-400 truncate" title={outputDir}>
+                  {outputDir.split('/').pop()}
+                </div>
+              )}
             </div>
-            {outputDir && (
-              <div className="text-sm text-slate-400 truncate">
-                {outputDir}
-              </div>
-            )}
-          </div>
 
-          {/* Blur Amount */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <label className="font-medium flex items-center gap-2 mb-3">
-              <Settings className="w-4 h-4 text-rose-400" />
-              模糊程度
-            </label>
-            <div className="flex items-center gap-4">
+            {/* Blur Amount */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-medium flex items-center gap-2 text-xs">
+                  <Settings className="w-3 h-3 text-rose-400" />
+                  模糊程度
+                </label>
+                <span className="text-xs font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">
+                  {blurAmount}
+                </span>
+              </div>
               <input
                 type="range"
-                min="1"
+                min="0"
                 max="50"
                 value={blurAmount}
                 onChange={(e) => setBlurAmount(Number(e.target.value))}
-                className="flex-1"
-                disabled={isProcessing}
+                className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500 hover:accent-rose-400 transition-all"
+                disabled={isProcessing || isGeneratingPreview}
               />
-              <span className="text-sm font-mono bg-slate-800 px-3 py-1 rounded-lg w-12 text-center">
-                {blurAmount}
-              </span>
+              <p className="text-[10px] text-slate-500 mt-2">
+                值越大背景越模糊 (推荐: 20)
+              </p>
             </div>
-            <p className="text-xs text-slate-500 mt-2">
-              值越大背景越模糊 (推荐: 20)
-            </p>
+
+            {/* Start Button */}
+            <button
+              onClick={startProcessing}
+              disabled={isProcessing || isGeneratingPreview || videos.length === 0 || !outputDir}
+              className="w-full py-3 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed rounded-xl font-bold transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  处理中...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  开始处理
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Right Panel - Progress & Logs */}
-        <div className="space-y-4">
-          {/* Progress */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 className="font-medium mb-3">处理进度</h3>
-            {progress.total > 0 ? (
-              <div className="space-y-2">
-                <div className="text-center">
-                  <span className="text-3xl font-bold text-rose-400">{progress.done}</span>
-                  <span className="text-slate-400"> / {progress.total}</span>
-                </div>
-                {progress.failed > 0 && (
-                  <div className="text-center text-red-400 text-sm">
-                    失败: {progress.failed}
-                  </div>
-                )}
-                <div className="w-full bg-slate-800 rounded-full h-2">
-                  <div
-                    className="bg-rose-500 h-2 rounded-full transition-all"
-                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                  />
-                </div>
+        {/* Right Panel - Video List & Logs */}
+        <div className="flex-1 bg-slate-950 flex flex-col overflow-hidden">
+          {/* Video List */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <h3 className="font-medium mb-3 text-sm text-slate-300 flex items-center gap-2">
+              <FileVideo className="w-4 h-4" />
+              视频列表 ({videos.length})
+            </h3>
+            {videos.length === 0 ? (
+              <div className="text-center py-12 text-slate-600 text-sm">
+                暂无视频
               </div>
             ) : (
-              <div className="text-slate-500 text-center py-4">等待开始</div>
+              <div className="space-y-2">
+                {videos.map((video, index) => (
+                  <div
+                    key={video}
+                    className={`p-3 rounded-lg border flex items-center gap-3 transition-colors ${
+                      index === currentVideoIndex
+                        ? 'border-rose-500 bg-rose-500/10'
+                        : 'border-slate-800 bg-slate-900 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded bg-slate-800 flex items-center justify-center shrink-0">
+                      <Play className="w-3 h-3 text-slate-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate text-slate-300">{video.split('/').pop()}</p>
+                      <p className="text-[10px] text-slate-500">{video}</p>
+                    </div>
+                    <button
+                      onClick={() => setCurrentVideoIndex(index)}
+                      disabled={isGeneratingPreview || isProcessing}
+                      className="p-1.5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded transition-colors"
+                      title="预览此视频"
+                    >
+                      <Eye className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 
-          {/* Start Button */}
-          <button
-            onClick={startProcessing}
-            disabled={isProcessing || videos.length === 0 || !outputDir}
-            className="w-full py-4 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                处理中...
-              </>
-            ) : (
-              <>
-                <Play className="w-5 h-5" />
-                开始处理
-              </>
-            )}
-          </button>
-
           {/* Logs */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 className="font-medium mb-3">处理日志</h3>
-            <div className="h-48 overflow-y-auto text-xs font-mono space-y-1">
+          <div className="h-48 border-t border-slate-800 bg-slate-900">
+            <div className="p-3 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="font-medium text-xs text-slate-300">处理日志</h3>
+              {logs.length > 0 && (
+                <button
+                  onClick={() => setLogs([])}
+                  className="text-[10px] text-slate-500 hover:text-slate-300"
+                >
+                  清空
+                </button>
+              )}
+            </div>
+            <div className="h-36 overflow-y-auto p-3 text-[10px] font-mono space-y-0.5">
               {logs.length === 0 ? (
-                <div className="text-slate-500 text-center py-4">暂无日志</div>
+                <div className="text-slate-600 text-center">暂无日志</div>
               ) : (
                 logs.map((log, i) => (
                   <div key={i} className={log.includes('❌') ? 'text-red-400' : log.includes('✅') ? 'text-green-400' : 'text-slate-300'}>
