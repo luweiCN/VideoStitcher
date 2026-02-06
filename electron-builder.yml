@@ -53,7 +53,7 @@ mac:
         - x64
         - arm64
   gatekeeperAssess: false
-  hardenedRuntime: false
+  hardenedRuntime: true
   identity: null  # 使用 ad-hoc 签名（无证书情况）
   notarize: false  # 跳过公证（无 Apple Developer 账号）
 

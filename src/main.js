@@ -163,11 +163,6 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = false; // 不自动下载，由用户确认
   autoUpdater.autoInstallOnAppQuit = true; // 应用退出时自动安装已下载的更新
 
-  // macOS 无证书情况：禁用严格签名验证
-  if (process.platform === 'darwin') {
-    autoUpdater.disableUpdateSigVerification = true;
-  }
-
   // 自动更新事件监听
   autoUpdater.on("update-available", (info) => {
     console.log("Update available:", info);
