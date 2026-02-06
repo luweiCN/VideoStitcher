@@ -195,6 +195,16 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     backgroundVideoRefs.current = [];
   }, [currentVideoIndex, videos.length]);
 
+  // 当音量或静音状态改变时，更新所有视频
+  useEffect(() => {
+    videoRefs.current.forEach(video => {
+      if (video) {
+        video.volume = volume / 100;
+        video.muted = isMuted;
+      }
+    });
+  }, [volume, isMuted]);
+
   const handleSelectVideos = async () => {
     try {
       const files = await window.api.pickFiles('选择视频', [
@@ -308,11 +318,17 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   };
 
   const handleLoadedMetadata = () => {
-    const video = videoRefs.current[0];
-    if (video) {
-      setDuration(video.duration || 0);
-      video.volume = volume / 100;
-      video.muted = isMuted;
+    // 处理所有前景视频的音量和静音状态
+    videoRefs.current.forEach(video => {
+      if (video) {
+        video.volume = volume / 100;
+        video.muted = isMuted;
+      }
+    });
+    // 设置时长（使用第一个视频）
+    const firstVideo = videoRefs.current[0];
+    if (firstVideo) {
+      setDuration(firstVideo.duration || 0);
     }
   };
 
@@ -524,6 +540,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                             top: `${style.topPercent}%`,
                             objectFit: 'contain',
                           }}
+                          muted={isMuted}
                           playsInline
                           onTimeUpdate={handleTimeUpdate}
                           onLoadedMetadata={handleLoadedMetadata}
