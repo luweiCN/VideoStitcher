@@ -47,26 +47,28 @@ function buildArgs({ inputPath, outputPath, width, height, blurAmount }) {
   // 1. 先缩放原图到目标尺寸（保持比例，可能留黑边）
   // 2. 创建模糊背景（将原图缩放到覆盖目标尺寸，然后用 boxblur）
   // 3. 将清晰视频叠加到模糊背景上
-  // 4. 确保最终输出尺寸是偶数（x264 要求）
 
-  // 首先缩放前景视频到目标尺寸内（保持比例）
-  let filters = `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black[v_scaled];`;
+  // 前景视频：缩放到目标尺寸内（保持比例），确保偶数
+  let filters = `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease[v_scaled];`;
+  filters += `[v_scaled]pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black[v_padded];`;
 
   if (blurAmount > 0) {
     // 有模糊：创建模糊背景
     // 背景视频缩放到覆盖目标尺寸
-    filters += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})/2:(ih-${height})/2[bg_scaled];`;
+    filters += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase[bg_scaled];`;
+    // 裁剪到精确尺寸
+    filters += `[bg_scaled]crop=${width}:${height}:(iw-${width})/2:(ih-${height})/2[bg_cropped];`;
     // 应用模糊
-    filters += `[bg_scaled]boxblur=${blurAmount}:${blurAmount}:1:1:0:0[bg_blur];`;
+    filters += `[bg_cropped]boxblur=${blurAmount}:${blurAmount}:1:1:0:0[bg_blur];`;
     // 叠加清晰视频到模糊背景中心
-    filters += `[bg_blur][v_scaled]overlay=(W-w)/2:(H-h)/2[final_v];`;
+    filters += `[bg_blur][v_padded]overlay=(W-w)/2:(H-h)/2[final_v];`;
   } else {
     // 无模糊：直接使用缩放后的视频
-    filters += `[v_scaled]copy[final_v];`;
+    filters += `[v_padded]copy[final_v];`;
   }
 
-  // 确保最终输出是偶数（x264 编码器要求）
-  filters += `[final_v]scale=iw-iw%%2:ih-ih%%2[out_even];`;
+  // 确保最终输出是偶数（使用 round 确保偶数）
+  filters += `[final_v]scale=ceil(iw/2)*2:ceil(ih/2)*2[out_even];`;
 
   const args = [
     '-y',
