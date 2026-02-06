@@ -18,8 +18,12 @@ const fs = require('fs').promises;
  * Sharp 实现:
  * - 使用 sharp 的 jpeg({ quality }) 和 resize()
  * - 迭代调整直到满足大小要求
+ *
+ * @param {string} inputPath - 输入图片路径
+ * @param {number} targetSizeKB - 目标大小（KB）
+ * @param {string} outputDir - 输出目录（可选，默认为输入文件所在目录）
  */
-async function compressImage(inputPath, targetSizeKB = 380) {
+async function compressImage(inputPath, targetSizeKB = 380, outputDir = null) {
   const targetSizeBytes = targetSizeKB * 1024;
   const stats = await fs.stat(inputPath);
 
@@ -35,7 +39,11 @@ async function compressImage(inputPath, targetSizeKB = 380) {
   }
 
   const inputBaseName = path.parse(inputPath).name;
-  const outputPath = path.join(path.dirname(inputPath), `${inputBaseName}_compressed.jpg`);
+  // 使用指定的输出目录，如果没有指定则使用输入文件所在目录
+  const outputPath = path.join(
+    outputDir || path.dirname(inputPath),
+    `${inputBaseName}_compressed.jpg`
+  );
 
   let quality = 90;
   let scale = 1.0;

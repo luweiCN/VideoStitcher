@@ -51,11 +51,15 @@ export interface ElectronAPI {
   }) => Promise<{ done: number; failed: number; total: number }>;
 
   // === 图片处理 API ===
+  // 获取 CPU 核心数
+  getCpuCount: () => Promise<{ success: boolean; cpuCount?: number; error?: string }>;
+
   // 图片压缩
   imageCompress: (config: {
     images: string[];
     targetSizeKB?: number;
     outputDir: string;
+    concurrency?: number; // 并发处理数，0 或 undefined 表示自动（CPU 核心数 - 1）
   }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
 
   // 封面格式转换
@@ -188,6 +192,7 @@ const api: ElectronAPI = {
   videoResize: (config) => ipcRenderer.invoke('video-resize', config),
 
   // 图片处理 API
+  getCpuCount: () => ipcRenderer.invoke('get-cpu-count'),
   imageCompress: (config) => ipcRenderer.invoke('image-compress', config),
   imageCoverFormat: (config) => ipcRenderer.invoke('image-cover-format', config),
   imageGrid: (config) => ipcRenderer.invoke('image-grid', config),

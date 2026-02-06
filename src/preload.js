@@ -14,6 +14,7 @@ const api = {
     videoVerticalMerge: (config) => electron_1.ipcRenderer.invoke('video-vertical-merge', config),
     videoResize: (config) => electron_1.ipcRenderer.invoke('video-resize', config),
     // 图片处理 API
+    getCpuCount: () => electron_1.ipcRenderer.invoke('get-cpu-count'),
     imageCompress: (config) => electron_1.ipcRenderer.invoke('image-compress', config),
     imageCoverFormat: (config) => electron_1.ipcRenderer.invoke('image-cover-format', config),
     imageGrid: (config) => electron_1.ipcRenderer.invoke('image-grid', config),
