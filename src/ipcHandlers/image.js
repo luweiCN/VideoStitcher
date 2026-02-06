@@ -86,7 +86,7 @@ async function handleCoverFormat(event, { images, quality, outputDir }) {
         throw new Error(`不支持的文件格式: ${ext}。请选择图片文件 (jpg, png, webp 等)`);
       }
 
-      const result = await convertCoverFormat(imagePath, quality);
+      const result = await convertCoverFormat(imagePath, quality, outputDir);
       results.push(result);
       done++;
       event.sender.send('image-progress', {

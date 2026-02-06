@@ -92,8 +92,12 @@ async function compressImage(inputPath, targetSizeKB = 380) {
  * - 横版 (宽 > 高): 1920x1080
  * - 竖版 (高 > 宽): 1080x1920
  * - 方形 (比例接近 1:1): 800x800
+ *
+ * @param {string} inputPath - 输入图片路径
+ * @param {number} quality - 输出质量 (60-100)
+ * @param {string} outputDir - 输出目录（可选，默认为输入文件所在目录）
  */
-async function convertCoverFormat(inputPath, quality = 90) {
+async function convertCoverFormat(inputPath, quality = 90, outputDir = null) {
   const metadata = await sharp(inputPath).metadata();
   const ratio = metadata.width / metadata.height;
 
@@ -119,8 +123,9 @@ async function convertCoverFormat(inputPath, quality = 90) {
 
   const inputBaseName = path.parse(inputPath).name;
   const inputExt = path.parse(inputPath).ext;
+  // 使用指定的输出目录，如果没有指定则使用输入文件所在目录
   const outputPath = path.join(
-    path.dirname(inputPath),
+    outputDir || path.dirname(inputPath),
     `${inputBaseName}${suffix}${inputExt}`
   );
 
