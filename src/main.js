@@ -119,9 +119,6 @@ app.whenReady().then(() => {
   setupAutoUpdater();
 });
 
-// 存储当前可用更新信息的变量（用于 Windows Squirrel 下载完成后使用）
-let pendingUpdateInfo = null;
-
 // 自动更新配置和事件处理
 function setupAutoUpdater() {
 
@@ -166,12 +163,6 @@ function setupAutoUpdater() {
   // 自动更新事件监听
   autoUpdater.on("update-available", (info) => {
     console.log("Update available:", info);
-    // 保存更新信息供后续使用（Windows Squirrel 需要用到）
-    pendingUpdateInfo = {
-      version: info.version,
-      releaseDate: info.releaseDate,
-      releaseNotes: info.releaseNotes,
-    };
     win.webContents.send("update-available", {
       version: info.version,
       releaseDate: info.releaseDate,
@@ -395,95 +386,28 @@ ipcMain.handle("check-for-updates", async () => {
 });
 
 ipcMain.handle("download-update", async () => {
-  // 输出到渲染进程控制台
-  win.webContents.executeJavaScript(`
-    console.log('%c[开始下载更新]', 'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px;');
-    console.log('当前平台:', '${process.platform}');
-    console.log('待处理的更新信息:', ${JSON.stringify(pendingUpdateInfo)});
-  `);
-
   const log = require("electron-log");
   log.info("[下载更新] 开始下载");
 
   try {
     await autoUpdater.downloadUpdate();
     log.info("[下载更新] 下载完成");
-
-    // 输出到渲染进程控制台
-    win.webContents.executeJavaScript(`
-      console.log('%c[下载完成]', 'background: #10b981; color: white; padding: 2px 5px; border-radius: 3px;', 'downloadUpdate() promise resolved');
-    `);
-
-    // Windows Squirrel: downloadUpdate 完成后通常意味着更新已准备好
-    // 但 update-downloaded 事件可能不会立即触发，所以我们需要手动触发
-    if (process.platform === "win32") {
-      const updateInfo = pendingUpdateInfo || {
-        version: app.getVersion(),
-        releaseDate: new Date().toISOString(),
-        releaseNotes: "Windows 更新已准备就绪，请重启应用以完成安装。",
-      };
-
-      log.info("[下载更新] 发送 update-downloaded 事件:", updateInfo);
-
-      // 输出到渲染进程控制台
-      const infoStr = JSON.stringify(updateInfo);
-      win.webContents.executeJavaScript(`
-        console.log('%c[Windows]', 'background: #f59e0b; color: white; padding: 2px 5px; border-radius: 3px;', '手动触发 update-downloaded 事件');
-        console.log('发送的更新信息:', ${infoStr});
-        console.log('准备发送 IPC 事件...');
-      `);
-
-      if (win && !win.isDestroyed()) {
-        win.webContents.send("update-downloaded", updateInfo);
-
-        // 输出到渲染进程控制台
-        win.webContents.executeJavaScript(`
-          console.log('%c[主进程]', 'background: #8b5cf6; color: white; padding: 2px 5px; border-radius: 3px;', '已发送 update-downloaded IPC 事件');
-        `);
-
-        log.info("✅ 已手动发送 update-downloaded 到渲染进程");
-      } else {
-        win.webContents.executeJavaScript(`
-          console.error('%c[主进程]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', '窗口不存在或已销毁');
-        `);
-        log.error("❌ 窗口不存在或已销毁");
-      }
-    }
-
     return { success: true };
   } catch (err) {
     log.error("[下载更新] 失败:", err);
-    win.webContents.executeJavaScript(`
-      console.error('%c[下载失败]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', '${err.message}');
-    `);
     return { success: false, error: err.message };
   }
 });
 
 ipcMain.handle("install-update", async () => {
   const log = require("electron-log");
-
-  // 输出到渲染进程控制台
-  win.webContents.executeJavaScript(`
-    console.log('%c[安装更新]', 'background: #10b981; color: white; padding: 2px 5px; border-radius: 3px;', '开始安装更新并重启应用');
-  `);
-
   log.info("[安装更新] 开始安装并重启");
 
   try {
-    // 对于 WiX/NSIS，直接调用 quitAndInstall() 即可
-    // 它会关闭应用、安装更新，然后重新启动
     autoUpdater.quitAndInstall();
-
     return { success: true };
   } catch (err) {
     log.error("[安装更新] 失败:", err);
-    // 如果窗口还开着，输出错误
-    if (win && !win.isDestroyed()) {
-      win.webContents.executeJavaScript(`
-        console.error('%c[安装失败]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', '${err.message}');
-      `);
-    }
     return { success: false, error: err.message };
   }
 });
