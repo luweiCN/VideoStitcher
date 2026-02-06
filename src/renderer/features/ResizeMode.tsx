@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FileVideo, Play, Trash2, Loader2, ArrowLeft, FolderOpen, Settings, CheckCircle, Maximize2, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileVideo, Play, Trash2, Loader2, ArrowLeft, FolderOpen, Settings, CheckCircle, Maximize2, Eye, ChevronLeft, ChevronRight, Pause, Volume2, VolumeX } from 'lucide-react';
 
 interface ResizeModeProps {
   onBack: () => void;
@@ -22,6 +22,14 @@ const MODE_CONFIG = {
   unify_v: { name: '统一竖屏', desc: '强制转为竖屏比例', outputs: [{ width: 1080, height: 1920, label: '1080x1920' }] },
 };
 
+// 格式化时间显示
+const formatTime = (seconds: number): string => {
+  if (!isFinite(seconds) || seconds < 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const [videos, setVideos] = useState<string[]>([]);
   const [outputDir, setOutputDir] = useState<string>('');
@@ -36,6 +44,14 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null);
   const [originalVideoSize, setOriginalVideoSize] = useState({ width: 1920, height: 1080 });
+
+  // 视频播放状态
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(30);
+  const [isMuted, setIsMuted] = useState(true);
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
@@ -150,6 +166,25 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     }
   }, [videos, currentVideoIndex, mode, generatePreviews]);
 
+  // 当视频切换时，重置播放状态并停止所有视频
+  useEffect(() => {
+    // 停止所有正在播放的视频
+    videoRefs.current.forEach(video => {
+      if (video) {
+        video.pause();
+        video.currentTime = 0;
+      }
+    });
+
+    // 重置播放状态
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+
+    // 清空旧的 refs
+    videoRefs.current = [];
+  }, [currentVideoIndex, videos.length]);
+
   const handleSelectVideos = async () => {
     try {
       const files = await window.api.pickFiles('选择视频', [
@@ -187,6 +222,74 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     if (currentVideoIndex < videos.length - 1) {
       setCurrentVideoIndex(currentVideoIndex + 1);
     }
+  };
+
+  // 视频播放控制
+  const togglePlayPause = () => {
+    videoRefs.current.forEach(video => {
+      if (video) {
+        if (isPlaying) {
+          video.pause();
+        } else {
+          video.play();
+        }
+      }
+    });
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    setCurrentTime(time);
+    videoRefs.current.forEach(video => {
+      if (video) {
+        video.currentTime = time;
+      }
+    });
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseInt(e.target.value);
+    setVolume(newVolume);
+    setIsMuted(newVolume === 0);
+    videoRefs.current.forEach(video => {
+      if (video) {
+        video.volume = newVolume / 100;
+        video.muted = newVolume === 0;
+      }
+    });
+  };
+
+  const toggleMute = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    videoRefs.current.forEach(video => {
+      if (video) {
+        video.muted = newMuted;
+      }
+    });
+  };
+
+  const handleTimeUpdate = () => {
+    const video = videoRefs.current[0];
+    if (video) {
+      setCurrentTime(video.currentTime);
+      setDuration(video.duration || 0);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    const video = videoRefs.current[0];
+    if (video) {
+      setDuration(video.duration || 0);
+      video.volume = volume / 100;
+      video.muted = isMuted;
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
   };
 
   const startProcessing = async () => {
@@ -360,7 +463,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                         <span className="text-[10px] text-slate-500">实时预览</span>
                       </div>
                       <div
-                        className="bg-black rounded-lg overflow-hidden border border-slate-800 relative group"
+                        className="bg-black rounded-lg overflow-hidden border border-slate-800 relative"
                         style={{
                           aspectRatio: style.containerAspectRatio,
                         }}
@@ -382,6 +485,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                         <div className="absolute inset-0 bg-black/30" />
                         {/* 前景层（清晰视频，可播放） */}
                         <video
+                          ref={el => videoRefs.current[index] = el}
                           src={preview.url}
                           className="absolute bg-transparent"
                           style={{
@@ -391,9 +495,58 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                             top: `${style.topPercent}%`,
                             objectFit: 'contain',
                           }}
-                          controls
                           playsInline
+                          onTimeUpdate={handleTimeUpdate}
+                          onLoadedMetadata={handleLoadedMetadata}
+                          onEnded={handleEnded}
                         />
+                      </div>
+
+                      {/* 自定义播放控件 */}
+                      <div className="bg-slate-900 rounded-lg p-3 space-y-2">
+                        {/* 进度条 */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={togglePlayPause}
+                            className="p-1.5 hover:bg-slate-800 rounded transition-colors shrink-0"
+                            title={isPlaying ? '暂停' : '播放'}
+                          >
+                            {isPlaying ? <Pause className="w-4 h-4 text-rose-400" /> : <Play className="w-4 h-4 text-rose-400" />}
+                          </button>
+                          <input
+                            type="range"
+                            min="0"
+                            max={duration || 100}
+                            value={currentTime}
+                            onChange={handleSeek}
+                            className="flex-1 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-rose-500"
+                          />
+                          <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                            {formatTime(currentTime)} / {formatTime(duration)}
+                          </span>
+                        </div>
+
+                        {/* 音量控制 */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={toggleMute}
+                            className="p-1 hover:bg-slate-800 rounded transition-colors shrink-0"
+                            title={isMuted ? '取消静音' : '静音'}
+                          >
+                            {isMuted ? <VolumeX className="w-3.5 h-3.5 text-slate-400" /> : <Volume2 className="w-3.5 h-3.5 text-slate-400" />}
+                          </button>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={isMuted ? 0 : volume}
+                            onChange={handleVolumeChange}
+                            className="flex-1 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-slate-500"
+                          />
+                          <span className="text-[10px] text-slate-500 font-mono shrink-0 w-8 text-right">
+                            {isMuted ? 0 : volume}%
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
