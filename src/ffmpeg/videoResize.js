@@ -66,7 +66,7 @@ function buildArgs({ inputPath, outputPath, width, height, blurAmount }) {
   }
 
   // 确保最终输出是偶数（x264 编码器要求）
-  filters += `[final_v]scale=iw-iw%2:ih-ih%2[out_even];`;
+  filters += `[final_v]scale=iw-iw%%2:ih-ih%%2[out_even];`;
 
   const args = [
     '-y',
