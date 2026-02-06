@@ -158,6 +158,7 @@ const HorizontalMode: React.FC<HorizontalModeProps> = ({ onBack }) => {
         aVideos: sideAVideos,
         bVideos: videos,
         bgImage: bgImagePath || undefined,
+        coverImage: covers.length > 0 ? covers[0] : undefined,
         outputDir,
         concurrency
       });
@@ -360,10 +361,9 @@ const HorizontalMode: React.FC<HorizontalModeProps> = ({ onBack }) => {
             )}
           </div>
         </div>
-      </div>
 
-        {/* 设置和进度区域 */}
-        <div className="space-y-4">
+          {/* 设置和进度区域 */}
+          <div className="space-y-4">
           {/* Settings */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
             <h3 className="font-medium mb-3 flex items-center gap-2">
@@ -450,6 +450,7 @@ const HorizontalMode: React.FC<HorizontalModeProps> = ({ onBack }) => {
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

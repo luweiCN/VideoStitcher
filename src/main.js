@@ -6,7 +6,7 @@ const { autoUpdater } = require("electron-updater");
 
 const { buildPairs } = require("./ffmpeg/pair");
 const { TaskQueue } = require("./ffmpeg/queue");
-const { runFfmpeg } = require("./ffmpeg/ffmpegCmd");
+const { runFfmpeg } = require("./ffmpeg/runFfmpeg");
 
 // 导入新的 IPC 处理器
 const { registerVideoHandlers } = require("./ipcHandlers/video");

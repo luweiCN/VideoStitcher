@@ -5,7 +5,9 @@
 
 const { ipcMain, BrowserWindow } = require('electron');
 const path = require('path');
-const { runFfmpeg } = require('../ffmpeg/ffmpegCmd');
+const { runFfmpeg } = require('../ffmpeg/runFfmpeg');
+const { buildArgs: buildHorizontalArgs } = require('../ffmpeg/horizontalMerge');
+const { buildArgs: buildVerticalArgs } = require('../ffmpeg/verticalMerge');
 const { TaskQueue } = require('../ffmpeg/queue');
 const os = require('os');
 
@@ -15,8 +17,16 @@ const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 /**
  * 横屏合成处理
  * 使用现有的 A+B 拼接逻辑
+ *
+ * @param {Object} params - 参数对象
+ * @param {string[]} params.aVideos - A面视频列表
+ * @param {string[]} params.bVideos - B面视频列表（主视频）
+ * @param {string} [params.bgImage] - 背景图路径
+ * @param {string} [params.coverImage] - 封面图路径
+ * @param {string} params.outputDir - 输出目录
+ * @param {number} [params.concurrency] - 并发数
  */
-async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, outputDir, concurrency }) {
+async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverImage, outputDir, concurrency }) {
   if (!bVideos.length) {
     throw new Error('主视频库为空');
   }
@@ -50,9 +60,20 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, outputD
       const outPath = path.join(outputDir, outName);
 
       try {
-        await runFfmpeg({ aPath: a, bPath: b, outPath, orientation: 'landscape' }, (log) => {
+        // 使用横屏拼接模块构建命令
+        const args = buildHorizontalArgs({
+          aPath: a,
+          bPath: b,
+          outPath,
+          bgImage,
+          coverImage
+        });
+
+        // 执行 FFmpeg 命令
+        await runFfmpeg(args, (log) => {
           event.sender.send('video-log', { index, message: log });
         });
+
         done++;
         event.sender.send('video-progress', { done, failed, total, index, outputPath: outPath });
       } catch (err) {
@@ -70,8 +91,16 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, outputD
 
 /**
  * 竖屏合成处理
+ *
+ * @param {Object} params - 参数对象
+ * @param {string[]} params.mainVideos - 主视频列表（B面）
+ * @param {string} [params.bgImage] - 背景图路径
+ * @param {string[]} [params.aVideos] - A面视频列表
+ * @param {string} [params.coverImage] - 封面图路径
+ * @param {string} params.outputDir - 输出目录
+ * @param {number} [params.concurrency] - 并发数
  */
-async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, outputDir, concurrency }) {
+async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverImage, outputDir, concurrency }) {
   if (!mainVideos.length) {
     throw new Error('主视频库为空');
   }
@@ -101,9 +130,20 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, output
       const outPath = path.join(outputDir, outName);
 
       try {
-        await runFfmpeg({ aPath: aVideo, bPath: mainVideo, outPath, orientation: 'portrait' }, (log) => {
+        // 使用竖屏拼接模块构建命令
+        const args = buildVerticalArgs({
+          aPath: aVideo,
+          bPath: mainVideo,
+          outPath,
+          bgImage,
+          coverImage
+        });
+
+        // 执行 FFmpeg 命令
+        await runFfmpeg(args, (log) => {
           event.sender.send('video-log', { index, message: log });
         });
+
         done++;
         event.sender.send('video-progress', { done, failed, total, index, outputPath: outPath });
       } catch (err) {
@@ -141,7 +181,6 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
  */
 async function handleHorizontalPreview(event, { aVideo, bVideo, bgImage, coverImage }) {
   const os = require('os');
-  const path = require('path');
   const fs = require('fs');
 
   if (!bVideo) {
@@ -166,13 +205,22 @@ async function handleHorizontalPreview(event, { aVideo, bVideo, bgImage, coverIm
   event.sender.send('preview-start', { mode: 'horizontal' });
 
   try {
-    // 调用 FFmpeg 处理
-    await runFfmpeg(
-      { aPath: finalAVideo, bPath: bVideo, outPath: previewPath, orientation: 'landscape' },
-      (log) => {
-        event.sender.send('preview-log', { message: log });
-      }
-    );
+    // 使用横屏拼接模块构建命令
+    const args = buildHorizontalArgs({
+      aPath: finalAVideo,
+      bPath: bVideo,
+      outPath: previewPath,
+      bgImage,
+      coverImage
+    });
+
+    // 调试：输出命令
+    console.log('[DEBUG 预览命令]', JSON.stringify(args.filter(a => a.startsWith('[') || a === '-filter_complex'), null, 2));
+
+    // 执行 FFmpeg 命令
+    await runFfmpeg(args, (log) => {
+      event.sender.send('preview-log', { message: log });
+    });
 
     // 发送预览完成事件，返回预览文件路径
     event.sender.send('preview-complete', { previewPath });
@@ -187,9 +235,8 @@ async function handleHorizontalPreview(event, { aVideo, bVideo, bgImage, coverIm
 /**
  * 竖屏合成预览
  */
-async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo }) {
+async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo, coverImage }) {
   const os = require('os');
-  const path = require('path');
   const fs = require('fs');
 
   if (!mainVideo) {
@@ -214,13 +261,19 @@ async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo }) {
   event.sender.send('preview-start', { mode: 'vertical' });
 
   try {
-    // 调用 FFmpeg 处理
-    await runFfmpeg(
-      { aPath: finalAVideo, bPath: mainVideo, outPath: previewPath, orientation: 'portrait' },
-      (log) => {
-        event.sender.send('preview-log', { message: log });
-      }
-    );
+    // 使用竖屏拼接模块构建命令
+    const args = buildVerticalArgs({
+      aPath: finalAVideo,
+      bPath: mainVideo,
+      outPath: previewPath,
+      bgImage,
+      coverImage
+    });
+
+    // 执行 FFmpeg 命令
+    await runFfmpeg(args, (log) => {
+      event.sender.send('preview-log', { message: log });
+    });
 
     // 发送预览完成事件
     event.sender.send('preview-complete', { previewPath });
@@ -237,7 +290,6 @@ async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo }) {
  */
 async function handleClearPreviews() {
   const os = require('os');
-  const path = require('path');
   const fs = require('fs');
 
   const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview');
