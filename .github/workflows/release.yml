@@ -174,41 +174,25 @@ jobs:
 
       - name: 构建 macOS
         run: |
-          npm run build:preload
-          if [ $? -ne 0 ]; then echo "build:preload 失败"; exit 1; fi
+          npm run build
+          npm run dist:mac -- --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-          npm run build:renderer
-          if [ $? -ne 0 ]; then echo "build:renderer 失败"; exit 1; fi
-
-          npm run make
-          if [ $? -ne 0 ]; then echo "make 失败"; exit 1; fi
-
-          echo "=== 检查构建输出 ==="
-          ls -la out/make/ || echo "out/make 目录不存在"
-
-      - name: 生成 macOS 更新元数据
+      - name: 检查构建输出
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          bash .github/scripts/generate-latest-mac-yml.sh "$VERSION"
-        continue-on-error: true
+          echo "=== 检查 dist 目录 ==="
+          ls -la dist/ || echo "dist 目录不存在"
 
       - name: 上传 macOS 构建产物
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
           path: |
-            out/make/*.dmg
-            out/make/*darwin*.zip
-            out/make/latest-mac.yml
+            dist/*.dmg
+            dist/*.zip
+            dist/*.yml
           if-no-files-found: ignore
-
-      - name: 上传 macOS 更新元数据
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-update-metadata
-          path: out/make/latest-mac.yml
-        if: hashFiles('out/make/latest-mac.yml') != ''
-        continue-on-error: true
 
   # 构建 Windows
   build-windows:
@@ -238,80 +222,29 @@ jobs:
           }
         timeout-minutes: 15
 
-      - name: 清理旧的构建产物
-        shell: pwsh
-        run: |
-          if (Test-Path "out") {
-            Write-Host "清理旧的构建产物..."
-            Remove-Item -Recurse -Force "out"
-            Write-Host "✅ 已清理 out 目录"
-          }
-
       - name: 构建 Windows
         shell: pwsh
         run: |
-          npm run build:preload
-          if ($LASTEXITCODE -ne 0) { throw "build:preload 失败" }
+          npm run build
+          npm run dist:win -- --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-          npm run build:renderer
-          if ($LASTEXITCODE -ne 0) { throw "build:renderer 失败" }
-
-          npm run make
-          if ($LASTEXITCODE -ne 0) { throw "make 失败" }
-
-          # 检查 NSIS 构建输出
-          Write-Host "=== 检查 NSIS 构建输出 ==="
-          $NsisDirs = Get-ChildItem "out/make" -Directory | Where-Object { $_.Name -like "nsis*" }
-          if ($NsisDirs) {
-            foreach ($Dir in $NsisDirs) {
-              Write-Host "NSIS 目录: $($Dir.FullName)"
-              Get-ChildItem $Dir.FullName | ForEach-Object {
-                Write-Host "  - $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)"
-              }
-            }
-
-            # 检查 EXE 文件
-            $ExeFiles = Get-ChildItem -Recurse "out/make/nsis*" -Filter "*.exe" -ErrorAction SilentlyContinue
-            if ($ExeFiles) {
-              Write-Host "✅ 找到 EXE 文件: $($ExeFiles.Count) 个"
-              $ExeFiles | ForEach-Object {
-                Write-Host "  - $($_.FullName)"
-              }
-            } else {
-              Write-Host "❌ 未找到 EXE 文件"
-              throw "NSIS 构建失败：未找到 EXE 文件"
-            }
-          } else {
-            Write-Host "❌ NSIS 目录不存在"
-            throw "NSIS 构建失败：目录不存在"
-          }
-
-      - name: 列出输出目录
+      - name: 检查构建输出
         shell: pwsh
         run: |
-          echo "=== out 目录结构 ==="
-          Get-ChildItem -Recurse out | Select-Object FullName
-        continue-on-error: true
+          Write-Host "=== 检查 dist 目录 ==="
+          Get-ChildItem -Recurse dist | Select-Object FullName, Length
 
       - name: 上传 Windows 构建产物
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: |
-            out/make/**/*.zip
-            out/make/**/nsis*/**/*.exe
-            out/make/**/latest.yml
+            dist/*.exe
+            dist/*.zip
+            dist/*.yml
           if-no-files-found: error
-
-      - name: 验证 artifact 内容
-        shell: pwsh
-        run: |
-          Write-Host "=== 验证上传的 artifact ==="
-          $ExeFiles = Get-ChildItem -Recurse "out/make" -File "*.exe" -ErrorAction SilentlyContinue
-          Write-Host "找到 EXE 文件: $($ExeFiles.Count) 个"
-          $ExeFiles | ForEach-Object {
-            Write-Host "  - $($_.FullName)"
-          }
 
   # 创建发布（需要所有构建完成）
   release:
@@ -325,13 +258,6 @@ jobs:
         continue-on-error: true
         with:
           name: macos-build
-          path: macos
-
-      - name: 下载 macOS 更新元数据
-        uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: macos-update-metadata
           path: macos
 
       - name: 下载 Windows 构建

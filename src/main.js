@@ -3,8 +3,6 @@ const os = require("os");
 const path = require("path");
 const { autoUpdater } = require("electron-updater");
 
-if (require('electron-squirrel-startup')) app.quit();
-
 const { buildPairs } = require("./ffmpeg/pair");
 const { TaskQueue } = require("./ffmpeg/queue");
 const { runFfmpeg } = require("./ffmpeg/ffmpegCmd");

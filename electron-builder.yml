@@ -1,43 +1,100 @@
-# electron-builder 配置 (仅用于 Windows NSIS 安装包)
-# Mac/Linux 继续使用 electron-forge
+# electron-builder 配置
+# 支持自动更新的跨平台构建配置
 
-appId: com.local.videostitcher
+appId: com.videostitcher.app
 productName: VideoStitcher
 directories:
   buildResources: build
   output: dist
 
+# 发布配置（用于自动更新）
+publish:
+  provider: github
+  owner: luweiCN
+  repo: VideoStitcher
+
+# 文件包含/排除
 files:
-  - src/**/*
-  - package.json
+  - "!**/.vscode/*"
+  - "!**/.git/*"
+  - "!**/.github/*"
+  - "!**/src/**/*.{ts,tsx}"
+  - "!**/.gitignore"
+  - "!**/.eslintrc*"
+  - "!**/README.md"
+  - "!**/CLAUDE.md"
+
+# asar 打包配置
+asar:
+  unpack: |
+    **/node_modules/{ffmpeg-static,sharp,@img}/**
+
+# macOS 配置
+mac:
+  category: public.app-category.video
+  icon: build/icon.icns
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  gatekeeperAssess: false
+  hardenedRuntime: true
 
 # Windows 配置
 win:
-  signAndEditExecutable: false  # 禁用可执行文件签名
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
         - x64
-  artifactName: ${productName}-${version}-setup.${ext}
+    - target: zip
+      arch:
+        - x64
 
-# NSIS 安装包配置
+# NSIS 安装程序配置
 nsis:
-  oneClick: false                                  # 传统安装向导（非一键安装）
-  allowToChangeInstallationDirectory: true         # 允许用户选择安装目录
-  perMachine: false                                # 为当前用户安装
-  createDesktopShortcut: always                   # 创建桌面快捷方式
-  createStartMenuShortcut: true                    # 创建开始菜单快捷方式
-  runAfterFinish: false                           # 安装完成后不自动运行
-
-  # 安装包图标（可选）
-  # installerIcon: build/icon.ico
-
-  # 卸载配置
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: VideoStitcher
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  artifactName: ${productName}-${version}-${arch}.${ext}
   deleteAppDataOnUninstall: false
 
-  # 安装程序语言
-  language: 2052  # 简体中文
+# Linux 配置
+linux:
+  icon: build/icons
+  category: Video
+  target:
+    - target: deb
+      arch:
+        - x64
+    - target: rpm
+      arch:
+        - x64
+    - target: AppImage
+      arch:
+        - x64
 
-# asar 配置（确保 ffmpeg 被解压）
-asarUnpack:
-  - node_modules/ffmpeg-static/**/*
+# DMG 配置
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
