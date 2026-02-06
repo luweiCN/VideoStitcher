@@ -39,47 +39,50 @@ const RESIZE_CONFIGS = {
  * @param {number} config.width - 目标宽度
  * @param {number} config.height - 目标高度
  * @param {number} config.blurAmount - 模糊程度 (0-50)
+ * @param {number} [config.threads] - FFmpeg 线程数，默认自动
  * @returns {string[]} FFmpeg 命令行参数数组
  */
-function buildArgs({ inputPath, outputPath, width, height, blurAmount }) {
-  // 构建 filter_complex
-  // 逻辑：
-  // 1. 先缩放原图到目标尺寸（保持比例，可能留黑边）
-  // 2. 创建模糊背景（将原图缩放到覆盖目标尺寸，然后用 boxblur）
-  // 3. 将清晰视频叠加到模糊背景上
+function buildArgs({ inputPath, outputPath, width, height, blurAmount, threads }) {
+  console.log(`[videoResize] 目标尺寸: ${width}x${height}, 模糊: ${blurAmount}`);
 
-  // 前景视频：缩放到目标尺寸内（保持比例），确保偶数
-  let filters = `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease[v_scaled];`;
-  filters += `[v_scaled]pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black[v_padded];`;
+  // 完整版本：背景 + 前景 + 叠加
+  // 关键：先用 split 创建两个副本，因为同一输入不能直接用两次
+  let filters = `[0:v]split=2[bg_src][fg_src];`;
 
+  // 1. 创建模糊背景（cover 模式：等比缩放撑满，然后裁剪）
+  filters += `[bg_src]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})/2:(ih-${height})/2`;
   if (blurAmount > 0) {
-    // 有模糊：创建模糊背景
-    // 背景视频缩放到覆盖目标尺寸
-    filters += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase[bg_scaled];`;
-    // 裁剪到精确尺寸
-    filters += `[bg_scaled]crop=${width}:${height}:(iw-${width})/2:(ih-${height})/2[bg_cropped];`;
-    // 应用模糊
-    filters += `[bg_cropped]boxblur=${blurAmount}:${blurAmount}:1:1:0:0[bg_blur];`;
-    // 叠加清晰视频到模糊背景中心
-    filters += `[bg_blur][v_padded]overlay=(W-w)/2:(H-h)/2[final_v];`;
-  } else {
-    // 无模糊：直接使用缩放后的视频
-    filters += `[v_padded]copy[final_v];`;
+    filters += `,boxblur=${blurAmount}:${blurAmount}`;
   }
+  filters += `[bg];`;
 
-  // 确保最终输出是偶数（使用 round 确保偶数）
-  filters += `[final_v]scale=ceil(iw/2)*2:ceil(ih/2)*2[out_even];`;
+  // 2. 创建清晰前景（fit 模式：等比缩放到适应尺寸，不 pad）
+  // scale 的 force_original_aspect_ratio=decrease 会保持比例，缩放到能适应目标尺寸的最大值
+  // 缩放后的尺寸可能小于目标尺寸，但这正是我们想要的 - 用于居中叠加
+  filters += `[fg_src]scale=${width}:${height}:force_original_aspect_ratio=decrease[fg];`;
 
+  // 3. 叠加：前景居中叠加到背景上
+  // (W-w)/2 和 (H-h)/2 计算居中位置，其中 W/H 是背景尺寸，w/h 是前景尺寸
+  filters += `[bg][fg]overlay=(W-w)/2:(H-h)/2[out]`;
+
+  console.log(`[videoResize] filter_complex: ${filters}`);
+
+  // 构建参数，添加性能优化选项
   const args = [
     '-y',
     '-i', inputPath,
     '-filter_complex', filters,
-    '-map', '[out_even]',
-    '-map', '0:a?',  // 包含原始音频（如果有）
+    '-map', '[out]',
+    '-map', '0:a?',
+    // 视频编码性能优化
     '-c:v', 'libx264',
-    '-preset', 'ultrafast',
-    '-crf', '28',
-    '-c:a', 'copy',  // 音频直接复制，不重新编码
+    '-preset', 'ultrafast',      // 最快编码预设
+    '-tune', 'fastdecode',       // 优化解码速度
+    '-crf', '28',                 // 质量控制
+    // 线程优化
+    ...(threads ? ['-threads', String(threads)] : ['-threads', 'auto']),  // 线程数
+    '-x264-params', 'threads=0:lookahead_threads=0',  // x264 内部线程优化
+    '-c:a', 'copy',               // 音频直接复制
     outputPath
   ];
   return args;
@@ -93,11 +96,12 @@ function buildArgs({ inputPath, outputPath, width, height, blurAmount }) {
  * @param {string} config.tempDir - 临时目录
  * @param {string} config.mode - 模式 (siya | fishing | unify_h | unify_v)
  * @param {number} config.blurAmount - 模糊程度
+ * @param {number} [config.threads] - FFmpeg 线程数
  * @param {function} config.onProgress - 进度回调
  * @param {function} config.onLog - 日志回调
  * @returns {Promise<string[]>} 预览视频路径数组
  */
-async function generatePreviews({ inputPath, tempDir, mode, blurAmount, onProgress, onLog }) {
+async function generatePreviews({ inputPath, tempDir, mode, blurAmount, threads, onProgress, onLog }) {
   const configs = RESIZE_CONFIGS[mode];
   if (!configs) {
     throw new Error(`无效的模式: ${mode}`);
@@ -127,6 +131,7 @@ async function generatePreviews({ inputPath, tempDir, mode, blurAmount, onProgre
       width: config.width,
       height: config.height,
       blurAmount,
+      threads,
     });
 
     await runFfmpeg(args, onLog);

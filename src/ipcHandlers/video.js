@@ -374,13 +374,19 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
         const index = i * configs.length + j;
 
         try {
+          console.log(`[handleResize] 处理任务 ${index}: ${videoPath}, 目标: ${config.width}x${config.height}, 模糊: ${blurAmount}`);
+
           const args = buildResizeArgs({
             inputPath: videoPath,
             outputPath: outPath,
             width: config.width,
             height: config.height,
             blurAmount,
+            // 每个任务使用全部 CPU 核心数，提高单个任务速度
+            threads: os.cpus().length,
           });
+
+          console.log(`[handleResize] FFmpeg 命令:`, JSON.stringify(args.filter(a => a.startsWith('[') || a === '-filter_complex'), null, 2));
 
           await runFfmpeg(args, (log) => {
             event.sender.send('video-log', { index, message: log });
@@ -562,6 +568,7 @@ async function handleGenerateResizePreviews(event, { videoPath, mode, blurAmount
       tempDir,
       mode,
       blurAmount,
+      threads: os.cpus().length,  // 预览也使用全部 CPU 核心
       onProgress: (progress) => {
         event.sender.send('preview-log', { message: `处理进度: ${Math.floor(progress)}%` });
       },
