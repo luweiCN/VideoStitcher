@@ -203,6 +203,21 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
     return `${gb.toFixed(1)} GB`;
   };
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '未知';
+    try {
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}年${month}月${day}日 ${hours}:${minutes}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6">
       {/* Header */}
@@ -356,7 +371,7 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                   </div>
                   <div>
                     <span className="text-slate-400">发布日期：</span>
-                    <span className="text-white ml-2">{updateInfo.releaseDate}</span>
+                    <span className="text-white ml-2">{formatDate(updateInfo.releaseDate)}</span>
                   </div>
                 </div>
                 {updateInfo.releaseNotes && (
