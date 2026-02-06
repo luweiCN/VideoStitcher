@@ -47,24 +47,32 @@ function buildArgs({ inputPath, outputPath, width, height, blurAmount }) {
   // 1. 先缩放原图到目标尺寸（保持比例，可能留黑边）
   // 2. 创建模糊背景（将原图缩放到覆盖目标尺寸，然后用 boxblur）
   // 3. 将清晰视频叠加到模糊背景上
+  // 4. 确保最终输出尺寸是偶数（x264 要求）
 
+  // 首先缩放前景视频到目标尺寸内（保持比例）
   let filters = `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black[v_scaled];`;
 
   if (blurAmount > 0) {
-    // 有模糊：创建模糊背景，然后叠加清晰视频
-    filters += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase[bg_scaled];`;
+    // 有模糊：创建模糊背景
+    // 背景视频缩放到覆盖目标尺寸
+    filters += `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-${width})/2:(ih-${height})/2[bg_scaled];`;
+    // 应用模糊
     filters += `[bg_scaled]boxblur=${blurAmount}:${blurAmount}:1:1:0:0[bg_blur];`;
+    // 叠加清晰视频到模糊背景中心
     filters += `[bg_blur][v_scaled]overlay=(W-w)/2:(H-h)/2[final_v];`;
   } else {
     // 无模糊：直接使用缩放后的视频
     filters += `[v_scaled]copy[final_v];`;
   }
 
+  // 确保最终输出是偶数（x264 编码器要求）
+  filters += `[final_v]scale=iw-iw%2:ih-ih%2[out_even];`;
+
   const args = [
     '-y',
     '-i', inputPath,
     '-filter_complex', filters,
-    '-map', '[final_v]',
+    '-map', '[out_even]',
     '-map', '0:a?',  // 包含原始音频（如果有）
     '-c:v', 'libx264',
     '-preset', 'ultrafast',
