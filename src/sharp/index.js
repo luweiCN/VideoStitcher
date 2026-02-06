@@ -181,11 +181,11 @@ async function createGridImage(inputPath, outputDir) {
       const left = col * tileWidth;
       const top = row * tileHeight;
       const index = row * 3 + col + 1;
-      const outputPath = path.join(outputDir, `${inputBaseName}_${index}.jpg`);
+      const outputPath = path.join(outputDir, `${inputBaseName}_${index}.png`);
 
       await sharp(inputPath)
         .extract({ left, top, width: tileWidth, height: tileHeight })
-        .jpeg({ quality: 95 })
+        .png()
         .toFile(outputPath);
 
       results.push({

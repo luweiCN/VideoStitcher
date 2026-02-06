@@ -1,23 +1,203 @@
-import React, { useState, useEffect } from 'react';
-import { ImageIcon, Play, Trash2, Loader2, ArrowLeft, FolderOpen, Settings, CheckCircle, Grid3X3 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Upload, Loader2, FolderOpen, Grid3X3, CheckCircle, XCircle, ArrowLeft, AlertCircle } from 'lucide-react';
 
 interface LosslessGridModeProps {
   onBack: () => void;
 }
 
+interface ImageFile {
+  id: string;
+  path: string;
+  name: string;
+  size: number;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  naturalWidth?: number;
+  naturalHeight?: number;
+  error?: string;
+  previewUrl?: string;
+}
+
 const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageFile[]>([]);
   const [outputDir, setOutputDir] = useState<string>('');
-  const [showHelp, setShowHelp] = useState(false);
-
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
-  const [logs, setLogs] = useState<string[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const addLog = (msg: string) => {
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  // 处理拖拽上传
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter(file =>
+      file.type.startsWith('image/')
+    );
+
+    if (imageFiles.length === 0) {
+      return;
+    }
+
+    // 获取图片尺寸信息
+    const newImages: ImageFile[] = [];
+
+    for (const file of imageFiles) {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      await new Promise<void>((resolve) => {
+        img.onload = () => {
+          const previewUrl = URL.createObjectURL(file);
+          newImages.push({
+            id: Math.random().toString(36).substr(2, 9),
+            path: file.path,
+            name: file.name,
+            size: file.size,
+            status: 'pending' as const,
+            naturalWidth: img.naturalWidth,
+            naturalHeight: img.naturalHeight,
+            previewUrl
+          });
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.onerror = () => {
+          const previewUrl = URL.createObjectURL(file);
+          newImages.push({
+            id: Math.random().toString(36).substr(2, 9),
+            path: file.path,
+            name: file.name,
+            size: file.size,
+            status: 'pending' as const,
+            previewUrl
+          });
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.src = url;
+      });
+    }
+
+    setImages(prev => [...prev, ...newImages]);
+  }, []);
+
+  // 文件选择处理
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const imageFiles = files.filter(file =>
+      file.type.startsWith('image/')
+    );
+
+    if (imageFiles.length === 0) {
+      return;
+    }
+
+    const newImages: ImageFile[] = [];
+
+    for (const file of imageFiles) {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      await new Promise<void>((resolve) => {
+        img.onload = () => {
+          const previewUrl = URL.createObjectURL(file);
+          newImages.push({
+            id: Math.random().toString(36).substr(2, 9),
+            path: file.path,
+            name: file.name,
+            size: file.size,
+            status: 'pending' as const,
+            naturalWidth: img.naturalWidth,
+            naturalHeight: img.naturalHeight,
+            previewUrl
+          });
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.onerror = () => {
+          const previewUrl = URL.createObjectURL(file);
+          newImages.push({
+            id: Math.random().toString(36).substr(2, 9),
+            path: file.path,
+            name: file.name,
+            size: file.size,
+            status: 'pending' as const,
+            previewUrl
+          });
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.src = url;
+      });
+    }
+
+    setImages(prev => [...prev, ...newImages]);
+
+    // 清空 input 以便可以重复选择相同文件
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
+  // 选择输出目录
+  const handleSelectOutputDir = async () => {
+    try {
+      const dir = await window.api.pickOutDir();
+      if (dir) {
+        setOutputDir(dir);
+      }
+    } catch (err) {
+      console.error('选择输出目录失败:', err);
+    }
+  };
+
+  // 移除图片
+  const removeImage = (id: string) => {
+    setImages(prev => {
+      const img = prev.find(i => i.id === id);
+      if (img?.previewUrl) {
+        URL.revokeObjectURL(img.previewUrl);
+      }
+      return prev.filter(img => img.id !== id);
+    });
+  };
+
+  // 清空列表
+  const clearImages = () => {
+    setImages(prev => {
+      prev.forEach(img => {
+        if (img.previewUrl) {
+          URL.revokeObjectURL(img.previewUrl);
+        }
+      });
+      return [];
+    });
+  };
+
+  // 组件卸载时清理所有 previewUrl
+  useEffect(() => {
+    return () => {
+      images.forEach(img => {
+        if (img.previewUrl) {
+          URL.revokeObjectURL(img.previewUrl);
+        }
+      });
+    };
+  }, [images]);
+
+  // 监听处理进度
   useEffect(() => {
     const cleanup = () => {
       window.api.removeAllListeners('image-start');
@@ -27,258 +207,239 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
     };
 
     window.api.onImageStart((data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
-      setProgress({ done: 0, failed: 0, total: data.total });
+      // 处理开始时标记所有待处理图片为处理中
+      setImages(prev => prev.map(img =>
+        img.status === 'pending' ? { ...img, status: 'processing' } : img
+      ));
     });
 
     window.api.onImageProgress((data) => {
-      setProgress({ done: data.done, failed: data.failed, total: data.total });
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
+      // 更新当前处理的图片状态
+      if (data.current) {
+        setImages(prev => prev.map(img => {
+          if (img.path === data.current) {
+            return { ...img, status: 'completed' };
+          }
+          return img;
+        }));
+      }
     });
 
     window.api.onImageFailed((data) => {
-      addLog(`❌ 处理失败: ${data.current} - ${data.error}`);
+      // 标记失败的图片
+      if (data.current) {
+        setImages(prev => prev.map(img => {
+          if (img.path === data.current) {
+            return { ...img, status: 'error', error: data.error };
+          }
+          return img;
+        }));
+      }
     });
 
     window.api.onImageFinish((data) => {
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`);
       setIsProcessing(false);
     });
 
     return cleanup;
   }, []);
 
-  const handleSelectImages = async () => {
-    try {
-      const files = await window.api.pickFiles('选择图片 (推荐1:1比例)', [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp'] }
-      ]);
-      if (files.length > 0) {
-        setImages(files);
-        addLog(`已选择 ${files.length} 张图片`);
-      }
-    } catch (err) {
-      addLog(`选择图片失败: ${err}`);
-    }
-  };
-
-  const handleSelectOutputDir = async () => {
-    try {
-      const dir = await window.api.pickOutDir();
-      if (dir) {
-        setOutputDir(dir);
-        addLog(`输出目录: ${dir}`);
-      }
-    } catch (err) {
-      addLog(`选择输出目录失败: ${err}`);
-    }
-  };
-
+  // 开始处理
   const startProcessing = async () => {
     if (images.length === 0) {
-      addLog('⚠️ 请先选择图片');
       return;
     }
     if (!outputDir) {
-      addLog('⚠️ 请先选择输出目录');
-      return;
+      // 如果没有选择输出目录，先让用户选择
+      await handleSelectOutputDir();
+      if (!outputDir) {
+        return;
+      }
     }
     if (isProcessing) return;
 
     setIsProcessing(true);
-    setLogs([]);
-    addLog('开始无损九宫格处理...');
-    addLog(`图片: ${images.length} 张`);
 
     try {
+      const imagePaths = images.map(img => img.path);
       await window.api.imageGrid({
-        images,
+        images: imagePaths,
         outputDir
       });
     } catch (err: any) {
-      addLog(`❌ 处理失败: ${err.message || err}`);
+      console.error('处理失败:', err);
       setIsProcessing(false);
     }
   };
 
+  // 格式化文件大小
+  const formatSize = (bytes: number) => {
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  };
+
+  // 获取图片预览 URL
+  const getImagePreview = (path: string) => {
+    return `file://${path}`;
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          返回
-        </button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-cyan-400">专业无损九宫格</h1>
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-            title="帮助"
-          >
-            <Settings className="w-5 h-5 text-slate-400" />
+      <header className="h-16 border-b border-slate-800 flex items-center px-6 justify-between bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center gap-4">
+          <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors">
+            <ArrowLeft className="w-5 h-5" />
           </button>
+          <h2 className="font-bold text-lg flex items-center gap-2 text-cyan-400">
+            <Grid3X3 className="w-5 h-5" />
+            专业无损九宫格
+            <span className="text-slate-500 text-sm font-normal px-2 py-0.5 border border-slate-800 rounded bg-slate-900">特殊用途 · 原画质 · 无压缩</span>
+          </h2>
         </div>
-      </div>
+      </header>
 
-      {/* Help Panel */}
-      {showHelp && (
-        <div className="mb-6 p-4 bg-slate-900 border border-slate-800 rounded-xl">
-          <h3 className="font-bold mb-2 text-cyan-400">使用说明</h3>
-          <ul className="text-sm text-slate-300 space-y-1">
-            <li>• 专业用途工具,批量处理 1:1 原图</li>
-            <li>• 无损、无压缩九宫格切割</li>
-            <li>• 每张图切成 3x3 = 9 张切片</li>
-            <li>• 输出高质量 JPEG (质量 95%)</li>
-            <li>• 命名格式: 原文件名_1.jpg, 原文件名_2.jpg...</li>
-          </ul>
-        </div>
-      )}
+      <main className="flex-1 p-6 flex gap-6 overflow-hidden max-h-[calc(100vh-64px)]">
+        {/* Left: Input & Controls */}
+        <div className="w-96 flex flex-col gap-6">
+          {/* Upload Area */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col gap-4 shadow-xl">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+              <Upload className="w-4 h-4" /> 图片上传
+            </h3>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Panel - Inputs */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Image Selection */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <label className="font-medium flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-cyan-400" />
-                选择图片 - 必填
-              </label>
-              <div className="flex items-center gap-2">
-                {images.length > 0 && (
-                  <button
-                    onClick={() => setImages([])}
-                    className="p-1.5 text-slate-400 hover:text-red-400 transition-colors"
-                    title="清空"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-                <button
-                  onClick={handleSelectImages}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/20 text-cyan-400 rounded-lg hover:bg-cyan-500/30 transition-colors text-sm"
-                >
-                  <FolderOpen className="w-4 h-4" />
-                  选择图片
-                </button>
+            <label
+              className={`flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-xl transition-all cursor-pointer group ${
+                isDragging
+                  ? 'border-cyan-500 bg-cyan-950/30'
+                  : 'border-slate-700 hover:border-cyan-500 hover:bg-slate-800/50'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Upload className="w-6 h-6 text-slate-400 group-hover:text-cyan-400" />
               </div>
+              <p className="text-sm text-slate-300 font-medium">点击或拖拽上传图片</p>
+              <p className="text-xs text-slate-500 mt-1">建议上传 1:1 正方形原图</p>
+            </label>
+
+            <div className="bg-cyan-950/30 border border-cyan-900/50 rounded-lg p-3">
+              <p className="text-xs text-cyan-200 leading-relaxed">
+                <span className="font-bold">💡 功能说明：</span> 此模式不进行任何压缩，直接按原图分辨率进行 3x3 切割。输出格式为 PNG 以保证无损画质。
+              </p>
             </div>
-            {images.length > 0 && (
-              <div className="text-sm text-slate-400">
-                已选择 {images.length} 张图片
-              </div>
-            )}
           </div>
 
           {/* Output Directory */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <label className="font-medium flex items-center gap-2">
-                <FolderOpen className="w-4 h-4 text-cyan-400" />
-                输出目录 - 必填
-              </label>
-              <button
-                onClick={handleSelectOutputDir}
-                className="flex items-center gap-2 px-3 py-1.5 bg-cyan-500/20 text-cyan-400 rounded-lg hover:bg-cyan-500/30 transition-colors text-sm"
-              >
-                选择目录
-              </button>
-            </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">导出位置</h3>
+            <button
+              onClick={handleSelectOutputDir}
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl font-medium flex items-center justify-center gap-2 transition-all"
+            >
+              <FolderOpen className="w-5 h-5" />
+              {outputDir ? '更换导出位置' : '选择导出位置'}
+            </button>
             {outputDir && (
-              <div className="text-sm text-slate-400 truncate">
-                {outputDir}
-              </div>
+              <p className="text-xs text-slate-500 mt-2 truncate">
+                导出至: {outputDir}
+              </p>
             )}
           </div>
 
-          {/* Info Panel */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <Grid3X3 className="w-5 h-5 text-cyan-400 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-medium mb-2">输出说明</h4>
-                <ul className="text-sm text-slate-400 space-y-1">
-                  <li>• 每张图片将生成 9 个切片文件</li>
-                  <li>• 切片顺序: 从左到右,从上到下</li>
-                  <li>• 文件命名: 原文件名_1.jpg ~ 原文件名_9.jpg</li>
-                  <li>• 切片质量: 95% (接近无损)</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Panel - Progress & Logs */}
-        <div className="space-y-4">
-          {/* Progress */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 className="font-medium mb-3">处理进度</h3>
-            {progress.total > 0 ? (
-              <div className="space-y-2">
-                <div className="text-center">
-                  <span className="text-3xl font-bold text-cyan-400">{progress.done}</span>
-                  <span className="text-slate-400"> / {progress.total}</span>
-                </div>
-                {progress.failed > 0 && (
-                  <div className="text-center text-red-400 text-sm">
-                    失败: {progress.failed}
-                  </div>
-                )}
-                <div className="w-full bg-slate-800 rounded-full h-2">
-                  <div
-                    className="bg-cyan-500 h-2 rounded-full transition-all"
-                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                  />
-                </div>
-                <div className="text-xs text-slate-500 text-center">
-                  将生成 {progress.done * 9} 个切片文件
-                </div>
-              </div>
-            ) : (
-              <div className="text-slate-500 text-center py-4">等待开始</div>
-            )}
-          </div>
-
-          {/* Start Button */}
-          <button
-            onClick={startProcessing}
-            disabled={isProcessing || images.length === 0 || !outputDir}
-            className="w-full py-4 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 disabled:from-slate-700 disabled:to-slate-700 disabled:cursor-not-allowed rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                处理中...
-              </>
-            ) : (
-              <>
-                <Play className="w-5 h-5" />
-                开始切割
-              </>
-            )}
-          </button>
-
-          {/* Logs */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-            <h3 className="font-medium mb-3">处理日志</h3>
-            <div className="h-48 overflow-y-auto text-xs font-mono space-y-1">
-              {logs.length === 0 ? (
-                <div className="text-slate-500 text-center py-4">暂无日志</div>
-              ) : (
-                logs.map((log, i) => (
-                  <div key={i} className={log.includes('❌') ? 'text-red-400' : log.includes('✅') ? 'text-green-400' : 'text-slate-300'}>
-                    {log}
-                  </div>
-                ))
+          {/* Actions */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mt-auto">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-slate-400 text-sm">已选择 {images.length} 张图片</span>
+              {images.length > 0 && (
+                <button onClick={clearImages} className="text-xs text-rose-400 hover:text-rose-300">
+                  清空列表
+                </button>
               )}
             </div>
+            <button
+              onClick={startProcessing}
+              disabled={images.length === 0 || isProcessing}
+              className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-900/20"
+            >
+              {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <FolderOpen className="w-5 h-5" />}
+              {isProcessing ? '正在处理...' : outputDir ? '开始处理' : '选择导出位置并开始'}
+            </button>
           </div>
         </div>
-      </div>
+
+        {/* Right: List & Preview */}
+        <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-6 overflow-hidden flex flex-col">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">
+            待处理队列
+          </h3>
+
+          <div className="flex-1 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+            {images.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-4">
+                <Grid3X3 className="w-16 h-16 opacity-20" />
+                <p>暂无图片，请在左侧上传</p>
+              </div>
+            ) : (
+              images.map((img) => (
+                <div key={img.id} className="flex items-center gap-4 p-3 bg-slate-950 rounded-xl border border-slate-800 group hover:border-slate-700 transition-colors">
+                  <div className="w-12 h-12 bg-slate-900 rounded-lg overflow-hidden flex-shrink-0 border border-slate-800">
+                    {img.previewUrl ? (
+                      <img src={img.previewUrl} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-800">
+                        <Upload className="w-5 h-5 text-slate-600" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-200 truncate">{img.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {formatSize(img.size)}
+                      {img.naturalWidth && ` · ${img.naturalWidth}x${img.naturalHeight}`}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {img.status === 'completed' && (
+                      <span className="flex items-center gap-1 text-emerald-400 text-xs font-bold bg-emerald-950/30 px-2 py-1 rounded-full">
+                        <CheckCircle className="w-3 h-3" /> 完成
+                      </span>
+                    )}
+                    {img.status === 'processing' && (
+                      <span className="flex items-center gap-1 text-amber-400 text-xs font-bold bg-amber-950/30 px-2 py-1 rounded-full">
+                        <Loader2 className="w-3 h-3 animate-spin" /> 处理中
+                      </span>
+                    )}
+                    {img.status === 'error' && (
+                      <span className="flex items-center gap-1 text-rose-400 text-xs font-bold bg-rose-950/30 px-2 py-1 rounded-full" title={img.error}>
+                        <AlertCircle className="w-3 h-3" /> 失败
+                      </span>
+                    )}
+                    {img.status === 'pending' && (
+                      <button
+                        onClick={() => removeImage(img.id)}
+                        className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 rounded-lg transition-colors"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
