@@ -61,17 +61,21 @@ module.exports = {
       //   icon: './build/icon.ico',
       // },
     },
-    // Windows WiX 安装包（支持自动更新，替代已弃用的 Squirrel）
+    // Windows NSIS 安装包（支持自动更新，无需额外依赖）
     {
-      name: '@electron-forge/maker-wix',
+      name: '@electron-forge/maker-nsis',
       config: {
         name: 'VideoStitcher',
         manufacturer: 'Your Name',
         description: '全能视频批处理工具箱',
         // 创建桌面快捷方式
-        shortcutDesktop: true,
+        oneClick: true,
+        // 允许用户选择安装目录
+        allowToChangeInstallationDirectory: true,
+        // 创建桌面快捷方式
+        createDesktopShortcut: true,
         // 创建开始菜单快捷方式
-        shortcutStartMenu: true,
+        createStartMenuShortcut: true,
         // 启用自动更新功能
         appUserModelId: 'com.videostitcher.app',
         // 安装目录

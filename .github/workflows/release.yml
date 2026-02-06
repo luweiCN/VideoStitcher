@@ -122,7 +122,7 @@ jobs:
 
           #### Windows
           - **ZIP:** 免安装，直接运行 (.zip)
-          - **安装包:** 支持自动更新的 Squirrel 安装程序 (.nupkg)
+          - **安装包:** 支持自动更新的 NSIS 安装程序 (.exe)
           "
 
           # 创建 JSON 格式以便安全处理多行内容
@@ -259,31 +259,31 @@ jobs:
           npm run make
           if ($LASTEXITCODE -ne 0) { throw "make 失败" }
 
-          # 检查 WiX 构建输出
-          Write-Host "=== 检查 WiX 构建输出 ==="
-          $WixDirs = Get-ChildItem "out/make" -Directory | Where-Object { $_.Name -like "wix*" }
-          if ($WixDirs) {
-            foreach ($Dir in $WixDirs) {
-              Write-Host "WiX 目录: $($Dir.FullName)"
+          # 检查 NSIS 构建输出
+          Write-Host "=== 检查 NSIS 构建输出 ==="
+          $NsisDirs = Get-ChildItem "out/make" -Directory | Where-Object { $_.Name -like "nsis*" }
+          if ($NsisDirs) {
+            foreach ($Dir in $NsisDirs) {
+              Write-Host "NSIS 目录: $($Dir.FullName)"
               Get-ChildItem $Dir.FullName | ForEach-Object {
                 Write-Host "  - $($_.Name) ($([math]::Round($_.Length/1MB, 2)) MB)"
               }
             }
 
-            # 检查 MSI 文件
-            $MsiFiles = Get-ChildItem -Recurse "out/make/wix*" -Filter "*.msi" -ErrorAction SilentlyContinue
-            if ($MsiFiles) {
-              Write-Host "✅ 找到 MSI 文件: $($MsiFiles.Count) 个"
-              $MsiFiles | ForEach-Object {
+            # 检查 EXE 文件
+            $ExeFiles = Get-ChildItem -Recurse "out/make/nsis*" -Filter "*.exe" -ErrorAction SilentlyContinue
+            if ($ExeFiles) {
+              Write-Host "✅ 找到 EXE 文件: $($ExeFiles.Count) 个"
+              $ExeFiles | ForEach-Object {
                 Write-Host "  - $($_.FullName)"
               }
             } else {
-              Write-Host "❌ 未找到 MSI 文件"
-              throw "WiX 构建失败：未找到 MSI 文件"
+              Write-Host "❌ 未找到 EXE 文件"
+              throw "NSIS 构建失败：未找到 EXE 文件"
             }
           } else {
-            Write-Host "❌ WiX 目录不存在"
-            throw "WiX 构建失败：目录不存在"
+            Write-Host "❌ NSIS 目录不存在"
+            throw "NSIS 构建失败：目录不存在"
           }
 
       - name: 列出输出目录
@@ -299,7 +299,7 @@ jobs:
           name: windows-build
           path: |
             out/make/**/*.zip
-            out/make/**/wix*/**/*.msi
+            out/make/**/nsis*/**/*.exe
             out/make/**/latest.yml
           if-no-files-found: error
 
@@ -307,9 +307,9 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "=== 验证上传的 artifact ==="
-          $MsiFiles = Get-ChildItem -Recurse "out/make" -File "*.msi" -ErrorAction SilentlyContinue
-          Write-Host "找到 MSI 文件: $($MsiFiles.Count) 个"
-          $MsiFiles | ForEach-Object {
+          $ExeFiles = Get-ChildItem -Recurse "out/make" -File "*.exe" -ErrorAction SilentlyContinue
+          Write-Host "找到 EXE 文件: $($ExeFiles.Count) 个"
+          $ExeFiles | ForEach-Object {
             Write-Host "  - $($_.FullName)"
           }
 
@@ -363,6 +363,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "#### 📦 构建产物" >> $GITHUB_STEP_SUMMARY
           echo "- macOS: DMG + ZIP" >> $GITHUB_STEP_SUMMARY
-          echo "- Windows: ZIP + Squirrel 安装包" >> $GITHUB_STEP_SUMMARY
+          echo "- Windows: ZIP + NSIS 安装包" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📥 [下载发布包](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version.outputs.new_version }})" >> $GITHUB_STEP_SUMMARY
