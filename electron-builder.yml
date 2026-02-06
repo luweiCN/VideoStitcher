@@ -29,6 +29,7 @@ files:
   - "!**/.eslintrc*"
   - "!**/README.md"
   - "!**/CLAUDE.md"
+  - "!dist/renderer/**/*"  # 排除 dist/renderer，通过 extraResources 复制到 resources
 
 # asar 打包配置
 asarUnpack:
