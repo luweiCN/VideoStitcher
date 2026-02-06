@@ -67,6 +67,37 @@ export interface ElectronAPI {
     previewSize?: 'inside' | 'cover' | 'fill' | 'pad';
   }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
 
+  // 图片素材处理预览
+  previewImageMaterial: (config: {
+    imagePath: string;
+    logoPath?: string;
+    previewSize?: 'inside' | 'cover' | 'fill' | 'pad';
+  }) => Promise<{ success: boolean; preview?: string; logo?: string; grid?: any[]; error?: string }>;
+
+  // === 预览功能 API ===
+  // 横屏合成预览
+  previewHorizontal: (config: {
+    aVideo?: string;
+    bVideo: string;
+    bgImage?: string;
+    coverImage?: string;
+  }) => Promise<{ success: boolean; previewPath?: string; error?: string }>;
+
+  // 竖屏合成预览
+  previewVertical: (config: {
+    mainVideo: string;
+    bgImage?: string;
+    aVideo?: string;
+  }) => Promise<{ success: boolean; previewPath?: string; error?: string }>;
+
+  // 清理预览文件
+  clearPreviews: () => Promise<{ success: boolean; error?: string }>;
+
+  // 获取预览文件的 URL
+  getPreviewUrl: (filePath: string) => Promise<{ success: boolean; url?: string; error?: string }>;
+  // 获取文件信息
+  getFileInfo: (filePath: string) => Promise<{ success: boolean; info?: { name: string; size: number; type: string; ext: string }; error?: string }>;
+
   // === 事件监听 ===
   // 原有任务事件
   onJobStart: (callback: (data: { total: number; orientation: string; concurrency: number }) => void) => void;
@@ -87,6 +118,12 @@ export interface ElectronAPI {
   onImageProgress: (callback: (data: { done: number; failed: number; total: number; current: string; result?: any }) => void) => void;
   onImageFailed: (callback: (data: { done: number; failed: number; total: number; current: string; error: string }) => void) => void;
   onImageFinish: (callback: (data: { done: number; failed: number; total: number }) => void) => void;
+
+  // 预览事件
+  onPreviewStart: (callback: (data: { mode: string }) => void) => void;
+  onPreviewComplete: (callback: (data: { previewPath: string }) => void) => void;
+  onPreviewError: (callback: (data: { error: string }) => void) => void;
+  onPreviewLog: (callback: (data: { message: string }) => void) => void;
 
   // 移除监听器
   removeAllListeners: (channel: string) => void;
@@ -126,6 +163,20 @@ const api: ElectronAPI = {
   imageCoverFormat: (config) => ipcRenderer.invoke('image-cover-format', config),
   imageGrid: (config) => ipcRenderer.invoke('image-grid', config),
   imageMaterial: (config) => ipcRenderer.invoke('image-material', config),
+  previewImageMaterial: (config) => ipcRenderer.invoke('preview-image-material', config),
+
+  // 预览功能 API
+  previewHorizontal: (config) => ipcRenderer.invoke('preview-horizontal', config),
+  previewVertical: (config) => ipcRenderer.invoke('preview-vertical', config),
+  clearPreviews: () => ipcRenderer.invoke('clear-previews'),
+  getPreviewUrl: (filePath) => ipcRenderer.invoke('get-preview-url', filePath),
+  getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
+
+  // 预览事件
+  onPreviewStart: (cb) => ipcRenderer.on('preview-start', (_e, data) => cb(data)),
+  onPreviewComplete: (cb) => ipcRenderer.on('preview-complete', (_e, data) => cb(data)),
+  onPreviewError: (cb) => ipcRenderer.on('preview-error', (_e, data) => cb(data)),
+  onPreviewLog: (cb) => ipcRenderer.on('preview-log', (_e, data) => cb(data)),
 
   // 原有任务事件
   onJobStart: (cb) => ipcRenderer.on('job-start', (_e, data) => cb(data)),

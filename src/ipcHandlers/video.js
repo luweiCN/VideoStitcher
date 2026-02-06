@@ -136,6 +136,127 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
 }
 
 /**
+ * 横屏合成预览
+ * 生成单个合成视频的预览，输出到临时目录
+ */
+async function handleHorizontalPreview(event, { aVideo, bVideo, bgImage, coverImage }) {
+  const os = require('os');
+  const path = require('path');
+  const fs = require('fs');
+
+  if (!bVideo) {
+    throw new Error('缺少主视频');
+  }
+
+  // 如果没有 A 面视频，使用主视频
+  const finalAVideo = aVideo || bVideo;
+
+  // 创建临时预览目录
+  const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview');
+  if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  }
+
+  // 生成预览文件名
+  const timestamp = Date.now();
+  const previewFileName = `preview_horizontal_${timestamp}.mp4`;
+  const previewPath = path.join(tmpDir, previewFileName);
+
+  // 发送预览开始事件
+  event.sender.send('preview-start', { mode: 'horizontal' });
+
+  try {
+    // 调用 FFmpeg 处理
+    await runFfmpeg(
+      { aPath: finalAVideo, bPath: bVideo, outPath: previewPath, orientation: 'landscape' },
+      (log) => {
+        event.sender.send('preview-log', { message: log });
+      }
+    );
+
+    // 发送预览完成事件，返回预览文件路径
+    event.sender.send('preview-complete', { previewPath });
+
+    return { success: true, previewPath };
+  } catch (err) {
+    event.sender.send('preview-error', { error: err.message });
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 竖屏合成预览
+ */
+async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo }) {
+  const os = require('os');
+  const path = require('path');
+  const fs = require('fs');
+
+  if (!mainVideo) {
+    throw new Error('缺少主视频');
+  }
+
+  // 如果没有 A 面视频，使用主视频
+  const finalAVideo = aVideo || mainVideo;
+
+  // 创建临时预览目录
+  const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview');
+  if (!fs.existsSync(tmpDir)) {
+    fs.mkdirSync(tmpDir, { recursive: true });
+  }
+
+  // 生成预览文件名
+  const timestamp = Date.now();
+  const previewFileName = `preview_vertical_${timestamp}.mp4`;
+  const previewPath = path.join(tmpDir, previewFileName);
+
+  // 发送预览开始事件
+  event.sender.send('preview-start', { mode: 'vertical' });
+
+  try {
+    // 调用 FFmpeg 处理
+    await runFfmpeg(
+      { aPath: finalAVideo, bPath: mainVideo, outPath: previewPath, orientation: 'portrait' },
+      (log) => {
+        event.sender.send('preview-log', { message: log });
+      }
+    );
+
+    // 发送预览完成事件
+    event.sender.send('preview-complete', { previewPath });
+
+    return { success: true, previewPath };
+  } catch (err) {
+    event.sender.send('preview-error', { error: err.message });
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 清理预览临时文件
+ */
+async function handleClearPreviews() {
+  const os = require('os');
+  const path = require('path');
+  const fs = require('fs');
+
+  const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview');
+
+  try {
+    if (fs.existsSync(tmpDir)) {
+      const files = fs.readdirSync(tmpDir);
+      for (const file of files) {
+        const filePath = path.join(tmpDir, file);
+        fs.unlinkSync(filePath);
+      }
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * 注册所有视频处理 IPC 处理器
  */
 function registerVideoHandlers() {
@@ -153,11 +274,29 @@ function registerVideoHandlers() {
   ipcMain.handle('video-resize', async (event, config) => {
     return handleResize(event, config);
   });
+
+  // 横屏合成预览
+  ipcMain.handle('preview-horizontal', async (event, config) => {
+    return handleHorizontalPreview(event, config);
+  });
+
+  // 竖屏合成预览
+  ipcMain.handle('preview-vertical', async (event, config) => {
+    return handleVerticalPreview(event, config);
+  });
+
+  // 清理预览文件
+  ipcMain.handle('clear-previews', async () => {
+    return handleClearPreviews();
+  });
 }
 
 module.exports = {
   registerVideoHandlers,
   handleHorizontalMerge,
   handleVerticalMerge,
-  handleResize
+  handleResize,
+  handleHorizontalPreview,
+  handleVerticalPreview,
+  handleClearPreviews
 };

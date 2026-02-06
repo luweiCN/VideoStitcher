@@ -172,6 +172,33 @@ async function handleGridImage(event, { images, outputDir }) {
 }
 
 /**
+ * 图片素材处理预览
+ * 生成预览效果（不保存到输出目录，而是保存到临时目录）
+ */
+async function handleImageMaterialPreview(event, { imagePath, logoPath, previewSize = 'cover' }) {
+  console.log('[预览] 开始生成预览:', { imagePath, logoPath, previewSize });
+
+  const os = require('os');
+
+  // 创建临时预览目录
+  const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview', `material-${Date.now()}`);
+  await require('fs').promises.mkdir(tmpDir, { recursive: true });
+
+  console.log('[预览] 临时目录:', tmpDir);
+
+  // 调用处理函数，但使用临时目录
+  const result = await processImageMaterial(imagePath, logoPath, tmpDir, previewSize);
+
+  console.log('[预览] 处理完成:', result.results);
+
+  return {
+    success: true,
+    previewDir: tmpDir,
+    ...result.results
+  };
+}
+
+/**
  * 图片素材处理 (Logo + 九宫格 + 预览)
  */
 async function handleImageMaterial(event, { images, logoPath, outputDir, previewSize = 'cover' }) {
@@ -247,6 +274,11 @@ function registerImageHandlers() {
   ipcMain.handle('image-material', async (event, config) => {
     return handleImageMaterial(event, config);
   });
+
+  // 图片素材处理预览
+  ipcMain.handle('preview-image-material', async (event, config) => {
+    return handleImageMaterialPreview(event, config);
+  });
 }
 
 module.exports = {
@@ -254,5 +286,6 @@ module.exports = {
   handleImageCompress,
   handleCoverFormat,
   handleGridImage,
-  handleImageMaterial
+  handleImageMaterial,
+  handleImageMaterialPreview
 };

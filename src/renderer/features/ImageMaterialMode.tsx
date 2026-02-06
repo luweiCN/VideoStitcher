@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ImageIcon, Stamp, Play, Trash2, Loader2, ArrowLeft, FolderOpen, Settings, CheckCircle, Layers } from 'lucide-react';
+import ImageMaterialPreviewPanel from '../components/ImageMaterialPreviewPanel';
 
 interface ImageMaterialModeProps {
   onBack: () => void;
@@ -19,6 +20,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   const [outputDir, setOutputDir] = useState<string>('');
   const [previewSize, setPreviewSize] = useState<PreviewSize>('cover');
   const [showHelp, setShowHelp] = useState(false);
+  const [showPreview, setShowPreview] = useState(true); // 控制预览面板显示
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
@@ -149,6 +151,12 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
           >
             <Settings className="w-5 h-5 text-slate-400" />
           </button>
+          <button
+            onClick={() => setShowPreview(!showPreview)}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${showPreview ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-800 text-slate-400'}`}
+          >
+            {showPreview ? '隐藏预览' : '显示预览'}
+          </button>
         </div>
       </div>
 
@@ -163,13 +171,27 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             <li>• <strong>对带 Logo 的图片进行九宫格切片</strong></li>
             <li>• 每张切片右下角都会有 Logo 的一部分</li>
             <li>• Logo 尺寸约 120px (800x800 的 15%)</li>
+            <li>• <strong>预览</strong>: 选择素材后可预览原图效果</li>
           </ul>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Panel - Inputs */}
-        <div className="lg:col-span-2 space-y-4">
+      <div className={`flex gap-6 ${showPreview ? 'flex-row' : 'flex-col'}`}>
+        {/* 左侧：预览面板 */}
+        {showPreview && (
+          <div className="w-[350px] flex-shrink-0">
+            <ImageMaterialPreviewPanel
+              images={images}
+              logoPath={logoPath}
+              previewSize={previewSize}
+              themeColor="amber"
+            />
+          </div>
+        )}
+        {/* 右侧：输入和设置区域 */}
+        <div className="flex-1 space-y-6 min-w-0">
+          {/* 输入区域 */}
+          <div className="space-y-4">
           {/* Material Images */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
@@ -302,7 +324,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
           </div>
         </div>
 
-        {/* Right Panel - Progress & Logs */}
+        {/* 设置和进度区域 */}
         <div className="space-y-4">
           {/* Progress */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
@@ -368,6 +390,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

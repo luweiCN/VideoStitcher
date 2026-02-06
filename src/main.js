@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require("electron");
 const os = require("os");
 const path = require("path");
+const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
 
 const { buildPairs } = require("./ffmpeg/pair");
@@ -112,7 +113,25 @@ function createWindow() {
   }
 }
 
+// 注册自定义协议用于访问本地文件（预览功能）
+function registerPreviewProtocol() {
+  protocol.registerFileProtocol('preview', (request, callback) => {
+    // 解码 URL 获取文件路径
+    const filePath = decodeURIComponent(request.url.substr('preview://'.length));
+    // 检查文件是否存在
+    if (fs.existsSync(filePath)) {
+      callback({ path: filePath });
+    } else {
+      console.error('预览文件不存在:', filePath);
+      callback({ error: -2 }); // 找不到文件
+    }
+  });
+}
+
 app.whenReady().then(() => {
+  // 注册预览协议
+  registerPreviewProtocol();
+
   createWindow();
   // 注册视频处理 IPC 处理器
   registerVideoHandlers();
@@ -427,6 +446,49 @@ ipcMain.handle("open-external", async (_event, url) => {
   try {
     await shell.openExternal(url);
     return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// 获取预览文件的 URL
+ipcMain.handle("get-preview-url", async (_event, filePath) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: false, error: "文件不存在" };
+    }
+    // 返回自定义协议的 URL
+    const previewUrl = `preview://${encodeURIComponent(filePath)}`;
+    return { success: true, url: previewUrl };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+// 获取文件信息（用于判断文件类型）
+ipcMain.handle("get-file-info", async (_event, filePath) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: false, error: "文件不存在" };
+    }
+    const stats = fs.statSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+    const videoExts = ['.mp4', '.mov', '.avi', '.mkv', '.m4v', '.webm', '.flv', '.wmv'];
+
+    let type = 'unknown';
+    if (imageExts.includes(ext)) type = 'image';
+    else if (videoExts.includes(ext)) type = 'video';
+
+    return {
+      success: true,
+      info: {
+        name: path.basename(filePath),
+        size: stats.size,
+        type,
+        ext
+      }
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }

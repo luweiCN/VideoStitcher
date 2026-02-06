@@ -18,6 +18,18 @@ const api = {
     imageCoverFormat: (config) => electron_1.ipcRenderer.invoke('image-cover-format', config),
     imageGrid: (config) => electron_1.ipcRenderer.invoke('image-grid', config),
     imageMaterial: (config) => electron_1.ipcRenderer.invoke('image-material', config),
+    previewImageMaterial: (config) => electron_1.ipcRenderer.invoke('preview-image-material', config),
+    // 预览功能 API
+    previewHorizontal: (config) => electron_1.ipcRenderer.invoke('preview-horizontal', config),
+    previewVertical: (config) => electron_1.ipcRenderer.invoke('preview-vertical', config),
+    clearPreviews: () => electron_1.ipcRenderer.invoke('clear-previews'),
+    getPreviewUrl: (filePath) => electron_1.ipcRenderer.invoke('get-preview-url', filePath),
+    getFileInfo: (filePath) => electron_1.ipcRenderer.invoke('get-file-info', filePath),
+    // 预览事件
+    onPreviewStart: (cb) => electron_1.ipcRenderer.on('preview-start', (_e, data) => cb(data)),
+    onPreviewComplete: (cb) => electron_1.ipcRenderer.on('preview-complete', (_e, data) => cb(data)),
+    onPreviewError: (cb) => electron_1.ipcRenderer.on('preview-error', (_e, data) => cb(data)),
+    onPreviewLog: (cb) => electron_1.ipcRenderer.on('preview-log', (_e, data) => cb(data)),
     // 原有任务事件
     onJobStart: (cb) => electron_1.ipcRenderer.on('job-start', (_e, data) => cb(data)),
     onJobLog: (cb) => electron_1.ipcRenderer.on('job-log', (_e, data) => cb(data)),

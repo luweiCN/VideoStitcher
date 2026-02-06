@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileVideo, ImageIcon, Play, Trash2, Loader2, ArrowLeft, FolderOpen, Settings, CheckCircle, AlertTriangle } from 'lucide-react';
+import PreviewPanel from '../components/PreviewPanel';
 
 const TARGET_WIDTH = 1080;
 const TARGET_HEIGHT = 1920;
@@ -15,6 +16,7 @@ const VerticalMode: React.FC<VerticalModeProps> = ({ onBack }) => {
   const [covers, setCovers] = useState<string[]>([]);
   const [outputDir, setOutputDir] = useState<string>('');
   const [showHelp, setShowHelp] = useState(false);
+  const [showPreview, setShowPreview] = useState(true); // 控制预览面板显示
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [concurrency, setConcurrency] = useState(3);
@@ -181,6 +183,12 @@ const VerticalMode: React.FC<VerticalModeProps> = ({ onBack }) => {
           >
             <Settings className="w-5 h-5 text-slate-400" />
           </button>
+          <button
+            onClick={() => setShowPreview(!showPreview)}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${showPreview ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-400'}`}
+          >
+            {showPreview ? '隐藏预览' : '显示预览'}
+          </button>
         </div>
       </div>
 
@@ -193,14 +201,30 @@ const VerticalMode: React.FC<VerticalModeProps> = ({ onBack }) => {
             <li>• <strong>A面视频</strong>: 可选，全屏显示在主视频之前</li>
             <li>• <strong>背景图</strong>: 可选，填充在主视频背后</li>
             <li>• <strong>封面</strong>: 可选，静态图片显示在开头</li>
+            <li>• <strong>预览</strong>: 选择素材后自动生成合成预览，可点击切换查看</li>
             <li>• 输出尺寸: 1080x1920 @ 30fps</li>
           </ul>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Panel - Inputs */}
-        <div className="lg:col-span-2 space-y-4">
+      <div className={`flex gap-6 ${showPreview ? 'flex-row' : 'flex-col'}`}>
+        {/* 左侧：预览面板 */}
+        {showPreview && (
+          <div className="w-[350px] flex-shrink-0">
+            <PreviewPanel
+              mode="vertical"
+              bgImage={bgImage}
+              videos={videos}
+              sideAVideos={sideAVideos}
+              covers={covers}
+              themeColor="indigo"
+            />
+          </div>
+        )}
+        {/* 右侧：输入和设置区域 */}
+        <div className="flex-1 space-y-6 min-w-0">
+          {/* 输入区域 */}
+          <div className="space-y-4">
           {/* Background Image */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
@@ -332,8 +356,9 @@ const VerticalMode: React.FC<VerticalModeProps> = ({ onBack }) => {
             )}
           </div>
         </div>
+      </div>
 
-        {/* Right Panel - Progress & Logs */}
+        {/* 设置和进度区域 */}
         <div className="space-y-4">
           {/* Settings */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
