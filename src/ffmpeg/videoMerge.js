@@ -102,9 +102,20 @@ function buildArgs({
     const overlayY = orientation === 'horizontal' ? '0' : '(H-h)/2';
     filters.push(`[bg_for_a][a_scaled]overlay=${overlayX}:${overlayY}[v_a];`);
 
-    // 3. B视频段：按用户指定的精确位置和大小
-    filters.push(`[1:v]scale=${bPos.width}:${bPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled];`);
-    filters.push(`[bg_for_b][b_scaled]overlay=${bPos.x}:${bPos.y}[v_b];`);
+    // 3. B视频段：保持比例缩放，然后叠加到指定位置
+    // 根据目标宽高比，选择按宽度或高度缩放
+    const targetAspect = bPos.width / bPos.height;
+    if (orientation === 'horizontal') {
+      // 横屏：B面通常是竖屏视频，按高度缩放
+      filters.push(`[1:v]scale=-1:${bPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled];`);
+    } else {
+      // 竖屏：B面通常是横屏视频，按宽度缩放
+      filters.push(`[1:v]scale=${bPos.width}:-1:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled];`);
+    }
+    // 居中叠加到指定位置（如果缩放后尺寸小于目标尺寸）
+    const bOverlayX = orientation === 'horizontal' ? `(${bPos.width}-w)/2+${bPos.x}` : `${bPos.x}`;
+    const bOverlayY = orientation === 'horizontal' ? `${bPos.y}` : `(${bPos.height}-h)/2+${bPos.y}`;
+    filters.push(`[bg_for_b][b_scaled]overlay=${bOverlayX}:${bOverlayY}[v_b];`);
 
   } else {
     // 无背景图：A和B视频各自填充画布（黑色背景）
