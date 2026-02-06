@@ -106,15 +106,21 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       const videoPath = videos[currentVideoIndex];
       addLog(`生成预览图: ${videoPath.split('/').pop()}`);
 
+      // 使用 Electron 的预览 URL API
+      const previewResult = await window.api.getPreviewUrl(videoPath);
+      if (!previewResult.success || !previewResult.url) {
+        throw new Error(previewResult.error || '获取预览 URL 失败');
+      }
+
       // 使用 video 元素提取第一帧
       const video = document.createElement('video');
-      video.src = `file://${videoPath}`;
+      video.src = previewResult.url;
       video.muted = true;
       video.playsInline = true;
       video.currentTime = 0.5; // 从 0.5 秒提取，避免黑帧
 
-      await new Promise((resolve, reject) => {
-        video.onloadeddata = () => resolve(null);
+      await new Promise<void>((resolve, reject) => {
+        video.onloadeddata = () => resolve();
         video.onerror = () => reject(new Error('视频加载失败'));
         video.load();
       });
