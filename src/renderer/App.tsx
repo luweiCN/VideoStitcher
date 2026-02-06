@@ -40,7 +40,10 @@ const UpdateNotification: React.FC<{
             版本 <span className="font-semibold text-white">{updateInfo.version}</span> 已发布
           </p>
           {updateInfo.releaseNotes && (
-            <p className="text-slate-300 text-xs line-clamp-2 mb-3">{updateInfo.releaseNotes}</p>
+            <div
+              className="text-slate-300 text-xs mb-3 max-h-10 overflow-hidden"
+              dangerouslySetInnerHTML={{ __html: updateInfo.releaseNotes }}
+            />
           )}
           <div className="flex gap-2">
             <button
