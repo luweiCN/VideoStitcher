@@ -101,11 +101,11 @@ function createWindow() {
     );
   } else {
     console.log("Production mode: loading built files");
-    // extraResources 将 dist/renderer 复制到 resources 目录（asar 外部）
-    // process.resourcesPath 指向 Resources 目录
-    const htmlPath = path.join(process.resourcesPath, "dist", "renderer", "index.html");
+    // dist/renderer 打包在 app.asar 内，从 __dirname 加载
+    // __dirname 在打包后是 app.asar/src
+    const htmlPath = path.join(__dirname, "../dist/renderer/index.html");
     console.log("Loading HTML from:", htmlPath);
-    console.log("resourcesPath:", process.resourcesPath);
+    console.log("__dirname:", __dirname);
     win.loadFile(htmlPath).catch((err) => {
       console.error("Failed to load production build:", err);
     });

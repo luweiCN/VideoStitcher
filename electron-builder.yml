@@ -7,12 +7,6 @@ directories:
   buildResources: build
   output: dist
 
-# 额外资源（将 dist/renderer 包含到 resources）
-extraResources:
-  - from: dist/renderer
-    to: dist/renderer
-    filter: "**/*"
-
 # 发布配置（用于自动更新）
 publish:
   provider: github
@@ -20,8 +14,10 @@ publish:
   repo: VideoStitcher
 
 # 文件包含/排除（明确指定要打包进 asar 的文件）
+# dist/renderer 打包进 asar，避免签名后修改文件
 files:
   - src/**/*
+  - dist/renderer/**/*
   - package.json
   - node_modules/**/*
   - "!**/.vscode/*"
@@ -32,7 +28,6 @@ files:
   - "!**/.eslintrc*"
   - "!**/README.md"
   - "!**/CLAUDE.md"
-  - "!dist/**/*"  # 排除整个 dist 目录
 
 # asar 打包配置
 asarUnpack:
