@@ -77,6 +77,9 @@ export interface ElectronAPI {
     logoPath?: string;
     outputDir: string;
     previewSize?: 'inside' | 'cover' | 'fill' | 'pad';
+    logoPosition?: { x: number; y: number }; // Logo 位置 (相对 800x800 画布)
+    logoScale?: number; // Logo 缩放比例 (1 = 原始大小)
+    exportOptions?: { single: boolean; grid: boolean }; // 导出选项
   }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
 
   // 图片素材处理预览
@@ -84,6 +87,8 @@ export interface ElectronAPI {
     imagePath: string;
     logoPath?: string;
     previewSize?: 'inside' | 'cover' | 'fill' | 'pad';
+    logoPosition?: { x: number; y: number };
+    logoScale?: number;
   }) => Promise<{ success: boolean; preview?: string; logo?: string; grid?: any[]; error?: string }>;
 
   // === 预览功能 API ===

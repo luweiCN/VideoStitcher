@@ -201,78 +201,171 @@ async function createGridImage(inputPath, outputDir) {
  * 图片素材处理服务
  * 批量添加 Logo 并导出九宫格和预览图
  *
+ * 新增参数:
+ * - logoPosition: Logo 位置 {x, y} (相对 800x800 画布)
+ * - logoScale: Logo 缩放比例 (1 = 原始大小)
+ * - exportOptions: 导出选项 {single: boolean, grid: boolean}
+ *
  * 所有模式都生成 800x800 方形预览图，区别在于生成方式：
  * - cover: 裁剪正方形 (取中心区域) -> 800x800
  * - inside: 800x800 正方形，保持比例缩放，留白
  * - fill: 800x800 正方形，强制拉伸（变形）
  * - pad: 800x800 正方形，留白填充（保持原图完整）
  */
-async function processImageMaterial(inputPath, logoPath, outputDir, previewSize = 'cover') {
+async function processImageMaterial(
+  inputPath,
+  logoPath,
+  outputDir,
+  previewSize = 'cover',
+  logoPosition = null,
+  logoScale = 1,
+  exportOptions = { single: true, grid: true }
+) {
   const inputBaseName = path.parse(inputPath).name;
   const results = {};
 
   // ========== 步骤 1: 根据用户选择的模式生成 800x800 预览图 ==========
-  const previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
-  await fs.mkdir(path.dirname(previewPath), { recursive: true });
+  let previewPath;
+  if (exportOptions.single) {
+    previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
+    await fs.mkdir(path.dirname(previewPath), { recursive: true });
 
-  // Sharp fit 参数映射（所有都生成 800x800 方形）
-  // - cover: 缩放以覆盖目标区域（会裁剪）
-  // - contain: 缩放以放入目标区域（留白）
-  // - fill: 拉伸以覆盖目标区域（变形）
-  const fitMapping = {
-    'cover': 'cover',      // 裁剪正方形
-    'inside': 'contain',   // 保持比例，留白
-    'fill': 'fill'         // 强制拉伸
-  };
+    // Sharp fit 参数映射（所有都生成 800x800 方形）
+    const fitMapping = {
+      'cover': 'cover',      // 裁剪正方形
+      'inside': 'contain',   // 保持比例，留白
+      'fill': 'fill'         // 强制拉伸
+    };
 
-  const previewOptions = {
-    width: 800,
-    height: 800,
-    fit: fitMapping[previewSize] || 'cover'
-  };
+    const previewOptions = {
+      width: 800,
+      height: 800,
+      fit: fitMapping[previewSize] || 'cover'
+    };
 
-  // 保持比例模式：添加白色背景
-  if (previewSize === 'inside') {
-    previewOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
+    // 保持比例模式：添加白色背景
+    if (previewSize === 'inside') {
+      previewOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
+    }
+
+    await sharp(inputPath)
+      .resize(previewOptions)
+      .jpeg({ quality: 90 })
+      .toFile(previewPath);
+
+    results.preview = previewPath;
+  } else {
+    // 即使不导出单图，也需要生成预览图用于后续处理（放在临时位置）
+    const tmpDir = path.join(require('os').tmpdir(), 'videostitcher-temp');
+    await fs.mkdir(tmpDir, { recursive: true });
+    previewPath = path.join(tmpDir, `${inputBaseName}_temp_preview.jpg`);
+
+    const fitMapping = {
+      'cover': 'cover',
+      'inside': 'contain',
+      'fill': 'fill'
+    };
+
+    const previewOptions = {
+      width: 800,
+      height: 800,
+      fit: fitMapping[previewSize] || 'cover'
+    };
+
+    if (previewSize === 'inside') {
+      previewOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
+    }
+
+    await sharp(inputPath)
+      .resize(previewOptions)
+      .jpeg({ quality: 90 })
+      .toFile(previewPath);
   }
 
-  await sharp(inputPath)
-    .resize(previewOptions)
-    .jpeg({ quality: 90 })
-    .toFile(previewPath);
-
-  results.preview = previewPath;
-
-  // ========== 步骤 2: 添加 Logo 生成带 Logo 的图片 (用于九宫格切片) ==========
+  // ========== 步骤 2: 添加 Logo 生成带 Logo 的图片 ==========
   let logoImagePath = previewPath;
   if (logoPath) {
-    logoImagePath = path.join(outputDir, 'logo', `${inputBaseName}_logo.jpg`);
-    await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
+    // 获取 Logo 原始尺寸
+    const logoMetadata = await sharp(logoPath).metadata();
+    const logoOriginalSize = Math.max(logoMetadata.width, logoMetadata.height);
 
-    const logoSize = Math.floor(800 * 0.15); // Logo 为 800x800 的 15% (约120px)
+    // 根据缩放比例计算 Logo 尺寸
+    const logoSize = Math.floor(logoOriginalSize * logoScale);
 
-    await sharp(previewPath)
-      .composite([
-        {
-          input: await sharp(logoPath)
-            .resize(logoSize, logoSize, { fit: 'inside' })
-            .toBuffer(),
-          gravity: 'southeast',
-          blend: 'over'
-        }
-      ])
-      .jpeg({ quality: 95 })
-      .toFile(logoImagePath);
+    // 限制 Logo 最大尺寸为画布的 50%
+    const finalLogoSize = Math.min(logoSize, 400);
 
-    results.logo = logoImagePath;
+    if (logoPosition && (logoPosition.x !== 50 || logoPosition.y !== 50)) {
+      // 使用自定义位置
+      logoImagePath = exportOptions.single
+        ? path.join(outputDir, 'logo', `${inputBaseName}_logo.jpg`)
+        : path.join(require('os').tmpdir(), 'videostitcher-temp', `${inputBaseName}_temp_logo.jpg`);
+
+      if (exportOptions.single) {
+        await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
+      } else {
+        await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
+      }
+
+      // 使用 composite 配合 left/top 参数定位 Logo
+      const logoBuffer = await sharp(logoPath)
+        .resize(finalLogoSize, finalLogoSize, { fit: 'inside' })
+        .toBuffer();
+
+      await sharp(previewPath)
+        .composite([
+          {
+            input: logoBuffer,
+            left: Math.round(logoPosition.x),
+            top: Math.round(logoPosition.y),
+            blend: 'over'
+          }
+        ])
+        .jpeg({ quality: 95 })
+        .toFile(logoImagePath);
+
+      if (exportOptions.single) {
+        results.logo = logoImagePath;
+      }
+    } else {
+      // 使用默认右下角位置
+      logoImagePath = exportOptions.single
+        ? path.join(outputDir, 'logo', `${inputBaseName}_logo.jpg`)
+        : path.join(require('os').tmpdir(), 'videostitcher-temp', `${inputBaseName}_temp_logo.jpg`);
+
+      if (exportOptions.single) {
+        await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
+      } else {
+        await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
+      }
+
+      await sharp(previewPath)
+        .composite([
+          {
+            input: await sharp(logoPath)
+              .resize(finalLogoSize, finalLogoSize, { fit: 'inside' })
+              .toBuffer(),
+            gravity: 'southeast',
+            blend: 'over'
+          }
+        ])
+        .jpeg({ quality: 95 })
+        .toFile(logoImagePath);
+
+      if (exportOptions.single) {
+        results.logo = logoImagePath;
+      }
+    }
   }
 
   // ========== 步骤 3: 对带 Logo 的图片进行九宫格切片 ==========
-  const gridResult = await createGridImage(
-    logoImagePath,
-    path.join(outputDir, 'grid')
-  );
-  results.grid = gridResult;
+  if (exportOptions.grid) {
+    const gridResult = await createGridImage(
+      logoImagePath,
+      path.join(outputDir, 'grid')
+    );
+    results.grid = gridResult;
+  }
 
   return {
     success: true,

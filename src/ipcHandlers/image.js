@@ -175,8 +175,14 @@ async function handleGridImage(event, { images, outputDir }) {
  * 图片素材处理预览
  * 生成预览效果（不保存到输出目录，而是保存到临时目录）
  */
-async function handleImageMaterialPreview(event, { imagePath, logoPath, previewSize = 'cover' }) {
-  console.log('[预览] 开始生成预览:', { imagePath, logoPath, previewSize });
+async function handleImageMaterialPreview(event, {
+  imagePath,
+  logoPath,
+  previewSize = 'cover',
+  logoPosition = null,
+  logoScale = 1
+}) {
+  console.log('[预览] 开始生成预览:', { imagePath, logoPath, previewSize, logoPosition, logoScale });
 
   const os = require('os');
 
@@ -186,8 +192,16 @@ async function handleImageMaterialPreview(event, { imagePath, logoPath, previewS
 
   console.log('[预览] 临时目录:', tmpDir);
 
-  // 调用处理函数，但使用临时目录
-  const result = await processImageMaterial(imagePath, logoPath, tmpDir, previewSize);
+  // 调用处理函数，使用临时目录，默认导出所有内容
+  const result = await processImageMaterial(
+    imagePath,
+    logoPath,
+    tmpDir,
+    previewSize,
+    logoPosition,
+    logoScale,
+    { single: true, grid: true } // 预览时总是生成所有内容
+  );
 
   console.log('[预览] 处理完成:', result.results);
 
@@ -201,7 +215,15 @@ async function handleImageMaterialPreview(event, { imagePath, logoPath, previewS
 /**
  * 图片素材处理 (Logo + 九宫格 + 预览)
  */
-async function handleImageMaterial(event, { images, logoPath, outputDir, previewSize = 'cover' }) {
+async function handleImageMaterial(event, {
+  images,
+  logoPath,
+  outputDir,
+  previewSize = 'cover',
+  logoPosition = null,
+  logoScale = 1,
+  exportOptions = { single: true, grid: true }
+}) {
   const results = [];
   const total = images.length;
   let done = 0;
@@ -219,7 +241,15 @@ async function handleImageMaterial(event, { images, logoPath, outputDir, preview
         throw new Error(`不支持的文件格式: ${ext}。请选择图片文件 (jpg, png, webp 等)`);
       }
 
-      const result = await processImageMaterial(imagePath, logoPath, outputDir, previewSize);
+      const result = await processImageMaterial(
+        imagePath,
+        logoPath,
+        outputDir,
+        previewSize,
+        logoPosition,
+        logoScale,
+        exportOptions
+      );
       results.push(result);
       done++;
       event.sender.send('image-progress', {
