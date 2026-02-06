@@ -109,20 +109,10 @@ jobs:
           NOTES="## 📦 发布版本 ${NEW_VERSION}
 
           **版本类型:** ${{ inputs.version_type }}
-          **发布日期:** $(date +'%Y-%m-%d')
+          **发布日期:** $(date +'%Y年%m月%d日')
 
           ### 📝 更新内容
           ${COMMITS}
-
-          ### 📥 下载
-
-          #### macOS
-          - **DMG:** 推荐安装方式 (.dmg)
-          - **ZIP:** 免安装，直接运行
-
-          #### Windows
-          - **ZIP:** 免安装，直接运行 (.zip)
-          - **安装包:** 支持自动更新的 NSIS 安装程序 (.exe)
           "
 
           # 创建 JSON 格式以便安全处理多行内容
