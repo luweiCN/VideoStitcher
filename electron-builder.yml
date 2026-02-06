@@ -25,9 +25,10 @@ files:
   - "!**/CLAUDE.md"
 
 # asar 打包配置
-asar:
-  unpack: |
-    **/node_modules/{ffmpeg-static,sharp,@img}/**
+asarUnpack:
+  - node_modules/ffmpeg-static/**/*
+  - node_modules/sharp/**/*
+  - node_modules/@img/**/*
 
 # macOS 配置
 mac:
@@ -42,10 +43,8 @@ mac:
       arch:
         - x64
         - arm64
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.plist
   gatekeeperAssess: false
-  hardenedRuntime: true
+  hardenedRuntime: false
 
 # Windows 配置
 win:
