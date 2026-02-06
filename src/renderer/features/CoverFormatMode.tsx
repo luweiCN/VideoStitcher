@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Upload, Loader2, Play, Trash2, CheckCircle,
-  FolderOpen, Image as ImageIcon, XCircle, Settings, AlertCircle
+  FolderOpen, Image as ImageIcon, XCircle, AlertCircle
 } from 'lucide-react';
 
 interface CoverFormatModeProps {
@@ -22,7 +22,6 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [outputDir, setOutputDir] = useState<string>('');
   const [quality, setQuality] = useState(90);
-  const [showHelp, setShowHelp] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
   // 进度状态
@@ -216,15 +215,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="font-bold text-lg flex items-center gap-2">
-              封面格式转换器
-              <button
-                onClick={() => setShowHelp(!showHelp)}
-                className="p-1 hover:bg-slate-800 rounded transition-colors"
-              >
-                <Settings className="w-4 h-4 text-slate-500" />
-              </button>
-            </h2>
+            <h2 className="font-bold text-lg">封面格式转换器</h2>
             <p className="text-slate-500 text-xs">自动检测 横屏/竖屏/方形 并转换</p>
           </div>
         </div>
@@ -248,23 +239,6 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
           </div>
         )}
       </header>
-
-      {/* Help Panel */}
-      {showHelp && (
-        <div className="mx-6 mt-4 p-4 bg-slate-900 border border-slate-800 rounded-xl shrink-0">
-          <h3 className="font-bold mb-2 text-fuchsia-400">功能说明</h3>
-          <ul className="grid grid-cols-2 gap-2 text-sm text-slate-300">
-            <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> 横版图片 → 1920x1080</li>
-            <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> 竖版图片 → 1080x1920</li>
-            <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> 方形图片 → 800x800</li>
-            <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-emerald-500" /> 支持批量处理</li>
-          </ul>
-          <div className="mt-3 pt-3 border-t border-slate-700 text-xs text-slate-400">
-            <AlertCircle className="w-4 h-4 inline mr-1 text-amber-500" />
-            注意: 图片会被拉伸以填充目标尺寸，可能导致变形
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
@@ -298,8 +272,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
 
           {/* 功能说明 */}
           <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
-            <h3 className="text-xs font-bold text-fuchsia-400 uppercase mb-3 flex items-center gap-2">
-              <Settings className="w-3.5 h-3.5" />
+            <h3 className="text-xs font-bold text-fuchsia-400 uppercase mb-3">
               功能说明
             </h3>
             <ul className="space-y-2 text-sm text-slate-400">
