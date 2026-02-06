@@ -332,7 +332,7 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverI
 
 /**
  * 智能改尺寸处理
- * 暂时使用简单的 resize 实现
+ * 为每个视频生成指定模式的输出视频
  */
 async function handleResize(event, { videos, mode, blurAmount, outputDir, concurrency }) {
   if (!videos.length) {
@@ -342,8 +342,64 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
     throw new Error('未选择输出目录');
   }
 
-  // TODO: 实现智能改尺寸
-  throw new Error('智能改尺寸功能尚未实现，敬请期待');
+  const { buildArgs: buildResizeArgs, RESIZE_CONFIGS } = require('../ffmpeg/videoResize');
+  const configs = RESIZE_CONFIGS[mode];
+  if (!configs) {
+    throw new Error(`无效的模式: ${mode}`);
+  }
+
+  // 设置并发数
+  queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
+
+  // 计算总任务数：每个视频可能生成多个输出
+  const total = videos.length * configs.length;
+  let done = 0;
+  let failed = 0;
+
+  event.sender.send('video-start', { total, mode: 'resize', concurrency: queue.concurrency });
+
+  const tasks = [];
+
+  for (let i = 0; i < videos.length; i++) {
+    const videoPath = videos[i];
+    const fileName = path.parse(videoPath).name;
+
+    for (let j = 0; j < configs.length; j++) {
+      const config = configs[j];
+      const suffix = config.suffix;
+      const outName = `${fileName}${suffix}.mp4`;
+      const outPath = path.join(outputDir, outName);
+
+      tasks.push(queue.push(async () => {
+        const index = i * configs.length + j;
+
+        try {
+          const args = buildResizeArgs({
+            inputPath: videoPath,
+            outputPath: outPath,
+            width: config.width,
+            height: config.height,
+            blurAmount,
+          });
+
+          await runFfmpeg(args, (log) => {
+            event.sender.send('video-log', { index, message: log });
+          });
+
+          done++;
+          event.sender.send('video-progress', { done, failed, total, index, outputPath: outPath });
+        } catch (err) {
+          failed++;
+          event.sender.send('video-failed', { done, failed, total, index, error: err.message });
+        }
+      }));
+    }
+  }
+
+  await Promise.allSettled(tasks);
+  event.sender.send('video-finish', { done, failed, total });
+
+  return { done, failed, total };
 }
 
 /**

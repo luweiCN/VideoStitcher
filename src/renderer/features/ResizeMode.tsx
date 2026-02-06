@@ -34,6 +34,8 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const [previewImages, setPreviewImages] = useState<PreviewImage[]>([]);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null);
+  const [originalVideoSize, setOriginalVideoSize] = useState({ width: 1920, height: 1080 });
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
@@ -43,6 +45,57 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const addLog = useCallback((msg: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   }, []);
+
+  // 获取视频预览 URL 和元数据
+  const generatePreviews = useCallback(async () => {
+    if (videos.length === 0 || currentVideoIndex >= videos.length) return;
+
+    setIsGeneratingPreview(true);
+    setPreviewError(null);
+
+    // 清理旧的预览
+    previewImages.forEach(p => URL.revokeObjectURL(p.url));
+    setPreviewImages([]);
+
+    try {
+      const videoPath = videos[currentVideoIndex];
+      addLog(`生成预览: ${videoPath.split('/').pop()}`);
+
+      // 使用 Electron 的预览 URL API
+      const previewResult = await window.api.getPreviewUrl(videoPath);
+      if (!previewResult.success || !previewResult.url) {
+        throw new Error(previewResult.error || '获取预览 URL 失败');
+      }
+
+      // 获取视频元数据
+      const metadata = await window.api.getVideoMetadata(videoPath);
+
+      // 存储原始视频 URL
+      setOriginalVideoUrl(previewResult.url);
+      setOriginalVideoSize({ width: metadata.width, height: metadata.height });
+
+      // 为每个输出尺寸创建预览配置
+      const outputs = MODE_CONFIG[mode].outputs;
+      const previews: PreviewImage[] = [];
+
+      for (const output of outputs) {
+        previews.push({
+          url: previewResult.url, // 所有预览使用同一视频源
+          width: output.width,
+          height: output.height,
+          label: output.label,
+        });
+      }
+
+      setPreviewImages(previews);
+      addLog(`预览准备完成: ${previews.length} 个版本`);
+    } catch (err: any) {
+      setPreviewError(err.message || '生成预览失败');
+      addLog(`预览生成异常: ${err.message}`);
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  }, [videos, currentVideoIndex, mode, previewImages, addLog]);
 
   // 监听视频处理事件
   useEffect(() => {
@@ -88,74 +141,9 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       // 清空预览
       setPreviewImages([]);
       setPreviewError(null);
+      setOriginalVideoUrl(null);
     }
-  }, [videos, currentVideoIndex, mode]);
-
-  // 从视频提取第一帧作为预览图
-  const generatePreviews = async () => {
-    if (videos.length === 0 || currentVideoIndex >= videos.length) return;
-
-    setIsGeneratingPreview(true);
-    setPreviewError(null);
-
-    // 清理旧的预览
-    previewImages.forEach(p => URL.revokeObjectURL(p.url));
-    setPreviewImages([]);
-
-    try {
-      const videoPath = videos[currentVideoIndex];
-      addLog(`生成预览图: ${videoPath.split('/').pop()}`);
-
-      // 使用 Electron 的预览 URL API
-      const previewResult = await window.api.getPreviewUrl(videoPath);
-      if (!previewResult.success || !previewResult.url) {
-        throw new Error(previewResult.error || '获取预览 URL 失败');
-      }
-
-      // 使用 video 元素提取第一帧
-      const video = document.createElement('video');
-      video.src = previewResult.url;
-      video.muted = true;
-      video.playsInline = true;
-      video.currentTime = 0.5; // 从 0.5 秒提取，避免黑帧
-
-      await new Promise<void>((resolve, reject) => {
-        video.onloadeddata = () => resolve();
-        video.onerror = () => reject(new Error('视频加载失败'));
-        video.load();
-      });
-
-      // 创建 canvas 提取帧
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(video, 0, 0);
-
-      const originalImageUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-      // 为每个输出尺寸生成预览图
-      const outputs = MODE_CONFIG[mode].outputs;
-      const previews: PreviewImage[] = [];
-
-      for (const output of outputs) {
-        previews.push({
-          url: originalImageUrl, // 使用同一张原图，CSS 会处理显示效果
-          width: output.width,
-          height: output.height,
-          label: output.label,
-        });
-      }
-
-      setPreviewImages(previews);
-      addLog(`预览生成完成: ${previews.length} 个版本`);
-    } catch (err: any) {
-      setPreviewError(err.message || '生成预览失败');
-      addLog(`预览生成异常: ${err.message}`);
-    } finally {
-      setIsGeneratingPreview(false);
-    }
-  };
+  }, [videos, currentVideoIndex, mode, generatePreviews]);
 
   const handleSelectVideos = async () => {
     try {
@@ -350,39 +338,41 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                   const style = getPreviewStyle(
                     preview.width,
                     preview.height,
-                    1080, // 假设原图是 1080p，实际应该从视频元数据获取
-                    1920
+                    originalVideoSize.width,
+                    originalVideoSize.height
                   );
 
                   return (
                     <div key={index} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-mono text-slate-400">{preview.label}</span>
-                        <span className="text-[10px] text-slate-500">CSS 模拟</span>
+                        <span className="text-[10px] text-slate-500">实时预览</span>
                       </div>
                       <div
-                        className="bg-black rounded-lg overflow-hidden border border-slate-800 relative"
+                        className="bg-black rounded-lg overflow-hidden border border-slate-800 relative group"
                         style={{
                           aspectRatio: style.containerAspectRatio,
                         }}
                       >
-                        {/* 背景层（模糊） */}
-                        <img
+                        {/* 背景层（模糊视频） */}
+                        <video
                           src={preview.url}
-                          alt=""
                           className="absolute inset-0 w-full h-full object-cover"
                           style={{
                             filter: `blur(${blurAmount}px)`,
                             transform: 'scale(1.1)',
                           }}
+                          muted
+                          loop
+                          autoPlay
+                          playsInline
                         />
                         {/* 遮罩层 */}
                         <div className="absolute inset-0 bg-black/30" />
-                        {/* 前景层（清晰） */}
-                        <img
+                        {/* 前景层（清晰视频，可播放） */}
+                        <video
                           src={preview.url}
-                          alt=""
-                          className="absolute inset-0"
+                          className="absolute inset-0 bg-transparent"
                           style={{
                             width: `${style.displayWidth}px`,
                             height: `${style.displayHeight}px`,
@@ -392,6 +382,8 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                             maxHeight: '100%',
                             objectFit: 'contain',
                           }}
+                          controls
+                          playsInline
                         />
                       </div>
                     </div>
