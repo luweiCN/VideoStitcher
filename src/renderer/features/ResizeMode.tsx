@@ -522,7 +522,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                             filter: `blur(${blurAmount}px)`,
                             transform: 'scale(1.1)',
                           }}
-                          muted
+                          muted={true}
                           loop
                           playsInline
                         />
