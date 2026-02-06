@@ -30,7 +30,7 @@ asarUnpack:
   - node_modules/sharp/**/*
   - node_modules/@img/**/*
 
-# macOS 配置
+# macOS 配置 - 只生成 DMG，分离架构
 mac:
   category: public.app-category.video
   icon: build/icon.icns
@@ -39,21 +39,14 @@ mac:
       arch:
         - x64
         - arm64
-    - target: zip
-      arch:
-        - x64
-        - arm64
   gatekeeperAssess: false
   hardenedRuntime: false
 
-# Windows 配置
+# Windows 配置 - 只生成 NSIS 安装包
 win:
   icon: build/icon.ico
   target:
     - target: nsis
-      arch:
-        - x64
-    - target: zip
       arch:
         - x64
 
