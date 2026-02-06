@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Film, Download, AlertCircle, Bell } from 'lucide-react';
-import HorizontalMode from './features/HorizontalMode';
-import VerticalMode from './features/VerticalMode';
+import VideoMergeMode from './features/VideoMergeMode';
 import FileNameExtractorMode from './features/FileNameExtractorMode';
 import CoverFormatMode from './features/CoverFormatMode';
 import CoverCompressMode from './features/CoverCompressMode';
@@ -11,7 +10,7 @@ import ResizeMode from './features/ResizeMode';
 import VideoStitcherMode from './features/VideoStitcherMode';
 import AdminMode from './features/AdminMode';
 
-type View = 'home' | 'vertical' | 'horizontal' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress' | 'videoStitcher';
+type View = 'home' | 'videoMerge' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress' | 'videoStitcher';
 
 interface UpdateInfo {
   version: string;
@@ -147,21 +146,15 @@ const App: React.FC = () => {
     setCurrentView('admin');
   };
 
-  if (currentView === 'vertical') {
-    return <VerticalMode onBack={() => setCurrentView('home')} />;
-  }
-
-  if (currentView === 'horizontal') {
-    return <HorizontalMode onBack={() => setCurrentView('home')} />;
+  if (currentView === 'videoMerge') {
+    return <VideoMergeMode onBack={() => setCurrentView('home')} />;
   }
 
   // 根据当前视图获取页面内容
   const getPageContent = () => {
     switch (currentView) {
-      case 'vertical':
-        return <VerticalMode onBack={() => setCurrentView('home')} />;
-      case 'horizontal':
-        return <HorizontalMode onBack={() => setCurrentView('home')} />;
+      case 'videoMerge':
+        return <VideoMergeMode onBack={() => setCurrentView('home')} />;
       case 'imageMaterial':
         return <ImageMaterialMode onBack={() => setCurrentView('home')} />;
       case 'fileNameExtractor':
@@ -190,43 +183,22 @@ const App: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-7xl w-full">
-              {/* 横屏合成入口 */}
+              {/* 横竖屏极速合成入口 */}
               <button
-                onClick={() => setCurrentView('horizontal')}
+                onClick={() => setCurrentView('videoMerge')}
                 className="group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all hover:border-violet-500 hover:shadow-lg hover:shadow-violet-500/10 hover:-translate-y-0.5"
               >
                 <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
-                  <Monitor className="w-16 h-16" />
+                  <Layers className="w-16 h-16" />
                 </div>
                 <div className="relative z-10 space-y-3">
                   <div className="w-12 h-12 bg-violet-500/10 rounded-xl flex items-center justify-center group-hover:bg-violet-500 group-hover:text-white transition-colors text-violet-400">
-                    <Monitor className="w-6 h-6" />
+                    <Layers className="w-6 h-6" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold mb-1 text-white group-hover:text-violet-400 transition-colors">横版极速合成</h2>
+                    <h2 className="text-lg font-bold mb-1 text-white group-hover:text-violet-400 transition-colors">横竖屏极速合成</h2>
                     <p className="text-slate-400 text-sm leading-relaxed">
-                      1920x1080 横屏视频，A 面拼接、随机封面、极速渲染
-                    </p>
-                  </div>
-                </div>
-              </button>
-
-              {/* 竖屏合成入口 */}
-              <button
-                onClick={() => setCurrentView('vertical')}
-                className="group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-0.5"
-              >
-                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
-                  <Zap className="w-16 h-16" />
-                </div>
-                <div className="relative z-10 space-y-3">
-                  <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white transition-colors text-indigo-400">
-                    <Zap className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold mb-1 text-white group-hover:text-indigo-400 transition-colors">竖屏极速合成</h2>
-                    <p className="text-slate-400 text-sm leading-relaxed">
-                      竖屏视频制作，自动背景图、批量合成、极速渲染
+                      横竖屏一体，图层管理，所有素材独立位置调整
                     </p>
                   </div>
                 </div>

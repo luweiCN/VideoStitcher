@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 export interface ElectronAPI {
   // 文件对话框
-  pickFiles: (title: string, filters?: { name: string; extensions: string[] }[]) => Promise<string[]>;
+  pickFiles: (title: string, filters?: { name: string; extensions: string[] }[], multiSelection?: boolean) => Promise<string[]>;
   pickOutDir: () => Promise<string>;
 
   // === 原有视频处理功能 (保留兼容性) ===
@@ -16,8 +16,14 @@ export interface ElectronAPI {
     aVideos: string[];
     bVideos: string[];
     bgImage?: string;
+    coverImages?: string[]; // 支持批量封面，每个任务随机选择
     outputDir: string;
     concurrency?: number;
+    aPosition?: { x: number; y: number; width: number; height: number };
+    bPosition?: { x: number; y: number; width: number; height: number };
+    bPositions?: { x: number; y: number; width: number; height: number }[];
+    bgPosition?: { x: number; y: number; width: number; height: number };
+    coverPosition?: { x: number; y: number; width: number; height: number };
   }) => Promise<{ done: number; failed: number; total: number }>;
 
   // 竖屏合成
@@ -25,8 +31,14 @@ export interface ElectronAPI {
     mainVideos: string[];
     bgImage?: string;
     aVideos?: string[];
+    coverImages?: string[]; // 支持批量封面，每个任务随机选择
     outputDir: string;
     concurrency?: number;
+    aPosition?: { x: number; y: number; width: number; height: number };
+    bPosition?: { x: number; y: number; width: number; height: number };
+    bPositions?: { x: number; y: number; width: number; height: number }[];
+    bgPosition?: { x: number; y: number; width: number; height: number };
+    coverPosition?: { x: number; y: number; width: number; height: number };
   }) => Promise<{ done: number; failed: number; total: number }>;
 
   // 智能改尺寸
@@ -97,6 +109,8 @@ export interface ElectronAPI {
   getPreviewUrl: (filePath: string) => Promise<{ success: boolean; url?: string; error?: string }>;
   // 获取文件信息
   getFileInfo: (filePath: string) => Promise<{ success: boolean; info?: { name: string; size: number; type: string; ext: string }; error?: string }>;
+  // 获取视频元数据
+  getVideoMetadata: (filePath: string) => Promise<{ width: number; height: number; duration: number }>;
 
   // === 事件监听 ===
   // 原有任务事件
@@ -171,6 +185,7 @@ const api: ElectronAPI = {
   clearPreviews: () => ipcRenderer.invoke('clear-previews'),
   getPreviewUrl: (filePath) => ipcRenderer.invoke('get-preview-url', filePath),
   getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
+  getVideoMetadata: (filePath) => ipcRenderer.invoke('video-get-metadata', filePath),
 
   // 预览事件
   onPreviewStart: (cb) => ipcRenderer.on('preview-start', (_e, data) => cb(data)),

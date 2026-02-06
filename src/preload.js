@@ -25,6 +25,7 @@ const api = {
     clearPreviews: () => electron_1.ipcRenderer.invoke('clear-previews'),
     getPreviewUrl: (filePath) => electron_1.ipcRenderer.invoke('get-preview-url', filePath),
     getFileInfo: (filePath) => electron_1.ipcRenderer.invoke('get-file-info', filePath),
+    getVideoMetadata: (filePath) => electron_1.ipcRenderer.invoke('video-get-metadata', filePath),
     // 预览事件
     onPreviewStart: (cb) => electron_1.ipcRenderer.on('preview-start', (_e, data) => cb(data)),
     onPreviewComplete: (cb) => electron_1.ipcRenderer.on('preview-complete', (_e, data) => cb(data)),

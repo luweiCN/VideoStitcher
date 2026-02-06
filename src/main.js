@@ -248,10 +248,15 @@ function setupAutoUpdater() {
   );
 }
 
-ipcMain.handle("pick-files", async (_e, { title, filters }) => {
+ipcMain.handle("pick-files", async (_e, { title, filters, multiSelection = true }) => {
+  const properties = ["openFile"];
+  if (multiSelection) {
+    properties.push("multiSelections");
+  }
+
   const res = await dialog.showOpenDialog(win, {
     title,
-    properties: ["openFile", "multiSelections"],
+    properties,
     filters: filters || [{ name: "All Files", extensions: ["*"] }],
   });
   if (res.canceled) return [];
