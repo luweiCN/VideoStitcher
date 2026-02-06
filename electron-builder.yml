@@ -7,7 +7,7 @@ directories:
   buildResources: build
   output: dist
 
-# 额外资源（将 dist/renderer 包含到打包中）
+# 额外资源（将 dist/renderer 包含到 resources）
 extraResources:
   - from: dist/renderer
     to: dist/renderer
@@ -21,6 +21,7 @@ publish:
 
 # 文件包含/排除
 files:
+  - dist/renderer/**/*
   - "!**/.vscode/*"
   - "!**/.git/*"
   - "!**/.github/*"

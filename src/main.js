@@ -101,10 +101,11 @@ function createWindow() {
     );
   } else {
     console.log("Production mode: loading built files");
-    // electron-builder 打包后，dist/renderer 被复制到 resources 目录
-    const htmlPath = path.join(process.resourcesPath, "dist", "renderer", "index.html");
+    // 打包后 dist/renderer 被包含在 app.asar 中
+    // __dirname 在打包后是 app.asar/src
+    const htmlPath = path.join(__dirname, "../dist/renderer/index.html");
     console.log("Loading HTML from:", htmlPath);
-    console.log("resourcesPath:", process.resourcesPath);
+    console.log("__dirname:", __dirname);
     win.loadFile(htmlPath).catch((err) => {
       console.error("Failed to load production build:", err);
     });
