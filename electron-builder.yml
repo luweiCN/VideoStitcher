@@ -19,9 +19,8 @@ publish:
   owner: luweiCN
   repo: VideoStitcher
 
-# 文件包含/排除
+# 文件包含/排除（默认会打包 src/* 到 asar）
 files:
-  - dist/renderer/**/*
   - "!**/.vscode/*"
   - "!**/.git/*"
   - "!**/.github/*"
