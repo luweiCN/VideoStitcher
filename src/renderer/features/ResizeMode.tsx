@@ -7,9 +7,8 @@ interface ResizeModeProps {
 
 type ResizeMode = 'siya' | 'fishing' | 'unify_h' | 'unify_v';
 
-// 预览视频数据结构
-interface PreviewVideo {
-  path: string;
+// 预览图片数据结构
+interface PreviewImage {
   url: string;
   width: number;
   height: number;
@@ -17,10 +16,10 @@ interface PreviewVideo {
 }
 
 const MODE_CONFIG = {
-  siya: { name: 'Siya模式', desc: '竖屏转横屏/方形', outputs: ['1920x1080', '1920x1920'] },
-  fishing: { name: '海外捕鱼', desc: '横屏转竖屏/方形', outputs: ['1080x1920', '1920x1920'] },
-  unify_h: { name: '统一横屏', desc: '强制转为横屏比例', outputs: ['1920x1080'] },
-  unify_v: { name: '统一竖屏', desc: '强制转为竖屏比例', outputs: ['1080x1920'] },
+  siya: { name: 'Siya模式', desc: '竖屏转横屏/方形', outputs: [{ width: 1920, height: 1080, label: '1920x1080' }, { width: 1920, height: 1920, label: '1920x1920' }] },
+  fishing: { name: '海外捕鱼', desc: '横屏转竖屏/方形', outputs: [{ width: 1080, height: 1920, label: '1080x1920' }, { width: 1920, height: 1920, label: '1920x1920' }] },
+  unify_h: { name: '统一横屏', desc: '强制转为横屏比例', outputs: [{ width: 1920, height: 1080, label: '1920x1080' }] },
+  unify_v: { name: '统一竖屏', desc: '强制转为竖屏比例', outputs: [{ width: 1080, height: 1920, label: '1080x1920' }] },
 };
 
 const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
@@ -32,10 +31,9 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
   // 预览相关状态
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const [previewVideos, setPreviewVideos] = useState<PreviewVideo[]>([]);
+  const [previewImages, setPreviewImages] = useState<PreviewImage[]>([]);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
@@ -45,18 +43,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const addLog = useCallback((msg: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   }, []);
-
-  // 清理预览资源
-  useEffect(() => {
-    return () => {
-      // 清理预览超时
-      if (previewTimeoutRef.current) {
-        clearTimeout(previewTimeoutRef.current);
-      }
-      // 清理预览文件的 URL
-      previewVideos.forEach(p => URL.revokeObjectURL(p.url));
-    };
-  }, [previewVideos]);
 
   // 监听视频处理事件
   useEffect(() => {
@@ -100,12 +86,12 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       generatePreviews();
     } else {
       // 清空预览
-      setPreviewVideos([]);
+      setPreviewImages([]);
       setPreviewError(null);
     }
-  }, [videos, currentVideoIndex, mode, blurAmount]);
+  }, [videos, currentVideoIndex, mode]);
 
-  // 生成预览视频
+  // 从视频提取第一帧作为预览图
   const generatePreviews = async () => {
     if (videos.length === 0 || currentVideoIndex >= videos.length) return;
 
@@ -113,36 +99,50 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     setPreviewError(null);
 
     // 清理旧的预览
-    previewVideos.forEach(p => URL.revokeObjectURL(p.url));
-    setPreviewVideos([]);
+    previewImages.forEach(p => URL.revokeObjectURL(p.url));
+    setPreviewImages([]);
 
     try {
-      addLog(`生成预览: ${videos[currentVideoIndex]}`);
+      const videoPath = videos[currentVideoIndex];
+      addLog(`生成预览图: ${videoPath.split('/').pop()}`);
 
-      const result = await window.api.generateResizePreviews({
-        videoPath: videos[currentVideoIndex],
-        mode,
-        blurAmount,
+      // 使用 video 元素提取第一帧
+      const video = document.createElement('video');
+      video.src = `file://${videoPath}`;
+      video.muted = true;
+      video.playsInline = true;
+      video.currentTime = 0.5; // 从 0.5 秒提取，避免黑帧
+
+      await new Promise((resolve, reject) => {
+        video.onloadeddata = () => resolve(null);
+        video.onerror = () => reject(new Error('视频加载失败'));
+        video.load();
       });
 
-      if (result.success && result.previews) {
-        // 为每个预览创建 URL
-        const previewsWithUrls = await Promise.all(
-          result.previews.map(async (p) => {
-            const urlResult = await window.api.getPreviewUrl(p.path);
-            return {
-              ...p,
-              url: urlResult.url || '',
-            };
-          })
-        );
+      // 创建 canvas 提取帧
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(video, 0, 0);
 
-        setPreviewVideos(previewsWithUrls);
-        addLog(`预览生成完成: ${previewsWithUrls.length} 个版本`);
-      } else {
-        setPreviewError(result.error || '生成预览失败');
-        addLog(`预览生成失败: ${result.error}`);
+      const originalImageUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+      // 为每个输出尺寸生成预览图
+      const outputs = MODE_CONFIG[mode].outputs;
+      const previews: PreviewImage[] = [];
+
+      for (const output of outputs) {
+        previews.push({
+          url: originalImageUrl, // 使用同一张原图，CSS 会处理显示效果
+          width: output.width,
+          height: output.height,
+          label: output.label,
+        });
       }
+
+      setPreviewImages(previews);
+      addLog(`预览生成完成: ${previews.length} 个版本`);
     } catch (err: any) {
       setPreviewError(err.message || '生成预览失败');
       addLog(`预览生成异常: ${err.message}`);
@@ -206,7 +206,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     addLog('开始智能改尺寸处理...');
     addLog(`视频: ${videos.length} 个`);
     addLog(`模式: ${MODE_CONFIG[mode].name}`);
-    addLog(`输出: ${MODE_CONFIG[mode].outputs.join(', ')}`);
+    addLog(`输出: ${MODE_CONFIG[mode].outputs.map(o => o.label).join(', ')}`);
     addLog(`模糊程度: ${blurAmount}`);
 
     try {
@@ -223,12 +223,35 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     }
   };
 
-  // 计算预览容器的宽高比
-  const getPreviewAspectRatio = (width: number, height: number) => {
-    if (width === 1920 && height === 1080) return 'aspect-video'; // 16:9
-    if (width === 1080 && height === 1920) return 'aspect-[9/16]'; // 9:16
-    if (width === 1920 && height === 1920) return 'aspect-square'; // 1:1
-    return 'aspect-video';
+  // 计算预览容器的宽高比和前景尺寸
+  const getPreviewStyle = (outputWidth: number, outputHeight: number, originalWidth: number, originalHeight: number) => {
+    // 计算原图在输出尺寸中的显示尺寸（保持比例）
+    const originalAspect = originalWidth / originalHeight;
+    const targetAspect = outputWidth / outputHeight;
+
+    let displayWidth, displayHeight;
+
+    if (originalAspect > targetAspect) {
+      // 原图更宽：按宽度适配
+      displayWidth = outputWidth;
+      displayHeight = outputWidth / originalAspect;
+    } else {
+      // 原图更高：按高度适配
+      displayHeight = outputHeight;
+      displayWidth = outputHeight * originalAspect;
+    }
+
+    // 计算居中位置
+    const offsetX = (outputWidth - displayWidth) / 2;
+    const offsetY = (outputHeight - displayHeight) / 2;
+
+    return {
+      containerAspectRatio: outputWidth / outputHeight,
+      displayWidth,
+      displayHeight,
+      offsetX,
+      offsetY,
+    };
   };
 
   return (
@@ -291,6 +314,9 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
               <Eye className="w-4 h-4 text-rose-400" />
               效果预览
             </h2>
+            {previewImages.length > 0 && (
+              <span className="text-xs text-slate-500 ml-auto">实时预览</span>
+            )}
           </div>
 
           <div className="flex-1 p-4 overflow-y-auto">
@@ -308,28 +334,63 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
               <div className="text-center py-12">
                 <p className="text-sm text-red-400">{previewError}</p>
               </div>
-            ) : previewVideos.length === 0 ? (
+            ) : previewImages.length === 0 ? (
               <div className="text-center py-12 text-slate-500 text-sm">
                 暂无预览
               </div>
             ) : (
               <div className="space-y-4">
-                {previewVideos.map((preview, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono text-slate-400">{preview.label}</span>
+                {previewImages.map((preview, index) => {
+                  const style = getPreviewStyle(
+                    preview.width,
+                    preview.height,
+                    1080, // 假设原图是 1080p，实际应该从视频元数据获取
+                    1920
+                  );
+
+                  return (
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono text-slate-400">{preview.label}</span>
+                        <span className="text-[10px] text-slate-500">CSS 模拟</span>
+                      </div>
+                      <div
+                        className="bg-black rounded-lg overflow-hidden border border-slate-800 relative"
+                        style={{
+                          aspectRatio: style.containerAspectRatio,
+                        }}
+                      >
+                        {/* 背景层（模糊） */}
+                        <img
+                          src={preview.url}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover"
+                          style={{
+                            filter: `blur(${blurAmount}px)`,
+                            transform: 'scale(1.1)',
+                          }}
+                        />
+                        {/* 遮罩层 */}
+                        <div className="absolute inset-0 bg-black/30" />
+                        {/* 前景层（清晰） */}
+                        <img
+                          src={preview.url}
+                          alt=""
+                          className="absolute inset-0"
+                          style={{
+                            width: `${style.displayWidth}px`,
+                            height: `${style.displayHeight}px`,
+                            left: `${style.offsetX}px`,
+                            top: `${style.offsetY}px`,
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            objectFit: 'contain',
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="bg-black rounded-lg overflow-hidden border border-slate-800">
-                      <video
-                        key={preview.path}
-                        src={preview.url}
-                        className={`w-full ${getPreviewAspectRatio(preview.width, preview.height)}`}
-                        controls
-                        preload="metadata"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -462,7 +523,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                 disabled={isProcessing || isGeneratingPreview}
               />
               <p className="text-[10px] text-slate-500 mt-2">
-                值越大背景越模糊 (推荐: 20)
+                实时预览，值越大背景越模糊 (推荐: 20)
               </p>
             </div>
 

@@ -48,7 +48,7 @@ function buildArgs({ inputPath, outputPath, width, height, blurAmount }) {
   // 2. 创建模糊背景（将原图缩放到覆盖目标尺寸，然后用 boxblur）
   // 3. 将清晰视频叠加到模糊背景上
 
-  const filters = `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black[v_scaled];`;
+  let filters = `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black[v_scaled];`;
 
   if (blurAmount > 0) {
     // 有模糊：创建模糊背景，然后叠加清晰视频
