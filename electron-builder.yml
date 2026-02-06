@@ -7,6 +7,12 @@ directories:
   buildResources: build
   output: dist
 
+# 额外资源（将 dist/renderer 包含到打包中）
+extraResources:
+  - from: dist/renderer
+    to: dist/renderer
+    filter: "**/*"
+
 # 发布配置（用于自动更新）
 publish:
   provider: github
