@@ -52,6 +52,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const [volume, setVolume] = useState(30);
   const [isMuted, setIsMuted] = useState(true);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const backgroundVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
@@ -168,8 +169,16 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
   // 当视频切换时，重置播放状态并停止所有视频
   useEffect(() => {
-    // 停止所有正在播放的视频
+    // 停止所有正在播放的前景视频
     videoRefs.current.forEach(video => {
+      if (video) {
+        video.pause();
+        video.currentTime = 0;
+      }
+    });
+
+    // 停止所有正在播放的背景视频
+    backgroundVideoRefs.current.forEach(video => {
       if (video) {
         video.pause();
         video.currentTime = 0;
@@ -183,6 +192,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
     // 清空旧的 refs
     videoRefs.current = [];
+    backgroundVideoRefs.current = [];
   }, [currentVideoIndex, videos.length]);
 
   const handleSelectVideos = async () => {
@@ -226,16 +236,28 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
   // 视频播放控制
   const togglePlayPause = () => {
+    const newPlaying = !isPlaying;
+    // 控制前景视频
     videoRefs.current.forEach(video => {
       if (video) {
-        if (isPlaying) {
-          video.pause();
-        } else {
+        if (newPlaying) {
           video.play();
+        } else {
+          video.pause();
         }
       }
     });
-    setIsPlaying(!isPlaying);
+    // 控制背景视频（跟随前景）
+    backgroundVideoRefs.current.forEach(video => {
+      if (video) {
+        if (newPlaying) {
+          video.play();
+        } else {
+          video.pause();
+        }
+      }
+    });
+    setIsPlaying(newPlaying);
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -263,9 +285,16 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const toggleMute = () => {
     const newMuted = !isMuted;
     setIsMuted(newMuted);
+    // 取消静音时，如果音量是0，恢复到30%
+    if (!newMuted && volume === 0) {
+      setVolume(30);
+    }
     videoRefs.current.forEach(video => {
       if (video) {
         video.muted = newMuted;
+        if (!newMuted && volume === 0) {
+          video.volume = 0.3;
+        }
       }
     });
   };
@@ -470,6 +499,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                       >
                         {/* 背景层（模糊视频） */}
                         <video
+                          ref={el => backgroundVideoRefs.current[index] = el}
                           src={preview.url}
                           className="absolute inset-0 w-full h-full object-cover"
                           style={{
@@ -478,7 +508,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                           }}
                           muted
                           loop
-                          autoPlay
                           playsInline
                         />
                         {/* 遮罩层 */}
@@ -543,8 +572,8 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                             onChange={handleVolumeChange}
                             className="flex-1 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-slate-500"
                           />
-                          <span className="text-[10px] text-slate-500 font-mono shrink-0 w-8 text-right">
-                            {isMuted ? 0 : volume}%
+                          <span className="text-[10px] text-slate-500 font-mono shrink-0 w-12 text-right">
+                            {isMuted ? '静音' : `${volume}%`}
                           </span>
                         </div>
                       </div>
