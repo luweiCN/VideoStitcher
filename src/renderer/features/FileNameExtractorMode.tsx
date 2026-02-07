@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen } from 'lucide-react';
 
 interface FileNameExtractorModeProps {
