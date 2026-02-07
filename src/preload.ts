@@ -191,6 +191,11 @@ export interface ElectronAPI {
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
+  
+  // macOS 应用内更新 API
+  macCheckForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
+  macDownloadUpdate: () => Promise<{ success: boolean; error?: string }>;
+  macInstallUpdate: () => Promise<{ success: boolean; error?: string }>;
 
   // 自动更新事件 - 返回清理函数
   onUpdateAvailable: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => () => void;
@@ -319,6 +324,11 @@ const api: ElectronAPI = {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  
+  // macOS 应用内更新 API
+  macCheckForUpdates: () => ipcRenderer.invoke('mac-check-for-updates'),
+  macDownloadUpdate: () => ipcRenderer.invoke('mac-download-update'),
+  macInstallUpdate: () => ipcRenderer.invoke('mac-install-update'),
 
   // 自动更新事件 - 返回清理函数
   onUpdateAvailable: (cb) => {

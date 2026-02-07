@@ -68,6 +68,10 @@ const api = {
     downloadUpdate: () => electron_1.ipcRenderer.invoke('download-update'),
     installUpdate: () => electron_1.ipcRenderer.invoke('install-update'),
     openExternal: (url) => electron_1.ipcRenderer.invoke('open-external', url),
+    // macOS 应用内更新 API
+    macCheckForUpdates: () => electron_1.ipcRenderer.invoke('mac-check-for-updates'),
+    macDownloadUpdate: () => electron_1.ipcRenderer.invoke('mac-download-update'),
+    macInstallUpdate: () => electron_1.ipcRenderer.invoke('mac-install-update'),
     // 自动更新事件 - 返回清理函数
     onUpdateAvailable: (cb) => {
         const listener = (_e, data) => cb(data);
