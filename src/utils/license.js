@@ -20,6 +20,14 @@ const CACHE_FILENAME = 'licenses.json';
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 小时
 const OFFLINE_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 天离线宽限期
 
+// 内置万能密钥（作为备用，如果授权文件无法读取时使用）
+// 注意：这些密钥需要在 GitHub Release 的授权文件中的 specialKeys 列表里启用
+const BUILTIN_MASTER_KEYS = [
+  'VS-MASTER-2024-KEY01',
+  'VS-MASTER-2024-KEY02',
+  'VS-MASTER-2024-KEY03'
+];
+
 /**
  * 获取授权文件缓存路径
  */
@@ -175,12 +183,57 @@ function readLicenseCache() {
 }
 
 /**
+ * 验证万能密钥
+ * @param {Object} licenseData - 授权文件内容
+ * @returns {Object|null} 如果万能密钥有效返回用户信息，否则返回 null
+ */
+function verifyMasterKey(licenseData) {
+  if (!licenseData) {
+    return null;
+  }
+
+  // 获取授权文件中的万能密钥列表
+  const specialKeys = licenseData.specialKeys || [];
+
+  // 检查是否有启用的万能密钥
+  const enabledKey = specialKeys.find(k => k.enabled && BUILTIN_MASTER_KEYS.includes(k.key));
+
+  if (enabledKey) {
+    console.log('[授权] 万能密钥验证成功:', enabledKey.key);
+    return {
+      authorized: true,
+      isMasterKey: true,
+      userInfo: {
+        user: enabledKey.name || '管理员',
+        machineId: 'MASTER-KEY'
+      }
+    };
+  }
+
+  return null;
+}
+
+/**
  * 验证当前机器是否在授权列表中
  * @param {Object} licenseData - 授权文件内容
  * @returns {Object} 验证结果 { authorized: boolean, userInfo?: Object, reason?: string }
  */
 function verifyLicense(licenseData) {
-  if (!licenseData || !licenseData.licenses || !Array.isArray(licenseData.licenses)) {
+  if (!licenseData) {
+    return {
+      authorized: false,
+      reason: '授权文件格式错误'
+    };
+  }
+
+  // 优先验证万能密钥
+  const masterKeyResult = verifyMasterKey(licenseData);
+  if (masterKeyResult) {
+    return masterKeyResult;
+  }
+
+  // 验证机器 ID 授权
+  if (!licenseData.licenses || !Array.isArray(licenseData.licenses)) {
     return {
       authorized: false,
       reason: '授权文件格式错误'

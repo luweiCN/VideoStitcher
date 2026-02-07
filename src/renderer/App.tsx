@@ -192,12 +192,11 @@ const App: React.FC = () => {
     setCurrentView('home');
   };
 
-  // 如果正在检查授权，显示加载状态
+  // 如果正在检查授权，显示加载状态（静默，不显示文字）
   if (isCheckingLicense) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">
-        <div className="w-12 h-12 border-3 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-slate-400">正在验证授权...</p>
+        <div className="w-12 h-12 border-3 border-violet-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

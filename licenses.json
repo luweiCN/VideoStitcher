@@ -1,6 +1,26 @@
 {
   "version": "1.0",
   "updatedAt": "2026-02-07T02:13:10Z",
+  "specialKeys": [
+    {
+      "key": "VS-MASTER-2024-KEY01",
+      "name": "管理员密钥 #1",
+      "enabled": true,
+      "description": "万能授权密钥，启用后所有安装此软件的设备都可以使用"
+    },
+    {
+      "key": "VS-MASTER-2024-KEY02",
+      "name": "管理员密钥 #2",
+      "enabled": true,
+      "description": "备用万能授权密钥"
+    },
+    {
+      "key": "VS-MASTER-2024-KEY03",
+      "name": "管理员密钥 #3",
+      "enabled": true,
+      "description": "备用万能授权密钥"
+    }
+  ],
   "licenses": [
     {
       "machineId": "example-machine-id-12345",
