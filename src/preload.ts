@@ -225,6 +225,8 @@ export interface ElectronAPI {
   }>;
   // 授权状态变更事件
   onLicenseStatusChanged: (callback: (data: any) => void) => () => void;
+  // 获取系统平台信息
+  getPlatform: () => Promise<{ platform: string; arch: string }>;
 }
 
 const api: ElectronAPI = {
@@ -343,6 +345,7 @@ const api: ElectronAPI = {
     ipcRenderer.on('license-status-changed', listener);
     return () => ipcRenderer.removeListener('license-status-changed', listener);
   },
+  getPlatform: () => ipcRenderer.invoke('get-platform'),
 };
 
 contextBridge.exposeInMainWorld('api', api);

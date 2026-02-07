@@ -31,7 +31,22 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
   const [tempNames, setTempNames] = useState<Record<string, string>>({});
+  const [platform, setPlatform] = useState<string>('unknown');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 获取系统平台信息
+  useEffect(() => {
+    const getPlatformInfo = async () => {
+      try {
+        const info = await window.api.getPlatform();
+        setPlatform(info.platform);
+      } catch {
+        // 默认使用 unknown
+        setPlatform('unknown');
+      }
+    };
+    getPlatformInfo();
+  }, []);
 
   // ==================== 拖拽处理 ====================
   /**
@@ -90,7 +105,8 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   const addFilesByPaths = (filePaths: string[]) => {
     const newVideoFiles: VideoFile[] = filePaths.map(path => {
       // 提取文件名（不含扩展名）
-      const fileName = path.split('/').pop() || path;
+      // 兼容 Windows (\) 和 Unix (/) 路径分隔符
+      const fileName = path.split(/[\/\\]/).pop() || path;
       const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
 
       return {
@@ -269,8 +285,8 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   const handleExportScript = () => {
     if (files.length === 0) return;
 
-    // 检测当前平台
-    const isWindows = process.platform === 'win32';
+    // 使用获取到的平台信息
+    const isWindows = platform === 'win32';
     const scriptExtension = isWindows ? 'bat' : 'sh';
     const scriptName = `rename_files.${scriptExtension}`;
 
@@ -280,8 +296,8 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
       // Windows 批处理脚本
       const commands = [
         '@echo off',
-        'cd /d "%~dp0"',
-        'chcp 65001 >nul'
+        'chcp 65001 >nul',
+        'echo 开始批量重命名...'
       ];
 
       files.forEach(f => {
@@ -295,14 +311,16 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
           const safeNewFileName = newFileName.replace(/%/g, '%%');
 
           commands.push(`if exist "${safeOriginalName}" (`);
-          commands.push(`    ren "${safeOriginalName}" "${safeNewFileName}"`);
+          commands.push(`  ren "${safeOriginalName}" "${safeNewFileName}"`);
+          commands.push(`  echo [成功] "${safeOriginalName}" -> "${newFileName}"`);
           commands.push(`) else (`);
-          commands.push(`    echo [失败] 未找到文件: "${safeOriginalName}"`);
+          commands.push(`  echo [跳过] 未找到文件: "${safeOriginalName}"`);
           commands.push(`)`);
         }
       });
 
-      commands.push('echo 重命名完成！');
+      commands.push('echo.');
+      commands.push('echo 批量重命名完成！');
       commands.push('pause');
 
       scriptContent = commands.join('\r\n');
@@ -311,6 +329,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
       const commands = [
         '#!/bin/bash',
         '# 批量重命名脚本',
+        'echo "开始批量重命名..."',
         ''
       ];
 
@@ -321,9 +340,17 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
         const newFileName = currentName + extension;
 
         if (f.originalName !== newFileName) {
-          commands.push(`mv "${f.originalName}" "${newFileName}"`);
+          commands.push(`if [ -f "${f.originalName}" ]; then`);
+          commands.push(`  mv "${f.originalName}" "${newFileName}"`);
+          commands.push(`  echo "[成功] ${f.originalName} -> ${newFileName}"`);
+          commands.push(`else`);
+          commands.push(`  echo "[跳过] 未找到文件: ${f.originalName}"`);
+          commands.push(`fi`);
+          commands.push('');
         }
       });
+
+      commands.push('echo "批量重命名完成！"');
 
       scriptContent = commands.join('\n');
     }

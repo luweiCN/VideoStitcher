@@ -103,5 +103,6 @@ const api = {
         electron_1.ipcRenderer.on('license-status-changed', listener);
         return () => electron_1.ipcRenderer.removeListener('license-status-changed', listener);
     },
+    getPlatform: () => electron_1.ipcRenderer.invoke('get-platform'),
 };
 electron_1.contextBridge.exposeInMainWorld('api', api);

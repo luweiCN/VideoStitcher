@@ -105,6 +105,16 @@ async function handleGetLicenseInfo() {
 }
 
 /**
+ * 获取系统平台信息
+ */
+async function handleGetPlatform() {
+  return {
+    platform: process.platform,
+    arch: process.arch
+  };
+}
+
+/**
  * 注册所有授权相关的 IPC 处理器
  */
 function registerAuthHandlers() {
@@ -121,6 +131,11 @@ function registerAuthHandlers() {
   // 获取授权详情
   ipcMain.handle('auth:get-license-info', async () => {
     return handleGetLicenseInfo();
+  });
+
+  // 获取系统平台
+  ipcMain.handle('get-platform', async () => {
+    return handleGetPlatform();
   });
 
   console.log('[授权 IPC] 授权处理器已注册');
