@@ -187,10 +187,7 @@ const App: React.FC = () => {
   };
 
   // 从未授权页面返回（授权成功后）
-  const handleAuthorized = () => {
-    setIsAuthorized(true);
-    setCurrentView('home');
-  };
+  // 不再需要，授权成功后会自动刷新页面
 
   // 如果正在检查授权，显示加载状态（静默，不显示文字）
   if (isCheckingLicense) {
@@ -209,7 +206,7 @@ const App: React.FC = () => {
   const getPageContent = () => {
     switch (currentView) {
       case 'unauthorized':
-        return <UnauthorizedMode onBack={handleAuthorized} />;
+        return <UnauthorizedMode />;
       case 'videoMerge':
         return <VideoMergeMode onBack={() => setCurrentView('home')} />;
       case 'imageMaterial':

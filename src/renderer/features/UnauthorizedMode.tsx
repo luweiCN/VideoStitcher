@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, RefreshCw, Copy, CheckCircle, X } from 'lucide-react';
-
-interface UnauthorizedModeProps {
-  onBack?: () => void;
-}
+import { AlertCircle, RefreshCw, Copy, CheckCircle } from 'lucide-react';
 
 /**
  * 未授权模式页面
- * 显示机器 ID、授权状态，提供重新检查授权功能
+ * 软件锁定状态，无法关闭
+ * 只有授权成功后才能进入软件
  */
-const UnauthorizedMode: React.FC<UnauthorizedModeProps> = ({ onBack }) => {
+const UnauthorizedMode: React.FC = () => {
   const [machineId, setMachineId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [checking, setChecking] = useState<boolean>(false);
@@ -52,9 +49,9 @@ const UnauthorizedMode: React.FC<UnauthorizedModeProps> = ({ onBack }) => {
         developmentMode: result.developmentMode
       });
 
-      // 如果授权成功，跳转到首页
-      if (result.authorized && onBack) {
-        onBack();
+      // 如果授权成功，刷新页面让 App.tsx 处理跳转
+      if (result.authorized) {
+        window.location.reload();
       }
     } catch (error) {
       console.error('检查授权失败:', error);
@@ -76,16 +73,6 @@ const UnauthorizedMode: React.FC<UnauthorizedModeProps> = ({ onBack }) => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-8">
-      {/* 返回按钮 */}
-      {onBack && (
-        <button
-          onClick={onBack}
-          className="fixed top-6 left-6 p-2 text-slate-400 hover:text-white transition-colors"
-        >
-          <X className="w-6 h-6" />
-        </button>
-      )}
-
       {/* 主内容 */}
       <div className="max-w-md w-full">
         {/* 图标 */}
@@ -97,16 +84,16 @@ const UnauthorizedMode: React.FC<UnauthorizedModeProps> = ({ onBack }) => {
 
         {/* 标题 */}
         <h1 className="text-3xl font-bold text-center mb-2">
-          授权验证失败
+          软件未授权
         </h1>
         <p className="text-slate-400 text-center mb-8">
-          {licenseStatus.reason || '当前机器未在授权列表中'}
+          {licenseStatus.reason || '当前设备未获得使用授权'}
         </p>
 
         {/* 机器 ID 卡片 */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-slate-400">机器 ID</span>
+            <span className="text-sm font-medium text-slate-400">设备 ID</span>
             {loading ? (
               <div className="w-4 h-4 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
             ) : (
@@ -133,7 +120,7 @@ const UnauthorizedMode: React.FC<UnauthorizedModeProps> = ({ onBack }) => {
         {/* 说明文字 */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 mb-6">
           <p className="text-sm text-slate-300 leading-relaxed">
-            请将上述机器 ID 发送给管理员，获取授权后点击下方按钮重新检查。
+            请联系软件管理员获取授权。管理员可通过设备 ID 为您开通使用权限。
           </p>
         </div>
 
@@ -151,7 +138,7 @@ const UnauthorizedMode: React.FC<UnauthorizedModeProps> = ({ onBack }) => {
           ) : (
             <>
               <RefreshCw className="w-4 h-4" />
-              <span>重新检查授权</span>
+              <span>检查授权状态</span>
             </>
           )}
         </button>
