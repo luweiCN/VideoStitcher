@@ -247,6 +247,25 @@ export class MacUpdater {
       }
 
       console.log('[macOS 更新] 找到应用:', appPath);
+      
+      // 验证找到的路径
+      if (!appPath.endsWith('.app')) {
+        throw new Error(`找到的路径不是有效的 .app 包: ${appPath}`);
+      }
+      
+      // 验证路径存在且是目录
+      if (!fs.existsSync(appPath) || !fs.statSync(appPath).isDirectory()) {
+        throw new Error(`找到的 .app 路径无效或不是目录: ${appPath}`);
+      }
+      
+      // 验证 .app 包含必要的结构
+      const contentsPath = path.join(appPath, 'Contents');
+      if (!fs.existsSync(contentsPath)) {
+        throw new Error(`找到的 .app 包缺少 Contents 目录: ${appPath}`);
+      }
+      
+      console.log('[macOS 更新] 路径验证通过');
+
 
       // 获取当前应用路径
       const currentAppPath = this.getCurrentAppPath();
@@ -294,19 +313,31 @@ export class MacUpdater {
   private findAppInDirectory(dir: string, depth: number = 0): string | null {
     // 限制最大深度为 2 层（处理 ZIP 包可能有一层包装目录的情况）
     if (depth > 2) {
+      console.log(`[macOS 更新] 深度 ${depth} 超过限制，停止查找`);
       return null;
     }
     
+    console.log(`[macOS 更新] 在深度 ${depth} 查找目录:`, dir);
+    
     const items = fs.readdirSync(dir);
+    console.log(`[macOS 更新] 目录内容 (${items.length} 项):`, items.join(', '));
     
     // 首先在当前目录查找 .app
     for (const item of items) {
       if (item.endsWith('.app')) {
         const fullPath = path.join(dir, item);
+        console.log(`[macOS 更新] 检查可能的 .app:`, fullPath);
         // 确保这是一个目录（.app 是目录）
-        if (fs.statSync(fullPath).isDirectory()) {
-          console.log(`[macOS 更新] 在深度 ${depth} 找到 .app:`, fullPath);
-          return fullPath;
+        try {
+          const stats = fs.statSync(fullPath);
+          if (stats.isDirectory()) {
+            console.log(`[macOS 更新] ✓ 在深度 ${depth} 找到有效的 .app:`, fullPath);
+            return fullPath;
+          } else {
+            console.log(`[macOS 更新] ✗ ${fullPath} 不是目录，跳过`);
+          }
+        } catch (err) {
+          console.log(`[macOS 更新] ✗ 无法检查 ${fullPath}:`, err);
         }
       }
     }
@@ -317,15 +348,21 @@ export class MacUpdater {
       
       // 跳过以 .app 结尾的目录（不进入 .app 内部）
       if (item.endsWith('.app')) {
+        console.log(`[macOS 更新] 跳过 .app 目录，不进入:`, item);
         continue;
       }
       
-      if (fs.statSync(fullPath).isDirectory()) {
-        const found = this.findAppInDirectory(fullPath, depth + 1);
-        if (found) return found;
+      try {
+        if (fs.statSync(fullPath).isDirectory()) {
+          const found = this.findAppInDirectory(fullPath, depth + 1);
+          if (found) return found;
+        }
+      } catch (err) {
+        console.log(`[macOS 更新] 无法访问目录 ${fullPath}:`, err);
       }
     }
     
+    console.log(`[macOS 更新] 在深度 ${depth} 未找到 .app`);
     return null;
   }
 
