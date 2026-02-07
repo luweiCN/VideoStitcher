@@ -1,6 +1,6 @@
 {
   "watch": ["src/main.js"],
-  "exec": "NODE_ENV=development electron .",
+  "exec": "cross-env NODE_ENV=development electron .",
   "ext": "js",
   "ignore": ["src/renderer/**", "src/preload.ts"],
   "delay": "1000"
