@@ -170,7 +170,17 @@ jobs:
             list)
               echo "📋 授权列表:"
               echo ""
-              echo "$LICENSES" | jq -r '"版本: \(.version)\n更新时间: \(.updatedAt)\n总数: \(.licenses | length)\n\([.licenses[] | "\(.enabled // false | if . then "✅" else "❌" end) \(.user // "未知")\n   机器 ID: \(.machineId)\n   创建时间: \(.createdAt // "N/A")"] | join("\n")")'
+              echo "版本: $(echo "$LICENSES" | jq -r '.version')"
+              echo "更新时间: $(echo "$LICENSES" | jq -r '.updatedAt')"
+              echo "总数: $(echo "$LICENSES" | jq -r '.licenses | length')"
+              echo ""
+              echo "$LICENSES" | jq -r '.licenses[] | "状态: \(.enabled), 用户: \(.user // "未知"), 机器ID: \(.machineId)"' | while IFS= read -r line; do
+                if echo "$line" | grep -q "状态: true"; then
+                  echo "✅ $line"
+                else
+                  echo "❌ $line"
+                fi
+              done
               ;;
           esac
 
@@ -185,7 +195,17 @@ jobs:
         run: |
           echo "📋 更新后的授权列表:"
           echo ""
-          cat licenses.json | jq -r '"版本: \(.version)\n更新时间: \(.updatedAt)\n总数: \(.licenses | length)\n\([.licenses[] | "\(.enabled // false | if . then "✅" else "❌" end) \(.user // "未知")\n   机器 ID: \(.machineId)"] | join("\n")")'
+          echo "版本: $(cat licenses.json | jq -r '.version')"
+          echo "更新时间: $(cat licenses.json | jq -r '.updatedAt')"
+          echo "总数: $(cat licenses.json | jq -r '.licenses | length')"
+          echo ""
+          cat licenses.json | jq -r '.licenses[] | "状态: \(.enabled), 用户: \(.user // "未知"), 机器ID: \(.machineId)"' | while IFS= read -r line; do
+            if echo "$line" | grep -q "状态: true"; then
+              echo "✅ $line"
+            else
+              echo "❌ $line"
+            fi
+          done
 
       - name: 提交更改
         if: inputs.action != 'list'
