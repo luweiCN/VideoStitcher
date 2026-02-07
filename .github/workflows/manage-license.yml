@@ -170,15 +170,7 @@ jobs:
             list)
               echo "📋 授权列表:"
               echo ""
-              echo "$LICENSES" | jq -r '
-                "版本: \(.version)
-更新时间: \(.updatedAt)
-总数: \(.licenses | length)",
-                (.licenses[] | "
-\(.enabled // false | if . then "✅" else "❌" end) \(.user // "未知")
-   机器 ID: \(.machineId)
-   创建时间: \(.createdAt // "N/A")")
-              '
+              echo "$LICENSES" | jq -r '"版本: \(.version)\n更新时间: \(.updatedAt)\n总数: \(.licenses | length)\n\([.licenses[] | "\(.enabled // false | if . then "✅" else "❌" end) \(.user // "未知")\n   机器 ID: \(.machineId)\n   创建时间: \(.createdAt // "N/A")"] | join("\n")")'
               ;;
           esac
 
@@ -193,14 +185,7 @@ jobs:
         run: |
           echo "📋 更新后的授权列表:"
           echo ""
-          cat licenses.json | jq -r '
-            "版本: \(.version)
-更新时间: \(.updatedAt)
-总数: \(.licenses | length)",
-            (.licenses[] | "
-\(.enabled // false | if . then "✅" else "❌" end) \(.user // "未知")
-   机器 ID: \(.machineId)")
-          '
+          cat licenses.json | jq -r '"版本: \(.version)\n更新时间: \(.updatedAt)\n总数: \(.licenses | length)\n\([.licenses[] | "\(.enabled // false | if . then "✅" else "❌" end) \(.user // "未知")\n   机器 ID: \(.machineId)"] | join("\n")")'
 
       - name: 提交更改
         if: inputs.action != 'list'
