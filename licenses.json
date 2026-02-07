@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updatedAt": "2026-02-07T02:04:18Z",
+  "updatedAt": "2026-02-07T02:13:10Z",
   "licenses": [
     {
       "machineId": "example-machine-id-12345",
@@ -13,6 +13,12 @@
       "user": "luwei",
       "enabled": true,
       "createdAt": "2026-02-07T02:04:18Z"
+    },
+    {
+      "machineId": "b2c200a75dbf4cf6549a1f92af53cfc698b577a3a8f4d216bb522e2d2a3a2213",
+      "user": "luwei",
+      "enabled": true,
+      "createdAt": "2026-02-07T02:13:10Z"
     }
   ]
 }
