@@ -12,8 +12,7 @@ import { app, BrowserWindow } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as https from 'https';
-import { spawn } from 'child_process';
-import extract from 'extract-zip';
+import { spawn, execSync } from 'child_process';
 
 export interface UpdateInfo {
   version: string;
@@ -72,6 +71,10 @@ export class MacUpdater {
       }
 
       const latestVersion = response.tag_name.replace(/^v/, '');
+      // 验证版本号格式，防止路径注入
+      if (!/^\d+\.\d+\.\d+/.test(latestVersion)) {
+        throw new Error(`版本号格式无效: ${latestVersion}`);
+      }
       console.log('[macOS 更新] 最新版本:', latestVersion);
 
       const hasUpdate = this.compareVersions(currentVersion, latestVersion);
@@ -170,8 +173,21 @@ export class MacUpdater {
 
       console.log('[macOS 更新] 解压到:', extractDir);
 
-      // 解压 ZIP
-      await extract(this.downloadedZipPath, { dir: extractDir });
+      // 使用 macOS 原生 ditto 解压 ZIP，保留代码签名、扩展属性和资源分支
+      // extract-zip（Node.js 库）会丢失这些元数据，导致 Electron 的 ASAR 完整性验证失败
+      try {
+        execSync(`ditto -xk "${this.downloadedZipPath}" "${extractDir}"`, { stdio: 'pipe' });
+      } catch (dittoError: any) {
+        throw new Error(`ditto 解压失败: ${dittoError.message}`);
+      }
+
+      // 清除 macOS 隔离属性，避免 Gatekeeper 阻止启动
+      try {
+        execSync(`xattr -cr "${extractDir}"`, { stdio: 'pipe' });
+      } catch {
+        // 清除隔离属性失败不影响安装流程
+        console.warn('[macOS 更新] 清除隔离属性失败，继续安装');
+      }
 
       // 查找 .app
       const appPath = this.findAppInDirectory(extractDir);
@@ -303,9 +319,9 @@ else
   echo "旧版本不存在: ${oldAppPath}" >> "$LOG"
 fi
 
-# 安装新版本
+# 安装新版本（使用 ditto 保留代码签名和扩展属性）
 echo "安装新版本..." >> "$LOG"
-cp -R "${newAppPath}" "${targetPath}" >> "$LOG" 2>&1
+ditto "${newAppPath}" "${targetPath}" >> "$LOG" 2>&1
 if [ $? -eq 0 ]; then
   echo "安装成功: ${targetPath}" >> "$LOG"
 else
@@ -334,6 +350,10 @@ ZIP_FILE="${this.downloadedZipPath}"
 if [ -f "$ZIP_FILE" ]; then
   rm -f "$ZIP_FILE" >> "$LOG" 2>&1
 fi
+
+# 清除隔离属性
+echo "清除隔离属性..." >> "$LOG"
+xattr -cr "${targetPath}" >> "$LOG" 2>&1
 
 # 启动新版本
 echo "启动新版本..." >> "$LOG"

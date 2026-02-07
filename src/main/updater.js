@@ -41,9 +41,6 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MacUpdater = void 0;
 const electron_1 = require("electron");
@@ -51,7 +48,6 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const https = __importStar(require("https"));
 const child_process_1 = require("child_process");
-const extract_zip_1 = __importDefault(require("extract-zip"));
 class MacUpdater {
     constructor(mainWindow) {
         this.mainWindow = null;
@@ -93,6 +89,10 @@ class MacUpdater {
                 throw new Error('无法获取最新版本信息');
             }
             const latestVersion = response.tag_name.replace(/^v/, '');
+            // 验证版本号格式，防止路径注入
+            if (!/^\d+\.\d+\.\d+/.test(latestVersion)) {
+                throw new Error(`版本号格式无效: ${latestVersion}`);
+            }
             console.log('[macOS 更新] 最新版本:', latestVersion);
             const hasUpdate = this.compareVersions(currentVersion, latestVersion);
             if (!hasUpdate) {
@@ -172,8 +172,22 @@ class MacUpdater {
             }
             fs.mkdirSync(extractDir, { recursive: true });
             console.log('[macOS 更新] 解压到:', extractDir);
-            // 解压 ZIP
-            await (0, extract_zip_1.default)(this.downloadedZipPath, { dir: extractDir });
+            // 使用 macOS 原生 ditto 解压 ZIP，保留代码签名、扩展属性和资源分支
+            // extract-zip（Node.js 库）会丢失这些元数据，导致 Electron 的 ASAR 完整性验证失败
+            try {
+                (0, child_process_1.execSync)(`ditto -xk "${this.downloadedZipPath}" "${extractDir}"`, { stdio: 'pipe' });
+            }
+            catch (dittoError) {
+                throw new Error(`ditto 解压失败: ${dittoError.message}`);
+            }
+            // 清除 macOS 隔离属性，避免 Gatekeeper 阻止启动
+            try {
+                (0, child_process_1.execSync)(`xattr -cr "${extractDir}"`, { stdio: 'pipe' });
+            }
+            catch {
+                // 清除隔离属性失败不影响安装流程
+                console.warn('[macOS 更新] 清除隔离属性失败，继续安装');
+            }
             // 查找 .app
             const appPath = this.findAppInDirectory(extractDir);
             if (!appPath) {
@@ -289,9 +303,9 @@ else
   echo "旧版本不存在: ${oldAppPath}" >> "$LOG"
 fi
 
-# 安装新版本
+# 安装新版本（使用 ditto 保留代码签名和扩展属性）
 echo "安装新版本..." >> "$LOG"
-cp -R "${newAppPath}" "${targetPath}" >> "$LOG" 2>&1
+ditto "${newAppPath}" "${targetPath}" >> "$LOG" 2>&1
 if [ $? -eq 0 ]; then
   echo "安装成功: ${targetPath}" >> "$LOG"
 else
@@ -320,6 +334,10 @@ ZIP_FILE="${this.downloadedZipPath}"
 if [ -f "$ZIP_FILE" ]; then
   rm -f "$ZIP_FILE" >> "$LOG" 2>&1
 fi
+
+# 清除隔离属性
+echo "清除隔离属性..." >> "$LOG"
+xattr -cr "${targetPath}" >> "$LOG" 2>&1
 
 # 启动新版本
 echo "启动新版本..." >> "$LOG"
