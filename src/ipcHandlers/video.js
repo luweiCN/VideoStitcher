@@ -97,10 +97,8 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
     throw new Error('未选择输出目录');
   }
 
-  // 如果没有 A 面视频，则只处理主视频（复制到输出目录）
-  if (!aVideos.length) {
-    aVideos = bVideos; // 自拼接模式
-  }
+  // 如果没有 A 面视频，则不传 aPath，buildArgs 会处理
+  const hasAVideos = aVideos && aVideos.length > 0;
 
   // 设置并发数
   queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
@@ -112,25 +110,22 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
   event.sender.send('video-start', { total, mode: 'horizontal', concurrency: queue.concurrency });
 
   // --- 全局 A 面视频分配策略 ---
-  // 确保 A 面视频均匀分布，避免重复（类似 VideoMaster 的抽牌方式）
   const globalASideAssignments = [];
-  if (aVideos.length > 0) {
+  if (hasAVideos) {
     let pool = [...aVideos];
-    // 初始打乱
     pool.sort(() => 0.5 - Math.random());
 
     for (let k = 0; k < total; k++) {
       if (pool.length === 0) {
-        // 重新填充并打乱
         pool = [...aVideos];
         pool.sort(() => 0.5 - Math.random());
       }
       globalASideAssignments.push(pool.pop());
     }
   } else {
-    // 自拼接模式：每个视频自己拼接自己
+    // 明确设置为 undefined
     for (let k = 0; k < total; k++) {
-      globalASideAssignments.push(bVideos[k]);
+      globalASideAssignments.push(undefined);
     }
   }
 
@@ -159,9 +154,14 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
       const selectedAVideo = globalASideAssignments[index];
       const selectedCoverImage = globalCoverAssignments[index];
 
-      const aName = path.parse(selectedAVideo).name;
       const bName = path.parse(b).name;
-      const outName = `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_horizontal.mp4`;
+      let outName;
+      if (selectedAVideo) {
+        const aName = path.parse(selectedAVideo).name;
+        outName = `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_horizontal.mp4`;
+      } else {
+        outName = `${bName}__${String(index + 1).padStart(4, '0')}_horizontal.mp4`;
+      }
       const outPath = path.join(outputDir, outName);
 
       try {
@@ -226,41 +226,65 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverI
     throw new Error('未选择输出目录');
   }
 
-  // 如果没有 A 面视频，则只处理主视频
-  if (!aVideos || !aVideos.length) {
-    aVideos = mainVideos; // 自拼接模式
-  }
+    // 如果没有 A 面视频，则不传 aPath，buildArgs 会处理
 
-  queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
+    const hasAVideos = aVideos && aVideos.length > 0;
 
-  const total = mainVideos.length;
-  let done = 0;
-  let failed = 0;
+  
 
-  event.sender.send('video-start', { total, mode: 'vertical', concurrency: queue.concurrency });
+    queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
 
-  // --- 全局 A 面视频分配策略 ---
-  // 确保 A 面视频均匀分布，避免重复（类似 VideoMaster 的抽牌方式）
-  const globalASideAssignments = [];
-  if (aVideos && aVideos.length > 0) {
-    let pool = [...aVideos];
-    // 初始打乱
-    pool.sort(() => 0.5 - Math.random());
+  
 
-    for (let k = 0; k < total; k++) {
-      if (pool.length === 0) {
-        // 重新填充并打乱
-        pool = [...aVideos];
-        pool.sort(() => 0.5 - Math.random());
+    const total = mainVideos.length;
+
+    let done = 0;
+
+    let failed = 0;
+
+  
+
+    event.sender.send('video-start', { total, mode: 'vertical', concurrency: queue.concurrency });
+
+  
+
+    // --- 全局 A 面视频分配策略 ---
+
+    const globalASideAssignments = [];
+
+    if (hasAVideos) {
+
+      let pool = [...aVideos];
+
+      pool.sort(() => 0.5 - Math.random());
+
+  
+
+      for (let k = 0; k < total; k++) {
+
+        if (pool.length === 0) {
+
+          pool = [...aVideos];
+
+          pool.sort(() => 0.5 - Math.random());
+
+        }
+
+        globalASideAssignments.push(pool.pop());
+
       }
-      globalASideAssignments.push(pool.pop());
+
+    } else {
+
+      for (let k = 0; k < total; k++) {
+
+        globalASideAssignments.push(undefined);
+
+      }
+
     }
-  } else {
-    // 自拼接模式：每个视频自己拼接自己
-    for (let k = 0; k < total; k++) {
-      globalASideAssignments.push(mainVideos[k]);
-    }
-  }
+
+  
 
   // --- 全局封面图分配策略 ---
   const globalCoverAssignments = [];
@@ -287,9 +311,14 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverI
       const selectedAVideo = globalASideAssignments[index];
       const selectedCoverImage = globalCoverAssignments[index];
 
-      const aName = path.parse(selectedAVideo).name;
       const bName = path.parse(mainVideo).name;
-      const outName = `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_vertical.mp4`;
+      let outName;
+      if (selectedAVideo) {
+        const aName = path.parse(selectedAVideo).name;
+        outName = `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_vertical.mp4`;
+      } else {
+        outName = `${bName}__${String(index + 1).padStart(4, '0')}_vertical.mp4`;
+      }
       const outPath = path.join(outputDir, outName);
 
       try {
@@ -420,8 +449,8 @@ async function handleHorizontalPreview(event, { aVideo, bVideo, bgImage, coverIm
     throw new Error('缺少主视频');
   }
 
-  // 如果没有 A 面视频，使用主视频
-  const finalAVideo = aVideo || bVideo;
+  // 如果没有 A 面视频，则设为 undefined，buildArgs 会处理
+  const finalAVideo = aVideo;
 
   // 创建临时预览目录
   const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview');
@@ -477,8 +506,8 @@ async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo, coverI
     throw new Error('缺少主视频');
   }
 
-  // 如果没有 A 面视频，使用主视频
-  const finalAVideo = aVideo || mainVideo;
+  // 如果没有 A 面视频，则设为 undefined，buildArgs 会处理
+  const finalAVideo = aVideo;
 
   // 创建临时预览目录
   const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview');

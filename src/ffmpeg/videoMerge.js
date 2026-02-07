@@ -29,147 +29,128 @@ function buildArgs({
   outPath,
   bgImage,
   coverImage,
+  aPosition,
   bPosition,
   bgPosition,
+  coverPosition,
   orientation = 'horizontal'
 }) {
   // 根据方向设置画布尺寸
   const W = orientation === 'horizontal' ? 1920 : 1080;
   const H = orientation === 'horizontal' ? 1080 : 1920;
-  const canvasAspect = W / H;
 
-  // 默认B面位置（居中，默认大小）
+  // 默认位置计算
   const defaultBPosition = orientation === 'horizontal'
     ? { x: (W - H * 9 / 16) / 2, y: 0, width: H * 9 / 16, height: H }
     : { x: 0, y: (H - W * 16 / 9) / 2, width: W, height: W * 16 / 9 };
   const defaultBgPosition = { x: 0, y: 0, width: W, height: H };
 
+  const aPos = aPosition || defaultBgPosition;
   const bPos = bPosition || defaultBPosition;
   const bgPos = bgPosition || defaultBgPosition;
+  const cvPos = coverPosition || bPos;
 
-  // 构建输入文件列表
-  let inputs = ["-i", aPath, "-i", bPath];
+  // 构建输入文件列表和索引管理
+  let inputs = [];
+  let nextIndex = 0;
 
-  if (bgImage) {
-    inputs.push("-i", bgImage);
-  }
+  const aIndex = aPath ? nextIndex++ : -1;
+  if (aPath) inputs.push("-i", aPath);
 
-  if (coverImage) {
-    inputs.push("-i", coverImage);
-  }
+  const bIndex = nextIndex++;
+  inputs.push("-i", bPath);
 
-  // 输入索引
-  const bgIndex = bgImage ? 2 : -1;
-  const coverIndex = coverImage ? (bgImage ? 3 : 2) : -1;
+  const bgIndex = bgImage ? nextIndex++ : -1;
+  if (bgImage) inputs.push("-i", bgImage);
+
+  const coverIndex = coverImage ? nextIndex++ : -1;
+  if (coverImage) inputs.push("-i", coverImage);
 
   // 构建 filter_complex 滤镜链
   let filters = [];
 
-  // 计算居中位置（用具体数值，避免 FFmpeg 表达式解析问题）
-  // 横屏：背景1920x1080，视频按高度缩放后约为607宽，居中 x≈656
-  // 竖屏：背景1080x1920，视频按宽度缩放后约为607高，居中 y≈236
-  const HA_CENTER_X = 656;   // 横屏 A面居中 x
-  const HA_CENTER_Y = 0;     // 横屏 A面居中 y（按高度缩放）
-  const VA_CENTER_X = 0;     // 竖屏 A面居中 x（按宽度缩放）
-  const VA_CENTER_Y = 236;   // 竖屏 A面居中 y
-
   // ==================== 音频处理 ====================
-  filters.push('[0:a]aresample=48000,asetpts=PTS-STARTPTS[a0];');
-  filters.push('[1:a]aresample=48000,asetpts=PTS-STARTPTS[a1];');
+  if (aIndex >= 0) {
+    filters.push(`[${aIndex}:a]aresample=48000,asetpts=PTS-STARTPTS[a0];`);
+  }
+  filters.push(`[${bIndex}:a]aresample=48000,asetpts=PTS-STARTPTS[a1];`);
 
   // ==================== 视频段处理 ====================
-  // 核心逻辑：素材自动适配画布，保持比例，留白处用背景图填充
 
-  if (bgImage) {
-    // 背景图只需要复制给 A面 和 B面 使用（封面图独立处理，不需要背景图副本）
-    // 1. 背景图：等比缩放撑满画布（object-fit: cover），裁剪超出部分
-    // 使用 FFmpeg 的 scale 和 crop 配合实现
-    // scale 的 force_original_aspect_ratio=increase 确保缩放后覆盖目标尺寸
-    // 然后 crop 精确裁剪到目标尺寸，用 (iw-W)/2 计算居中位置
-    const centerX = '(iw-' + W + ')/2';
-    const centerY = '(ih-' + H + ')/2';
-    filters.push(`[${bgIndex}:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}:${centerX}:${centerY},setsar=1:1,fps=30,format=yuv420p[bg_scaled];`);
-    filters.push('[bg_scaled]split=2[bg_for_a][bg_for_b];');
+  // 生成画布背景
+  if (bgIndex >= 0) {
+    // 1. 背景图：铺满 bgPos 指定的区域，如果 bgPos 不是全屏，则底层还有黑色
+    const centerX = '(iw-' + bgPos.width + ')/2';
+    const centerY = '(ih-' + bgPos.height + ')/2';
+    // 修正：增加 loop=-1 让背景图无限循环，配合后面的 shortest=1 使用
+    filters.push(`[${bgIndex}:v]loop=-1:size=1:start=0,scale=${bgPos.width}:${bgPos.height}:force_original_aspect_ratio=increase,crop=${bgPos.width}:${bgPos.height}:${centerX}:${centerY},setsar=1:1,fps=30,format=yuv420p[bg_processed];`);
 
-    // 2. A视频段：只缩放不padding，居中叠加到背景图上
-    if (orientation === 'horizontal') {
-      filters.push(`[0:v]scale=-1:${H}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a_scaled];`);
-    } else {
-      filters.push(`[0:v]scale=${W}:-1:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a_scaled];`);
-    }
-    // 居中叠加：画布中心 - 视频尺寸的一半。用表达式自动计算居中位置
-    const overlayX = orientation === 'horizontal' ? '(W-w)/2' : '0';
-    const overlayY = orientation === 'horizontal' ? '0' : '(H-h)/2';
-    filters.push(`[bg_for_a][a_scaled]overlay=${overlayX}:${overlayY}[v_a];`);
-
-    // 3. B视频段：保持比例缩放，然后叠加到指定位置
-    // 根据目标宽高比，选择按宽度或高度缩放
-    const targetAspect = bPos.width / bPos.height;
-    if (orientation === 'horizontal') {
-      // 横屏：B面通常是竖屏视频，按高度缩放
-      filters.push(`[1:v]scale=-1:${bPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled];`);
-    } else {
-      // 竖屏：B面通常是横屏视频，按宽度缩放
-      filters.push(`[1:v]scale=${bPos.width}:-1:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled];`);
-    }
-    // 居中叠加到指定位置（如果缩放后尺寸小于目标尺寸）
-    const bOverlayX = orientation === 'horizontal' ? `(${bPos.width}-w)/2+${bPos.x}` : `${bPos.x}`;
-    const bOverlayY = orientation === 'horizontal' ? `${bPos.y}` : `(${bPos.height}-h)/2+${bPos.y}`;
-    filters.push(`[bg_for_b][b_scaled]overlay=${bOverlayX}:${bOverlayY}[v_b];`);
-
+    filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[canvas_bg];`);
+    filters.push(`[canvas_bg][bg_processed]overlay=${bgPos.x}:${bgPos.y}[canvas_with_bg];`);
   } else {
-    // 无背景图：A和B视频各自填充画布（黑色背景）
-
-    // 1. A视频段：自动适配画布，保持比例，留黑边
-    filters.push(`[0:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:black,setsar=1:1,fps=30,format=yuv420p[v_a];`);
-
-    // 2. B视频段：按用户指定的精确位置和大小
-    filters.push(`[1:v]scale=${bPos.width}:${bPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled];`);
-    filters.push(`color=black:s=${W}x${H},format=yuv420p[black_bg_b];`);
-    filters.push(`[black_bg_b][b_scaled]overlay=${bPos.x}:${bPos.y}[v_b];`);
+    filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[canvas_with_bg];`);
   }
 
-  // ==================== 封面图处理和最终拼接 ====================
-  if (coverIndex >= 0) {
-    // 封面图独立处理，兼容各种尺寸图片
-    // 使用 scale 的表达式确保：高度/宽度对齐，同时另一个维度不超过目标
-    if (orientation === 'horizontal') {
-      // 横屏：高度对齐到1080，宽度不超过1920
-      // 表达式：宽度 = min(目标宽, 原宽*目标高/原高)，高度 = 目标高
-      filters.push(`[${coverIndex}:v]scale='min(${W},iw*${H}/ih)':'${H}':flags=bicubic,setsar=1:1,fps=30[cover_temp];`);
-    } else {
-      // 竖屏：宽度对齐到1080，高度不超过1920
-      // 表达式：宽度 = 目标宽，高度 = min(目标高, 原高*目标宽/原宽)
-      filters.push(`[${coverIndex}:v]scale='${W}':'min(${H},ih*${W}/iw)':flags=bicubic,setsar=1:1,fps=30[cover_temp];`);
-    }
-    filters.push(`[cover_temp]pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:black,setsar=1:1,fps=30[cover_scaled];`);
-    filters.push('[cover_scaled]loop=15:size=1:start=0[cover_v];');
+  // 复制背景给 A面 和 B面
+  if (aIndex >= 0) {
+    filters.push('[canvas_with_bg]split=2[bg_for_a][bg_for_b];');
 
-    // 生成封面静音音频（0.5秒）
-    filters.push('anullsrc=r=48000:cl=stereo[cover_silent];');
-    filters.push('[cover_silent]atrim=0:0.5,asetpts=PTS-STARTPTS[cover_a];');
-
-    // 拼接三个视频段：封面 + A视频 + B视频
-    filters.push('[cover_v][v_a][v_b]concat=n=3:v=1:a=0[final_v];');
-    // 拼接三个音频段：静音 + A音频 + B音频
-    filters.push('[cover_a][a0][a1]concat=n=3:v=0:a=1[final_a];');
-
+    // A视频段处理：根据 aPos 缩放并叠加
+    filters.push(`[${aIndex}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a_scaled];`);
+    // 修正：增加 shortest=1 确保 A 面视频结束时该段即结束
+    filters.push(`[bg_for_a][a_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a];`);
   } else {
-    // 无封面图：A视频 + B视频
-    filters.push('[v_a][v_b]concat=n=2:v=1:a=0[final_v];');
-    filters.push('[a0][a1]concat=n=2:v=0:a=1[final_a];');
+    filters.push('[canvas_with_bg]null[bg_for_b];');
+  }
+
+  // B视频段处理：根据 bPos 缩放并叠加
+  filters.push(`[${bIndex}:v]scale=${bPos.width}:${bPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled];`);
+  // 修正：增加 shortest=1 确保 B 面视频结束时该段即结束
+  filters.push(`[bg_for_b][b_scaled]overlay=${bPos.x}:${bPos.y}:shortest=1[v_b];`);
+
+  // ==================== 封面图处理 ====================
+  if (coverIndex >= 0) {
+    // 封面图：根据 cvPos 指定的大小和位置，叠加在黑色背景上
+    filters.push(`[${coverIndex}:v]scale=${cvPos.width}:${cvPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[cv_scaled];`);
+    filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[cv_bg];`);
+    // 修正：增加 shortest=1 确保封面叠加层不会无限延长
+    filters.push(`[cv_bg][cv_scaled]overlay=${cvPos.x}:${cvPos.y}:shortest=1[cover_final_v];`);
+
+    // 修正：0.1秒在30fps下是3帧，所以循环2次（1张原图+2次循环=3帧）
+    filters.push('[cover_final_v]loop=2:size=1:start=0[cover_v];');
+    filters.push('anullsrc=r=48000:cl=stereo[cover_silent];');
+    // 修正：音频同步裁剪为 0.1 秒
+    filters.push('[cover_silent]atrim=0:0.1,asetpts=PTS-STARTPTS[cover_a];');
+  }
+
+  // ==================== 最终拼接 ====================
+  let concatV = [];
+  let concatA = [];
+
+  if (coverIndex >= 0) {
+    concatV.push('[cover_v]');
+    concatA.push('[cover_a]');
+  }
+  if (aIndex >= 0) {
+    concatV.push('[v_a]');
+    concatA.push('[a0]');
+  }
+  concatV.push('[v_b]');
+  concatA.push('[a1]');
+
+  const useConcat = concatV.length > 1;
+  if (useConcat) {
+    filters.push(`${concatV.join('')}concat=n=${concatV.length}:v=1:a=0[final_v];`);
+    filters.push(`${concatA.join('')}concat=n=${concatA.length}:v=0:a=1[final_a];`);
   }
 
   const filterComplex = filters.join('');
-  console.log(`[DEBUG videoMerge ${orientation}] 有背景图:`, !!bgImage, '有封面图:', coverIndex >= 0);
-  console.log(`[DEBUG videoMerge ${orientation}] filter_complex:`, filterComplex);
-
   const args = [
     "-y",
     ...inputs,
     "-filter_complex", filterComplex,
-    "-map", "[final_v]",
-    "-map", "[final_a]",
+    "-map", useConcat ? "[final_v]" : "[v_b]",
+    "-map", useConcat ? "[final_a]" : "[a1]",
     "-r", "30",
     "-c:v", "libx264",
     "-preset", "ultrafast",
