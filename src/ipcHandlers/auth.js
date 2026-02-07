@@ -9,8 +9,8 @@ const { getMachineId, getLicenseStatus } = require('../utils/license');
 // 检测开发环境
 const isDevelopment =
   process.env.NODE_ENV === 'development' ||
-  process.env.DEBUG === 'true';
-  // 已移除 !app.isPackaged 判断，避免打包后自动进入开发模式
+  process.env.DEBUG === 'true' ||
+  !require('electron').app.isPackaged;
 
 /**
  * 获取当前机器 ID
