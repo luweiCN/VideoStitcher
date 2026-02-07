@@ -131,11 +131,16 @@ function buildArgs({
 
   // ==================== 封面图处理和最终拼接 ====================
   if (coverIndex >= 0) {
-    // 封面图独立处理，不使用背景图，直接 pad 到画布尺寸
+    // 封面图独立处理，兼容各种尺寸图片
+    // 先缩小到目标尺寸内，保持比例，然后 pad 填充到画布尺寸
     if (orientation === 'horizontal') {
-      filters.push(`[${coverIndex}:v]scale=-1:${H}:flags=bicubic,setsar=1:1,fps=30[cover_temp];`);
+      // 横屏：先确保不超过目标尺寸（保持比例），然后按高度对齐缩放，最后填充
+      filters.push(`[${coverIndex}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,setsar=1:1[fitted];`);
+      filters.push(`[fitted]scale=-1:${H}:flags=bicubic[cover_temp];`);
     } else {
-      filters.push(`[${coverIndex}:v]scale=${W}:-1:flags=bicubic,setsar=1:1,fps=30[cover_temp];`);
+      // 竖屏：先确保不超过目标尺寸（保持比例），然后按宽度对齐缩放，最后填充
+      filters.push(`[${coverIndex}:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,setsar=1:1[fitted];`);
+      filters.push(`[fitted]scale=${W}:-1:flags=bicubic[cover_temp];`);
     }
     filters.push(`[cover_temp]pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:black,setsar=1:1,fps=30[cover_scaled];`);
     filters.push('[cover_scaled]loop=15:size=1:start=0[cover_v];');
