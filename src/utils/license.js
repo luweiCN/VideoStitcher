@@ -17,7 +17,6 @@ const LICENSE_RELEASE_TAG = 'licenses';
 
 // 本地缓存配置
 const CACHE_FILENAME = 'licenses.json';
-const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 小时
 const OFFLINE_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 天离线宽限期
 
 // 内置万能密钥（作为备用，如果授权文件无法读取时使用）
@@ -59,18 +58,32 @@ async function downloadLicenseFile() {
   return new Promise((resolve, reject) => {
     const url = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${LICENSE_RELEASE_TAG}/licenses.json`;
 
-    console.log('[授权] 正在下载授权文件:', url);
+    console.log('[授权] 正在从 GitHub 下载最新授权文件:', url);
 
     const client = url.startsWith('https') ? https : http;
 
+    // 设置 5 秒超时
+    const timeout = 5000;
+    const timeoutId = setTimeout(() => {
+      reject(new Error('下载授权文件超时'));
+    }, timeout);
+
     client.get(url, (response) => {
+      clearTimeout(timeoutId);
+
       if (response.statusCode === 302 || response.statusCode === 301) {
         // 处理重定向
         const redirectUrl = response.headers.location;
         console.log('[授权] 跟随重定向:', redirectUrl);
 
         const redirectClient = redirectUrl.startsWith('https') ? https : http;
+        const redirectTimeoutId = setTimeout(() => {
+          reject(new Error('下载授权文件超时'));
+        }, timeout);
+
         redirectClient.get(redirectUrl, (redirectResponse) => {
+          clearTimeout(redirectTimeoutId);
+
           if (redirectResponse.statusCode !== 200) {
             return reject(new Error(`下载授权文件失败，状态码: ${redirectResponse.statusCode}`));
           }
@@ -91,6 +104,7 @@ async function downloadLicenseFile() {
             }
           });
         }).on('error', (error) => {
+          clearTimeout(redirectTimeoutId);
           console.error('[授权] 下载授权文件失败 (重定向):', error);
           reject(error);
         });
@@ -118,6 +132,7 @@ async function downloadLicenseFile() {
         }
       });
     }).on('error', (error) => {
+      clearTimeout(timeoutId);
       console.error('[授权] 下载授权文件失败:', error);
       reject(error);
     });
@@ -125,7 +140,7 @@ async function downloadLicenseFile() {
 }
 
 /**
- * 保存授权文件到本地缓存
+ * 保存授权文件到本地缓存（用于离线情况）
  * @param {Object} licenseData - 授权文件内容
  */
 function saveLicenseCache(licenseData) {
@@ -136,15 +151,15 @@ function saveLicenseCache(licenseData) {
       _cachedAt: Date.now()
     };
     fs.writeFileSync(cachePath, JSON.stringify(cacheData, null, 2), 'utf-8');
-    console.log('[授权] 授权文件已缓存');
+    console.log('[授权] 授权文件已缓存到本地（用于离线）');
   } catch (error) {
     console.error('[授权] 保存授权文件缓存失败:', error);
   }
 }
 
 /**
- * 从本地缓存读取授权文件
- * @returns {Object|null} 缓存的授权文件内容，如果不存在或已过期则返回 null
+ * 从本地缓存读取授权文件（仅用于离线情况）
+ * @returns {Object|null} 缓存的授权文件内容，如果不存在或超过宽限期则返回 null
  */
 function readLicenseCache() {
   try {
@@ -162,19 +177,13 @@ function readLicenseCache() {
 
     console.log('[授权] 缓存年龄:', Math.floor(cacheAge / 1000 / 60), '分钟');
 
-    // 检查缓存是否过期
-    if (cacheAge > CACHE_MAX_AGE_MS) {
-      console.log('[授权] 授权文件缓存已过期');
-      return null;
-    }
-
     // 检查是否超过离线宽限期
     if (cacheAge > OFFLINE_GRACE_PERIOD_MS) {
-      console.log('[授权] 已超过离线宽限期');
+      console.log('[授权] 已超过离线宽限期 (7天)');
       return null;
     }
 
-    console.log('[授权] 使用缓存的授权文件');
+    console.log('[授权] 网络不可用，使用缓存的授权文件');
     return cacheData;
   } catch (error) {
     console.error('[授权] 读取授权文件缓存失败:', error);
@@ -248,7 +257,7 @@ function verifyLicense(licenseData) {
   if (!license) {
     return {
       authorized: false,
-      reason: '当前机器未在授权列表中'
+      reason: '当前设备未获得使用授权'
     };
   }
 
@@ -270,45 +279,39 @@ function verifyLicense(licenseData) {
 
 /**
  * 获取授权状态详情
+ * 每次启动都从 GitHub 获取最新授权，只有网络失败才使用缓存
  * @param {boolean} forceRefresh - 是否强制刷新授权文件
  * @returns {Promise<Object>} 授权状态详情
  */
 async function getLicenseStatus(forceRefresh = false) {
-  console.log('[授权] 获取授权状态, 强制刷新:', forceRefresh);
+  console.log('[授权] 开始检查授权状态...');
 
   let licenseData = null;
   let usedCache = false;
   let offlineMode = false;
 
-  // 如果不是强制刷新，先尝试读取缓存
-  if (!forceRefresh) {
-    licenseData = readLicenseCache();
-    if (licenseData) {
+  // 每次都先尝试从 GitHub 下载最新授权
+  try {
+    licenseData = await downloadLicenseFile();
+    // 下载成功后更新本地缓存
+    saveLicenseCache(licenseData);
+    console.log('[授权] 已获取最新授权信息');
+  } catch (error) {
+    console.error('[授权] 从 GitHub 获取授权失败:', error.message);
+
+    // 网络失败时，尝试使用本地缓存
+    const cachedData = readLicenseCache();
+    if (cachedData) {
+      licenseData = cachedData;
       usedCache = true;
-    }
-  }
-
-  // 如果没有缓存或强制刷新，尝试下载
-  if (!licenseData) {
-    try {
-      licenseData = await downloadLicenseFile();
-      saveLicenseCache(licenseData);
-    } catch (error) {
-      console.error('[授权] 下载授权文件失败:', error.message);
-
-      // 下载失败时，尝试使用缓存（即使在离线宽限期内）
-      const cachedData = readLicenseCache();
-      if (cachedData) {
-        licenseData = cachedData;
-        usedCache = true;
-        offlineMode = true;
-      } else {
-        return {
-          authorized: false,
-          reason: '无法连接到授权服务器，且无可用缓存',
-          offline: true
-        };
-      }
+      offlineMode = true;
+      console.log('[授权] 网络不可用，使用本地缓存');
+    } else {
+      return {
+        authorized: false,
+        reason: '无法连接到授权服务器，且无可用缓存',
+        offline: true
+      };
     }
   }
 
