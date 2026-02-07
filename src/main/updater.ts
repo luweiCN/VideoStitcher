@@ -78,17 +78,20 @@ export class MacUpdater {
     // 粗体
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
     
-    // 列表项
-    html = html.replace(/^- (.+)$/gm, '<li class="ml-4 text-slate-300">$1</li>');
+    // 处理列表：先标记列表项，然后包装
+    html = html.replace(/^- (.+)$/gm, '___LIST_ITEM___<li class="ml-4 text-slate-300">$1</li>');
     
-    // 包装列表
-    html = html.replace(/(<li.*?<\/li>\n?)+/g, '<ul class="list-disc ml-4 space-y-1 my-2">$&</ul>');
+    // 将连续的列表项包装在 ul 中
+    html = html.replace(/(___LIST_ITEM___<li.*?<\/li>\n?)+/g, (match) => {
+      const items = match.replace(/___LIST_ITEM___/g, '');
+      return `<ul class="list-disc ml-4 space-y-1 my-2">${items}</ul>`;
+    });
+    
+    // 单换行（在双换行之前处理）
+    html = html.replace(/([^\n])\n([^\n])/g, '$1<br />$2');
     
     // 段落（双换行）
-    html = html.replace(/\n\n/g, '<div class="my-2"></div>');
-    
-    // 单换行
-    html = html.replace(/\n/g, '<br />');
+    html = html.replace(/\n\n+/g, '<div class="my-2"></div>');
     
     return html;
   }

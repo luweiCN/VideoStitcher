@@ -223,9 +223,17 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
         const result = await window.api.macInstallUpdate();
         console.log('[管理页面] macOS 更新安装结果:', result);
         
-        if (result && result.error) {
+        // 检查返回结果
+        if (!result) {
+          console.error('[管理页面] 安装返回空结果');
+          setUpdateError('更新安装失败：返回结果为空');
+          setUpdateStatus('error');
+          return;
+        }
+        
+        if (result.error || !result.success) {
           console.error('[管理页面] 安装失败:', result.error);
-          setUpdateError(result.error);
+          setUpdateError(result.error || '安装更新失败');
           setUpdateStatus('error');
         }
         // 如果成功，应用会自动退出，所以不需要更新状态
@@ -910,6 +918,7 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                           <button
                             onClick={handleInstallUpdate}
                             disabled={updateStatus === 'installing'}
+                            aria-label={updateStatus === 'installing' ? '正在安装更新，请稍候' : '立即重启并安装更新'}
                             className="flex-1 px-5 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-600/20 hover:shadow-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {updateStatus === 'installing' ? (
