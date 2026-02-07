@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "skipLibCheck": true,
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    // 输出到同目录，与 preload.js 保持一致
+    // 这样主进程可以直接 require('./main/*.js')
+    "outDir": "src/main",
+    "rootDir": "src/main"
+  },
+  "include": ["src/main/**/*.ts"],
+  "exclude": ["node_modules"]
+}
