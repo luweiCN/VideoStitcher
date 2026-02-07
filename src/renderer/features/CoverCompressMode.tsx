@@ -74,6 +74,27 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
     initCpuCount();
   }, []);
 
+  // 加载全局默认配置
+  useEffect(() => {
+    const loadGlobalSettings = async () => {
+      try {
+        const result = await window.api.getGlobalSettings();
+        if (result) {
+          if (result.defaultOutputDir) {
+            setOutputDir(result.defaultOutputDir);
+          }
+          if (result.defaultConcurrency) {
+            setConcurrency(result.defaultConcurrency);
+          }
+        }
+      } catch (err) {
+        console.error('加载全局配置失败:', err);
+      }
+    };
+
+    loadGlobalSettings();
+  }, []);
+
   // 清理监听器
   useEffect(() => {
     const cleanup = () => {

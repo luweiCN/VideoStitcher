@@ -24,6 +24,21 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 加载全局默认配置
+  useEffect(() => {
+    const loadGlobalSettings = async () => {
+      try {
+        const result = await window.api.getGlobalSettings();
+        if (result?.defaultOutputDir) {
+          setOutputDir(result.defaultOutputDir);
+        }
+      } catch (err) {
+        console.error('加载全局配置失败:', err);
+      }
+    };
+    loadGlobalSettings();
+  }, []);
+
   // 处理拖拽上传
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();

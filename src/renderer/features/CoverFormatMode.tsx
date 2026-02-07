@@ -30,6 +30,21 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 加载全局默认配置
+  useEffect(() => {
+    const loadGlobalSettings = async () => {
+      try {
+        const result = await window.api.getGlobalSettings();
+        if (result?.defaultOutputDir) {
+          setOutputDir(result.defaultOutputDir);
+        }
+      } catch (err) {
+        console.error('加载全局配置失败:', err);
+      }
+    };
+    loadGlobalSettings();
+  }, []);
+
   // 添加日志
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);

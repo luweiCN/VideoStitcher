@@ -143,6 +143,29 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
     setMaterialPositions(getInitialPositions(canvasConfig));
   }, [canvasConfig]);
 
+  // 加载全局默认配置
+  useEffect(() => {
+    const loadGlobalSettings = async () => {
+      try {
+        const result = await window.api.getGlobalSettings();
+        if (result) {
+          // 设置默认输出目录
+          if (result.defaultOutputDir) {
+            setOutputDir(result.defaultOutputDir);
+          }
+          // 设置默认线程数量
+          if (result.defaultConcurrency) {
+            setConcurrency(result.defaultConcurrency);
+          }
+        }
+      } catch (err) {
+        console.error('加载全局配置失败:', err);
+      }
+    };
+
+    loadGlobalSettings();
+  }, []); // 只在组件挂载时加载一次
+
   // 添加日志
   const addLog = (msg: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);

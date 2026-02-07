@@ -90,6 +90,21 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   const PREVIEW_SIZE = 400; // 显示大小 (像素)
   const BASE_SIZE = 800;    // 逻辑尺寸 (编辑和单图导出)
 
+  // 加载全局默认配置
+  useEffect(() => {
+    const loadGlobalSettings = async () => {
+      try {
+        const result = await window.api.getGlobalSettings();
+        if (result?.defaultOutputDir) {
+          setOutputDir(result.defaultOutputDir);
+        }
+      } catch (err) {
+        console.error('加载全局配置失败:', err);
+      }
+    };
+    loadGlobalSettings();
+  }, []);
+
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

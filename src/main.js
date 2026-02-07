@@ -449,6 +449,32 @@ ipcMain.handle("get-app-version", async () => {
   };
 });
 
+// 获取系统默认下载目录
+ipcMain.handle("get-default-download-dir", async () => {
+  try {
+    return app.getPath('downloads');
+  } catch (err) {
+    console.error('[默认下载目录] 获取失败:', err);
+    return '';
+  }
+});
+
+// 获取系统内存信息
+ipcMain.handle("get-system-memory", async () => {
+  const totalMemory = os.totalmem(); // 总内存（字节）
+  const freeMemory = os.freemem();   // 可用内存（字节）
+  const usedMemory = totalMemory - freeMemory; // 已用内存
+
+  return {
+    total: totalMemory,    // 总内存
+    free: freeMemory,      // 可用内存
+    used: usedMemory,      // 已用内存
+    totalGB: (totalMemory / (1024 * 1024 * 1024)).toFixed(1),
+    freeGB: (freeMemory / (1024 * 1024 * 1024)).toFixed(1),
+    usedGB: (usedMemory / (1024 * 1024 * 1024)).toFixed(1),
+  };
+});
+
 // 使用系统默认浏览器打开外部链接
 ipcMain.handle("open-external", async (_event, url) => {
   try {
@@ -561,6 +587,67 @@ ipcMain.handle("delete-temp-preview", async (_event, tempPath) => {
     return { success: true };
   } catch (err) {
     console.error('[预览清理] 删除失败:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// ==================== 全局配置管理 ====================
+
+// 获取配置文件路径
+const getConfigPath = () => {
+  const userDataPath = app.getPath('userData');
+  return path.join(userDataPath, 'global-settings.json');
+};
+
+// 默认配置
+const DEFAULT_SETTINGS = {
+  defaultOutputDir: '', // 空表示使用系统默认下载文件夹
+  defaultConcurrency: Math.max(1, Math.floor((require('os').cpus().length || 4) / 2))
+};
+
+// 获取全局配置
+ipcMain.handle("get-global-settings", async () => {
+  try {
+    const configPath = getConfigPath();
+
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf-8');
+      const settings = JSON.parse(data);
+      console.log('[全局配置] 读取配置:', settings);
+      return { ...DEFAULT_SETTINGS, ...settings };
+    } else {
+      // 配置文件不存在，返回默认值
+      console.log('[全局配置] 配置文件不存在，使用默认值:', DEFAULT_SETTINGS);
+      return { ...DEFAULT_SETTINGS };
+    }
+  } catch (err) {
+    console.error('[全局配置] 读取失败:', err);
+    return { ...DEFAULT_SETTINGS };
+  }
+});
+
+// 保存全局配置
+ipcMain.handle("set-global-settings", async (_event, settings) => {
+  try {
+    const configPath = getConfigPath();
+
+    // 读取现有配置
+    let currentSettings = {};
+    if (fs.existsSync(configPath)) {
+      const data = fs.readFileSync(configPath, 'utf-8');
+      currentSettings = JSON.parse(data);
+    }
+
+    // 合并新配置
+    const newSettings = { ...currentSettings, ...settings };
+
+    // 保存到文件
+    fs.writeFileSync(configPath, JSON.stringify(newSettings, null, 2), 'utf-8');
+    console.log('[全局配置] 保存配置:', newSettings);
+
+    return { success: true };
+  } catch (err) {
+    console.error('[全局配置] 保存失败:', err);
     return { success: false, error: err.message };
   }
 });

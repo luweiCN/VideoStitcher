@@ -89,6 +89,29 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
 
+  // 加载全局默认配置
+  useEffect(() => {
+    const loadGlobalSettings = async () => {
+      try {
+        const result = await window.api.getGlobalSettings();
+        if (result) {
+          // 设置默认输出目录（如果有）
+          if (result.defaultOutputDir) {
+            setOutputDir(result.defaultOutputDir);
+          }
+          // 设置默认线程数量
+          if (result.defaultConcurrency) {
+            setConcurrency(result.defaultConcurrency);
+          }
+        }
+      } catch (err) {
+        console.error('加载全局配置失败:', err);
+      }
+    };
+
+    loadGlobalSettings();
+  }, []); // 只在组件挂载时加载一次
+
   // 当组合变化时，确保选中的索引有效
   useEffect(() => {
     if (combinations.length > 0 && selectedComboIndex >= combinations.length) {
@@ -575,7 +598,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         </div>
 
         {/* Main Content Area - Middle (Preview + Combinations) */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* Combination List */}
           <div className="h-48 border-b border-gray-800 bg-[#12121a] shrink-0">
             <div className="h-full flex items-center px-4">
@@ -707,7 +730,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
 
                 {/* Info Sidebar */}
                 <div className="w-64 border-l border-gray-800 bg-[#12121a] p-4 overflow-y-auto custom-scrollbar">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">合成详情</h3>
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">合成详情</h3>
 
                   {/* Output Info */}
                   <div className="bg-gray-900/50 rounded-xl p-4 mb-4 border border-gray-800">

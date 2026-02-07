@@ -174,15 +174,41 @@ const App: React.FC = () => {
       default:
         // 首页
         return (
-          <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-8 font-sans">
-            <div className="text-center mb-16 space-y-4">
-              <h1 className="text-5xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-violet-400 to-rose-400">
-                VideoStitcher
-              </h1>
-              <p className="text-slate-400 text-lg font-medium">全能视频批处理工具箱</p>
+          <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans relative">
+            {/* 右上角固定设置按钮 */}
+            <div className="fixed top-6 right-6 z-50">
+              <button
+                onClick={() => setCurrentView('admin')}
+                className="group relative flex items-center gap-3 px-4 py-2.5 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-xl hover:border-purple-500/50 hover:bg-slate-800/80 transition-all duration-300 shadow-lg hover:shadow-purple-500/10"
+              >
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 rounded-lg flex items-center justify-center shadow-md shadow-purple-600/20 group-hover:shadow-purple-600/30 transition-all">
+                  <Settings className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                  系统管理
+                </span>
+                {/* 更新提醒徽章 */}
+                {updateAvailable && (
+                  <>
+                    <span className="flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                  </>
+                )}
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-7xl w-full">
+            {/* 主内容区域 - 居中 */}
+            <div className="flex-1 flex flex-col items-center justify-center px-8 py-12">
+              <div className="text-center mb-16">
+                <h1 className="text-5xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-violet-400 to-rose-400">
+                  VideoStitcher
+                </h1>
+                <p className="text-slate-400 text-lg font-medium mt-4">全能视频批处理工具箱</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full max-w-7xl">
               {/* 横竖屏极速合成入口 */}
               <button
                 onClick={() => setCurrentView('videoMerge')}
@@ -352,27 +378,11 @@ const App: React.FC = () => {
               </button>
             </div>
 
-            <footer className="mt-20 text-slate-600 text-sm font-medium flex items-center gap-4">
-              <span>{appVersion} · Electron Desktop</span>
-              {updateAvailable && (
-                <button
-                  onClick={handleGoToUpdate}
-                  className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors"
-                  title={`新版本 ${updateInfo?.version} 可用`}
-                >
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>有更新</span>
-                </button>
-              )}
-              <button
-                onClick={() => setCurrentView('admin')}
-                className="p-1 hover:text-indigo-400 transition-colors"
-                title="系统管理"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
+            <footer className="mt-16 text-slate-600 text-sm font-medium">
+              <span>{appVersion} · © 2026 VideoStitcher · 全能视频批处理工具箱</span>
             </footer>
           </div>
+        </div>
         );
     }
   };

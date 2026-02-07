@@ -57,8 +57,13 @@ const api = {
     onImageFinish: (cb) => electron_1.ipcRenderer.on('image-finish', (_e, data) => cb(data)),
     // 移除监听器
     removeAllListeners: (channel) => electron_1.ipcRenderer.removeAllListeners(channel),
+    // 全局配置 API
+    getGlobalSettings: () => electron_1.ipcRenderer.invoke('get-global-settings'),
+    setGlobalSettings: (settings) => electron_1.ipcRenderer.invoke('set-global-settings', settings),
     // 自动更新 API
     getAppVersion: () => electron_1.ipcRenderer.invoke('get-app-version'),
+    getDefaultDownloadDir: () => electron_1.ipcRenderer.invoke('get-default-download-dir'),
+    getSystemMemory: () => electron_1.ipcRenderer.invoke('get-system-memory'),
     checkForUpdates: () => electron_1.ipcRenderer.invoke('check-for-updates'),
     downloadUpdate: () => electron_1.ipcRenderer.invoke('download-update'),
     installUpdate: () => electron_1.ipcRenderer.invoke('install-update'),

@@ -172,8 +172,21 @@ export interface ElectronAPI {
   // 移除监听器
   removeAllListeners: (channel: string) => void;
 
+  // === 全局配置 API ===
+  getGlobalSettings: () => Promise<{ defaultOutputDir?: string; defaultConcurrency?: number }>;
+  setGlobalSettings: (settings: { defaultOutputDir?: string; defaultConcurrency?: number }) => Promise<{ success: boolean; error?: string }>;
+
   // === 自动更新 API ===
   getAppVersion: () => Promise<{ version: string; isDevelopment: boolean }>;
+  getDefaultDownloadDir: () => Promise<string>;
+  getSystemMemory: () => Promise<{
+    total: number;
+    free: number;
+    used: number;
+    totalGB: string;
+    freeGB: string;
+    usedGB: string;
+  }>;
   checkForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
@@ -254,8 +267,14 @@ const api: ElectronAPI = {
   // 移除监听器
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
 
+  // 全局配置 API
+  getGlobalSettings: () => ipcRenderer.invoke('get-global-settings'),
+  setGlobalSettings: (settings) => ipcRenderer.invoke('set-global-settings', settings),
+
   // 自动更新 API
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getDefaultDownloadDir: () => ipcRenderer.invoke('get-default-download-dir'),
+  getSystemMemory: () => ipcRenderer.invoke('get-system-memory'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),

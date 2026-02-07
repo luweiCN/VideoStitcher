@@ -57,6 +57,28 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
   const [logs, setLogs] = useState<string[]>([]);
+  const [concurrency, setConcurrency] = useState(3);
+
+  // 加载全局默认配置
+  useEffect(() => {
+    const loadGlobalSettings = async () => {
+      try {
+        const result = await window.api.getGlobalSettings();
+        if (result) {
+          if (result.defaultOutputDir) {
+            setOutputDir(result.defaultOutputDir);
+          }
+          if (result.defaultConcurrency) {
+            setConcurrency(result.defaultConcurrency);
+          }
+        }
+      } catch (err) {
+        console.error('加载全局配置失败:', err);
+      }
+    };
+
+    loadGlobalSettings();
+  }, []);
 
   // 添加日志
   const addLog = useCallback((msg: string) => {
@@ -376,7 +398,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
         mode,
         blurAmount,
         outputDir,
-        concurrency: 3
+        concurrency
       });
     } catch (err: any) {
       addLog(`❌ 处理失败: ${err.message || err}`);
