@@ -1,0 +1,260 @@
+name: 管理授权
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: '操作类型'
+        required: true
+        type: choice
+        options:
+          - add
+          - remove
+          - enable
+          - disable
+          - list
+      machine_id:
+        description: '机器 ID（添加/移除/启用/禁用时必填）'
+        required: false
+        type: string
+      user_name:
+        description: '用户名（仅添加时需要）'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  manage-license:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 验证输入参数
+        run: |
+          ACTION="${{ inputs.action }}"
+          MACHINE_ID="${{ inputs.machine_id }}"
+          USER_NAME="${{ inputs.user_name }}"
+
+          echo "操作类型: $ACTION"
+
+          if [ "$ACTION" != "list" ] && [ -z "$MACHINE_ID" ]; then
+            echo "❌ 错误: 操作类型为 '$ACTION' 时必须提供机器 ID"
+            exit 1
+          fi
+
+          if [ "$ACTION" = "add" ] && [ -z "$USER_NAME" ]; then
+            echo "❌ 错误: 添加授权时必须提供用户名"
+            exit 1
+          fi
+
+          echo "✅ 参数验证通过"
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 处理授权
+        run: |
+          ACTION="${{ inputs.action }}"
+          MACHINE_ID="${{ inputs.machine_id }}"
+          USER_NAME="${{ inputs.user_name }}"
+          LICENSE_FILE="licenses.json"
+
+          # 确保 licenses.json 存在
+          if [ ! -f "$LICENSE_FILE" ]; then
+            echo "初始化授权文件..."
+            cat > "$LICENSE_FILE" << 'EOF'
+          {
+            "version": "1.0",
+            "updatedAt": "2026-02-07T00:00:00Z",
+            "licenses": []
+          }
+          EOF
+          fi
+
+          # 读取当前授权数据
+          LICENSES=$(cat "$LICENSE_FILE")
+
+          # 根据 action 执行不同操作
+          case "$ACTION" in
+            add)
+              echo "📝 添加授权: $USER_NAME ($MACHINE_ID)"
+
+              # 检查是否已存在
+              if echo "$LICENSES" | jq -e ".licenses[] | select(.machineId == \"$MACHINE_ID\")" > /dev/null; then
+                echo "更新现有授权..."
+                LICENSES=$(echo "$LICENSES" | jq \
+                  --arg machine_id "$MACHINE_ID" \
+                  --arg user_name "$USER_NAME" \
+                  '(.licenses[] | select(.machineId == $machine_id)) |= {
+                    machineId: $machine_id,
+                    user: $user_name,
+                    enabled: true,
+                    updatedAt: now | todate
+                  } | .updatedAt = (now | todate)')
+              else
+                echo "添加新授权..."
+                LICENSES=$(echo "$LICENSES" | jq \
+                  --arg machine_id "$MACHINE_ID" \
+                  --arg user_name "$USER_NAME" \
+                  '.licenses += [{
+                    machineId: $machine_id,
+                    user: $user_name,
+                    enabled: true,
+                    createdAt: (now | todate)
+                  }] | .updatedAt = (now | todate)')
+              fi
+              ;;
+
+            remove)
+              echo "🗑️  移除授权: $MACHINE_ID"
+
+              if echo "$LICENSES" | jq -e ".licenses[] | select(.machineId == \"$MACHINE_ID\")" > /dev/null; then
+                REMOVED_USER=$(echo "$LICENSES" | jq -r ".licenses[] | select(.machineId == \"$MACHINE_ID\") | .user")
+                echo "移除用户: $REMOVED_USER"
+                LICENSES=$(echo "$LICENSES" | jq \
+                  --arg machine_id "$MACHINE_ID" \
+                  'del(.licenses[] | select(.machineId == $machine_id)) | .updatedAt = (now | todate)')
+              else
+                echo "❌ 未找到机器 ID: $MACHINE_ID"
+                exit 1
+              fi
+              ;;
+
+            enable)
+              echo "✅ 启用授权: $MACHINE_ID"
+
+              if echo "$LICENSES" | jq -e ".licenses[] | select(.machineId == \"$MACHINE_ID\")" > /dev/null; then
+                USER_NAME=$(echo "$LICENSES" | jq -r ".licenses[] | select(.machineId == \"$MACHINE_ID\") | .user")
+                CURRENT_STATUS=$(echo "$LICENSES" | jq -r ".licenses[] | select(.machineId == \"$MACHINE_ID\") | .enabled")
+
+                if [ "$CURRENT_STATUS" = "true" ]; then
+                  echo "ℹ️  授权已是启用状态: $USER_NAME"
+                else
+                  echo "启用用户授权: $USER_NAME"
+                  LICENSES=$(echo "$LICENSES" | jq \
+                    --arg machine_id "$MACHINE_ID" \
+                    '(.licenses[] | select(.machineId == $machine_id)).enabled = true | .updatedAt = (now | todate)')
+                fi
+              else
+                echo "❌ 未找到机器 ID: $MACHINE_ID"
+                exit 1
+              fi
+              ;;
+
+            disable)
+              echo "❌ 禁用授权: $MACHINE_ID"
+
+              if echo "$LICENSES" | jq -e ".licenses[] | select(.machineId == \"$MACHINE_ID\")" > /dev/null; then
+                USER_NAME=$(echo "$LICENSES" | jq -r ".licenses[] | select(.machineId == \"$MACHINE_ID\") | .user")
+                CURRENT_STATUS=$(echo "$LICENSES" | jq -r ".licenses[] | select(.machineId == \"$MACHINE_ID\") | .enabled")
+
+                if [ "$CURRENT_STATUS" = "false" ]; then
+                  echo "ℹ️  授权已是禁用状态: $USER_NAME"
+                else
+                  echo "禁用用户授权: $USER_NAME"
+                  LICENSES=$(echo "$LICENSES" | jq \
+                    --arg machine_id "$MACHINE_ID" \
+                    '(.licenses[] | select(.machineId == $machine_id)).enabled = false | .updatedAt = (now | todate)')
+                fi
+              else
+                echo "❌ 未找到机器 ID: $MACHINE_ID"
+                exit 1
+              fi
+              ;;
+
+            list)
+              echo "📋 授权列表:"
+              echo ""
+              echo "$LICENSES" | jq -r '
+                "版本: \(.version)
+更新时间: \(.updatedAt)
+总数: \(.licenses | length)",
+                (.licenses[] | "
+\(.enabled // false | if . then "✅" else "❌" end) \(.user // "未知")
+   机器 ID: \(.machineId)
+   创建时间: \(.createdAt // "N/A")")
+              '
+              ;;
+          esac
+
+          # 保存更新后的授权文件（非 list 操作）
+          if [ "$ACTION" != "list" ]; then
+            echo "$LICENSES" | jq '.' > "$LICENSE_FILE"
+            echo "✅ 授权文件已更新"
+          fi
+
+      - name: 显示授权列表
+        if: inputs.action != 'list'
+        run: |
+          echo "📋 更新后的授权列表:"
+          echo ""
+          cat licenses.json | jq -r '
+            "版本: \(.version)
+更新时间: \(.updatedAt)
+总数: \(.licenses | length)",
+            (.licenses[] | "
+\(.enabled // false | if . then "✅" else "❌" end) \(.user // "未知")
+   机器 ID: \(.machineId)")
+          '
+
+      - name: 提交更改
+        if: inputs.action != 'list'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          ACTION="${{ inputs.action }}"
+          MACHINE_ID="${{ inputs.machine_id }}"
+          USER_NAME="${{ inputs.user_name }}"
+
+          case "$ACTION" in
+            add)
+              COMMIT_MSG="feat: 添加授权 - $USER_NAME ($MACHINE_ID)"
+              ;;
+            remove)
+              COMMIT_MSG="feat: 移除授权 - $MACHINE_ID"
+              ;;
+            enable)
+              COMMIT_MSG="feat: 启用授权 - $MACHINE_ID"
+              ;;
+            disable)
+              COMMIT_MSG="feat: 禁用授权 - $MACHINE_ID"
+              ;;
+          esac
+
+          git add licenses.json
+          git diff --staged --quiet || git commit -m "$COMMIT_MSG"
+          git push
+
+      - name: 创建/更新 Release
+        if: inputs.action != 'list'
+        run: |
+          # 安装 GitHub CLI
+          # 使用预装的 gh 命令
+
+          RELEASE_TAG="licenses"
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="${{ github.event.repository.name }}"
+
+          echo "准备更新 Release: $RELEASE_TAG"
+
+          # 检查 Release 是否存在
+          if gh release view "$RELEASE_TAG" --repo "$REPO_OWNER/$REPO_NAME" > /dev/null 2>&1; then
+            echo "更新现有 Release..."
+            gh release upload "$RELEASE_TAG" licenses.json --clobber --repo "$REPO_OWNER/$REPO_NAME"
+          else
+            echo "创建新 Release..."
+            gh release create "$RELEASE_TAG" licenses.json \
+              --title "授权文件" \
+              --notes "VideoStitcher 授权文件，包含所有已授权的机器 ID 列表。" \
+              --repo "$REPO_OWNER/$REPO_NAME"
+          fi
+
+          echo "✅ Release 已更新"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

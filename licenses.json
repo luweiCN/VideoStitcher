@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-02-07T00:00:00Z",
+  "licenses": [
+    {
+      "machineId": "example-machine-id-12345",
+      "user": "示例用户",
+      "enabled": true,
+      "createdAt": "2026-02-07T00:00:00Z"
+    }
+  ]
+}

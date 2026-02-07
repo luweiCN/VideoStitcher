@@ -198,6 +198,33 @@ export interface ElectronAPI {
   onUpdateError: (callback: (data: { message: string }) => void) => () => void;
   onUpdateDownloadProgress: (callback: (data: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void) => () => void;
   onUpdateDownloaded: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => () => void;
+
+  // === 授权 API ===
+  // 获取机器 ID（用于申请授权）
+  getMachineId: () => Promise<{ success: boolean; machineId?: string; error?: string }>;
+  // 检查授权状态
+  checkLicense: (params?: { forceRefresh?: boolean }) => Promise<{
+    authorized: boolean;
+    developmentMode?: boolean;
+    userInfo?: { user: string; machineId: string };
+    reason?: string;
+    usedCache?: boolean;
+    offlineMode?: boolean;
+    licenseVersion?: string;
+    updatedAt?: string;
+    offline?: boolean;
+  }>;
+  // 获取授权详情
+  getLicenseInfo: () => Promise<{
+    authorized: boolean;
+    developmentMode?: boolean;
+    userInfo?: { user: string; machineId: string };
+    reason?: string;
+    licenseVersion?: string;
+    updatedAt?: string;
+  }>;
+  // 授权状态变更事件
+  onLicenseStatusChanged: (callback: (data: any) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -305,6 +332,16 @@ const api: ElectronAPI = {
     const listener = (_e: any, data: any) => cb(data);
     ipcRenderer.on('update-downloaded', listener);
     return () => ipcRenderer.removeListener('update-downloaded', listener);
+  },
+
+  // 授权 API
+  getMachineId: () => ipcRenderer.invoke('auth:get-machine-id'),
+  checkLicense: (params) => ipcRenderer.invoke('auth:check-license', params || {}),
+  getLicenseInfo: () => ipcRenderer.invoke('auth:get-license-info'),
+  onLicenseStatusChanged: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on('license-status-changed', listener);
+    return () => ipcRenderer.removeListener('license-status-changed', listener);
   },
 };
 

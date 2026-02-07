@@ -9,8 +9,9 @@ import ImageMaterialMode from './features/ImageMaterialMode';
 import ResizeMode from './features/ResizeMode';
 import VideoStitcherMode from './features/VideoStitcherMode';
 import AdminMode from './features/AdminMode';
+import UnauthorizedMode from './features/UnauthorizedMode';
 
-type View = 'home' | 'videoMerge' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress' | 'videoStitcher';
+type View = 'home' | 'videoMerge' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress' | 'videoStitcher' | 'unauthorized';
 
 interface UpdateInfo {
   version: string;
@@ -80,6 +81,10 @@ const App: React.FC = () => {
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
   const [pendingUpdateInfo, setPendingUpdateInfo] = useState<UpdateInfo | null>(null);
 
+  // 授权状态
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const [isCheckingLicense, setIsCheckingLicense] = useState(true);
+
   // 获取应用版本
   useEffect(() => {
     const fetchVersion = async () => {
@@ -91,6 +96,41 @@ const App: React.FC = () => {
       }
     };
     fetchVersion();
+  }, []);
+
+  // 检查授权状态
+  useEffect(() => {
+    const checkLicense = async () => {
+      try {
+        const result = await window.api.checkLicense();
+        console.log('授权检查结果:', result);
+        setIsAuthorized(result.authorized);
+
+        // 如果未授权，切换到未授权页面
+        if (!result.authorized) {
+          setCurrentView('unauthorized');
+        }
+      } catch (error) {
+        console.error('授权检查失败:', error);
+        setIsAuthorized(false);
+        setCurrentView('unauthorized');
+      } finally {
+        setIsCheckingLicense(false);
+      }
+    };
+
+    checkLicense();
+
+    // 监听授权状态变更
+    const cleanup = window.api.onLicenseStatusChanged((data) => {
+      console.log('授权状态变更:', data);
+      setIsAuthorized(data.authorized);
+      if (!data.authorized) {
+        setCurrentView('unauthorized');
+      }
+    });
+
+    return cleanup;
   }, []);
 
   // 监听更新事件
@@ -146,6 +186,22 @@ const App: React.FC = () => {
     setCurrentView('admin');
   };
 
+  // 从未授权页面返回（授权成功后）
+  const handleAuthorized = () => {
+    setIsAuthorized(true);
+    setCurrentView('home');
+  };
+
+  // 如果正在检查授权，显示加载状态
+  if (isCheckingLicense) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-3 border-violet-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-slate-400">正在验证授权...</p>
+      </div>
+    );
+  }
+
   if (currentView === 'videoMerge') {
     return <VideoMergeMode onBack={() => setCurrentView('home')} />;
   }
@@ -153,6 +209,8 @@ const App: React.FC = () => {
   // 根据当前视图获取页面内容
   const getPageContent = () => {
     switch (currentView) {
+      case 'unauthorized':
+        return <UnauthorizedMode onBack={handleAuthorized} />;
       case 'videoMerge':
         return <VideoMergeMode onBack={() => setCurrentView('home')} />;
       case 'imageMaterial':

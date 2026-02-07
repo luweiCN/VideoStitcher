@@ -11,6 +11,7 @@ const { runFfmpeg } = require("./ffmpeg/runFfmpeg");
 // 导入新的 IPC 处理器
 const { registerVideoHandlers } = require("./ipcHandlers/video");
 const { registerImageHandlers } = require("./ipcHandlers/image");
+const { registerAuthHandlers } = require("./ipcHandlers/auth");
 
 let win;
 let A = [];
@@ -137,6 +138,8 @@ app.whenReady().then(() => {
   registerVideoHandlers();
   // 注册图片处理 IPC 处理器
   registerImageHandlers();
+  // 注册授权处理 IPC
+  registerAuthHandlers();
   // 配置自动更新
   setupAutoUpdater();
 });

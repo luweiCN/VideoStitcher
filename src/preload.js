@@ -94,5 +94,14 @@ const api = {
         electron_1.ipcRenderer.on('update-downloaded', listener);
         return () => electron_1.ipcRenderer.removeListener('update-downloaded', listener);
     },
+    // 授权 API
+    getMachineId: () => electron_1.ipcRenderer.invoke('auth:get-machine-id'),
+    checkLicense: (params) => electron_1.ipcRenderer.invoke('auth:check-license', params || {}),
+    getLicenseInfo: () => electron_1.ipcRenderer.invoke('auth:get-license-info'),
+    onLicenseStatusChanged: (cb) => {
+        const listener = (_e, data) => cb(data);
+        electron_1.ipcRenderer.on('license-status-changed', listener);
+        return () => electron_1.ipcRenderer.removeListener('license-status-changed', listener);
+    },
 };
 electron_1.contextBridge.exposeInMainWorld('api', api);
