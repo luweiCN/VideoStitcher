@@ -87,14 +87,25 @@ export class MacUpdater {
       // 先尝试查找架构特定的包
       let asset = response.assets?.find((a: any) => {
         const name = a.name.toLowerCase();
-        return name.includes(currentArch) && name.includes('mac') && name.endsWith('.zip');
+        const isMacZip = name.includes('mac') && name.endsWith('.zip');
+        
+        if (currentArch === 'arm64') {
+          // 查找包含 'arm64' 的包（例如：VideoStitcher-0.4.7-arm64-mac.zip）
+          return isMacZip && name.includes('arm64');
+        } else if (currentArch === 'x64') {
+          // 查找明确标记为 x64 的包，或者不包含 arm64 的通用包
+          // 例如：VideoStitcher-0.4.7-x64-mac.zip 或 VideoStitcher-0.4.7-mac.zip
+          return isMacZip && (name.includes('-x64-') || name.includes('-x64.') || !name.includes('arm64'));
+        }
+        
+        return false;
       });
 
-      // 如果找不到架构特定的包，尝试查找通用包（通常是 x64）
-      if (!asset && currentArch === 'x64') {
+      // 如果 ARM64 找不到专用包，尝试通用包（在 Rosetta 2 下运行）
+      if (!asset && currentArch === 'arm64') {
+        console.log('[macOS 更新] 未找到 ARM64 专用包，尝试查找通用包（将通过 Rosetta 2 运行）');
         asset = response.assets?.find((a: any) => {
           const name = a.name.toLowerCase();
-          // 查找不包含 arm64 的 mac.zip（即通用或 x64 专用包）
           return name.includes('mac') && name.endsWith('.zip') && !name.includes('arm64');
         });
       }
