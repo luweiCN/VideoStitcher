@@ -81,6 +81,33 @@ class MacUpdater {
         return false;
     }
     /**
+     * 将 Markdown 格式的 Release Notes 转换为 HTML
+     * @param markdown Markdown 文本
+     * @returns HTML 文本
+     */
+    markdownToHtml(markdown) {
+        if (!markdown)
+            return '';
+        let html = markdown;
+        // H2 标题
+        html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mb-3 text-white">$1</h2>');
+        // H3 标题
+        html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-indigo-300">$1</h3>');
+        // H4 标题
+        html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-medium mt-3 mb-1 text-slate-200">$1</h4>');
+        // 粗体
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
+        // 列表项
+        html = html.replace(/^- (.+)$/gm, '<li class="ml-4 text-slate-300">$1</li>');
+        // 包装列表
+        html = html.replace(/(<li.*?<\/li>\n?)+/g, '<ul class="list-disc ml-4 space-y-1 my-2">$&</ul>');
+        // 段落（双换行）
+        html = html.replace(/\n\n/g, '<div class="my-2"></div>');
+        // 单换行
+        html = html.replace(/\n/g, '<br />');
+        return html;
+    }
+    /**
      * 检查 GitHub Releases 最新版本
      */
     async checkForUpdates() {
@@ -131,7 +158,7 @@ class MacUpdater {
             this.updateInfo = {
                 version: latestVersion,
                 releaseDate: response.published_at,
-                releaseNotes: response.body || '',
+                releaseNotes: this.markdownToHtml(response.body || ''),
                 downloadUrl: asset.browser_download_url,
                 fileSize: asset.size,
             };
