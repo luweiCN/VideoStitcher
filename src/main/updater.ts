@@ -80,14 +80,30 @@ export class MacUpdater {
         return { success: true, hasUpdate: false };
       }
 
-      // 查找 macOS ZIP 包
-      const asset = response.assets?.find((a: any) => 
-        (a.name.includes('mac') || a.name.includes('darwin')) && a.name.endsWith('.zip')
-      );
+      // 查找 macOS ZIP 包 - 根据当前系统架构选择
+      const currentArch = process.arch; // 'x64' 或 'arm64'
+      console.log('[macOS 更新] 当前系统架构:', currentArch);
+
+      // 先尝试查找架构特定的包
+      let asset = response.assets?.find((a: any) => {
+        const name = a.name.toLowerCase();
+        return name.includes(currentArch) && name.includes('mac') && name.endsWith('.zip');
+      });
+
+      // 如果找不到架构特定的包，尝试查找通用包（通常是 x64）
+      if (!asset && currentArch === 'x64') {
+        asset = response.assets?.find((a: any) => {
+          const name = a.name.toLowerCase();
+          // 查找不包含 arm64 的 mac.zip（即通用或 x64 专用包）
+          return name.includes('mac') && name.endsWith('.zip') && !name.includes('arm64');
+        });
+      }
 
       if (!asset) {
-        throw new Error('未找到 macOS 安装包');
+        throw new Error(`未找到适用于 ${currentArch} 架构的 macOS 安装包`);
       }
+
+      console.log('[macOS 更新] 选择的安装包:', asset.name);
 
       this.updateInfo = {
         version: latestVersion,
