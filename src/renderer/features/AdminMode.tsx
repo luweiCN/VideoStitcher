@@ -46,7 +46,7 @@ interface UpdateInfo {
 
 const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle');
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'installing' | 'error'>('idle');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = useState<string>('');
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -214,13 +214,28 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
 
   const handleInstallUpdate = async () => {
     try {
+      console.log('[管理页面] 开始安装更新...');
+      setUpdateStatus('installing'); // 显示安装中状态
+      
       // macOS 使用应用内更新
       if (isMacOS) {
-        await window.api.macInstallUpdate();
+        console.log('[管理页面] 调用 macOS 更新安装...');
+        const result = await window.api.macInstallUpdate();
+        console.log('[管理页面] macOS 更新安装结果:', result);
+        
+        if (result && result.error) {
+          console.error('[管理页面] 安装失败:', result.error);
+          setUpdateError(result.error);
+          setUpdateStatus('error');
+        }
+        // 如果成功，应用会自动退出，所以不需要更新状态
       } else {
+        console.log('[管理页面] 调用 Windows 更新安装...');
         await window.api.installUpdate();
+        // Windows 应用会自动退出并安装
       }
     } catch (err: any) {
+      console.error('[管理页面] 安装更新异常:', err);
       setUpdateError(err.message || '安装更新失败');
       setUpdateStatus('error');
     }
@@ -744,7 +759,7 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                       {/* 状态显示 */}
                       <div className={`p-6 rounded-xl border flex items-center gap-4 transition-all duration-300 ${
                         updateStatus === 'idle' || updateStatus === 'error' ? 'bg-slate-950/50 border-slate-800/50' :
-                        updateStatus === 'checking' || updateStatus === 'downloading' ? 'bg-blue-500/10 border-blue-500/30' :
+                        updateStatus === 'checking' || updateStatus === 'downloading' || updateStatus === 'installing' ? 'bg-blue-500/10 border-blue-500/30' :
                         updateStatus === 'available' ? 'bg-emerald-500/10 border-emerald-500/30' :
                         updateStatus === 'not-available' ? 'bg-teal-500/10 border-teal-500/30' :
                         updateStatus === 'downloaded' ? 'bg-green-500/10 border-green-500/30' :
@@ -808,6 +823,15 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                             </div>
                             <div className="flex-1">
                               <div className="font-medium text-green-400">更新已下载，准备安装</div>
+                            </div>
+                          </>
+                        )}
+                        {updateStatus === 'installing' && (
+                          <>
+                            <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+                            <div className="flex-1">
+                              <div className="font-medium text-blue-400">正在准备安装...</div>
+                              <div className="text-sm text-slate-400 mt-1">应用即将重启</div>
                             </div>
                           </>
                         )}
@@ -882,13 +906,23 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                           </button>
                         )}
 
-                        {(updateStatus === 'downloaded') && (isMacOS || isWindows) && (
+                        {(updateStatus === 'downloaded' || updateStatus === 'installing') && (isMacOS || isWindows) && (
                           <button
                             onClick={handleInstallUpdate}
-                            className="flex-1 px-5 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-600/20 hover:shadow-green-600/30"
+                            disabled={updateStatus === 'installing'}
+                            className="flex-1 px-5 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-600/20 hover:shadow-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <CheckCircle className="w-4 h-4" />
-                            立即重启并安装
+                            {updateStatus === 'installing' ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                正在安装...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-4 h-4" />
+                                立即重启并安装
+                              </>
+                            )}
                           </button>
                         )}
                       </div>
