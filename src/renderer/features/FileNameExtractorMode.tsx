@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen } from 'lucide-react';
+import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle } from 'lucide-react';
+import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
 
 interface FileNameExtractorModeProps {
   onBack: () => void;
@@ -34,6 +35,12 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   const [platform, setPlatform] = useState<string>('unknown');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 重命名相关状态
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameProgress, setRenameProgress] = useState({ current: 0, total: 0 });
+  const [renameResults, setRenameResults] = useState<{ success: number; failed: number } | null>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+
   // 获取系统平台信息
   useEffect(() => {
     const getPlatformInfo = async () => {
@@ -46,6 +53,40 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
       }
     };
     getPlatformInfo();
+  }, []);
+
+  // 监听文件重命名进度事件
+  useEffect(() => {
+    const cleanupProgress = window.api.onFileProgress((data) => {
+      setRenameProgress({ current: data.index + 1, total: data.total });
+    });
+
+    const cleanupComplete = window.api.onFileComplete((results) => {
+      setRenameResults({ success: results.success, failed: results.failed });
+      setIsRenaming(false);
+      // 重命名成功后更新文件路径
+      if (results.success > 0 && results.failed === 0) {
+        // 更新文件路径为重命名后的新路径
+        setFiles(prevFiles => {
+          const updatedFiles = prevFiles.map(f => {
+            const dir = f.path.split(/[\/\\]/).slice(0, -1).join('/');
+            const ext = f.originalName.split('.').pop() || '';
+            const newPath = `${dir}/${f.name}.${ext}`;
+            return {
+              ...f,
+              path: newPath,
+              originalName: `${f.name}.${ext}`
+            };
+          });
+          return updatedFiles;
+        });
+      }
+    });
+
+    return () => {
+      cleanupProgress();
+      cleanupComplete();
+    };
   }, []);
 
   // ==================== 拖拽处理 ====================
@@ -233,6 +274,73 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     setTempNames({});
   };
 
+  // ==================== 重命名功能 ====================
+  /**
+   * 点击"执行重命名"按钮
+   * 收集需要重命名的文件并显示预览对话框
+   */
+  const handleExecuteRename = () => {
+    // 收集需要重命名的文件
+    const operations = files
+      .map(f => {
+        // 从完整路径中提取原始文件名
+        const originalFileName = f.path.split(/[\/\\]/).pop() || f.path;
+        const dotIndex = originalFileName.lastIndexOf('.');
+        const ext = dotIndex !== -1 ? originalFileName.substring(dotIndex) : '';
+        const newFileName = f.name + ext;
+
+        return {
+          sourcePath: f.path,
+          targetName: f.name,
+          sourceName: originalFileName,
+          hasChanged: originalFileName !== newFileName
+        };
+      })
+      .filter(op => op.hasChanged);
+
+    if (operations.length === 0) {
+      alert('所有文件名未改变，无需重命名');
+      return;
+    }
+
+    // 显示预览对话框
+    setShowPreviewDialog(true);
+  };
+
+  /**
+   * 确认预览后执行重命名
+   */
+  const handleConfirmRename = async () => {
+    setShowPreviewDialog(false);
+
+    // 收集需要重命名的文件
+    const operations = files
+      .map(f => ({
+        sourcePath: f.path,
+        targetName: f.name
+      }))
+      .filter(op => {
+        // 检查是否真的需要重命名
+        const originalFileName = op.sourcePath.split(/[\/\\]/).pop() || op.sourcePath;
+        const dotIndex = originalFileName.lastIndexOf('.');
+        const ext = dotIndex !== -1 ? originalFileName.substring(dotIndex) : '';
+        const newFileName = op.targetName + ext;
+        return originalFileName !== newFileName;
+      });
+
+    setIsRenaming(true);
+    setRenameProgress({ current: 0, total: operations.length });
+    setRenameResults(null);
+
+    try {
+      await window.api.batchRenameFiles({ operations });
+    } catch (error) {
+      console.error('重命名失败:', error);
+      alert('重命名失败：' + (error as Error).message);
+      setIsRenaming(false);
+    }
+  };
+
   // ==================== 导出功能 ====================
   /**
    * 生成导出内容（根据选择的格式）
@@ -275,103 +383,6 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     a.href = url;
     a.download = `文件名列表_${new Date().toISOString().slice(0, 10)}.txt`;
     a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  /**
-   * 导出重命名脚本
-   * 根据平台生成不同的脚本格式
-   */
-  const handleExportScript = () => {
-    if (files.length === 0) return;
-
-    // 使用获取到的平台信息
-    const isWindows = platform === 'win32';
-    const scriptExtension = isWindows ? 'bat' : 'sh';
-    const scriptName = `rename_files.${scriptExtension}`;
-
-    let scriptContent: string;
-
-    if (isWindows) {
-      // Windows 批处理脚本
-      const commands = [
-        '@echo off',
-        'chcp 65001 >nul',
-        'echo 开始批量重命名...'
-      ];
-
-      files.forEach(f => {
-        // 从完整路径中提取原始文件名（使用 path 字段，不受编辑影响）
-        const originalFileName = f.path.split(/[\/\\]/).pop() || f.path;
-        const currentName = f.name;
-        const dotIndex = originalFileName.lastIndexOf('.');
-        const extension = dotIndex !== -1 ? originalFileName.substring(dotIndex) : '';
-        const newFileName = currentName + extension;
-
-        const safeOriginalName = originalFileName.replace(/%/g, '%%');
-        const safeNewFileName = newFileName.replace(/%/g, '%%');
-
-        commands.push(`if exist "${safeOriginalName}" (`);
-        if (originalFileName !== newFileName) {
-          commands.push(`  ren "${safeOriginalName}" "${safeNewFileName}"`);
-          commands.push(`  echo [成功] "${safeOriginalName}" -> "${newFileName}"`);
-        } else {
-          commands.push(`  echo [跳过] "${safeOriginalName}" (文件名未改变)`);
-        }
-        commands.push(`) else (`);
-        commands.push(`  echo [失败] 未找到文件: "${safeOriginalName}"`);
-        commands.push(`)`);
-        commands.push('');
-      });
-
-      commands.push('echo.');
-      commands.push('echo 批量重命名完成！');
-      commands.push('pause');
-
-      scriptContent = commands.join('\r\n');
-    } else {
-      // Unix/Linux/macOS Shell 脚本
-      const commands = [
-        '#!/bin/bash',
-        '# 批量重命名脚本',
-        'echo "开始批量重命名..."',
-        ''
-      ];
-
-      files.forEach(f => {
-        // 从完整路径中提取原始文件名（使用 path 字段，不受编辑影响）
-        const originalFileName = f.path.split(/[\/\\]/).pop() || f.path;
-        const currentName = f.name;
-        const dotIndex = originalFileName.lastIndexOf('.');
-        const extension = dotIndex !== -1 ? originalFileName.substring(dotIndex) : '';
-        const newFileName = currentName + extension;
-
-        commands.push(`if [ -f "${originalFileName}" ]; then`);
-        if (originalFileName !== newFileName) {
-          commands.push(`  mv "${originalFileName}" "${newFileName}"`);
-          commands.push(`  echo "[成功] ${originalFileName} -> ${newFileName}"`);
-        } else {
-          commands.push(`  echo "[跳过] ${originalFileName} (文件名未改变)"`);
-        }
-        commands.push(`else`);
-        commands.push(`  echo "[失败] 未找到文件: ${originalFileName}"`);
-        commands.push(`fi`);
-        commands.push('');
-      });
-
-      commands.push('echo "批量重命名完成！"');
-
-      scriptContent = commands.join('\n');
-    }
-
-    const blob = new Blob([scriptContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = scriptName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
 
@@ -506,43 +517,61 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
               <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">{files.length}</span>
             </h2>
             {files.length > 0 && !isEditing && (
-              <div className="flex gap-2">
+              <div className="flex items-center gap-3">
+                {/* 左侧工具按钮 */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={toggleReplacePanel}
+                    className={`
+                      flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors
+                      ${showReplacePanel
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
+                      }
+                    `}
+                    title="批量替换文字"
+                  >
+                    <ArrowRightLeft className="w-4 h-4" />
+                    替换
+                  </button>
+                  <button
+                    onClick={downloadAsTxt}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-sm transition-colors"
+                    title="下载为 TXT 文件"
+                  >
+                    <Download className="w-4 h-4" />
+                    下载TXT
+                  </button>
+                  <button
+                    onClick={startEditing}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-sm transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    编辑名称
+                  </button>
+                </div>
+
+                {/* 右侧执行按钮 */}
+                {/* 执行重命名按钮 */}
                 <button
-                  onClick={toggleReplacePanel}
+                  onClick={handleExecuteRename}
+                  disabled={isRenaming}
                   className={`
-                    flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors
-                    ${showReplacePanel
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
+                    flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-bold transition-all
+                    ${isRenaming
+                      ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                      : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
                     }
                   `}
-                  title="批量替换文字"
                 >
-                  <ArrowRightLeft className="w-4 h-4" />
-                  替换
-                </button>
-                <button
-                  onClick={handleExportScript}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-sm transition-colors"
-                  title="导出批量重命名脚本"
-                >
-                  <Download className="w-4 h-4" />
-                  导出脚本
-                </button>
-                <button
-                  onClick={downloadAsTxt}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-sm transition-colors"
-                  title="下载为 TXT 文件"
-                >
-                  <Download className="w-4 h-4" />
-                  下载TXT
-                </button>
-                <button
-                  onClick={startEditing}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-sm transition-colors"
-                >
-                  <Edit2 className="w-4 h-4" />
-                  编辑名称
+                  {isRenaming ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      重命名中...
+                    </>
+                  ) : (
+                    '执行重命名'
+                  )}
                 </button>
               </div>
             )}
@@ -597,17 +626,55 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
 
           {/* 文件列表内容 */}
           <div className="flex-1 overflow-y-auto p-0 custom-scrollbar">
-            {files.length > 0 && (
-              <div className="p-4 bg-amber-500/10 border-b border-amber-500/20 flex items-start gap-3">
-                <div className="p-1.5 bg-amber-500/20 rounded-lg text-amber-500">
+            {/* 进度显示 */}
+            {isRenaming && (
+              <div className="mx-6 mt-4 p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-indigo-300">
+                    正在重命名...
+                  </span>
+                  <span className="text-sm text-indigo-400">
+                    {renameProgress.current} / {renameProgress.total}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all duration-300 ease-out"
+                    style={{ width: `${(renameProgress.current / renameProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 完成结果显示 */}
+            {renameResults && !isRenaming && (
+              <div className={`mx-6 mt-4 p-4 border rounded-2xl flex items-start gap-3 ${renameResults.failed === 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                <div className={`p-1.5 rounded-lg ${renameResults.failed === 0 ? 'bg-emerald-500/20 text-emerald-500' : 'bg-amber-500/20 text-amber-500'}`}>
+                  {renameResults.failed === 0 ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                </div>
+                <div className="text-xs flex-1">
+                  <p className={`font-bold mb-1 ${renameResults.failed === 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {renameResults.failed === 0 ? '✅ 重命名完成！' : '⚠️ 重命名部分完成'}
+                  </p>
+                  <p className="text-slate-300">
+                    成功: <span className="text-emerald-400 font-bold">{renameResults.success}</span>
+                    {renameResults.failed > 0 && <> 失败: <span className="text-rose-400 font-bold">{renameResults.failed}</span></>}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {files.length > 0 && !renameResults && (
+              <div className="p-4 bg-indigo-500/10 border-b border-indigo-500/20 flex items-start gap-3">
+                <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-500">
                   <Code className="w-4 h-4" />
                 </div>
                 <div className="text-xs">
-                  <p className="font-bold text-amber-400 mb-1">💡 批量重命名原始文件说明：</p>
-                  <p className="text-amber-200/70 leading-relaxed">
-                    1. 点击右上角 <strong className="text-amber-400">"编辑名称"</strong> 修改并保存。<br />
-                    2. 点击 <strong className="text-amber-400">"导出脚本"</strong> 下载脚本文件。<br />
-                    3. 将脚本放入文件所在文件夹并<strong>双击运行</strong>，即可完成原始文件更名。
+                  <p className="font-bold text-indigo-300 mb-1">💡 批量重命名文件：</p>
+                  <p className="text-indigo-200/70 leading-relaxed">
+                    1. 点击右上角 <strong className="text-indigo-400">"编辑名称"</strong> 或 <strong className="text-indigo-400">"替换"</strong> 修改文件名。<br />
+                    2. 确认无误后点击 <strong className="text-indigo-400">"执行重命名"</strong> 按钮。<br />
+                    3. 重命名完成后可点击 <strong className="text-indigo-400">"撤销"</strong> 按钮恢复原始文件名。
                   </p>
                 </div>
               </div>
@@ -684,6 +751,26 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
           )}
         </div>
       </div>
+
+      {/* 预览确认对话框 */}
+      <PreviewConfirmDialog
+        open={showPreviewDialog}
+        changes={files.map(f => {
+          const originalFileName = f.path.split(/[\/\\]/).pop() || f.path;
+          return {
+            sourcePath: f.path,
+            targetName: f.name,
+            sourceName: originalFileName
+          };
+        }).filter(change => {
+          const dotIndex = change.sourceName.lastIndexOf('.');
+          const ext = dotIndex !== -1 ? change.sourceName.substring(dotIndex) : '';
+          const newFileName = change.targetName + ext;
+          return change.sourceName !== newFileName;
+        })}
+        onClose={() => setShowPreviewDialog(false)}
+        onConfirm={handleConfirmRename}
+      />
     </div>
   );
 };

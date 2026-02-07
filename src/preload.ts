@@ -227,6 +227,17 @@ export interface ElectronAPI {
   onLicenseStatusChanged: (callback: (data: any) => void) => () => void;
   // 获取系统平台信息
   getPlatform: () => Promise<{ platform: string; arch: string }>;
+
+  // === 文件操作 API ===
+  // 批量重命名文件
+  batchRenameFiles: (config: {
+    operations: Array<{ sourcePath: string; targetName: string }>;
+  }) => Promise<{ success: number; failed: number; errors: Array<{ file: string; error: string }> }>;
+
+  // 文件操作事件
+  onFileStart: (callback: (data: { total: number; sessionId: string }) => void) => () => void;
+  onFileProgress: (callback: (data: { index: number; total: number; sourcePath: string; targetPath?: string; success: boolean; error?: string }) => void) => () => void;
+  onFileComplete: (callback: (data: { success: number; failed: number; errors: Array<{ file: string; error: string }> }) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -346,6 +357,26 @@ const api: ElectronAPI = {
     return () => ipcRenderer.removeListener('license-status-changed', listener);
   },
   getPlatform: () => ipcRenderer.invoke('get-platform'),
+
+  // 文件操作 API
+  batchRenameFiles: (config) => ipcRenderer.invoke('file:batch-rename', config),
+
+  // 文件操作事件
+  onFileStart: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on('file-start', listener);
+    return () => ipcRenderer.removeListener('file-start', listener);
+  },
+  onFileProgress: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on('file-progress', listener);
+    return () => ipcRenderer.removeListener('file-progress', listener);
+  },
+  onFileComplete: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on('file-complete', listener);
+    return () => ipcRenderer.removeListener('file-complete', listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('api', api);

@@ -104,5 +104,23 @@ const api = {
         return () => electron_1.ipcRenderer.removeListener('license-status-changed', listener);
     },
     getPlatform: () => electron_1.ipcRenderer.invoke('get-platform'),
+    // 文件操作 API
+    batchRenameFiles: (config) => electron_1.ipcRenderer.invoke('file:batch-rename', config),
+    // 文件操作事件
+    onFileStart: (cb) => {
+        const listener = (_e, data) => cb(data);
+        electron_1.ipcRenderer.on('file-start', listener);
+        return () => electron_1.ipcRenderer.removeListener('file-start', listener);
+    },
+    onFileProgress: (cb) => {
+        const listener = (_e, data) => cb(data);
+        electron_1.ipcRenderer.on('file-progress', listener);
+        return () => electron_1.ipcRenderer.removeListener('file-progress', listener);
+    },
+    onFileComplete: (cb) => {
+        const listener = (_e, data) => cb(data);
+        electron_1.ipcRenderer.on('file-complete', listener);
+        return () => electron_1.ipcRenderer.removeListener('file-complete', listener);
+    },
 };
 electron_1.contextBridge.exposeInMainWorld('api', api);
