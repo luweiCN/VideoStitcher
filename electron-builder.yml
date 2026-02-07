@@ -48,9 +48,14 @@ mac:
         - x64
         - arm64
   gatekeeperAssess: false
-  hardenedRuntime: true
+  # hardenedRuntime: true  # 移除：ad-hoc 签名不支持 hardened runtime
   identity: null  # 使用 ad-hoc 签名（无证书情况）
   notarize: false  # 跳过公证（无 Apple Developer 账号）
+  # 确保 ZIP 包中的应用正确签名
+  extendInfo:
+    - NSCameraUsageDescription: 需要访问摄像头以进行视频处理
+    - NSMicrophoneUsageDescription: 需要访问麦克风以进行音频处理
+    - NSDocumentsFolderUsageDescription: 需要访问文档以处理视频文件
 
 # Windows 配置 - 只生成 NSIS 安装包
 win:
