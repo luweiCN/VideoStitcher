@@ -1,6 +1,6 @@
 {
   "name": "video-stitcher",
-  "version": "0.4.12",
+  "version": "0.4.14",
   "description": "视频拼接工具 - 将两个视频文件前后拼接合成",
   "author": "Your Name <your.email@example.com>",
   "main": "src/main.js",
@@ -27,7 +27,6 @@
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/vite": "^4.1.18",
     "@types/extract-zip": "^2.0.0",
-    "@types/node": "^25.2.1",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.3",

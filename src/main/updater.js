@@ -41,6 +41,9 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MacUpdater = void 0;
 const electron_1 = require("electron");
@@ -48,6 +51,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const https = __importStar(require("https"));
 const child_process_1 = require("child_process");
+const extract_zip_1 = __importDefault(require("extract-zip"));
 class MacUpdater {
     constructor(mainWindow) {
         this.mainWindow = null;
@@ -77,6 +81,36 @@ class MacUpdater {
         return false;
     }
     /**
+     * 将 Markdown 格式的 Release Notes 转换为 HTML
+     * @param markdown Markdown 文本
+     * @returns HTML 文本
+     */
+    markdownToHtml(markdown) {
+        if (!markdown)
+            return '';
+        let html = markdown;
+        // H2 标题
+        html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mb-3 text-white">$1</h2>');
+        // H3 标题
+        html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-indigo-300">$1</h3>');
+        // H4 标题
+        html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-medium mt-3 mb-1 text-slate-200">$1</h4>');
+        // 粗体
+        html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
+        // 处理列表：先标记列表项，然后包装
+        html = html.replace(/^- (.+)$/gm, '___LIST_ITEM___<li class="ml-4 text-slate-300">$1</li>');
+        // 将连续的列表项包装在 ul 中
+        html = html.replace(/(___LIST_ITEM___<li.*?<\/li>\n?)+/g, (match) => {
+            const items = match.replace(/___LIST_ITEM___/g, '');
+            return `<ul class="list-disc ml-4 space-y-1 my-2">${items}</ul>`;
+        });
+        // 单换行（在双换行之前处理）
+        html = html.replace(/([^\n])\n([^\n])/g, '$1<br />$2');
+        // 段落（双换行）
+        html = html.replace(/\n\n+/g, '<div class="my-2"></div>');
+        return html;
+    }
+    /**
      * 检查 GitHub Releases 最新版本
      */
     async checkForUpdates() {
@@ -89,24 +123,45 @@ class MacUpdater {
                 throw new Error('无法获取最新版本信息');
             }
             const latestVersion = response.tag_name.replace(/^v/, '');
-            // 验证版本号格式，防止路径注入
-            if (!/^\d+\.\d+\.\d+/.test(latestVersion)) {
-                throw new Error(`版本号格式无效: ${latestVersion}`);
-            }
             console.log('[macOS 更新] 最新版本:', latestVersion);
             const hasUpdate = this.compareVersions(currentVersion, latestVersion);
             if (!hasUpdate) {
                 return { success: true, hasUpdate: false };
             }
-            // 查找 macOS ZIP 包
-            const asset = response.assets?.find((a) => (a.name.includes('mac') || a.name.includes('darwin')) && a.name.endsWith('.zip'));
-            if (!asset) {
-                throw new Error('未找到 macOS 安装包');
+            // 查找 macOS ZIP 包 - 根据当前系统架构选择
+            const currentArch = process.arch; // 'x64' 或 'arm64'
+            console.log('[macOS 更新] 当前系统架构:', currentArch);
+            // 先尝试查找架构特定的包
+            let asset = response.assets?.find((a) => {
+                const name = a.name.toLowerCase();
+                const isMacZip = name.includes('mac') && name.endsWith('.zip');
+                if (currentArch === 'arm64') {
+                    // 查找包含 'arm64' 的包（例如：VideoStitcher-0.4.7-arm64-mac.zip）
+                    return isMacZip && name.includes('arm64');
+                }
+                else if (currentArch === 'x64') {
+                    // 查找明确标记为 x64 的包，或者不包含 arm64 的通用包
+                    // 例如：VideoStitcher-0.4.7-x64-mac.zip 或 VideoStitcher-0.4.7-mac.zip
+                    return isMacZip && (name.includes('-x64-') || name.includes('-x64.') || !name.includes('arm64'));
+                }
+                return false;
+            });
+            // 如果 ARM64 找不到专用包，尝试通用包（在 Rosetta 2 下运行）
+            if (!asset && currentArch === 'arm64') {
+                console.log('[macOS 更新] 未找到 ARM64 专用包，尝试查找通用包（将通过 Rosetta 2 运行）');
+                asset = response.assets?.find((a) => {
+                    const name = a.name.toLowerCase();
+                    return name.includes('mac') && name.endsWith('.zip') && !name.includes('arm64');
+                });
             }
+            if (!asset) {
+                throw new Error(`未找到适用于 ${currentArch} 架构的 macOS 安装包`);
+            }
+            console.log('[macOS 更新] 选择的安装包:', asset.name);
             this.updateInfo = {
                 version: latestVersion,
                 releaseDate: response.published_at,
-                releaseNotes: response.body || '',
+                releaseNotes: this.markdownToHtml(response.body || ''),
                 downloadUrl: asset.browser_download_url,
                 fileSize: asset.size,
             };
@@ -172,28 +227,28 @@ class MacUpdater {
             }
             fs.mkdirSync(extractDir, { recursive: true });
             console.log('[macOS 更新] 解压到:', extractDir);
-            // 使用 macOS 原生 ditto 解压 ZIP，保留代码签名、扩展属性和资源分支
-            // extract-zip（Node.js 库）会丢失这些元数据，导致 Electron 的 ASAR 完整性验证失败
-            try {
-                (0, child_process_1.execSync)(`ditto -xk "${this.downloadedZipPath}" "${extractDir}"`, { stdio: 'pipe' });
-            }
-            catch (dittoError) {
-                throw new Error(`ditto 解压失败: ${dittoError.message}`);
-            }
-            // 清除 macOS 隔离属性，避免 Gatekeeper 阻止启动
-            try {
-                (0, child_process_1.execSync)(`xattr -cr "${extractDir}"`, { stdio: 'pipe' });
-            }
-            catch {
-                // 清除隔离属性失败不影响安装流程
-                console.warn('[macOS 更新] 清除隔离属性失败，继续安装');
-            }
+            // 解压 ZIP
+            await (0, extract_zip_1.default)(this.downloadedZipPath, { dir: extractDir });
             // 查找 .app
             const appPath = this.findAppInDirectory(extractDir);
             if (!appPath) {
                 throw new Error('未在解压目录中找到 .app 文件');
             }
             console.log('[macOS 更新] 找到应用:', appPath);
+            // 验证找到的路径
+            if (!appPath.endsWith('.app')) {
+                throw new Error(`找到的路径不是有效的 .app 包: ${appPath}`);
+            }
+            // 验证路径存在且是目录
+            if (!fs.existsSync(appPath) || !fs.statSync(appPath).isDirectory()) {
+                throw new Error(`找到的 .app 路径无效或不是目录: ${appPath}`);
+            }
+            // 验证 .app 包含必要的结构
+            const contentsPath = path.join(appPath, 'Contents');
+            if (!fs.existsSync(contentsPath)) {
+                throw new Error(`找到的 .app 包缺少 Contents 目录: ${appPath}`);
+            }
+            console.log('[macOS 更新] 路径验证通过');
             // 获取当前应用路径
             const currentAppPath = this.getCurrentAppPath();
             console.log('[macOS 更新] 当前应用路径:', currentAppPath);
@@ -229,20 +284,58 @@ class MacUpdater {
     }
     /**
      * 在目录中查找 .app 文件
+     * 限制查找深度，避免进入 .app 包内部
      */
-    findAppInDirectory(dir) {
+    findAppInDirectory(dir, depth = 0) {
+        // 限制最大深度为 2 层（处理 ZIP 包可能有一层包装目录的情况）
+        if (depth > 2) {
+            console.log(`[macOS 更新] 深度 ${depth} 超过限制，停止查找`);
+            return null;
+        }
+        console.log(`[macOS 更新] 在深度 ${depth} 查找目录:`, dir);
         const items = fs.readdirSync(dir);
+        console.log(`[macOS 更新] 目录内容 (${items.length} 项):`, items.join(', '));
+        // 首先在当前目录查找 .app
         for (const item of items) {
-            const fullPath = path.join(dir, item);
             if (item.endsWith('.app')) {
-                return fullPath;
-            }
-            if (fs.statSync(fullPath).isDirectory()) {
-                const found = this.findAppInDirectory(fullPath);
-                if (found)
-                    return found;
+                const fullPath = path.join(dir, item);
+                console.log(`[macOS 更新] 检查可能的 .app:`, fullPath);
+                // 确保这是一个目录（.app 是目录）
+                try {
+                    const stats = fs.statSync(fullPath);
+                    if (stats.isDirectory()) {
+                        console.log(`[macOS 更新] ✓ 在深度 ${depth} 找到有效的 .app:`, fullPath);
+                        return fullPath;
+                    }
+                    else {
+                        console.log(`[macOS 更新] ✗ ${fullPath} 不是目录，跳过`);
+                    }
+                }
+                catch (err) {
+                    console.log(`[macOS 更新] ✗ 无法检查 ${fullPath}:`, err);
+                }
             }
         }
+        // 如果当前目录没有 .app，递归查找子目录（但不进入 .app 内部）
+        for (const item of items) {
+            const fullPath = path.join(dir, item);
+            // 跳过以 .app 结尾的目录（不进入 .app 内部）
+            if (item.endsWith('.app')) {
+                console.log(`[macOS 更新] 跳过 .app 目录，不进入:`, item);
+                continue;
+            }
+            try {
+                if (fs.statSync(fullPath).isDirectory()) {
+                    const found = this.findAppInDirectory(fullPath, depth + 1);
+                    if (found)
+                        return found;
+                }
+            }
+            catch (err) {
+                console.log(`[macOS 更新] 无法访问目录 ${fullPath}:`, err);
+            }
+        }
+        console.log(`[macOS 更新] 在深度 ${depth} 未找到 .app`);
         return null;
     }
     /**
@@ -303,9 +396,9 @@ else
   echo "旧版本不存在: ${oldAppPath}" >> "$LOG"
 fi
 
-# 安装新版本（使用 ditto 保留代码签名和扩展属性）
+# 安装新版本
 echo "安装新版本..." >> "$LOG"
-ditto "${newAppPath}" "${targetPath}" >> "$LOG" 2>&1
+cp -R "${newAppPath}" "${targetPath}" >> "$LOG" 2>&1
 if [ $? -eq 0 ]; then
   echo "安装成功: ${targetPath}" >> "$LOG"
 else
@@ -334,10 +427,6 @@ ZIP_FILE="${this.downloadedZipPath}"
 if [ -f "$ZIP_FILE" ]; then
   rm -f "$ZIP_FILE" >> "$LOG" 2>&1
 fi
-
-# 清除隔离属性
-echo "清除隔离属性..." >> "$LOG"
-xattr -cr "${targetPath}" >> "$LOG" 2>&1
 
 # 启动新版本
 echo "启动新版本..." >> "$LOG"
