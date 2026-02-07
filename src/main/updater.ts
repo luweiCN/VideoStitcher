@@ -289,19 +289,39 @@ export class MacUpdater {
 
   /**
    * 在目录中查找 .app 文件
+   * 限制查找深度，避免进入 .app 包内部
    */
-  private findAppInDirectory(dir: string): string | null {
+  private findAppInDirectory(dir: string, depth: number = 0): string | null {
+    // 限制最大深度为 2 层（处理 ZIP 包可能有一层包装目录的情况）
+    if (depth > 2) {
+      return null;
+    }
+    
     const items = fs.readdirSync(dir);
     
+    // 首先在当前目录查找 .app
+    for (const item of items) {
+      if (item.endsWith('.app')) {
+        const fullPath = path.join(dir, item);
+        // 确保这是一个目录（.app 是目录）
+        if (fs.statSync(fullPath).isDirectory()) {
+          console.log(`[macOS 更新] 在深度 ${depth} 找到 .app:`, fullPath);
+          return fullPath;
+        }
+      }
+    }
+    
+    // 如果当前目录没有 .app，递归查找子目录（但不进入 .app 内部）
     for (const item of items) {
       const fullPath = path.join(dir, item);
       
+      // 跳过以 .app 结尾的目录（不进入 .app 内部）
       if (item.endsWith('.app')) {
-        return fullPath;
+        continue;
       }
       
       if (fs.statSync(fullPath).isDirectory()) {
-        const found = this.findAppInDirectory(fullPath);
+        const found = this.findAppInDirectory(fullPath, depth + 1);
         if (found) return found;
       }
     }
