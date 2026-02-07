@@ -330,8 +330,9 @@ if [ -d "$EXTRACT_DIR" ]; then
 fi
 
 # 清理下载的 ZIP
-if [ -f "${this.downloadedZipPath}" ]; then
-  rm -f "${this.downloadedZipPath}" >> "$LOG" 2>&1
+ZIP_FILE="${this.downloadedZipPath}"
+if [ -f "$ZIP_FILE" ]; then
+  rm -f "$ZIP_FILE" >> "$LOG" 2>&1
 fi
 
 # 启动新版本
