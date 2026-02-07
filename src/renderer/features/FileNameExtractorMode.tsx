@@ -301,22 +301,27 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
       ];
 
       files.forEach(f => {
+        // 从完整路径中提取原始文件名（使用 path 字段，不受编辑影响）
+        const originalFileName = f.path.split(/[\/\\]/).pop() || f.path;
         const currentName = f.name;
-        const dotIndex = f.originalName.lastIndexOf('.');
-        const extension = dotIndex !== -1 ? f.originalName.substring(dotIndex) : '';
+        const dotIndex = originalFileName.lastIndexOf('.');
+        const extension = dotIndex !== -1 ? originalFileName.substring(dotIndex) : '';
         const newFileName = currentName + extension;
 
-        if (f.originalName !== newFileName) {
-          const safeOriginalName = f.originalName.replace(/%/g, '%%');
-          const safeNewFileName = newFileName.replace(/%/g, '%%');
+        const safeOriginalName = originalFileName.replace(/%/g, '%%');
+        const safeNewFileName = newFileName.replace(/%/g, '%%');
 
-          commands.push(`if exist "${safeOriginalName}" (`);
+        commands.push(`if exist "${safeOriginalName}" (`);
+        if (originalFileName !== newFileName) {
           commands.push(`  ren "${safeOriginalName}" "${safeNewFileName}"`);
           commands.push(`  echo [成功] "${safeOriginalName}" -> "${newFileName}"`);
-          commands.push(`) else (`);
-          commands.push(`  echo [跳过] 未找到文件: "${safeOriginalName}"`);
-          commands.push(`)`);
+        } else {
+          commands.push(`  echo [跳过] "${safeOriginalName}" (文件名未改变)`);
         }
+        commands.push(`) else (`);
+        commands.push(`  echo [失败] 未找到文件: "${safeOriginalName}"`);
+        commands.push(`)`);
+        commands.push('');
       });
 
       commands.push('echo.');
@@ -334,20 +339,24 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
       ];
 
       files.forEach(f => {
+        // 从完整路径中提取原始文件名（使用 path 字段，不受编辑影响）
+        const originalFileName = f.path.split(/[\/\\]/).pop() || f.path;
         const currentName = f.name;
-        const dotIndex = f.originalName.lastIndexOf('.');
-        const extension = dotIndex !== -1 ? f.originalName.substring(dotIndex) : '';
+        const dotIndex = originalFileName.lastIndexOf('.');
+        const extension = dotIndex !== -1 ? originalFileName.substring(dotIndex) : '';
         const newFileName = currentName + extension;
 
-        if (f.originalName !== newFileName) {
-          commands.push(`if [ -f "${f.originalName}" ]; then`);
-          commands.push(`  mv "${f.originalName}" "${newFileName}"`);
-          commands.push(`  echo "[成功] ${f.originalName} -> ${newFileName}"`);
-          commands.push(`else`);
-          commands.push(`  echo "[跳过] 未找到文件: ${f.originalName}"`);
-          commands.push(`fi`);
-          commands.push('');
+        commands.push(`if [ -f "${originalFileName}" ]; then`);
+        if (originalFileName !== newFileName) {
+          commands.push(`  mv "${originalFileName}" "${newFileName}"`);
+          commands.push(`  echo "[成功] ${originalFileName} -> ${newFileName}"`);
+        } else {
+          commands.push(`  echo "[跳过] ${originalFileName} (文件名未改变)"`);
         }
+        commands.push(`else`);
+        commands.push(`  echo "[失败] 未找到文件: ${originalFileName}"`);
+        commands.push(`fi`);
+        commands.push('');
       });
 
       commands.push('echo "批量重命名完成！"');
