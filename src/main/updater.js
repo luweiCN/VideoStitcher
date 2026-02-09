@@ -210,34 +210,14 @@ class MacUpdater {
                 源文件: this.downloadedZipPath,
                 目标目录: extractDir
             });
-            // 清理旧的解压目录（更健壮的处理方式）
+            // 清理旧的解压目录 - 使用系统命令更可靠
             if (fs.existsSync(extractDir)) {
+                this.logToRenderer('%c[MacUpdater] 🗑️ 清理旧目录', 'background: #f59e0b; color: white;', { path: extractDir });
                 try {
-                    // 检查是文件还是目录
-                    const stats = fs.statSync(extractDir);
-                    if (stats.isFile()) {
-                        // 如果是文件，直接删除
-                        this.logToRenderer('%c[MacUpdater] 🗑️ 删除残留文件', 'background: #f59e0b; color: white;', { path: extractDir });
-                        fs.unlinkSync(extractDir);
-                    }
-                    else if (stats.isDirectory()) {
-                        // 如果是目录，递归删除
-                        this.logToRenderer('%c[MacUpdater] 🗑️ 删除旧目录', 'background: #f59e0b; color: white;', { path: extractDir });
-                        fs.rmSync(extractDir, { recursive: true, force: true });
-                    }
+                    (0, child_process_1.execSync)(`rm -rf "${extractDir}"`, { stdio: 'pipe' });
                 }
-                catch (cleanupError) {
-                    // 清理失败，尝试使用系统命令
-                    this.logToRenderer('%c[MacUpdater] ⚠️ 文件系统清理失败，尝试使用系统命令', 'background: #f59e0b; color: white;', {
-                        error: cleanupError.message
-                    });
-                    try {
-                        (0, child_process_1.execSync)(`rm -rf "${extractDir}"`, { stdio: 'pipe' });
-                    }
-                    catch (rmError) {
-                        // 如果系统命令也失败，记录警告但继续
-                        this.logToRenderer('%c[MacUpdater] ⚠️ 系统命令清理也失败，继续尝试', 'background: #f59e0b; color: white;');
-                    }
+                catch (rmError) {
+                    this.logToRenderer('%c[MacUpdater] ⚠️ rm -rf 失败', 'background: #f59e0b; color: white;', { error: rmError.message });
                 }
             }
             fs.mkdirSync(extractDir, { recursive: true });
