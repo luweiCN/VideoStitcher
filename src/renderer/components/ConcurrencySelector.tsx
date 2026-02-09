@@ -319,18 +319,24 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
 
         {/* 刻度 */}
         <Tooltip.Provider delayDuration={300}>
-          <div className="flex justify-between mt-1.5 text-[9px] font-mono items-center">
-            <span className="text-slate-600">1</span>
+          <div className="relative mt-1.5 text-[9px] font-mono">
+            {/* 最小值 */}
+            <span className="absolute left-0 text-slate-600">1</span>
 
-            {/* 推荐值 */}
-            <span className={`
-              text-${theme.primary}-400 font-bold
-            `}>
+            {/* 推荐值 - 真实位置 */}
+            <span
+              className={`
+                absolute -translate-x-1/2
+                text-${theme.primary}-400 font-bold
+              `}
+              style={{ left: `${((recommended - 1) / (effectiveMax - 1)) * 100}%` }}
+            >
               {recommended} 推荐
             </span>
 
             {/* 最大值 */}
             <span className={`
+              absolute right-0
               text-${theme.primary}-400 font-medium
             `}>
               {effectiveMax}
