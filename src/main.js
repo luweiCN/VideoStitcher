@@ -201,7 +201,7 @@ function setupAutoUpdater() {
   autoUpdater.logger = log;
   autoUpdater.logger.transports.file.level = "info";
   autoUpdater.autoDownload = false; // 不自动下载，由用户确认
-  autoUpdater.autoInstallOnAppQuit = true; // 应用退出时自动安装已下载的更新
+  autoUpdater.autoInstallOnAppQuit = false; // 不在退出时自动安装，需用户手动点击重启按钮
 
   // 开发环境下强制检查更新（用于测试）
   autoUpdater.forceDevUpdateConfig = true;
@@ -276,37 +276,190 @@ function setupAutoUpdater() {
       // 发送检查中事件到渲染进程
       win.webContents.send('update-checking');
 
-      const result = await autoUpdater.checkForUpdates();
-      console.log('[自动检查] 检查结果:', result);
+      // 辅助函数：输出日志到浏览器控制台
+      const logToConsole = (style, ...args) => {
+        console.log(...args);
+        if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+          const msg = args.map(arg => {
+            if (typeof arg === 'object') {
+              try {
+                return JSON.stringify(arg);
+              } catch {
+                return String(arg);
+              }
+            }
+            return String(arg);
+          }).join(' ');
+          win.webContents.executeJavaScript(`console.log('${style}', '${msg.replace(/\\/g, '/').replace(/'/g, "\\'")}')`);
+        }
+      };
 
-      if (result?.versionInfo && result.versionInfo.version !== app.getVersion()) {
+      logToConsole('%c[Mac 更新] 开始检查更新...', 'background: #8b5cf6; color: white; padding: 2px 5px; border-radius: 3px;');
+      logToConsole('%c[Mac 更新] 当前架构:', 'background: #6366f1; color: white;', process.arch);
+      logToConsole('%c[Mac 更新] 当前版本:', 'background: #6366f1; color: white;', app.getVersion());
+
+      const result = await autoUpdater.checkForUpdates();
+      logToConsole('%c[Mac 更新] 检查完成，返回结果类型:', 'background: #10b981; color: white;', typeof result);
+
+      if (!result) {
+        logToConsole('%c[Mac 更新] ❌ 检查结果为空', 'background: #ef4444; color: white;');
+        return;
+      }
+
+      if (!result.versionInfo) {
+        logToConsole('%c[Mac 更新] ❌ versionInfo 为空', 'background: #ef4444; color: white;');
+        logToConsole('%c[Mac 更新] result 对象键:', 'background: #ef4444; color: white;', Object.keys(result));
+        return;
+      }
+
+      const currentVersion = app.getVersion();
+      const latestVersion = result.versionInfo.version;
+      logToConsole('%c[Mac 更新] 当前版本 vs 最新版本:', 'background: #3b82f6; color: white;', `${currentVersion} -> ${latestVersion}`);
+
+      if (latestVersion !== currentVersion) {
+        logToConsole('%c[Mac 更新] ✅ 发现新版本!', 'background: #10b981; color: white;');
         // 直接从 electron-updater 返回的 files 中查找下载 URL
         const files = result.versionInfo?.files || [];
         const currentArch = process.arch;
 
+        logToConsole('%c[Mac 更新] files 数组长度:', 'background: #f59e0b; color: white;', files.length);
+
+        if (files.length === 0) {
+          logToConsole('%c[Mac 更新] ❌ files 数组为空！可能 Release 配置不正确', 'background: #ef4444; color: white; font-weight: bold;');
+          win.webContents.send('update-error', {
+            message: '未找到更新安装包。请确认 Release 中包含 macOS 安装包（.zip 文件）'
+          });
+          return;
+        }
+
+        // 输出每个文件的信息
+        files.forEach((f, index) => {
+          logToConsole(`%c[Mac 更新] File [${index}]:`, 'background: #6366f1; color: white;', {
+            url: f.url,
+            size: f.size,
+            filename: f.url.split('/').pop()
+          });
+        });
+
         // 查找适合当前架构的 ZIP 包
-        let file = files.find((f) => {
+        logToConsole('%c[Mac 更新] 开始查找匹配的安装包...', 'background: #8b5cf6; color: white;');
+        logToConsole('%c[Mac 更新] 目标架构:', 'background: #8b5cf6; color: white;', currentArch);
+
+        let file = null;
+        let matchReason = '';
+
+        // 第一轮：精确匹配
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
           const url = f.url.toLowerCase();
           const isMacZip = url.includes('mac') && url.endsWith('.zip');
 
-          if (currentArch === 'arm64') {
-            return isMacZip && url.includes('arm64');
-          } else if (currentArch === 'x64') {
-            return isMacZip && (url.includes('-x64-') || url.includes('-x64.') || !url.includes('arm64'));
-          }
-          return false;
-        });
-
-        // 如果 ARM64 找不到专用包，尝试通用包
-        if (!file && currentArch === 'arm64') {
-          file = files.find((f) => {
-            const url = f.url.toLowerCase();
-            return url.includes('mac') && url.endsWith('.zip') && !url.includes('arm64');
+          logToConsole(`%c[Mac 更新] 检查 File [${i}]:`, 'background: #64748b; color: white;', {
+            url: f.url,
+            isMacZip: isMacZip,
+            hasArm64: url.includes('arm64'),
+            hasX64: url.includes('-x64-') || url.includes('-x64.'),
+            hasUniversal: url.includes('universal'),
+            filename: f.url.split('/').pop()
           });
+
+          if (currentArch === 'arm64') {
+            if (isMacZip && url.includes('arm64')) {
+              file = f;
+              matchReason = 'ARM64 精确匹配';
+              logToConsole(`%c[Mac 更新] ✅ 找到 ARM64 精确匹配:`, 'background: #10b981; color: white;', f.url);
+              break;
+            }
+          } else if (currentArch === 'x64') {
+            if (isMacZip && url.includes('-x64-')) {
+              file = f;
+              matchReason = 'x64 精确匹配';
+              logToConsole(`%c[Mac 更新] ✅ 找到 x64 精确匹配:`, 'background: #10b981; color: white;', f.url);
+              break;
+            }
+            if (isMacZip && url.includes('universal')) {
+              file = f;
+              matchReason = 'x64 universal 匹配';
+              logToConsole(`%c[Mac 更新] ✅ 找到 universal 包:`, 'background: #10b981; color: white;', f.url);
+              break;
+            }
+            if (isMacZip && !url.includes('arm64')) {
+              file = f;
+              matchReason = 'x64 回退匹配（非 ARM）';
+              logToConsole(`%c[Mac 更新] ✅ 找到 x64 回退匹配:`, 'background: #10b981; color: white;', f.url);
+              break;
+            }
+          }
+        }
+
+        // 第二轮：ARM64 回退到 universal 包
+        if (!file && currentArch === 'arm64') {
+          logToConsole('%c[Mac 更新] ARM64 未找到精确匹配，尝试 universal 包...', 'background: #f59e0b; color: white;');
+          for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const url = f.url.toLowerCase();
+            const isUniversalMac = url.includes('mac') && url.endsWith('.zip') && url.includes('universal');
+
+            if (isUniversalMac) {
+              file = f;
+              matchReason = 'ARM64 回退到 universal 包';
+              logToConsole(`%c[Mac 更新] ✅ ARM64 使用 universal 包:`, 'background: #10b981; color: white;', f.url);
+              break;
+            }
+          }
+        }
+
+        // 第三轮：任何 macOS ZIP 包
+        if (!file) {
+          logToConsole('%c[Mac 更新] 最后尝试：查找任何 macOS ZIP 包...', 'background: #f59e0b; color: white;');
+          for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const url = f.url.toLowerCase();
+            const isAnyMacZip = url.includes('mac') && url.endsWith('.zip');
+
+            if (isAnyMacZip) {
+              file = f;
+              matchReason = '最后回退：任何 macOS ZIP';
+              logToConsole(`%c[Mac 更新] ✅ 找到任何 macOS 包:`, 'background: #10b981; color: white;', f.url);
+              break;
+            }
+          }
         }
 
         if (!file) {
-          console.warn('[自动检查] 未找到适用于', currentArch, '架构的安装包');
+          logToConsole('%c[Mac 更新] ❌ 未找到匹配的安装包!', 'background: #ef4444; color: white; font-weight: bold;');
+          logToConsole('%c[Mac 更新] 搜索条件:', 'background: #ef4444; color: white;', {
+            currentArch: currentArch,
+            targetPatterns: ['mac + arm64', 'mac + x64', 'mac + universal', 'mac + any .zip'],
+            filesCount: files.length
+          });
+
+          // 输出所有文件名供调试
+          const allFilenames = files.map(f => f.url.split('/').pop()).join(', ');
+          logToConsole('%c[Mac 更新] 所有文件名:', 'background: #ef4444; color: white;', allFilenames);
+
+          win.webContents.send('update-error', {
+            message: `未找到适合 ${currentArch} 架构的 macOS 安装包。可用文件: ${allFilenames}`
+          });
+          return;
+        }
+
+        logToConsole('%c[Mac 更新] 最终选中文件:', 'background: #10b981; color: white;', {
+          url: file.url,
+          size: file.size,
+          matchReason: matchReason
+        });
+
+        // 验证 URL
+        if (!file.url || typeof file.url !== 'string' || file.url.trim() === '') {
+          logToConsole('%c[Mac 更新] ❌ 下载 URL 无效!', 'background: #ef4444; color: white; font-weight: bold;', {
+            url: file.url,
+            type: typeof file.url,
+            isEmpty: !file.url || file.url.trim() === ''
+          });
+          win.webContents.send('update-error', {
+            message: '下载 URL 无效，请检查 Release 配置'
+          });
           return;
         }
 
@@ -314,36 +467,41 @@ function setupAutoUpdater() {
           version: result.versionInfo.version,
           releaseDate: result.versionInfo.releaseDate,
           releaseNotes: result.updateInfo?.releaseNotes || '',
-          downloadUrl: file.url || '',
+          downloadUrl: file.url,
           fileSize: file.size || 0,
         };
+
+        logToConsole('%c[Mac 更新] 更新信息已准备:', 'background: #10b981; color: white;', updateInfo);
 
         // 设置到 MacUpdater
         win.macUpdater.setUpdateInfo(updateInfo);
 
         // 发送更新可用事件
-        console.log('[自动检查] 准备发送 update-available 事件，当前窗口状态:', {
-            isDestroyed: win.isDestroyed(),
-            webContentsDestroyed: win.webContents.isDestroyed(),
-        });
+        logToConsole('%c[Mac 更新] 准备发送 update-available 事件', 'background: #3b82f6; color: white;');
 
         // 确保窗口和 webContents 存在
         if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
-            win.webContents.send('update-available', {
-              version: updateInfo.version,
-              releaseDate: updateInfo.releaseDate,
-              releaseNotes: updateInfo.releaseNotes,
-            });
-            console.log('[自动检查] 已发送 update-available 事件到渲染进程');
+          win.webContents.send('update-available', {
+            version: updateInfo.version,
+            releaseDate: updateInfo.releaseDate,
+            releaseNotes: updateInfo.releaseNotes,
+          });
+          logToConsole('%c[Mac 更新] ✅ 已发送 update-available 事件到渲染进程', 'background: #10b981; color: white;');
         } else {
-            console.error('[自动检查] 窗口已销毁，无法发送事件');
+          logToConsole('%c[Mac 更新] ❌ 窗口已销毁，无法发送事件', 'background: #ef4444; color: white;');
         }
       } else {
         // 没有新版本
-        win.webContents.send('update-not-available', { version: app.getVersion() });
+        logToConsole('%c[Mac 更新] ℹ️ 已是最新版本', 'background: #6b7280; color: white;', latestVersion);
+        win.webContents.send('update-not-available', { version: currentVersion });
       }
     } catch (error) {
-      console.error('[自动检查] 检查更新失败:', error);
+      logToConsole('%c[Mac 更新] ❌ 检查更新异常:', 'background: #ef4444; color: white; font-weight: bold;', error);
+      logToConsole('%c[Mac 更新] 错误详情:', 'background: #ef4444; color: white;', {
+        message: error.message,
+        stack: error.stack ? error.stack.split('\n').slice(0, 3).join('\n') : 'no stack'
+      });
+      win.webContents.send('update-error', { message: `检查更新失败: ${error.message}` });
     }
   }
 
