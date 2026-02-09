@@ -403,42 +403,6 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
             </div>
           </div>
 
-          {/* 版本更新操作按钮 */}
-          {activeSection === 'updates' && (
-            <div className="flex items-center gap-3">
-              {(updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error') && (
-                <button
-                  onClick={handleCheckUpdates}
-                  disabled={updateStatus === 'checking'}
-                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
-                  检查更新
-                </button>
-              )}
-
-              {/* macOS & Windows: 显示"下载更新"按钮 */}
-              {updateStatus === 'available' && (isMacOS || isWindows) && (
-                <button
-                  onClick={handleDownloadUpdate}
-                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30"
-                >
-                  <Download className="w-4 h-4" />
-                  下载更新
-                </button>
-              )}
-
-              {updateStatus === 'downloaded' && (isMacOS || isWindows) && (
-                <button
-                  onClick={handleInstallUpdate}
-                  className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-green-600/20 hover:shadow-green-600/30"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  立即重启并安装
-                </button>
-              )}
-            </div>
-          )}
         </header>
 
         {/* 内容区域 */}
@@ -863,6 +827,41 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                               <div className="font-medium text-red-400">{updateError || '检查更新失败'}</div>
                             </div>
                           </>
+                        )}
+                      </div>
+
+                      {/* 版本更新操作按钮 */}
+                      <div className="flex items-center gap-3">
+                        {(updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error') && (
+                          <button
+                            onClick={handleCheckUpdates}
+                            disabled={updateStatus === 'checking'}
+                            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
+                            检查更新
+                          </button>
+                        )}
+
+                        {/* macOS & Windows: 显示"下载更新"按钮 */}
+                        {updateStatus === 'available' && (isMacOS || isWindows) && (
+                          <button
+                            onClick={handleDownloadUpdate}
+                            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30"
+                          >
+                            <Download className="w-4 h-4" />
+                            下载更新
+                          </button>
+                        )}
+
+                        {updateStatus === 'downloaded' && (isMacOS || isWindows) && (
+                          <button
+                            onClick={handleInstallUpdate}
+                            className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-green-600/20 hover:shadow-green-600/30"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            立即重启并安装
+                          </button>
                         )}
                       </div>
 
