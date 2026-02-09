@@ -20,7 +20,7 @@ import {
   Code,
   ExternalLink
 } from 'lucide-react';
-import { ConcurrencySelector } from '../components/ConcurrencySelector';
+import ConcurrencySelector from '../components/ConcurrencySelector';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 interface AdminModeProps {
