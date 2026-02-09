@@ -401,10 +401,11 @@ ipcMain.handle("pick-files", async (_e, { title, filters, multiSelection = true 
   return res.filePaths;
 });
 
-ipcMain.handle("pick-outdir", async () => {
+ipcMain.handle("pick-outdir", async (_e, { defaultPath } = {}) => {
   const res = await dialog.showOpenDialog(win, {
     title: "选择输出目录",
     properties: ["openDirectory", "createDirectory"],
+    defaultPath: defaultPath || undefined,
   });
   if (res.canceled) return "";
   return res.filePaths[0];

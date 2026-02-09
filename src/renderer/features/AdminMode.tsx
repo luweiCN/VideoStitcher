@@ -307,7 +307,8 @@ const AdminMode: React.FC<AdminModeProps> = ({
   // 选择默认输出目录
   const handleSelectDefaultOutputDir = async () => {
     try {
-      const dir = await window.api.pickOutDir();
+      // 传入当前已选择的目录作为默认路径
+      const dir = await window.api.pickOutDir(globalSettings.defaultOutputDir);
       if (dir) {
         setGlobalSettings(prev => ({ ...prev, defaultOutputDir: dir }));
         setSettingsSaved(false);

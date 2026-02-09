@@ -4,7 +4,7 @@ const electron_1 = require("electron");
 const api = {
     // 文件对话框
     pickFiles: (title, filters) => electron_1.ipcRenderer.invoke('pick-files', { title, filters }),
-    pickOutDir: () => electron_1.ipcRenderer.invoke('pick-outdir'),
+    pickOutDir: (defaultPath) => electron_1.ipcRenderer.invoke('pick-outdir', { defaultPath }),
     // 原有视频处理功能
     setLibs: (aFiles, bFiles, outputDir) => electron_1.ipcRenderer.invoke('set-libs', { aFiles, bFiles, outputDir }),
     setConcurrency: (concurrency) => electron_1.ipcRenderer.invoke('set-concurrency', { concurrency }),

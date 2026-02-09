@@ -3,7 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 export interface ElectronAPI {
   // 文件对话框
   pickFiles: (title: string, filters?: { name: string; extensions: string[] }[], multiSelection?: boolean) => Promise<string[]>;
-  pickOutDir: () => Promise<string>;
+  pickOutDir: (defaultPath?: string) => Promise<string>;
 
   // === 原有视频处理功能 (保留兼容性) ===
   setLibs: (aFiles: string[], bFiles: string[], outputDir: string) => Promise<{ aCount: number; bCount: number; outDir: string }>;
@@ -250,7 +250,7 @@ export interface ElectronAPI {
 const api: ElectronAPI = {
   // 文件对话框
   pickFiles: (title, filters) => ipcRenderer.invoke('pick-files', { title, filters }),
-  pickOutDir: () => ipcRenderer.invoke('pick-outdir'),
+  pickOutDir: (defaultPath) => ipcRenderer.invoke('pick-outdir', { defaultPath }),
 
   // 原有视频处理功能
   setLibs: (aFiles, bFiles, outputDir) => ipcRenderer.invoke('set-libs', { aFiles, bFiles, outputDir }),
