@@ -334,11 +334,8 @@ function setupAutoUpdater() {
 
         // 输出每个文件的信息
         files.forEach((f, index) => {
-          logToConsole(`%c[Mac 更新] File [${index}]:`, 'background: #6366f1; color: white;', {
-            url: f.url,
-            size: f.size,
-            filename: f.url.split('/').pop()
-          });
+          logToConsole(`%c[Mac 更新] File [${index}] 完整结构:`, 'background: #6366f1; color: white;', f);
+          logToConsole(`%c[Mac 更新] File [${index}] 键列表:`, 'background: #6366f1; color: white;', Object.keys(f));
         });
 
         // 查找适合当前架构的 ZIP 包
@@ -446,16 +443,31 @@ function setupAutoUpdater() {
 
         logToConsole('%c[Mac 更新] 最终选中文件:', 'background: #10b981; color: white;', {
           url: file.url,
+          path: file.path,
           size: file.size,
           matchReason: matchReason
         });
 
+        // 处理下载 URL
+        let downloadUrl = file.url;
+
+        // 如果 url 只是一个文件名（没有 http/https），需要构建完整的 GitHub 下载 URL
+        if (downloadUrl && !downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) {
+          const filename = file.path || downloadUrl;
+          const version = result.versionInfo.version;
+          // GitHub Release 文件下载 URL 格式
+          downloadUrl = `https://github.com/luweiCN/VideoStitcher/releases/download/v${version}/${filename}`;
+          logToConsole('%c[Mac 更新] ⚠️ URL 只是文件名，构建完整下载 URL:', 'background: #f59e0b; color: white;', downloadUrl);
+        }
+
         // 验证 URL
-        if (!file.url || typeof file.url !== 'string' || file.url.trim() === '') {
+        if (!downloadUrl || typeof downloadUrl !== 'string' || downloadUrl.trim() === '') {
           logToConsole('%c[Mac 更新] ❌ 下载 URL 无效!', 'background: #ef4444; color: white; font-weight: bold;', {
-            url: file.url,
-            type: typeof file.url,
-            isEmpty: !file.url || file.url.trim() === ''
+            originalUrl: file.url,
+            originalPath: file.path,
+            processedUrl: downloadUrl,
+            type: typeof downloadUrl,
+            isEmpty: !downloadUrl || downloadUrl.trim() === ''
           });
           win.webContents.send('update-error', {
             message: '下载 URL 无效，请检查 Release 配置'
@@ -467,7 +479,7 @@ function setupAutoUpdater() {
           version: result.versionInfo.version,
           releaseDate: result.versionInfo.releaseDate,
           releaseNotes: result.updateInfo?.releaseNotes || '',
-          downloadUrl: file.url,
+          downloadUrl: downloadUrl,
           fileSize: file.size || 0,
         };
 
