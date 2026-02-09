@@ -9,42 +9,13 @@ const { TaskQueue } = require("./ffmpeg/queue");
 const { runFfmpeg } = require("./ffmpeg/runFfmpeg");
 
 /**
- * 将 Markdown 格式的 Release Notes 转换为 HTML
- * 与 updater.ts 中的 markdownToHtml 方法保持一致
+ * 处理 releaseNotes，保持原始格式
+ * 如果已经是 HTML 则直接返回，否则返回空字符串
  */
-function markdownToHtml(markdown) {
-  if (!markdown) return '';
-
-  let html = markdown;
-
-  // H2 标题
-  html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mb-3 text-white">$1</h2>');
-
-  // H3 标题
-  html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-indigo-300">$1</h3>');
-
-  // H4 标题
-  html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-medium mt-3 mb-1 text-slate-200">$1</h4>');
-
-  // 粗体
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
-
-  // 处理列表：先标记列表项，然后包装
-  html = html.replace(/^- (.+)$/gm, '___LIST_ITEM___<li class="ml-4 text-slate-300">$1</li>');
-
-  // 将连续的列表项包装在 ul 中
-  html = html.replace(/(___LIST_ITEM___<li.*?<\/li>\n?)+/g, (match) => {
-    const items = match.replace(/___LIST_ITEM___/g, '');
-    return `<ul class="list-disc ml-4 space-y-1 my-2">${items}</ul>`;
-  });
-
-  // 单换行（在双换行之前处理）
-  html = html.replace(/([^\n])\n([^\n])/g, '$1<br />$2');
-
-  // 段落（双换行）
-  html = html.replace(/\n\n+/g, '<div class="my-2"></div>');
-
-  return html;
+function processReleaseNotes(releaseNotes) {
+  if (!releaseNotes) return '';
+  // 直接返回原始内容（GitHub 返回的已经是 HTML）
+  return releaseNotes;
 }
 
 // 导入新的 IPC 处理器
@@ -237,10 +208,12 @@ function setupAutoUpdater() {
   // 自动更新事件监听
   autoUpdater.on("update-available", (info) => {
     console.log("Update available:", info);
+    console.log("releaseNotes 类型:", typeof info.releaseNotes);
+    console.log("releaseNotes 前100字符:", info.releaseNotes ? info.releaseNotes.substring(0, 100) : 'empty');
     win.webContents.send("update-available", {
       version: info.version,
       releaseDate: info.releaseDate,
-      releaseNotes: markdownToHtml(info.releaseNotes || ''),
+      releaseNotes: processReleaseNotes(info.releaseNotes || ''),
     });
   });
 
@@ -274,7 +247,7 @@ function setupAutoUpdater() {
       win.webContents.send("update-downloaded", {
         version: info.version,
         releaseDate: info.releaseDate,
-        releaseNotes: markdownToHtml(info.releaseNotes || ''),
+        releaseNotes: processReleaseNotes(info.releaseNotes || ''),
       });
       console.log("✅ 已发送 update-downloaded 到渲染进程");
     } else {
@@ -452,10 +425,10 @@ ipcMain.handle("check-for-updates", async () => {
 
     // 返回 hasUpdate 字段供前端判断
     const hasUpdate = result?.versionInfo?.version !== currentVersion;
-    // 转换 releaseNotes 为 HTML 格式
+    // 直接使用原始 releaseNotes（GitHub 返回的已经是 HTML）
     const updateInfo = result?.updateInfo ? {
       ...result.updateInfo,
-      releaseNotes: markdownToHtml(result.updateInfo.releaseNotes || '')
+      releaseNotes: processReleaseNotes(result.updateInfo.releaseNotes || '')
     } : undefined;
     return { success: true, hasUpdate, updateInfo };
   } catch (err) {

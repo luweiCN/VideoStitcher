@@ -171,7 +171,7 @@ export class MacUpdater {
       this.updateInfo = {
         version: latestVersion,
         releaseDate: response.published_at,
-        releaseNotes: this.markdownToHtml(response.body || ''),
+        releaseNotes: response.body || '', // 直接使用原始 Markdown，由前端 CSS 控制样式
         downloadUrl: asset.browser_download_url,
         fileSize: asset.size,
       };
