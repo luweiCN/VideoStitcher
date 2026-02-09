@@ -295,7 +295,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
       const result = await window.api.setGlobalSettings(globalSettings);
       if (result.success) {
         setSettingsSaved(true);
-        setTimeout(() => setSettingsSaved(false), 2000);
+        // 移除自动重置，保持已保存状态直到用户再次修改
       } else {
         alert(`保存失败: ${result.error}`);
       }
