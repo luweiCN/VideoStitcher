@@ -20,6 +20,7 @@ import {
   Code,
   ExternalLink
 } from 'lucide-react';
+import { ConcurrencySelector } from '../components/ConcurrencySelector';
 import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 interface AdminModeProps {
@@ -687,29 +688,14 @@ const AdminMode: React.FC<AdminModeProps> = ({
                           </div>
                         </div>
 
-                        {/* 滑轨容器 */}
+                        {/* 并发选择器 */}
                         <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-6">
-                          <div className="mb-4">
-                            <input
-                              type="range"
-                              min="1"
-                              max={Math.min(systemInfo?.cpuCount || 4, 16)}
-                              value={globalSettings.defaultConcurrency}
-                              onChange={(e) => {
-                                setGlobalSettings(prev => ({ ...prev, defaultConcurrency: parseInt(e.target.value) }));
-                              }}
-                              className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gradient-to-r [&::-webkit-slider-thumb]:from-amber-600 [&::-webkit-slider-thumb]:to-orange-600 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-amber-600/30 [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
-                            />
-                            <div className="flex justify-between mt-3 text-xs text-slate-500">
-                              <span>1</span>
-                              <span className="text-amber-400">推荐: {Math.max(1, Math.floor((systemInfo?.cpuCount || 4) / 2))}</span>
-                              <span>{Math.min(systemInfo?.cpuCount || 4, 16)}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-500">当前值:</span>
-                            <span className="text-amber-400 font-bold text-lg">{globalSettings.defaultConcurrency}</span>
-                          </div>
+                          <ConcurrencySelector
+                            value={globalSettings.defaultConcurrency}
+                            onChange={(value) => setGlobalSettings(prev => ({ ...prev, defaultConcurrency: value }))}
+                            max={Math.min(systemInfo?.cpuCount || 4, 16)}
+                            themeColor="amber"
+                          />
                         </div>
                       </div>
                     </div>
