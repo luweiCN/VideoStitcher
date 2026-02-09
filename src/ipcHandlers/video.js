@@ -34,7 +34,8 @@ function getSmartMergedName(bName, index, suffix, aName) {
     newParts[7] = '软件合成' + newParts[7];
     // 3. 倒数第二个部分（横竖标识）修正
     newParts[newParts.length - 2] = (suffix === 'vertical') ? '竖' : '横';
-    return newParts.join(separator) + '.mp4';
+    // 修复：必须加上序号，否则导出倍数 > 1 时会文件名冲突导致花屏/覆盖
+    return newParts.join(separator) + `_${String(index + 1).padStart(4, '0')}.mp4`;
   }
   
   // 默认命名规则

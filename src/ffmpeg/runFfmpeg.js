@@ -44,16 +44,15 @@ function buildStitchCommand(config) {
   ];
 
   // 使用 filter_complex 进行拼接和缩放
-  // 视频处理：缩放 + pad + 统一 SAR + 统一帧率
-  // 音频处理：统一采样率到 48kHz
-  // concat 同时拼接视频和音频
+  // 视频处理：缩放 + pad + 统一 SAR + 统一帧率 + 强制时间基准(settb/setpts)
+  // 音频处理：统一采样率到 48kHz + 统一格式
+  // concat 同时拼接视频和音频，确保严格同步
   const filters = [
-    `[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1:1[fps];[fps]fps=${targetFps}[v0]`,
-    `[1:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1:1[fps];[fps]fps=${targetFps}[v1]`,
-    `[0:a]aresample=48000,asetpts=PTS-STARTPTS[a0]`,
-    `[1:a]aresample=48000,asetpts=PTS-STARTPTS[a1]`,
-    `[v0][v1]concat=n=2:v=1:a=0[final_v]`,
-    `[a0][a1]concat=n=2:v=0:a=1[final_a]`
+    `[0:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1:1,fps=${targetFps},settb=1/${targetFps},setpts=N/${targetFps}/TB[v0]`,
+    `[1:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1:1,fps=${targetFps},settb=1/${targetFps},setpts=N/${targetFps}/TB[v1]`,
+    `[0:a]aresample=48000,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS[a0]`,
+    `[1:a]aresample=48000,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS[a1]`,
+    `[v0][a0][v1][a1]concat=n=2:v=1:a=1[final_v][final_a]`
   ];
 
   args.push('-filter_complex', filters.join(';'));
@@ -67,6 +66,8 @@ function buildStitchCommand(config) {
     '-preset', 'fast',
     '-crf', '23',
     '-r', `${targetFps}`,  // 帧率
+    '-vsync', 'cfr',       // 强制恒定帧率输出，防止卡顿
+    '-pix_fmt', 'yuv420p', // 提高兼容性
     '-c:a', 'aac',
     '-b:a', '128k',
     '-shortest'  // 以最短的流为准
