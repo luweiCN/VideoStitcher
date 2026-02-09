@@ -193,6 +193,7 @@ export interface ElectronAPI {
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
   
   // macOS 应用内更新 API
+  macSetUpdateInfo: (updateInfo: { version: string; releaseDate: string; releaseNotes: string }) => Promise<{ success: boolean; error?: string }>;
   macCheckForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
   macDownloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   macInstallUpdate: () => Promise<{ success: boolean; error?: string }>;
@@ -326,6 +327,7 @@ const api: ElectronAPI = {
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   
   // macOS 应用内更新 API
+  macSetUpdateInfo: (updateInfo) => ipcRenderer.invoke('mac-set-update-info', updateInfo),
   macCheckForUpdates: () => ipcRenderer.invoke('mac-check-for-updates'),
   macDownloadUpdate: () => ipcRenderer.invoke('mac-download-update'),
   macInstallUpdate: () => ipcRenderer.invoke('mac-install-update'),

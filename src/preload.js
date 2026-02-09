@@ -69,6 +69,7 @@ const api = {
     installUpdate: () => electron_1.ipcRenderer.invoke('install-update'),
     openExternal: (url) => electron_1.ipcRenderer.invoke('open-external', url),
     // macOS 应用内更新 API
+    macSetUpdateInfo: (updateInfo) => electron_1.ipcRenderer.invoke('mac-set-update-info', updateInfo),
     macCheckForUpdates: () => electron_1.ipcRenderer.invoke('mac-check-for-updates'),
     macDownloadUpdate: () => electron_1.ipcRenderer.invoke('mac-download-update'),
     macInstallUpdate: () => electron_1.ipcRenderer.invoke('mac-install-update'),

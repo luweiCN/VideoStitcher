@@ -56,6 +56,14 @@ class MacUpdater {
         this.mainWindow = mainWindow;
     }
     /**
+     * 设置更新信息（用于自动检测到更新时初始化内部状态）
+     * @param updateInfo 更新信息
+     */
+    setUpdateInfo(updateInfo) {
+        this.updateInfo = updateInfo;
+        console.log('[macOS 更新] 更新信息已设置:', updateInfo);
+    }
+    /**
      * 比较版本号
      * @param current 当前版本 (例如: "0.4.6")
      * @param latest 最新版本 (例如: "0.5.0")

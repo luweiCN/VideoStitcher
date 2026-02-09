@@ -36,15 +36,9 @@ const UpdateNotification: React.FC<{
         {/* 内容 */}
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-bold text-white mb-1">发现新版本</h3>
-          <p className="text-indigo-200 text-sm mb-2">
-            版本 <span className="font-semibold text-white">{updateInfo.version}</span> 已发布
+          <p className="text-indigo-200 text-sm mb-3">
+            版本 <span className="font-semibold text-white">{updateInfo.version}</span> 已发布，点击查看更新详情
           </p>
-          {updateInfo.releaseNotes && (
-            <div
-              className="text-slate-300 text-xs mb-3 max-h-10 overflow-hidden"
-              dangerouslySetInnerHTML={{ __html: updateInfo.releaseNotes }}
-            />
-          )}
           <div className="flex gap-2">
             <button
               onClick={onGoToUpdate}
@@ -140,6 +134,11 @@ const App: React.FC = () => {
       const info = { version: data.version, releaseDate: data.releaseDate, releaseNotes: data.releaseNotes };
       setUpdateInfo(info);
 
+      // 如果已经在版本更新页面，不显示全局tip
+      if (currentView === 'admin') {
+        return;
+      }
+
       // 检查是否已关闭过此版本的弹窗
       const dismissedVersion = localStorage.getItem(`update-dismissed-${data.version}`);
       if (!dismissedVersion) {
@@ -152,6 +151,11 @@ const App: React.FC = () => {
       setUpdateAvailable(true);
       const info = { version: data.version, releaseDate: data.releaseDate, releaseNotes: data.releaseNotes };
       setUpdateInfo(info);
+
+      // 如果已经在版本更新页面，不显示全局tip
+      if (currentView === 'admin') {
+        return;
+      }
 
       const dismissedVersion = localStorage.getItem(`update-dismissed-${data.version}`);
       if (!dismissedVersion) {
@@ -169,7 +173,7 @@ const App: React.FC = () => {
       cleanupDownloaded();
       cleanupError();
     };
-  }, []);
+  }, [currentView]);
 
   // 关闭更新通知弹窗
   const handleCloseNotification = () => {

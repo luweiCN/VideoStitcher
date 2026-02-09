@@ -23,6 +23,21 @@ export function setupUpdateHandlers(mainWindow: BrowserWindow): void {
   console.log('[更新处理器] 初始化 macOS 更新处理器');
   macUpdater = new MacUpdater(mainWindow);
 
+  // 设置更新信息（用于自动检测到更新时初始化内部状态）
+  ipcMain.handle('mac-set-update-info', async (_event, updateInfo) => {
+    if (!macUpdater) {
+      return { success: false, error: '更新管理器未初始化' };
+    }
+
+    try {
+      macUpdater.setUpdateInfo(updateInfo);
+      return { success: true };
+    } catch (error: any) {
+      console.error('[更新处理器] 设置更新信息失败:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // 检查更新
   ipcMain.handle('mac-check-for-updates', async () => {
     if (!macUpdater) {
