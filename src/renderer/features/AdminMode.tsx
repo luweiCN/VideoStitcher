@@ -168,6 +168,8 @@ const AdminMode: React.FC<AdminModeProps> = ({
           defaultOutputDir: outputDir,
           defaultConcurrency: result.defaultConcurrency || 3
         });
+        // 加载完成后标记为已保存状态
+        setSettingsSaved(true);
       }
     } catch (err) {
       console.error('加载全局配置失败:', err);
