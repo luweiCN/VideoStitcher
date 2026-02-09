@@ -176,6 +176,7 @@ export class MacUpdater {
 
   /**
    * 安装更新
+   * 解压和安装逻辑都在更新脚本中执行，避免应用内残留文件问题
    */
   async installUpdate(): Promise<{ success: boolean; error?: string }> {
     this.logToRenderer('%c[MacUpdater] 🔧 installUpdate() 被调用', 'background: #f59e0b; color: white; padding: 2px 5px; border-radius: 3px;');
@@ -194,72 +195,6 @@ export class MacUpdater {
     });
 
     try {
-      const tempDir = app.getPath('temp');
-      const extractDir = path.join(tempDir, 'VideoStitcher-Extract');
-
-      this.logToRenderer('%c[MacUpdater] 📦 开始解压', 'background: #3b82f6; color: white;', {
-        源文件: this.downloadedZipPath,
-        目标目录: extractDir
-      });
-
-      // 清理旧的解压目录 - 使用系统命令更可靠
-      if (fs.existsSync(extractDir)) {
-        this.logToRenderer('%c[MacUpdater] 🗑️ 清理旧目录', 'background: #f59e0b; color: white;', { path: extractDir });
-        try {
-          execSync(`rm -rf "${extractDir}"`, { stdio: 'pipe' });
-        } catch (rmError: any) {
-          this.logToRenderer('%c[MacUpdater] ⚠️ rm -rf 失败', 'background: #f59e0b; color: white;', { error: rmError.message });
-        }
-      }
-      fs.mkdirSync(extractDir, { recursive: true });
-
-      // 使用 macOS 原生 ditto 解压 ZIP，保留代码签名、扩展属性和资源分支
-      try {
-        execSync(`ditto -xk "${this.downloadedZipPath}" "${extractDir}"`, { stdio: 'pipe' });
-        this.logToRenderer('%c[MacUpdater] ✅ 解压成功', 'background: #10b981; color: white;');
-      } catch (dittoError: any) {
-        throw new Error(`ditto 解压失败: ${dittoError.message}`);
-      }
-
-      // 清除 macOS 隔离属性，避免 Gatekeeper 阻止启动
-      try {
-        execSync(`xattr -cr "${extractDir}"`, { stdio: 'pipe' });
-      } catch {
-        // 清除隔离属性失败不影响安装流程
-        this.logToRenderer('%c[MacUpdater] ⚠️ 清除隔离属性失败，继续安装', 'background: #f59e0b; color: white;');
-      }
-
-      // 查找 .app
-      this.logToRenderer('%c[MacUpdater] 🔍 查找 .app 文件', 'background: #8b5cf6; color: white;');
-      const appPath = this.findAppInDirectory(extractDir);
-      if (!appPath) {
-        this.logToRenderer('%c[MacUpdater] ❌ 未在解压目录中找到 .app 文件', 'background: #ef4444; color: white;', {
-          extractDir: extractDir
-        });
-        throw new Error('未在解压目录中找到 .app 文件');
-      }
-
-      this.logToRenderer('%c[MacUpdater] ✅ 找到应用', 'background: #10b981; color: white;', { appPath });
-
-      // 验证找到的路径
-      if (!appPath.endsWith('.app')) {
-        throw new Error(`找到的路径不是有效的 .app 包: ${appPath}`);
-      }
-
-      // 验证路径存在且是目录
-      if (!fs.existsSync(appPath) || !fs.statSync(appPath).isDirectory()) {
-        throw new Error(`找到的 .app 路径无效或不是目录: ${appPath}`);
-      }
-
-      // 验证 .app 包含必要的结构
-      const contentsPath = path.join(appPath, 'Contents');
-      if (!fs.existsSync(contentsPath)) {
-        throw new Error(`找到的 .app 包缺少 Contents 目录: ${appPath}`);
-      }
-
-      this.logToRenderer('%c[MacUpdater] ✅ 路径验证通过', 'background: #10b981; color: white;');
-
-
       // 获取当前应用路径
       const currentAppPath = this.getCurrentAppPath();
       this.logToRenderer('%c[MacUpdater] 📍 当前应用路径', 'background: #3b82f6; color: white;', { currentAppPath });
@@ -268,9 +203,9 @@ export class MacUpdater {
       const mainPid = process.pid;
       this.logToRenderer('%c[MacUpdater] 🔢 主应用 PID', 'background: #3b82f6; color: white;', { mainPid });
 
-      // 创建更新脚本
+      // 创建更新脚本（解压和安装逻辑都在脚本中）
       this.logToRenderer('%c[MacUpdater] 📝 创建更新脚本', 'background: #8b5cf6; color: white;');
-      const scriptPath = await this.createUpdateScript(currentAppPath, appPath, mainPid);
+      const scriptPath = await this.createUpdateScript(this.downloadedZipPath, currentAppPath, mainPid);
       this.logToRenderer('%c[MacUpdater] ✅ 更新脚本已创建', 'background: #10b981; color: white;', { scriptPath });
 
       // 启动独立更新进程
@@ -280,7 +215,7 @@ export class MacUpdater {
       this.logToRenderer('%c[MacUpdater] ⏳ 500ms 后退出应用', 'background: #f59e0b; color: white;');
       // 延迟退出，确保脚本已启动
       setTimeout(() => {
-        this.logToRenderer('%c[MacUpdater] 👋 应用即将退出', 'background: #ef4444; color: white;');
+        this.logToRenderer('%c[MacUpdater] 👋 应用即将退出，脚本将在后台继续安装', 'background: #ef4444; color: white;');
         app.quit();
       }, 500);
 
@@ -311,82 +246,22 @@ export class MacUpdater {
   }
 
   /**
-   * 在目录中查找 .app 文件
-   * 限制查找深度，避免进入 .app 包内部
-   */
-  private findAppInDirectory(dir: string, depth: number = 0): string | null {
-    // 限制最大深度为 2 层（处理 ZIP 包可能有一层包装目录的情况）
-    if (depth > 2) {
-      console.log(`[macOS 更新] 深度 ${depth} 超过限制，停止查找`);
-      return null;
-    }
-
-    console.log(`[macOS 更新] 在深度 ${depth} 查找目录:`, dir);
-
-    const items = fs.readdirSync(dir);
-    console.log(`[macOS 更新] 目录内容 (${items.length} 项):`, items.join(', '));
-
-    // 首先在当前目录查找 .app
-    for (const item of items) {
-      if (item.endsWith('.app')) {
-        const fullPath = path.join(dir, item);
-        console.log(`[macOS 更新] 检查可能的 .app:`, fullPath);
-        // 确保这是一个目录（.app 是目录）
-        try {
-          const stats = fs.statSync(fullPath);
-          if (stats.isDirectory()) {
-            console.log(`[macOS 更新] ✓ 在深度 ${depth} 找到有效的 .app:`, fullPath);
-            return fullPath;
-          } else {
-            console.log(`[macOS 更新] ✗ ${fullPath} 不是目录，跳过`);
-          }
-        } catch (err) {
-          console.log(`[macOS 更新] ✗ 无法检查 ${fullPath}:`, err);
-        }
-      }
-    }
-
-    // 如果当前目录没有 .app，递归查找子目录（但不进入 .app 内部）
-    for (const item of items) {
-      const fullPath = path.join(dir, item);
-
-      // 跳过以 .app 结尾的目录（不进入 .app 内部）
-      if (item.endsWith('.app')) {
-        console.log(`[macOS 更新] 跳过 .app 目录，不进入:`, item);
-        continue;
-      }
-
-      try {
-        if (fs.statSync(fullPath).isDirectory()) {
-          const found = this.findAppInDirectory(fullPath, depth + 1);
-          if (found) return found;
-        }
-      } catch (err) {
-        console.log(`[macOS 更新] 无法访问目录 ${fullPath}:`, err);
-      }
-    }
-
-    console.log(`[macOS 更新] 在深度 ${depth} 未找到 .app`);
-    return null;
-  }
-
-  /**
    * 创建更新脚本
-   * @param oldAppPath 旧应用路径
-   * @param newAppPath 新应用路径
+   * 解压和安装逻辑都在脚本中执行，避免应用内残留文件问题
+   * @param zipPath 下载的 ZIP 文件路径
+   * @param currentAppPath 当前应用路径
    * @param mainPid 主应用进程 ID
    */
-  private async createUpdateScript(oldAppPath: string, newAppPath: string, mainPid: number): Promise<string> {
+  private async createUpdateScript(zipPath: string, currentAppPath: string, mainPid: number): Promise<string> {
     const tempDir = app.getPath('temp');
     const scriptPath = path.join(tempDir, 'update-install.sh');
     const logPath = path.join(tempDir, 'updater.log');
-
-    // 备份路径
+    const extractDir = path.join(tempDir, 'VideoStitcher-Extract');
     const backupPath = path.join(tempDir, 'VideoStitcher-Backup.app');
 
     // 获取父目录（通常是 /Applications）
-    const installDir = path.dirname(oldAppPath);
-    const appName = path.basename(oldAppPath);
+    const installDir = path.dirname(currentAppPath);
+    const appName = path.basename(currentAppPath);
     const targetPath = path.join(installDir, appName);
 
     const script = `#!/bin/bash
@@ -394,11 +269,17 @@ export class MacUpdater {
 # 生成时间: ${new Date().toISOString()}
 
 LOG="${logPath}"
+ZIP_FILE="${zipPath}"
+EXTRACT_DIR="${extractDir}"
+BACKUP_PATH="${backupPath}"
+OLD_APP="${currentAppPath}"
+NEW_APP_TARGET="${targetPath}"
 
 echo "========================================" > "$LOG"
 echo "VideoStitcher 自动更新" >> "$LOG"
 echo "时间: $(date)" >> "$LOG"
 echo "主应用 PID: ${mainPid}" >> "$LOG"
+echo "ZIP 文件: $ZIP_FILE" >> "$LOG"
 echo "========================================" >> "$LOG"
 
 # 等待主应用完全退出
@@ -418,62 +299,150 @@ echo "主应用已退出" >> "$LOG"
 # 额外等待确保文件释放
 sleep 1
 
+# 清理旧的解压目录
+echo "清理旧的解压目录..." >> "$LOG"
+if [ -d "$EXTRACT_DIR" ]; then
+  rm -rf "$EXTRACT_DIR" >> "$LOG" 2>&1
+fi
+
+# 创建解压目录
+echo "创建解压目录..." >> "$LOG"
+mkdir -p "$EXTRACT_DIR" >> "$LOG" 2>&1
+
+# 使用 macOS 原生 ditto 解压 ZIP，保留代码签名、扩展属性和资源分支
+echo "解压 ZIP 文件..." >> "$LOG"
+ditto -xk "$ZIP_FILE" "$EXTRACT_DIR" >> "$LOG" 2>&1
+if [ $? -ne 0 ]; then
+  echo "解压失败" >> "$LOG"
+  exit 1
+fi
+echo "解压成功" >> "$LOG"
+
+# 清除 macOS 隔离属性，避免 Gatekeeper 阻止启动
+echo "清除隔离属性..." >> "$LOG"
+xattr -cr "$EXTRACT_DIR" >> "$LOG" 2>&1
+
+# 查找 .app 文件（递归查找，最多2层深度）
+echo "查找 .app 文件..." >> "$LOG"
+find_app_in_dir() {
+  local dir="$1"
+  local depth="$2"
+  local max_depth=2
+
+  if [ $depth -gt $max_depth ]; then
+    return 1
+  fi
+
+  # 首先在当前目录查找 .app
+  for item in "$dir"/*; do
+    if [ -d "$item" ]; then
+      local basename=$(basename "$item")
+      if [[ "$basename" == *.app ]]; then
+        # 验证是目录且包含 Contents
+        if [ -d "$item/Contents" ]; then
+          echo "找到 .app: $item" >> "$LOG"
+          echo "$item"
+          return 0
+        fi
+      fi
+    fi
+  done
+
+  # 递归查找子目录
+  for item in "$dir"/*; do
+    if [ -d "$item" ]; then
+      local basename=$(basename "$item")
+      # 跳过 .app 目录，不进入内部
+      if [[ "$basename" != *.app ]]; then
+        local found=$(find_app_in_dir "$item" $((depth + 1)))
+        if [ -n "$found" ]; then
+          echo "$found"
+          return 0
+        fi
+      fi
+    fi
+  done
+
+  return 1
+}
+
+NEW_APP=$(find_app_in_dir "$EXTRACT_DIR" 0)
+if [ -z "$NEW_APP" ]; then
+  echo "错误：未在解压目录中找到 .app 文件" >> "$LOG"
+  echo "解压目录内容：" >> "$LOG"
+  ls -la "$EXTRACT_DIR" >> "$LOG" 2>&1
+  exit 1
+fi
+
+echo "新应用路径: $NEW_APP" >> "$LOG"
+
+# 验证新应用
+if [ ! -d "$NEW_APP" ]; then
+  echo "错误：新应用路径不存在或不是目录" >> "$LOG"
+  exit 1
+fi
+
+if [ ! -d "$NEW_APP/Contents" ]; then
+  echo "错误：新应用缺少 Contents 目录" >> "$LOG"
+  exit 1
+fi
+
+echo "新应用验证通过" >> "$LOG"
+
 # 备份旧版本
 echo "备份旧版本..." >> "$LOG"
-if [ -d "${oldAppPath}" ]; then
-  if [ -d "${backupPath}" ]; then
-    rm -rf "${backupPath}" >> "$LOG" 2>&1
+if [ -d "$OLD_APP" ]; then
+  if [ -d "$BACKUP_PATH" ]; then
+    rm -rf "$BACKUP_PATH" >> "$LOG" 2>&1
   fi
-  mv "${oldAppPath}" "${backupPath}" >> "$LOG" 2>&1
+  mv "$OLD_APP" "$BACKUP_PATH" >> "$LOG" 2>&1
   if [ $? -eq 0 ]; then
-    echo "备份成功: ${backupPath}" >> "$LOG"
+    echo "备份成功: $BACKUP_PATH" >> "$LOG"
   else
     echo "备份失败" >> "$LOG"
     exit 1
   fi
 else
-  echo "旧版本不存在: ${oldAppPath}" >> "$LOG"
+  echo "旧版本不存在: $OLD_APP" >> "$LOG"
 fi
 
 # 安装新版本（使用 ditto 保留代码签名和扩展属性）
 echo "安装新版本..." >> "$LOG"
-ditto "${newAppPath}" "${targetPath}" >> "$LOG" 2>&1
+ditto "$NEW_APP" "$NEW_APP_TARGET" >> "$LOG" 2>&1
 if [ $? -eq 0 ]; then
-  echo "安装成功: ${targetPath}" >> "$LOG"
+  echo "安装成功: $NEW_APP_TARGET" >> "$LOG"
 else
   echo "安装失败，恢复备份..." >> "$LOG"
-  if [ -d "${backupPath}" ]; then
-    mv "${backupPath}" "${oldAppPath}" >> "$LOG" 2>&1
+  if [ -d "$BACKUP_PATH" ]; then
+    mv "$BACKUP_PATH" "$OLD_APP" >> "$LOG" 2>&1
   fi
   exit 1
 fi
 
 # 清理备份
 echo "清理备份..." >> "$LOG"
-if [ -d "${backupPath}" ]; then
-  rm -rf "${backupPath}" >> "$LOG" 2>&1
+if [ -d "$BACKUP_PATH" ]; then
+  rm -rf "$BACKUP_PATH" >> "$LOG" 2>&1
 fi
 
 # 清理解压目录
 echo "清理临时文件..." >> "$LOG"
-EXTRACT_DIR="$(dirname "${newAppPath}")"
 if [ -d "$EXTRACT_DIR" ]; then
   rm -rf "$EXTRACT_DIR" >> "$LOG" 2>&1
 fi
 
 # 清理下载的 ZIP
-ZIP_FILE="${this.downloadedZipPath}"
 if [ -f "$ZIP_FILE" ]; then
   rm -f "$ZIP_FILE" >> "$LOG" 2>&1
 fi
 
-# 清除隔离属性
+# 再次清除隔离属性
 echo "清除隔离属性..." >> "$LOG"
-xattr -cr "${targetPath}" >> "$LOG" 2>&1
+xattr -cr "$NEW_APP_TARGET" >> "$LOG" 2>&1
 
 # 启动新版本
 echo "启动新版本..." >> "$LOG"
-open "${targetPath}" >> "$LOG" 2>&1
+open "$NEW_APP_TARGET" >> "$LOG" 2>&1
 
 echo "更新完成！" >> "$LOG"
 echo "========================================" >> "$LOG"
