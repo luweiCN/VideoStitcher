@@ -1,11 +1,13 @@
 /**
  * macOS 应用内自动更新管理器
- * 
+ *
  * 功能：
- * 1. 从 GitHub Releases API 检查更新
+ * 1. 接收 electron-updater 的更新信息
  * 2. 下载 ZIP 包并显示进度
  * 3. 解压并自动安装
  * 4. 创建独立更新脚本，实现主应用退出后继续安装
+ *
+ * 注意：检查更新使用 electron-updater，MacUpdater 只负责下载和安装
  */
 
 import { app, BrowserWindow } from 'electron';
@@ -32,248 +34,45 @@ export class MacUpdater {
   }
 
   /**
-   * 设置更新信息（用于自动检测到更新时初始化内部状态）
+   * 设置更新信息（从 electron-updater 的 update-available 事件传入）
    * @param updateInfo 更新信息
    */
-  setUpdateInfo(updateInfo: UpdateInfo): void {
-    this.updateInfo = updateInfo;
-    console.log('[macOS 更新] 更新信息已设置:', updateInfo);
-  }
-
-  /**
-   * 从 GitHub Atom feed 获取 HTML 格式的 release notes
-   */
-  private async fetchReleaseNotesFromFeed(tag: string): Promise<string> {
-    try {
-      const feedUrl = 'https://github.com/luweiCN/VideoStitcher/releases.atom';
-      const feedData = await this.fetchXml(feedUrl);
-
-      // 解析 XML，查找对应版本的 release notes
-      const tagPattern = new RegExp(`<entry>[\s\S]*?<title>发布版本 v?${tag}</title>[\\s\\S]*?<content type="html">([\\s\\S]*?)</content>`);
-      const match = feedData.match(tagPattern);
-
-      if (match && match[1]) {
-        // 解码 HTML 实体（如 &lt; &gt; &amp; 等）
-        const html = match[1]
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&amp;/g, '&')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'");
-
-        console.log('[macOS 更新] 从 Atom feed 获取到 releaseNotes');
-        return html;
-      }
-
-      console.warn('[macOS 更新] Atom feed 中未找到对应版本的 release notes，使用 Markdown');
-      return '';
-    } catch (error: any) {
-      console.warn('[macOS 更新] 从 Atom feed 获取 releaseNotes 失败:', error.message);
-      return '';
+  setUpdateInfo(updateInfo: Partial<UpdateInfo>): void {
+    // 合并更新信息：保留已有的 downloadUrl 和 fileSize，只更新其他字段
+    if (this.updateInfo && (this.updateInfo.downloadUrl || this.updateInfo.fileSize)) {
+      // 如果已有下载信息，只更新其他字段
+      this.updateInfo = {
+        ...this.updateInfo,
+        version: updateInfo.version || this.updateInfo.version,
+        releaseDate: updateInfo.releaseDate || this.updateInfo.releaseDate,
+        releaseNotes: updateInfo.releaseNotes !== undefined ? updateInfo.releaseNotes : this.updateInfo.releaseNotes,
+        // 保留已有的下载信息
+        downloadUrl: updateInfo.downloadUrl || this.updateInfo.downloadUrl,
+        fileSize: updateInfo.fileSize || this.updateInfo.fileSize,
+      };
+      console.log('[macOS 更新] 更新信息已合并:', {
+        version: this.updateInfo.version,
+        downloadUrl: this.updateInfo.downloadUrl,
+        fileSize: this.updateInfo.fileSize,
+      });
+    } else {
+      // 没有现有信息，直接设置
+      this.updateInfo = updateInfo as UpdateInfo;
+      console.log('[macOS 更新] 更新信息已设置:', {
+        version: updateInfo.version,
+        downloadUrl: updateInfo.downloadUrl,
+        fileSize: updateInfo.fileSize,
+      });
     }
   }
 
   /**
-   * 获取 XML 内容
-   */
-  private fetchXml(url: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      https.get(url, {
-        headers: {
-          'User-Agent': 'VideoStitcher-Updater',
-        },
-      }, (res) => {
-        if (res.statusCode === 302 || res.statusCode === 301) {
-          if (res.headers.location) {
-            return this.fetchXml(res.headers.location).then(resolve, reject);
-          }
-        }
-
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode}`));
-          return;
-        }
-
-        let data = '';
-        res.on('data', (chunk: Buffer) => {
-          data += chunk;
-        });
-
-        res.on('end', () => {
-          resolve(data);
-        });
-      }).on('error', reject);
-    });
-  }
-
-  /**
-   * 将 Markdown 转换为简洁 HTML（备用方案，当 Atom feed 获取失败时使用）
-   * @param markdown Markdown 文本
-   * @returns HTML 文本
-   */
-  private markdownToSimpleHtml(markdown: string): string {
-    if (!markdown) return '';
-
-    let html = markdown;
-
-    // H2 标题 - 简洁格式，不添加 Tailwind 类
-    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-
-    // H3 标题
-    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-
-    // H4 标题
-    html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
-
-    // 粗体
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-    // 处理列表：先标记列表项
-    html = html.replace(/^- (.+)$/gm, '___LIST_ITEM___<li>$1</li>');
-
-    // 将连续的列表项包装在 ul 中
-    html = html.replace(/(___LIST_ITEM___<li.*?<\/li>\n?)+/g, (match) => {
-      const items = match.replace(/___LIST_ITEM___/g, '');
-      return `<ul>${items}</ul>`;
-    });
-
-    // 单换行转换为 <br>
-    html = html.replace(/([^\n])\n([^\n])/g, '$1<br>$2');
-
-    return html;
-  }
-
-  /**
-   * 将 Markdown 格式的 Release Notes 转换为 HTML
-   * 优化间距，避免间距过大的问题
-   * @param markdown Markdown 文本
-   * @returns HTML 文本
-   */
-  private markdownToHtml(markdown: string): string {
-    if (!markdown) return '';
-
-    let html = markdown;
-
-    // H2 标题 - 减少上下间距
-    html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mb-2 mt-3 text-white">$1</h2>');
-
-    // H3 标题 - 减少上下间距
-    html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-3 mb-2 text-indigo-300">$1</h3>');
-
-    // H4 标题 - 减少上下间距
-    html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-medium mt-2 mb-1 text-slate-200">$1</h4>');
-
-    // 粗体
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
-
-    // 处理列表：先标记列表项
-    html = html.replace(/^- (.+)$/gm, '___LIST_ITEM___<li class="ml-4 text-slate-300">$1</li>');
-
-    // 将连续的列表项包装在 ul 中，减少间距
-    html = html.replace(/(___LIST_ITEM___<li.*?<\/li>\n?)+/g, (match) => {
-      const items = match.replace(/___LIST_ITEM___/g, '');
-      return `<ul class="list-disc ml-4 my-2">${items}</ul>`;
-    });
-
-    // 段落（双换行）- 减少间距
-    html = html.replace(/\n\n+/g, '<div class="my-1"></div>');
-
-    return html;
-  }
-
-  /**
-   * 检查 GitHub Releases 最新版本
+   * 检查更新（不实现，使用 electron-updater 的检查）
    */
   async checkForUpdates(): Promise<{ success: boolean; hasUpdate: boolean; updateInfo?: UpdateInfo; error?: string }> {
-    try {
-      const currentVersion = app.getVersion();
-      console.log('[macOS 更新] 当前版本:', currentVersion);
-
-      // 从 GitHub API 获取最新 release
-      const response = await this.fetchJson('https://api.github.com/repos/luweiCN/VideoStitcher/releases/latest');
-      
-      if (!response.tag_name) {
-        throw new Error('无法获取最新版本信息');
-      }
-
-      const latestVersion = response.tag_name.replace(/^v/, '');
-      // 验证版本号格式，防止路径注入
-      if (!/^\d+\.\d+\.\d+/.test(latestVersion)) {
-        throw new Error(`版本号格式无效: ${latestVersion}`);
-      }
-      console.log('[macOS 更新] 最新版本:', latestVersion);
-
-      const hasUpdate = this.compareVersions(currentVersion, latestVersion);
-
-      if (!hasUpdate) {
-        return { success: true, hasUpdate: false };
-      }
-
-      // 查找 macOS ZIP 包 - 根据当前系统架构选择
-      const currentArch = process.arch; // 'x64' 或 'arm64'
-      console.log('[macOS 更新] 当前系统架构:', currentArch);
-
-      // 先尝试查找架构特定的包
-      let asset = response.assets?.find((a: any) => {
-        const name = a.name.toLowerCase();
-        const isMacZip = name.includes('mac') && name.endsWith('.zip');
-        
-        if (currentArch === 'arm64') {
-          // 查找包含 'arm64' 的包（例如：VideoStitcher-0.4.7-arm64-mac.zip）
-          return isMacZip && name.includes('arm64');
-        } else if (currentArch === 'x64') {
-          // 查找明确标记为 x64 的包，或者不包含 arm64 的通用包
-          // 例如：VideoStitcher-0.4.7-x64-mac.zip 或 VideoStitcher-0.4.7-mac.zip
-          return isMacZip && (name.includes('-x64-') || name.includes('-x64.') || !name.includes('arm64'));
-        }
-        
-        return false;
-      });
-
-      // 如果 ARM64 找不到专用包，尝试通用包（在 Rosetta 2 下运行）
-      if (!asset && currentArch === 'arm64') {
-        console.log('[macOS 更新] 未找到 ARM64 专用包，尝试查找通用包（将通过 Rosetta 2 运行）');
-        asset = response.assets?.find((a: any) => {
-          const name = a.name.toLowerCase();
-          return name.includes('mac') && name.endsWith('.zip') && !name.includes('arm64');
-        });
-      }
-
-      if (!asset) {
-        throw new Error(`未找到适用于 ${currentArch} 架构的 macOS 安装包`);
-      }
-
-      console.log('[macOS 更新] 选择的安装包:', asset.name);
-
-      // 从 Atom feed 获取 HTML 格式的 release notes
-      const releaseNotesHtml = await this.fetchReleaseNotesFromFeed(latestVersion);
-
-      // 如果 Atom feed 获取失败，使用 Markdown 转 HTML
-      const finalReleaseNotes = releaseNotesHtml || this.markdownToSimpleHtml(response.body || '');
-
-      this.updateInfo = {
-        version: latestVersion,
-        releaseDate: response.published_at,
-        releaseNotes: finalReleaseNotes,
-        downloadUrl: asset.browser_download_url,
-        fileSize: asset.size,
-      };
-
-      console.log('[macOS 更新] 发现新版本:', this.updateInfo);
-
-      return {
-        success: true,
-        hasUpdate: true,
-        updateInfo: this.updateInfo,
-      };
-    } catch (error: any) {
-      console.error('[macOS 更新] 检查更新失败:', error);
-      return {
-        success: false,
-        hasUpdate: false,
-        error: error.message,
-      };
-    }
+    // macOS 上不使用此方法，使用 electron-updater 的 autoUpdater.checkForUpdates()
+    console.warn('[macOS 更新] checkForUpdates 不应被调用，请使用 electron-updater');
+    return { success: false, hasUpdate: false, error: '请使用 electron-updater 检查更新' };
   }
 
   /**
@@ -281,7 +80,11 @@ export class MacUpdater {
    */
   async downloadUpdate(): Promise<{ success: boolean; error?: string }> {
     if (!this.updateInfo) {
-      return { success: false, error: '未找到更新信息' };
+      return { success: false, error: '未找到更新信息，请先检查更新' };
+    }
+
+    if (!this.updateInfo.downloadUrl) {
+      return { success: false, error: '更新信息中缺少下载 URL' };
     }
 
     try {
@@ -289,6 +92,8 @@ export class MacUpdater {
       const zipPath = path.join(tempDir, `VideoStitcher-Update-${this.updateInfo.version}.zip`);
 
       console.log('[macOS 更新] 开始下载到:', zipPath);
+      console.log('[macOS 更新] 下载 URL:', this.updateInfo.downloadUrl);
+      console.log('[macOS 更新] 文件大小:', (this.updateInfo.fileSize / 1024 / 1024).toFixed(1), 'MB');
 
       await this.downloadFile(this.updateInfo.downloadUrl, zipPath, (progress) => {
         // 发送下载进度到渲染进程
@@ -333,7 +138,6 @@ export class MacUpdater {
       console.log('[macOS 更新] 解压到:', extractDir);
 
       // 使用 macOS 原生 ditto 解压 ZIP，保留代码签名、扩展属性和资源分支
-      // extract-zip（Node.js 库）会丢失这些元数据，导致 Electron 的 ASAR 完整性验证失败
       try {
         execSync(`ditto -xk "${this.downloadedZipPath}" "${extractDir}"`, { stdio: 'pipe' });
       } catch (dittoError: any) {
@@ -355,23 +159,23 @@ export class MacUpdater {
       }
 
       console.log('[macOS 更新] 找到应用:', appPath);
-      
+
       // 验证找到的路径
       if (!appPath.endsWith('.app')) {
         throw new Error(`找到的路径不是有效的 .app 包: ${appPath}`);
       }
-      
+
       // 验证路径存在且是目录
       if (!fs.existsSync(appPath) || !fs.statSync(appPath).isDirectory()) {
         throw new Error(`找到的 .app 路径无效或不是目录: ${appPath}`);
       }
-      
+
       // 验证 .app 包含必要的结构
       const contentsPath = path.join(appPath, 'Contents');
       if (!fs.existsSync(contentsPath)) {
         throw new Error(`找到的 .app 包缺少 Contents 目录: ${appPath}`);
       }
-      
+
       console.log('[macOS 更新] 路径验证通过');
 
 
@@ -407,7 +211,7 @@ export class MacUpdater {
    */
   private getCurrentAppPath(): string {
     let appPath = app.getAppPath();
-    
+
     // 如果在 .app/Contents/Resources 内，需要向上查找
     while (appPath && !appPath.endsWith('.app')) {
       const parent = path.dirname(appPath);
@@ -428,12 +232,12 @@ export class MacUpdater {
       console.log(`[macOS 更新] 深度 ${depth} 超过限制，停止查找`);
       return null;
     }
-    
+
     console.log(`[macOS 更新] 在深度 ${depth} 查找目录:`, dir);
-    
+
     const items = fs.readdirSync(dir);
     console.log(`[macOS 更新] 目录内容 (${items.length} 项):`, items.join(', '));
-    
+
     // 首先在当前目录查找 .app
     for (const item of items) {
       if (item.endsWith('.app')) {
@@ -453,17 +257,17 @@ export class MacUpdater {
         }
       }
     }
-    
+
     // 如果当前目录没有 .app，递归查找子目录（但不进入 .app 内部）
     for (const item of items) {
       const fullPath = path.join(dir, item);
-      
+
       // 跳过以 .app 结尾的目录（不进入 .app 内部）
       if (item.endsWith('.app')) {
         console.log(`[macOS 更新] 跳过 .app 目录，不进入:`, item);
         continue;
       }
-      
+
       try {
         if (fs.statSync(fullPath).isDirectory()) {
           const found = this.findAppInDirectory(fullPath, depth + 1);
@@ -473,7 +277,7 @@ export class MacUpdater {
         console.log(`[macOS 更新] 无法访问目录 ${fullPath}:`, err);
       }
     }
-    
+
     console.log(`[macOS 更新] 在深度 ${depth} 未找到 .app`);
     return null;
   }
@@ -619,7 +423,7 @@ exit 0
   }
 
   /**
-   * 通用 HTTPS GET 请求（返回 JSON）
+   * HTTPS GET 请求（返回 JSON）
    */
   private fetchJson(url: string): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -641,7 +445,7 @@ exit 0
         }
 
         let data = '';
-        res.on('data', (chunk) => {
+        res.on('data', (chunk: Buffer) => {
           data += chunk;
         });
 
@@ -666,7 +470,7 @@ exit 0
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(destPath);
-      
+
       const request = (downloadUrl: string) => {
         https.get(downloadUrl, {
           headers: {
@@ -704,12 +508,14 @@ exit 0
             resolve();
           });
 
-          res.on('error', (error) => {
+          res.on('error', (error: Error) => {
             file.close();
-            fs.unlinkSync(destPath);
+            if (fs.existsSync(destPath)) {
+              fs.unlinkSync(destPath);
+            }
             reject(error);
           });
-        }).on('error', (error) => {
+        }).on('error', (error: Error) => {
           file.close();
           if (fs.existsSync(destPath)) {
             fs.unlinkSync(destPath);

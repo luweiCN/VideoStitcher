@@ -199,6 +199,7 @@ export interface ElectronAPI {
   macInstallUpdate: () => Promise<{ success: boolean; error?: string }>;
 
   // 自动更新事件 - 返回清理函数
+  onUpdateChecking: (callback: () => void) => () => void;
   onUpdateAvailable: (callback: (data: { version: string; releaseDate: string; releaseNotes: string }) => void) => () => void;
   onUpdateNotAvailable: (callback: (data: { version: string }) => void) => () => void;
   onUpdateError: (callback: (data: { message: string }) => void) => () => void;
@@ -333,6 +334,11 @@ const api: ElectronAPI = {
   macInstallUpdate: () => ipcRenderer.invoke('mac-install-update'),
 
   // 自动更新事件 - 返回清理函数
+  onUpdateChecking: (cb) => {
+    const listener = () => cb();
+    ipcRenderer.on('update-checking', listener);
+    return () => ipcRenderer.removeListener('update-checking', listener);
+  },
   onUpdateAvailable: (cb) => {
     const listener = (_e: any, data: any) => cb(data);
     ipcRenderer.on('update-available', listener);

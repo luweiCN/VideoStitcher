@@ -150,15 +150,16 @@ app.whenReady().then(() => {
   registerAuthHandlers();
   // 注册文件操作 IPC 处理器
   registerFileHandlers();
-  // 配置自动更新
-  setupAutoUpdater();
-  
-  // macOS 应用内更新处理器
+
+  // macOS 应用内更新处理器（需要在 setupAutoUpdater 之前）
   if (process.platform === 'darwin') {
     const { setupUpdateHandlers } = require('./main/ipc-handlers');
-    setupUpdateHandlers(win);
+    win.macUpdater = setupUpdateHandlers(win);
     console.log('[主进程] macOS 更新处理器已启用');
   }
+
+  // 配置自动更新（需要 MacUpdater 实例）
+  setupAutoUpdater();
 });
 
 // 自动更新配置和事件处理
@@ -202,11 +203,23 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = false; // 不自动下载，由用户确认
   autoUpdater.autoInstallOnAppQuit = true; // 应用退出时自动安装已下载的更新
 
+  // 开发环境下强制检查更新（用于测试）
+  autoUpdater.forceDevUpdateConfig = true;
+
   // 自动更新事件监听
-  autoUpdater.on("update-available", (info) => {
+  autoUpdater.on("update-available", async (info) => {
     console.log("Update available:", info);
     console.log("releaseNotes 类型:", typeof info.releaseNotes);
     console.log("releaseNotes 前100字符:", info.releaseNotes ? info.releaseNotes.substring(0, 100) : 'empty');
+
+    // macOS 平台的更新由 ipc-handlers.ts 统一处理，不在这里发送事件
+    // 避免重复触发和状态不一致
+    if (process.platform === 'darwin') {
+      console.log('[自动更新] macOS 平台，更新由 IPC 处理器统一管理');
+      return;
+    }
+
+    // Windows/Linux 平台继续使用 electron-updater 的原生更新流程
     win.webContents.send("update-available", {
       version: info.version,
       releaseDate: info.releaseDate,
@@ -252,27 +265,125 @@ function setupAutoUpdater() {
     }
   });
 
-  // 应用启动后延迟检查更新（避免影响启动速度）
-  setTimeout(() => {
-    console.log('[自动检查] 开始检查更新...');
-    autoUpdater.checkForUpdates()
-      .then((result) => {
-        console.log('[自动检查] 检查完成:', result);
-      })
-      .catch((err) => {
-        console.error('[自动检查] 检查失败:', err);
-      });
-  }, 5000); // 5 秒后检查
+  // 定义 macOS 检查更新的函数
+  async function checkForMacOSUpdates() {
+    if (!win.macUpdater) {
+      console.warn('[自动检查] MacUpdater 未初始化');
+      return;
+    }
 
-  // 每 10 分钟自动检查更新
-  setInterval(
-    () => {
-      autoUpdater.checkForUpdates().catch((err) => {
-        console.error("Failed to check for updates:", err);
-      });
-    },
-    10 * 60 * 1000,
-  );
+    try {
+      // 发送检查中事件到渲染进程
+      win.webContents.send('update-checking');
+
+      const result = await autoUpdater.checkForUpdates();
+      console.log('[自动检查] 检查结果:', result);
+
+      if (result?.versionInfo && result.versionInfo.version !== app.getVersion()) {
+        // 直接从 electron-updater 返回的 files 中查找下载 URL
+        const files = result.versionInfo?.files || [];
+        const currentArch = process.arch;
+
+        // 查找适合当前架构的 ZIP 包
+        let file = files.find((f) => {
+          const url = f.url.toLowerCase();
+          const isMacZip = url.includes('mac') && url.endsWith('.zip');
+
+          if (currentArch === 'arm64') {
+            return isMacZip && url.includes('arm64');
+          } else if (currentArch === 'x64') {
+            return isMacZip && (url.includes('-x64-') || url.includes('-x64.') || !url.includes('arm64'));
+          }
+          return false;
+        });
+
+        // 如果 ARM64 找不到专用包，尝试通用包
+        if (!file && currentArch === 'arm64') {
+          file = files.find((f) => {
+            const url = f.url.toLowerCase();
+            return url.includes('mac') && url.endsWith('.zip') && !url.includes('arm64');
+          });
+        }
+
+        if (!file) {
+          console.warn('[自动检查] 未找到适用于', currentArch, '架构的安装包');
+          return;
+        }
+
+        const updateInfo = {
+          version: result.versionInfo.version,
+          releaseDate: result.versionInfo.releaseDate,
+          releaseNotes: result.updateInfo?.releaseNotes || '',
+          downloadUrl: file.url || '',
+          fileSize: file.size || 0,
+        };
+
+        // 设置到 MacUpdater
+        win.macUpdater.setUpdateInfo(updateInfo);
+
+        // 发送更新可用事件
+        console.log('[自动检查] 准备发送 update-available 事件，当前窗口状态:', {
+            isDestroyed: win.isDestroyed(),
+            webContentsDestroyed: win.webContents.isDestroyed(),
+        });
+
+        // 确保窗口和 webContents 存在
+        if (!win.isDestroyed() && !win.webContents.isDestroyed()) {
+            win.webContents.send('update-available', {
+              version: updateInfo.version,
+              releaseDate: updateInfo.releaseDate,
+              releaseNotes: updateInfo.releaseNotes,
+            });
+            console.log('[自动检查] 已发送 update-available 事件到渲染进程');
+        } else {
+            console.error('[自动检查] 窗口已销毁，无法发送事件');
+        }
+      } else {
+        // 没有新版本
+        win.webContents.send('update-not-available', { version: app.getVersion() });
+      }
+    } catch (error) {
+      console.error('[自动检查] 检查更新失败:', error);
+    }
+  }
+
+  // 应用启动后延迟检查更新（避免影响启动速度）
+  // 开发模式下不检查更新
+  if (!isDevelopment) {
+    setTimeout(() => {
+      console.log('[自动检查] 开始检查更新...');
+      // 发送检查中事件到渲染进程
+      win.webContents.send('update-checking');
+
+      if (process.platform === 'darwin') {
+        checkForMacOSUpdates();
+      } else {
+        autoUpdater.checkForUpdates()
+          .then((result) => {
+            console.log('[自动检查] 检查完成:', result);
+          })
+          .catch((err) => {
+            console.error('[自动检查] 检查失败:', err);
+          });
+      }
+    }, 5000); // 5 秒后检查
+
+    // 每 10 分钟自动检查更新
+    setInterval(
+      () => {
+        if (process.platform === 'darwin') {
+          checkForMacOSUpdates();
+        } else {
+          autoUpdater.checkForUpdates().catch((err) => {
+            console.error("Failed to check for updates:", err);
+          });
+        }
+      },
+      10 * 60 * 1000,
+    );
+  } else {
+    console.log('[自动检查] 开发模式下跳过自动更新检查');
+  }
 }
 
 ipcMain.handle("pick-files", async (_e, { title, filters, multiSelection = true }) => {

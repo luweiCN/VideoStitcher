@@ -74,6 +74,11 @@ const api = {
     macDownloadUpdate: () => electron_1.ipcRenderer.invoke('mac-download-update'),
     macInstallUpdate: () => electron_1.ipcRenderer.invoke('mac-install-update'),
     // 自动更新事件 - 返回清理函数
+    onUpdateChecking: (cb) => {
+        const listener = () => cb();
+        electron_1.ipcRenderer.on('update-checking', listener);
+        return () => electron_1.ipcRenderer.removeListener('update-checking', listener);
+    },
     onUpdateAvailable: (cb) => {
         const listener = (_e, data) => cb(data);
         electron_1.ipcRenderer.on('update-available', listener);

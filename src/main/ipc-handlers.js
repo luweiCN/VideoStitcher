@@ -12,12 +12,13 @@ let macUpdater = null;
 /**
  * 设置 macOS 更新处理器
  * @param mainWindow 主窗口实例
+ * @returns MacUpdater 实例
  */
 function setupUpdateHandlers(mainWindow) {
     // 只在 macOS 上启用
     if (process.platform !== 'darwin') {
         console.log('[更新处理器] 非 macOS 平台，跳过 macOS 更新处理器');
-        return;
+        return null;
     }
     console.log('[更新处理器] 初始化 macOS 更新处理器');
     macUpdater = new updater_1.MacUpdater(mainWindow);
@@ -35,28 +36,66 @@ function setupUpdateHandlers(mainWindow) {
             return { success: false, error: error.message };
         }
     });
-    // 检查更新
+    // 检查更新 - 使用 electron-updater
     electron_1.ipcMain.handle('mac-check-for-updates', async () => {
-        if (!macUpdater) {
-            return { success: false, error: '更新管理器未初始化' };
-        }
+        const { autoUpdater } = require('electron-updater');
         try {
-            const result = await macUpdater.checkForUpdates();
-            if (result.success && result.hasUpdate && result.updateInfo) {
+            console.log('[更新处理器] 开始检查更新...');
+            const result = await autoUpdater.checkForUpdates();
+            console.log('[更新处理器] 检查结果:', result);
+            if (result?.versionInfo && result.versionInfo.version !== require('electron').app.getVersion()) {
+                // 直接从 electron-updater 返回的 files 中查找下载 URL
+                const files = result.versionInfo?.files || [];
+                const currentArch = process.arch;
+                // 查找适合当前架构的 ZIP 包
+                let file = files.find((f) => {
+                    const url = f.url.toLowerCase();
+                    const isMacZip = url.includes('mac') && url.endsWith('.zip');
+                    if (currentArch === 'arm64') {
+                        return isMacZip && url.includes('arm64');
+                    }
+                    else if (currentArch === 'x64') {
+                        return isMacZip && (url.includes('-x64-') || url.includes('-x64.') || !url.includes('arm64'));
+                    }
+                    return false;
+                });
+                // 如果 ARM64 找不到专用包，尝试通用包
+                if (!file && currentArch === 'arm64') {
+                    file = files.find((f) => {
+                        const url = f.url.toLowerCase();
+                        return url.includes('mac') && url.endsWith('.zip') && !url.includes('arm64');
+                    });
+                }
+                if (!file) {
+                    console.warn('[更新处理器] 未找到适用于当前架构的 macOS 安装包');
+                }
+                const updateInfo = {
+                    version: result.versionInfo.version,
+                    releaseDate: result.versionInfo.releaseDate,
+                    releaseNotes: result.updateInfo?.releaseNotes || '',
+                    downloadUrl: file?.url || '',
+                    fileSize: file?.size || 0,
+                };
+                // 设置到 MacUpdater
+                if (macUpdater) {
+                    macUpdater.setUpdateInfo(updateInfo);
+                }
                 // 发送更新可用事件
                 mainWindow.webContents.send('update-available', {
-                    version: result.updateInfo.version,
-                    releaseDate: result.updateInfo.releaseDate,
-                    releaseNotes: result.updateInfo.releaseNotes,
+                    version: updateInfo.version,
+                    releaseDate: updateInfo.releaseDate,
+                    releaseNotes: updateInfo.releaseNotes,
                 });
+                console.log('[更新处理器] 发送 update-available 事件');
+                return { success: true, hasUpdate: true, updateInfo };
             }
-            else if (result.success && !result.hasUpdate) {
-                // 发送已是最新版本事件
+            else {
+                // 没有新版本
                 mainWindow.webContents.send('update-not-available', {
                     version: require('electron').app.getVersion(),
                 });
+                return { success: true, hasUpdate: false };
             }
-            return result;
         }
         catch (error) {
             console.error('[更新处理器] 检查更新失败:', error);
@@ -90,4 +129,5 @@ function setupUpdateHandlers(mainWindow) {
         }
     });
     console.log('[更新处理器] macOS 更新处理器已注册');
+    return macUpdater;
 }

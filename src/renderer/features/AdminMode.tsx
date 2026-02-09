@@ -24,6 +24,9 @@ import {
 interface AdminModeProps {
   onBack: () => void;
   initialUpdateInfo?: UpdateInfo | null;
+  gotoSection?: 'system' | 'settings' | 'updates' | null;
+  onSectionHandled?: () => void;
+  onUpdateSectionChange?: (isUpdatesSection: boolean) => void;
 }
 
 interface SystemInfo {
@@ -44,7 +47,13 @@ interface UpdateInfo {
   releaseNotes: string;
 }
 
-const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
+const AdminMode: React.FC<AdminModeProps> = ({
+  onBack,
+  initialUpdateInfo,
+  gotoSection = null,
+  onSectionHandled,
+  onUpdateSectionChange
+}) => {
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -86,13 +95,30 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
   useEffect(() => {
     loadSystemInfo();
 
-    // 如果有初始更新信息（从全局状态传来），直接设置状态并切换到更新页面
-    if (initialUpdateInfo) {
+    // 检查是否需要跳转到指定标签
+    if (gotoSection) {
+      setActiveSection(gotoSection);
+      if (onSectionHandled) {
+        onSectionHandled();
+      }
+    }
+
+    // 如果有初始更新信息（从全局状态传来），只设置状态，不自动跳转
+    // 让用户通过设置按钮的提示手动点击跳转
+    if (initialUpdateInfo && !gotoSection) {
       setUpdateInfo(initialUpdateInfo);
       setUpdateStatus('available');
-      setActiveSection('updates');
+      // 移除了自动跳转：setActiveSection('updates');
 
       // macOS：初始化后端的 updateInfo，避免点击下载时出现"未找到更新信息"
+      if (isMacOS) {
+        window.api.macSetUpdateInfo(initialUpdateInfo);
+      }
+    } else if (initialUpdateInfo && gotoSection) {
+      // 如果有 initialUpdateInfo 且来自跳转，只设置状态不跳转
+      setUpdateInfo(initialUpdateInfo);
+      setUpdateStatus('available');
+
       if (isMacOS) {
         window.api.macSetUpdateInfo(initialUpdateInfo);
       }
@@ -100,7 +126,27 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
 
     // 加载全局配置
     loadGlobalSettings();
-  }, [initialUpdateInfo]);
+  }, [initialUpdateInfo, gotoSection, onSectionHandled]);
+
+  // 监听标签变化，通知 App 组件当前是否在版本更新标签
+  useEffect(() => {
+    if (onUpdateSectionChange) {
+      const isUpdatesSection = activeSection === 'updates';
+      console.log('[AdminMode] 标签变化:', activeSection, '是否为更新标签:', isUpdatesSection);
+      onUpdateSectionChange(isUpdatesSection);
+    }
+  }, [activeSection, onUpdateSectionChange]);
+
+  // 监听更新检查事件
+  useEffect(() => {
+    const cleanup = window.api.onUpdateChecking(() => {
+      console.log('[AdminMode] 收到 update-checking 事件');
+      if (activeSection === 'updates') {
+        setUpdateStatus('checking');
+      }
+    });
+    return cleanup;
+  }, [activeSection]);
 
   const loadGlobalSettings = async () => {
     try {
@@ -838,13 +884,6 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                               </div>
                             </div>
                             <div className="text-lg font-bold text-blue-400">{downloadProgress}%</div>
-                            <button
-                              disabled
-                              className="px-5 py-2.5 bg-slate-700 text-slate-400 rounded-lg font-medium transition-all flex items-center gap-2 opacity-50 cursor-not-allowed"
-                            >
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              下载中...
-                            </button>
                           </>
                         )}
                         {updateStatus === 'downloaded' && (
