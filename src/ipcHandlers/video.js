@@ -17,6 +17,35 @@ const app = require('electron').app ?? require('@electron/remote');
 const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 
 /**
+ * 根据用户规则生成输出文件名
+ * 规则：在原命名第七个分隔符(-)前面加【软件合成】
+ * 如果没有第七个分隔符，使用默认命名规则
+ */
+function getSmartMergedName(bName, index, suffix, aName) {
+  const separator = '-';
+  const parts = bName.split(separator);
+  
+  // parts.length > 7 表示至少有 7 个分隔符，即至少有 8 个部分
+  if (parts.length > 7) {
+    const newParts = [...parts];
+    // 1. 第一个-符号后面固定是D (即索引为 1 的部分)
+    newParts[1] = 'D';
+    // 2. 在第 7 个分隔符后面加，即在第 8 个部分（索引为 7）前面加
+    newParts[7] = '软件合成' + newParts[7];
+    // 3. 倒数第二个部分（横竖标识）修正
+    newParts[newParts.length - 2] = (suffix === 'vertical') ? '竖' : '横';
+    return newParts.join(separator) + '.mp4';
+  }
+  
+  // 默认命名规则
+  if (aName) {
+    return `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_${suffix}.mp4`;
+  } else {
+    return `${bName}__${String(index + 1).padStart(4, '0')}_${suffix}.mp4`;
+  }
+}
+
+/**
  * 获取视频元数据（尺寸、时长等）
  * 使用 ffprobe 获取视频信息
  */
@@ -155,13 +184,8 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
       const selectedCoverImage = globalCoverAssignments[index];
 
       const bName = path.parse(b).name;
-      let outName;
-      if (selectedAVideo) {
-        const aName = path.parse(selectedAVideo).name;
-        outName = `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_horizontal.mp4`;
-      } else {
-        outName = `${bName}__${String(index + 1).padStart(4, '0')}_horizontal.mp4`;
-      }
+      const aName = selectedAVideo ? path.parse(selectedAVideo).name : undefined;
+      const outName = getSmartMergedName(bName, index, 'horizontal', aName);
       const outPath = path.join(outputDir, outName);
 
       try {
@@ -312,13 +336,8 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverI
       const selectedCoverImage = globalCoverAssignments[index];
 
       const bName = path.parse(mainVideo).name;
-      let outName;
-      if (selectedAVideo) {
-        const aName = path.parse(selectedAVideo).name;
-        outName = `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_vertical.mp4`;
-      } else {
-        outName = `${bName}__${String(index + 1).padStart(4, '0')}_vertical.mp4`;
-      }
+      const aName = selectedAVideo ? path.parse(selectedAVideo).name : undefined;
+      const outName = getSmartMergedName(bName, index, 'vertical', aName);
       const outPath = path.join(outputDir, outName);
 
       try {
