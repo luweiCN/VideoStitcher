@@ -41,32 +41,73 @@ export class MacUpdater {
   }
 
   /**
-   * 比较版本号
-   * @param current 当前版本 (例如: "0.4.6")
-   * @param latest 最新版本 (例如: "0.5.0")
-   * @returns true 表示有新版本
+   * 从 GitHub Atom feed 获取 HTML 格式的 release notes
    */
-  private compareVersions(current: string, latest: string): boolean {
-    const cleanCurrent = current.replace(/^v/, '');
-    const cleanLatest = latest.replace(/^v/, '');
-    
-    const currentParts = cleanCurrent.split('.').map(Number);
-    const latestParts = cleanLatest.split('.').map(Number);
-    
-    for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
-      const c = currentParts[i] || 0;
-      const l = latestParts[i] || 0;
-      
-      if (l > c) return true;
-      if (l < c) return false;
+  private async fetchReleaseNotesFromFeed(tag: string): Promise<string> {
+    try {
+      const feedUrl = 'https://github.com/luweiCN/VideoStitcher/releases.atom';
+      const feedData = await this.fetchXml(feedUrl);
+
+      // 解析 XML，查找对应版本的 release notes
+      const tagPattern = new RegExp(`<entry>[\s\S]*?<title>发布版本 v?${tag}</title>[\\s\\S]*?<content type="html">([\\s\\S]*?)</content>`);
+      const match = feedData.match(tagPattern);
+
+      if (match && match[1]) {
+        // 解码 HTML 实体（如 &lt; &gt; &amp; 等）
+        const html = match[1]
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'");
+
+        console.log('[macOS 更新] 从 Atom feed 获取到 releaseNotes');
+        return html;
+      }
+
+      console.warn('[macOS 更新] Atom feed 中未找到对应版本的 release notes，使用 Markdown');
+      return '';
+    } catch (error: any) {
+      console.warn('[macOS 更新] 从 Atom feed 获取 releaseNotes 失败:', error.message);
+      return '';
     }
-    
-    return false;
   }
 
   /**
-   * 将 Markdown 格式的 Release Notes 转换为简洁的 HTML
-   * 与 GitHub 渲染的格式保持一致，不添加 Tailwind 类
+   * 获取 XML 内容
+   */
+  private fetchXml(url: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      https.get(url, {
+        headers: {
+          'User-Agent': 'VideoStitcher-Updater',
+        },
+      }, (res) => {
+        if (res.statusCode === 302 || res.statusCode === 301) {
+          if (res.headers.location) {
+            return this.fetchXml(res.headers.location).then(resolve, reject);
+          }
+        }
+
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode}`));
+          return;
+        }
+
+        let data = '';
+        res.on('data', (chunk: Buffer) => {
+          data += chunk;
+        });
+
+        res.on('end', () => {
+          resolve(data);
+        });
+      }).on('error', reject);
+    });
+  }
+
+  /**
+   * 将 Markdown 转换为简洁 HTML（备用方案，当 Atom feed 获取失败时使用）
    * @param markdown Markdown 文本
    * @returns HTML 文本
    */
@@ -204,10 +245,16 @@ export class MacUpdater {
 
       console.log('[macOS 更新] 选择的安装包:', asset.name);
 
+      // 从 Atom feed 获取 HTML 格式的 release notes
+      const releaseNotesHtml = await this.fetchReleaseNotesFromFeed(latestVersion);
+
+      // 如果 Atom feed 获取失败，使用 Markdown 转 HTML
+      const finalReleaseNotes = releaseNotesHtml || this.markdownToSimpleHtml(response.body || '');
+
       this.updateInfo = {
         version: latestVersion,
         releaseDate: response.published_at,
-        releaseNotes: this.markdownToSimpleHtml(response.body || ''),
+        releaseNotes: finalReleaseNotes,
         downloadUrl: asset.browser_download_url,
         fileSize: asset.size,
       };

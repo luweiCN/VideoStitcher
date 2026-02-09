@@ -9,63 +9,10 @@ const { TaskQueue } = require("./ffmpeg/queue");
 const { runFfmpeg } = require("./ffmpeg/runFfmpeg");
 
 /**
- * 处理 releaseNotes，统一格式
- * 如果是 HTML 则直接返回，如果是 Markdown 则转换为简洁 HTML
+ * 处理 releaseNotes（autoUpdater 已经返回正确格式，直接使用）
  */
 function processReleaseNotes(releaseNotes) {
-  if (!releaseNotes) return '';
-
-  // 检测是否已经是 HTML（包含 HTML 标签）
-  const isHtml = /<(h[1-6]|p|ul|ol|li|strong|em|a|br|div|span)\b/i.test(releaseNotes);
-
-  console.log('[processReleaseNotes] 输入类型:', typeof releaseNotes);
-  console.log('[processReleaseNotes] 是否为 HTML:', isHtml);
-  console.log('[processReleaseNotes] 前100字符:', releaseNotes.substring(0, 100));
-
-  if (isHtml) {
-    console.log('[processReleaseNotes] 检测到 HTML，直接返回原始格式');
-    return releaseNotes;
-  }
-
-  console.log('[processReleaseNotes] 检测到 Markdown，转换为简洁 HTML');
-  const converted = markdownToSimpleHtml(releaseNotes);
-  console.log('[processReleaseNotes] 转换后前100字符:', converted.substring(0, 100));
-  return converted;
-}
-
-/**
- * 将 Markdown 转换为简洁 HTML（与 GitHub 格式一致）
- */
-function markdownToSimpleHtml(markdown) {
-  if (!markdown) return '';
-
-  let html = markdown;
-
-  // H2 标题 - 简洁格式
-  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-
-  // H3 标题
-  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-
-  // H4 标题
-  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
-
-  // 粗体
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-
-  // 处理列表
-  html = html.replace(/^- (.+)$/gm, '___LIST_ITEM___<li>$1</li>');
-
-  // 将连续的列表项包装在 ul 中
-  html = html.replace(/(___LIST_ITEM___<li.*?<\/li>\n?)+/g, (match) => {
-    const items = match.replace(/___LIST_ITEM___/g, '');
-    return `<ul>${items}</ul>`;
-  });
-
-  // 单换行转换为 <br>
-  html = html.replace(/([^\n])\n([^\n])/g, '$1<br>$2');
-
-  return html;
+  return releaseNotes || '';
 }
 
 // 导入新的 IPC 处理器
