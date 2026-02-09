@@ -624,44 +624,14 @@ const AdminMode: React.FC<AdminModeProps> = ({
                 <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
                   <div className="absolute inset-0 bg-gradient-to-r from-amber-600/5 to-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   <div className="relative p-8">
-                    <div className="flex items-center justify-between mb-8">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 bg-gradient-to-br from-amber-600 to-orange-600 rounded-2xl flex items-center justify-center shadow-xl shadow-amber-600/20">
-                          <Settings className="w-7 h-7 text-white" />
-                        </div>
-                        <div>
-                          <h2 className="text-xl font-bold text-white">全局默认配置</h2>
-                          <p className="text-sm text-slate-500 mt-0.5">各功能页面的默认工作参数</p>
-                        </div>
+                    <div className="flex items-center gap-4 mb-8">
+                      <div className="w-14 h-14 bg-gradient-to-br from-amber-600 to-orange-600 rounded-2xl flex items-center justify-center shadow-xl shadow-amber-600/20">
+                        <Settings className="w-7 h-7 text-white" />
                       </div>
-                      <button
-                        onClick={handleSaveSettings}
-                        disabled={isSavingSettings}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center gap-2 ${
-                          isSavingSettings
-                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                            : settingsSaved
-                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
-                            : 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/20 hover:shadow-amber-600/30'
-                        }`}
-                      >
-                        {isSavingSettings ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            保存中...
-                          </>
-                        ) : settingsSaved ? (
-                          <>
-                            <CheckCircle className="w-4 h-4" />
-                            已保存
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4" />
-                            保存配置
-                          </>
-                        )}
-                      </button>
+                      <div>
+                        <h2 className="text-xl font-bold text-white">全局默认配置</h2>
+                        <p className="text-sm text-slate-500 mt-0.5">各功能页面的默认工作参数</p>
+                      </div>
                     </div>
 
                     <div className="space-y-8">
@@ -742,6 +712,38 @@ const AdminMode: React.FC<AdminModeProps> = ({
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* 保存按钮 */}
+                    <div className="flex justify-end pt-6 border-t border-slate-800/50 mt-6">
+                      <button
+                        onClick={handleSaveSettings}
+                        disabled={isSavingSettings}
+                        className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
+                          isSavingSettings
+                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                            : settingsSaved
+                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+                            : 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/20 hover:shadow-amber-600/30'
+                        }`}
+                      >
+                        {isSavingSettings ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            保存中...
+                          </>
+                        ) : settingsSaved ? (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            已保存
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            保存配置
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
