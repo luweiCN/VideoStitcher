@@ -303,20 +303,6 @@ const AdminMode: React.FC<AdminModeProps> = ({
     }
   };
 
-  // 选择默认输出目录
-  const handleSelectDefaultOutputDir = async () => {
-    try {
-      // 传入当前已选择的目录作为默认路径
-      const dir = await window.api.pickOutDir(globalSettings.defaultOutputDir);
-      if (dir) {
-        setGlobalSettings(prev => ({ ...prev, defaultOutputDir: dir }));
-        setSettingsSaved(false);
-      }
-    } catch (err) {
-      console.error('选择目录失败:', err);
-    }
-  };
-
   // 监听更新进度
   useEffect(() => {
     const cleanupProgress = window.api.onUpdateDownloadProgress((data) => {
@@ -536,7 +522,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                           <div className="text-right">
                             <div className="text-xs text-slate-500">推荐并发</div>
                             <div className="text-lg font-bold text-violet-400">
-                              {systemInfo ? Math.max(1, systemInfo.cpuCount - 1) : '-'}
+                              {systemInfo ? Math.max(1, Math.floor(systemInfo.cpuCount / 2)) : '-'}
                             </div>
                           </div>
                         </div>
@@ -544,7 +530,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                         <div className="p-4 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-xl border border-violet-500/20">
                           <div className="flex items-center gap-2 text-sm text-violet-300">
                             <Zap className="w-4 h-4" />
-                            <span>推荐并发数 = CPU 核心数 - 1（留 1 核给系统）</span>
+                            <span>推荐并发数 = CPU 核心数的一半（平衡性能与系统响应）</span>
                           </div>
                         </div>
                       </div>
@@ -666,7 +652,17 @@ const AdminMode: React.FC<AdminModeProps> = ({
                             )}
                           </div>
                           <button
-                            onClick={handleSelectDefaultOutputDir}
+                            onClick={async () => {
+                              try {
+                                const dir = await window.api.pickOutDir(globalSettings.defaultOutputDir);
+                                if (dir) {
+                                  setGlobalSettings(prev => ({ ...prev, defaultOutputDir: dir }));
+                                  setSettingsSaved(false);
+                                }
+                              } catch (err) {
+                                console.error('选择目录失败:', err);
+                              }
+                            }}
                             className="px-4 py-2.5 bg-gradient-to-r from-amber-600/20 to-orange-600/20 hover:from-amber-600/30 hover:to-orange-600/30 border border-amber-500/30 rounded-lg text-amber-400 transition-all flex items-center gap-2"
                           >
                             <FolderOpen className="w-4 h-4" />
@@ -677,37 +673,39 @@ const AdminMode: React.FC<AdminModeProps> = ({
 
                       {/* 默认线程数量 */}
                       <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                              <Zap className="w-4 h-4 text-orange-400" />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium text-white">默认线程数量</label>
-                              <p className="text-xs text-slate-500">各功能页面将使用此值作为默认并发数</p>
-                            </div>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center">
+                            <Zap className="w-4 h-4 text-amber-400" />
                           </div>
-                          <div className="px-4 py-2 bg-gradient-to-r from-orange-600/20 to-amber-600/20 border border-orange-500/30 rounded-xl">
-                            <span className="text-lg font-bold text-orange-400">{globalSettings.defaultConcurrency}</span>
+                          <div>
+                            <label className="text-sm font-medium text-white">默认线程数量</label>
+                            <p className="text-xs text-slate-500">各功能页面将使用此值作为默认并发数</p>
                           </div>
                         </div>
 
-                        <div className="p-6 bg-slate-950/50 border border-slate-800/50 rounded-xl">
-                          <input
-                            type="range"
-                            min="1"
-                            max={Math.max(1, (systemInfo?.cpuCount || 4) - 1)}
-                            value={globalSettings.defaultConcurrency}
-                            onChange={(e) => {
-                              setGlobalSettings(prev => ({ ...prev, defaultConcurrency: parseInt(e.target.value) }));
-                              setSettingsSaved(false);
-                            }}
-                            className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gradient-to-r [&::-webkit-slider-thumb]:from-amber-600 [&::-webkit-slider-thumb]:to-orange-600 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-amber-600/30 [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
-                          />
-                          <div className="flex justify-between mt-3 text-xs text-slate-500">
-                            <span>1 线程</span>
-                            <span className="text-amber-400">推荐: {Math.max(1, Math.floor((systemInfo?.cpuCount || 4) / 2))}</span>
-                            <span>{Math.max(1, (systemInfo?.cpuCount || 4) - 1)} 线程</span>
+                        {/* 滑轨容器 */}
+                        <div className="bg-slate-950/50 border border-slate-800/50 rounded-xl p-6">
+                          <div className="mb-4">
+                            <input
+                              type="range"
+                              min="1"
+                              max={Math.min(systemInfo?.cpuCount || 4, 16)}
+                              value={globalSettings.defaultConcurrency}
+                              onChange={(e) => {
+                                setGlobalSettings(prev => ({ ...prev, defaultConcurrency: parseInt(e.target.value) }));
+                                setSettingsSaved(false);
+                              }}
+                              className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gradient-to-r [&::-webkit-slider-thumb]:from-amber-600 [&::-webkit-slider-thumb]:to-orange-600 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-amber-600/30 [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
+                            />
+                            <div className="flex justify-between mt-3 text-xs text-slate-500">
+                              <span>1</span>
+                              <span className="text-amber-400">推荐: {Math.max(1, Math.floor((systemInfo?.cpuCount || 4) / 2))}</span>
+                              <span>{Math.min(systemInfo?.cpuCount || 4, 16)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-slate-500">当前值:</span>
+                            <span className="text-amber-400 font-bold text-lg">{globalSettings.defaultConcurrency}</span>
                           </div>
                         </div>
                       </div>

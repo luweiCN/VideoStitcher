@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Upload, Loader2, Play, Trash2, CheckCircle,
-  FolderOpen, Image as ImageIcon, XCircle, AlertCircle, Image
+  Image as ImageIcon, XCircle, AlertCircle, Image
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import OutputDirSelector from '../components/OutputDirSelector';
+import { useOutputDirCache } from '../hooks/useOutputDirCache';
 
 interface CoverFormatModeProps {
   onBack: () => void;
@@ -21,7 +23,7 @@ interface ImageFile {
 const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [outputDir, setOutputDir] = useState<string>('');
+  const { outputDir, setOutputDir } = useOutputDirCache('CoverFormatMode');
   const [quality, setQuality] = useState(90);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -30,21 +32,6 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
   const [logs, setLogs] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 加载全局默认配置
-  useEffect(() => {
-    const loadGlobalSettings = async () => {
-      try {
-        const result = await window.api.getGlobalSettings();
-        if (result?.defaultOutputDir) {
-          setOutputDir(result.defaultOutputDir);
-        }
-      } catch (err) {
-        console.error('加载全局配置失败:', err);
-      }
-    };
-    loadGlobalSettings();
-  }, []);
 
   // 添加日志
   const addLog = (msg: string) => {
@@ -172,19 +159,6 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
   // 清空文件列表
   const clearFiles = () => {
     setFiles([]);
-  };
-
-  // 选择输出目录
-  const handleSelectOutputDir = async () => {
-    try {
-      const dir = await window.api.pickOutDir();
-      if (dir) {
-        setOutputDir(dir);
-        addLog(`输出目录: ${dir}`);
-      }
-    } catch (err) {
-      addLog(`选择输出目录失败: ${err}`);
-    }
   };
 
   // 开始处理
@@ -326,20 +300,13 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
           )}
 
           {/* Output Directory */}
-          <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
-            <div className="flex flex-col min-w-0 mr-2">
-              <span className="text-[11px] font-bold text-slate-300">输出目录</span>
-              <span className="text-[9px] text-slate-500 truncate" title={outputDir || '请选择输出目录'}>
-                {outputDir || '请选择输出目录'}
-              </span>
-            </div>
-            <button
-              onClick={handleSelectOutputDir}
-              className="px-3 py-1.5 bg-slate-900 hover:bg-fuchsia-600/20 hover:text-fuchsia-400 border border-slate-700 hover:border-fuchsia-500/50 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 shrink-0"
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              选择文件夹
-            </button>
+          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+            <OutputDirSelector
+              value={outputDir}
+              onChange={setOutputDir}
+              disabled={isProcessing}
+              themeColor="fuchsia"
+            />
           </div>
 
           {/* Quality Setting */}

@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Upload, Loader2, FolderOpen, Settings, Film, Link2,
+  Upload, Loader2, Settings, Film, Link2,
   Eye, X, Play, Monitor, Smartphone, Plus, Trash2
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import OutputDirSelector from '../components/OutputDirSelector';
+import ConcurrencySelector from '../components/ConcurrencySelector';
+import { useOutputDirCache } from '../hooks/useOutputDirCache';
+import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 
 interface VideoStitcherModeProps {
   onBack: () => void;
@@ -34,8 +38,8 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   const [bFiles, setBFiles] = useState<VideoFile[]>([]);
 
   // 配置状态
-  const [outputDir, setOutputDir] = useState<string>('');
-  const [concurrency, setConcurrency] = useState(3);
+  const { outputDir, setOutputDir } = useOutputDirCache('VideoStitcherMode');
+  const { concurrency, setConcurrency } = useConcurrencyCache('VideoStitcherMode');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
 
@@ -96,10 +100,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
       try {
         const result = await window.api.getGlobalSettings();
         if (result) {
-          // 设置默认输出目录（如果有）
-          if (result.defaultOutputDir) {
-            setOutputDir(result.defaultOutputDir);
-          }
           // 设置默认线程数量
           if (result.defaultConcurrency) {
             setConcurrency(result.defaultConcurrency);
@@ -257,16 +257,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     }
   };
 
-  // 选择输出目录
-  const handleSelectOutputDir = async () => {
-    try {
-      const dir = await window.api.pickOutDir();
-      if (dir) setOutputDir(dir);
-    } catch (err) {
-      console.error('选择输出目录失败:', err);
-    }
-  };
-
   // 删除文件
   const removeFile = (id: string, side: 'a' | 'b') => {
     if (side === 'a') {
@@ -350,8 +340,12 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   const startMerge = async () => {
     if (aFiles.length === 0 || bFiles.length === 0) return;
     if (!outputDir) {
-      await handleSelectOutputDir();
-      if (!outputDir) return;
+      const dir = await window.api.pickOutDir();
+      if (dir) {
+        setOutputDir(dir);
+      } else {
+        return;
+      }
     }
     if (isProcessing) return;
 
@@ -810,35 +804,20 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                 设置
               </h3>
 
-              <div>
-                <label className="text-xs font-medium text-gray-400 mb-2 block">导出位置</label>
-                <button
-                  onClick={handleSelectOutputDir}
-                  className="w-full py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs flex items-center justify-center gap-2 transition-colors"
-                >
-                  <FolderOpen className="w-4 h-4" />
-                  {outputDir ? '更换位置' : '选择位置'}
-                </button>
-                {outputDir && (
-                  <p className="text-[10px] text-gray-500 mt-1.5 truncate" title={outputDir}>{outputDir}</p>
-                )}
-              </div>
+              <OutputDirSelector
+                value={outputDir}
+                onChange={setOutputDir}
+                disabled={isProcessing}
+                themeColor="pink"
+              />
 
-              <div>
-                <label className="text-xs font-medium text-gray-400 mb-2 block">并发进程数</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={concurrency}
-                    onChange={(e) => setConcurrency(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
-                    className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-center text-sm"
-                    disabled={isProcessing}
-                  />
-                </div>
-                <p className="text-[10px] text-gray-500 mt-1">同时处理的 FFmpeg 进程数</p>
-              </div>
+              <ConcurrencySelector
+                value={concurrency}
+                onChange={setConcurrency}
+                disabled={isProcessing}
+                themeColor="pink"
+                compact
+              />
             </div>
 
             {/* Progress Display - Always show when processing */}

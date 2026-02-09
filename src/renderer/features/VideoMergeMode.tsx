@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  FileVideo, ImageIcon, Play, Trash2, Loader2, FolderOpen,
+  FileVideo, ImageIcon, Play, Trash2, Loader2,
   Settings, CheckCircle, RefreshCcw, Maximize, Monitor, ZoomIn, ZoomOut, Layers
 } from 'lucide-react';
 import { MaterialPositions, LayerId, LayerConfig } from '../types';
 import VideoEditor from '../components/VideoEditor';
 import LayerSidebar from '../components/LayerSidebar';
 import PageHeader from '../components/PageHeader';
+import OutputDirSelector from '../components/OutputDirSelector';
+import ConcurrencySelector from '../components/ConcurrencySelector';
+import { useOutputDirCache } from '../hooks/useOutputDirCache';
+import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { getCanvasConfig, getInitialPositions, getDefaultLayerConfigs } from '../utils/positionCalculator';
 
 interface VideoMergeModeProps {
@@ -103,10 +107,10 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
     }
   }, [layerConfigs, activeLayer]);
 
-  const [outputDir, setOutputDir] = useState<string>('');
+  const { outputDir, setOutputDir } = useOutputDirCache('VideoMergeMode');
+  const { concurrency, setConcurrency } = useConcurrencyCache('VideoMergeMode');
   const [showHelp, setShowHelp] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [concurrency, setConcurrency] = useState(3);
   const [exportMultiplier, setExportMultiplier] = useState<1 | 2 | 3>(1);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
 
@@ -114,20 +118,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
     setMaterialPositions(getInitialPositions(canvasConfig));
   }, [canvasConfig]);
 
-  useEffect(() => {
-    const loadGlobalSettings = async () => {
-      try {
-        const result = await window.api.getGlobalSettings();
-        if (result) {
-          if (result.defaultOutputDir) setOutputDir(result.defaultOutputDir);
-          if (result.defaultConcurrency) setConcurrency(result.defaultConcurrency);
-        }
-      } catch (err) {
-        console.error('加载全局配置失败:', err);
-      }
-    };
-    loadGlobalSettings();
-  }, []);
+  // 加载全局默认配置（已移至 useConcurrencyCache hook）
 
   const addLog = (msg: string) => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
@@ -242,18 +233,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       }
     } catch (err) {
       addLog(`选择封面失败: ${err}`);
-    }
-  };
-
-  const handleSelectOutputDir = async () => {
-    try {
-      const dir = await window.api.pickOutDir();
-      if (dir) {
-        setOutputDir(dir);
-        addLog(`输出目录: ${dir}`);
-      }
-    } catch (err) {
-      addLog(`选择输出目录失败: ${err}`);
     }
   };
 
@@ -442,12 +421,23 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
           </div>
 
           <div className="space-y-4 pt-2">
-            <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
-              <div className="flex flex-col min-w-0 mr-2">
-                <span className="text-[11px] font-bold text-slate-300">导出位置</span>
-                <span className="text-[9px] text-slate-500 truncate">{outputDir ? `📂 ${outputDir.split(/[/\\]/).pop()}` : '未选择'}</span>
-              </div>
-              <button onClick={handleSelectOutputDir} className="px-3 py-1.5 bg-slate-900 hover:bg-violet-600/20 hover:text-violet-400 border border-slate-700 rounded-lg text-[10px] font-bold transition-all">选择文件夹</button>
+            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+              <OutputDirSelector
+                value={outputDir}
+                onChange={setOutputDir}
+                disabled={isProcessing}
+                themeColor="violet"
+              />
+            </div>
+
+            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+              <ConcurrencySelector
+                value={concurrency}
+                onChange={setConcurrency}
+                disabled={isProcessing}
+                themeColor="violet"
+                compact
+              />
             </div>
 
             <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">

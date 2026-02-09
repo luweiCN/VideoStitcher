@@ -4,6 +4,10 @@ import {
   FolderOpen, Image as ImageIcon, XCircle, Settings, Cpu, Shrink
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import OutputDirSelector from '../components/OutputDirSelector';
+import ConcurrencySelector from '../components/ConcurrencySelector';
+import { useOutputDirCache } from '../hooks/useOutputDirCache';
+import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 
 interface CoverCompressModeProps {
   onBack: () => void;
@@ -26,13 +30,13 @@ interface ImageFile {
 const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [outputDir, setOutputDir] = useState<string>('');
+  const { outputDir, setOutputDir } = useOutputDirCache('CoverCompressMode');
+  const { concurrency, setConcurrency } = useConcurrencyCache('CoverCompressMode');
   const [targetSizeKB, setTargetSizeKB] = useState(380);
   const [isDragging, setIsDragging] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
-  // 并发数设置
-  const [concurrency, setConcurrency] = useState(0); // 0 表示自动（CPU 核心数 - 1）
+  // 并发数设置（用于计算实际显示）
   const [maxConcurrency, setMaxConcurrency] = useState(4); // 最大并发数（基于 CPU 核心数）
 
   // 进度状态
@@ -75,26 +79,7 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
     initCpuCount();
   }, []);
 
-  // 加载全局默认配置
-  useEffect(() => {
-    const loadGlobalSettings = async () => {
-      try {
-        const result = await window.api.getGlobalSettings();
-        if (result) {
-          if (result.defaultOutputDir) {
-            setOutputDir(result.defaultOutputDir);
-          }
-          if (result.defaultConcurrency) {
-            setConcurrency(result.defaultConcurrency);
-          }
-        }
-      } catch (err) {
-        console.error('加载全局配置失败:', err);
-      }
-    };
-
-    loadGlobalSettings();
-  }, []);
+  // 加载全局默认配置（已移至 useConcurrencyCache hook）
 
   // 清理监听器
   useEffect(() => {
@@ -480,46 +465,23 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
           </div>
 
           {/* Concurrency Setting */}
-          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-            <label className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
-              <Cpu className="w-4 h-4" />
-              并发处理数
-            </label>
-            <div className="flex items-center gap-4">
-              <input
-                type="range"
-                min="0"
-                max={maxConcurrency}
-                step="1"
-                value={concurrency}
-                onChange={(e) => setConcurrency(Number(e.target.value))}
-                className="flex-1 accent-emerald-500"
-                disabled={isProcessing}
-              />
-              <span className="text-sm font-mono bg-slate-800 px-3 py-1 rounded-lg w-24 text-center">
-                {actualConcurrency}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-2">
-              0 = 自动 (CPU 核心数 - 1)，当前最大: {maxConcurrency}
-            </p>
-          </div>
+          <ConcurrencySelector
+            value={concurrency}
+            onChange={setConcurrency}
+            max={maxConcurrency}
+            disabled={isProcessing}
+            themeColor="emerald"
+            className="p-4 bg-slate-950 rounded-xl border border-slate-800"
+          />
 
           {/* Output Directory */}
-          <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
-            <div className="flex flex-col min-w-0 mr-2">
-              <span className="text-[11px] font-bold text-slate-300">输出目录</span>
-              <span className="text-[9px] text-slate-500 truncate" title={outputDir || '请选择输出目录'}>
-                {outputDir || '请选择输出目录'}
-              </span>
-            </div>
-            <button
-              onClick={handleSelectOutputDir}
-              className="px-3 py-1.5 bg-slate-900 hover:bg-emerald-600/20 hover:text-emerald-400 border border-slate-700 hover:border-emerald-500/50 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 shrink-0"
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              选择文件夹
-            </button>
+          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+            <OutputDirSelector
+              value={outputDir}
+              onChange={setOutputDir}
+              disabled={isProcessing}
+              themeColor="emerald"
+            />
           </div>
 
           {/* Start Button */}

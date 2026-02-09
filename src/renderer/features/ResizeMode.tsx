@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { FileVideo, Play, Trash2, Loader2, ArrowLeft, FolderOpen, Settings, CheckCircle, Maximize2, Eye, ChevronLeft, ChevronRight, Pause, Volume2, VolumeX } from 'lucide-react';
+import { FileVideo, Play, Trash2, Loader2, ArrowLeft, Settings, CheckCircle, Maximize2, Eye, ChevronLeft, ChevronRight, Pause, Volume2, VolumeX, FolderOpen } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import OutputDirSelector from '../components/OutputDirSelector';
+import ConcurrencySelector from '../components/ConcurrencySelector';
+import { useOutputDirCache } from '../hooks/useOutputDirCache';
+import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 
 interface ResizeModeProps {
   onBack: () => void;
@@ -33,7 +37,8 @@ const formatTime = (seconds: number): string => {
 
 const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const [videos, setVideos] = useState<string[]>([]);
-  const [outputDir, setOutputDir] = useState<string>('');
+  const { outputDir, setOutputDir } = useOutputDirCache('ResizeMode');
+  const { concurrency, setConcurrency } = useConcurrencyCache('ResizeMode');
   const [mode, setMode] = useState<ResizeMode>('siya');
   const [blurAmount, setBlurAmount] = useState(20);
   const [showHelp, setShowHelp] = useState(false);
@@ -58,28 +63,8 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
   const [logs, setLogs] = useState<string[]>([]);
-  const [concurrency, setConcurrency] = useState(3);
 
-  // 加载全局默认配置
-  useEffect(() => {
-    const loadGlobalSettings = async () => {
-      try {
-        const result = await window.api.getGlobalSettings();
-        if (result) {
-          if (result.defaultOutputDir) {
-            setOutputDir(result.defaultOutputDir);
-          }
-          if (result.defaultConcurrency) {
-            setConcurrency(result.defaultConcurrency);
-          }
-        }
-      } catch (err) {
-        console.error('加载全局配置失败:', err);
-      }
-    };
-
-    loadGlobalSettings();
-  }, []);
+  // 加载全局默认配置（已移至 useConcurrencyCache hook）
 
   // 添加日志
   const addLog = useCallback((msg: string) => {
@@ -240,18 +225,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       }
     } catch (err) {
       addLog(`选择视频失败: ${err}`);
-    }
-  };
-
-  const handleSelectOutputDir = async () => {
-    try {
-      const dir = await window.api.pickOutDir();
-      if (dir) {
-        setOutputDir(dir);
-        addLog(`输出目录: ${dir}`);
-      }
-    } catch (err) {
-      addLog(`选择输出目录失败: ${err}`);
     }
   };
 
@@ -722,25 +695,12 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
             {/* Output Directory */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-              <div className="flex items-center justify-between mb-2">
-                <label className="font-medium flex items-center gap-2 text-xs">
-                  <FolderOpen className="w-3 h-3 text-rose-400" />
-                  输出目录
-                </label>
-              </div>
-              <button
-                onClick={handleSelectOutputDir}
+              <OutputDirSelector
+                value={outputDir}
+                onChange={setOutputDir}
                 disabled={isProcessing || isGeneratingPreview}
-                className="w-full py-2 px-3 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors text-xs flex items-center justify-center gap-2"
-              >
-                <FolderOpen className="w-3 h-3" />
-                选择输出目录
-              </button>
-              {outputDir && (
-                <div className="mt-2 text-xs text-slate-400 truncate" title={outputDir}>
-                  {outputDir.split('/').pop()}
-                </div>
-              )}
+                themeColor="rose"
+              />
             </div>
 
             {/* Blur Amount */}
@@ -766,6 +726,17 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
               <p className="text-[10px] text-slate-500 mt-2">
                 实时预览，值越大背景越模糊 (推荐: 20)
               </p>
+            </div>
+
+            {/* Concurrency */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
+              <ConcurrencySelector
+                value={concurrency}
+                onChange={setConcurrency}
+                disabled={isProcessing || isGeneratingPreview}
+                themeColor="rose"
+                compact
+              />
             </div>
 
             {/* Start Button */}

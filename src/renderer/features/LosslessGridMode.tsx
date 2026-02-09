@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Upload, Loader2, FolderOpen, Grid3X3, CheckCircle, XCircle, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Upload, Loader2, Grid3X3, CheckCircle, XCircle, ArrowLeft, AlertCircle, FolderOpen } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import OutputDirSelector from '../components/OutputDirSelector';
+import { useOutputDirCache } from '../hooks/useOutputDirCache';
 
 interface LosslessGridModeProps {
   onBack: () => void;
@@ -20,25 +22,10 @@ interface ImageFile {
 
 const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   const [images, setImages] = useState<ImageFile[]>([]);
-  const [outputDir, setOutputDir] = useState<string>('');
+  const { outputDir, setOutputDir } = useOutputDirCache('LosslessGridMode');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 加载全局默认配置
-  useEffect(() => {
-    const loadGlobalSettings = async () => {
-      try {
-        const result = await window.api.getGlobalSettings();
-        if (result?.defaultOutputDir) {
-          setOutputDir(result.defaultOutputDir);
-        }
-      } catch (err) {
-        console.error('加载全局配置失败:', err);
-      }
-    };
-    loadGlobalSettings();
-  }, []);
 
   // 处理拖拽上传
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -167,18 +154,6 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
     }
   };
 
-  // 选择输出目录
-  const handleSelectOutputDir = async () => {
-    try {
-      const dir = await window.api.pickOutDir();
-      if (dir) {
-        setOutputDir(dir);
-      }
-    } catch (err) {
-      console.error('选择输出目录失败:', err);
-    }
-  };
-
   // 移除图片
   const removeImage = (id: string) => {
     setImages(prev => {
@@ -267,8 +242,10 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
     }
     if (!outputDir) {
       // 如果没有选择输出目录，先让用户选择
-      await handleSelectOutputDir();
-      if (!outputDir) {
+      const dir = await window.api.pickOutDir();
+      if (dir) {
+        setOutputDir(dir);
+      } else {
         return;
       }
     }
@@ -351,19 +328,12 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
 
           {/* Output Directory */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">导出位置</h3>
-            <button
-              onClick={handleSelectOutputDir}
-              className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl font-medium flex items-center justify-center gap-2 transition-all"
-            >
-              <FolderOpen className="w-5 h-5" />
-              {outputDir ? '更换导出位置' : '选择导出位置'}
-            </button>
-            {outputDir && (
-              <p className="text-xs text-slate-500 mt-2 truncate">
-                导出至: {outputDir}
-              </p>
-            )}
+            <OutputDirSelector
+              value={outputDir}
+              onChange={setOutputDir}
+              disabled={isProcessing}
+              themeColor="cyan"
+            />
           </div>
 
           {/* Actions */}

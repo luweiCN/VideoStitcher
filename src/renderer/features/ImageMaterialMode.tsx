@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, MouseEvent } from 'react';
 import { ArrowLeft, Upload, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import OutputDirSelector from '../components/OutputDirSelector';
+import { useOutputDirCache } from '../hooks/useOutputDirCache';
 
 /**
  * 图片文件状态
@@ -82,7 +84,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   const [previewSizeMode, setPreviewSizeMode] = useState<PreviewSizeMode>('cover');
 
   // 输出目录
-  const [outputDir, setOutputDir] = useState<string>('');
+  const { outputDir, setOutputDir } = useOutputDirCache('ImageMaterialMode');
 
   // 日志
   const [logs, setLogs] = useState<string[]>([]);
@@ -90,21 +92,6 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   // 常量
   const PREVIEW_SIZE = 400; // 显示大小 (像素)
   const BASE_SIZE = 800;    // 逻辑尺寸 (编辑和单图导出)
-
-  // 加载全局默认配置
-  useEffect(() => {
-    const loadGlobalSettings = async () => {
-      try {
-        const result = await window.api.getGlobalSettings();
-        if (result?.defaultOutputDir) {
-          setOutputDir(result.defaultOutputDir);
-        }
-      } catch (err) {
-        console.error('加载全局配置失败:', err);
-      }
-    };
-    loadGlobalSettings();
-  }, []);
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -225,19 +212,6 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
       }
     } catch (err) {
       addLog(`选择 Logo 失败: ${err}`);
-    }
-  };
-
-  // 选择输出目录
-  const handleSelectOutputDir = async () => {
-    try {
-      const dir = await window.api.pickOutDir();
-      if (dir) {
-        setOutputDir(dir);
-        addLog(`输出目录: ${dir}`);
-      }
-    } catch (err) {
-      addLog(`选择输出目录失败: ${err}`);
     }
   };
 
@@ -593,14 +567,13 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
           {/* 6. 输出目录 */}
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-slate-400 uppercase">5. 输出目录</h3>
-            <button
-              onClick={handleSelectOutputDir}
-              className="w-full p-3 border border-slate-800 rounded-xl hover:border-amber-500 bg-slate-950 text-left"
-            >
-              <span className="text-sm text-slate-300 truncate block">
-                {outputDir || '点击选择输出目录'}
-              </span>
-            </button>
+            <OutputDirSelector
+              value={outputDir}
+              onChange={setOutputDir}
+              disabled={isProcessing}
+              themeColor="amber"
+              label=""
+            />
           </div>
 
           {/* 7. 处理日志 */}
