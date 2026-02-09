@@ -29,6 +29,43 @@ export class MacUpdater {
   private updateInfo: UpdateInfo | null = null;
   private downloadedZipPath: string | null = null;
 
+  // 辅助函数：输出日志到浏览器控制台
+  private logToRenderer(style: string, ...args: any[]): void {
+    // 输出到主进程控制台
+    console.log(...args);
+
+    // 输出到渲染进程的浏览器控制台
+    if (this.mainWindow && !this.mainWindow.isDestroyed() && !this.mainWindow.webContents.isDestroyed()) {
+      // 将参数转换为可安全传递的格式
+      const serializedArgs = args.map(arg => {
+        if (typeof arg === 'object') {
+          try {
+            return JSON.stringify(arg);
+          } catch {
+            return '{}';
+          }
+        }
+        return String(arg);
+      });
+
+      // 使用 console.log 的 apply 方式，保持对象结构
+      const code = `
+        (function() {
+          const args = ${JSON.stringify(serializedArgs)}.map(arg => {
+            try {
+              return JSON.parse(arg);
+            } catch {
+              return arg;
+            }
+          });
+          console.log('${style}', ...args);
+        })();
+      `;
+
+      this.mainWindow.webContents.executeJavaScript(code).catch(() => {});
+    }
+  }
+
   constructor(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow;
   }
@@ -79,11 +116,17 @@ export class MacUpdater {
    * 下载更新（带进度）
    */
   async downloadUpdate(): Promise<{ success: boolean; error?: string }> {
+    this.logToRenderer('%c[MacUpdater] 🔄 downloadUpdate() 被调用', 'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px;');
+
     if (!this.updateInfo) {
+      this.logToRenderer('%c[MacUpdater] ❌ 未找到更新信息', 'background: #ef4444; color: white;');
       return { success: false, error: '未找到更新信息，请先检查更新' };
     }
 
     if (!this.updateInfo.downloadUrl) {
+      this.logToRenderer('%c[MacUpdater] ❌ 更新信息中缺少下载 URL', 'background: #ef4444; color: white;', {
+        updateInfo: this.updateInfo
+      });
       return { success: false, error: '更新信息中缺少下载 URL' };
     }
 
@@ -91,9 +134,12 @@ export class MacUpdater {
       const tempDir = app.getPath('temp');
       const zipPath = path.join(tempDir, `VideoStitcher-Update-${this.updateInfo.version}.zip`);
 
-      console.log('[macOS 更新] 开始下载到:', zipPath);
-      console.log('[macOS 更新] 下载 URL:', this.updateInfo.downloadUrl);
-      console.log('[macOS 更新] 文件大小:', (this.updateInfo.fileSize / 1024 / 1024).toFixed(1), 'MB');
+      this.logToRenderer('%c[MacUpdater] 📥 开始下载', 'background: #3b82f6; color: white;', {
+        目标路径: zipPath,
+        下载URL: this.updateInfo.downloadUrl,
+        文件大小: `${(this.updateInfo.fileSize / 1024 / 1024).toFixed(1)} MB`,
+        版本: this.updateInfo.version
+      });
 
       await this.downloadFile(this.updateInfo.downloadUrl, zipPath, (progress) => {
         // 发送下载进度到渲染进程
@@ -101,18 +147,29 @@ export class MacUpdater {
       });
 
       this.downloadedZipPath = zipPath;
-      console.log('[macOS 更新] 下载完成:', zipPath);
+      this.logToRenderer('%c[MacUpdater] ✅ 下载完成！准备发送 update-downloaded 事件', 'background: #10b981; color: white;', {
+        zipPath: zipPath,
+        version: this.updateInfo.version
+      });
 
       // 发送下载完成事件
-      this.mainWindow?.webContents.send('update-downloaded', {
-        version: this.updateInfo.version,
-        releaseDate: this.updateInfo.releaseDate,
-        releaseNotes: this.updateInfo.releaseNotes,
-      });
+      if (this.mainWindow && !this.mainWindow.isDestroyed() && !this.mainWindow.webContents.isDestroyed()) {
+        this.mainWindow.webContents.send('update-downloaded', {
+          version: this.updateInfo.version,
+          releaseDate: this.updateInfo.releaseDate,
+          releaseNotes: this.updateInfo.releaseNotes,
+        });
+        this.logToRenderer('%c[MacUpdater] 📤 已发送 update-downloaded 事件到渲染进程', 'background: #8b5cf6; color: white;');
+      } else {
+        this.logToRenderer('%c[MacUpdater] ❌ 窗口已销毁，无法发送事件', 'background: #ef4444; color: white;');
+      }
 
       return { success: true };
     } catch (error: any) {
-      console.error('[macOS 更新] 下载失败:', error);
+      this.logToRenderer('%c[MacUpdater] ❌ 下载失败', 'background: #ef4444; color: white; font-weight: bold;', {
+        message: error.message,
+        stack: error.stack?.split('\n')?.slice(0, 3)?.join('\n')
+      });
       return { success: false, error: error.message };
     }
   }
@@ -121,13 +178,29 @@ export class MacUpdater {
    * 安装更新
    */
   async installUpdate(): Promise<{ success: boolean; error?: string }> {
+    this.logToRenderer('%c[MacUpdater] 🔧 installUpdate() 被调用', 'background: #f59e0b; color: white; padding: 2px 5px; border-radius: 3px;');
+
     if (!this.downloadedZipPath || !fs.existsSync(this.downloadedZipPath)) {
+      this.logToRenderer('%c[MacUpdater] ❌ 未找到下载的更新包', 'background: #ef4444; color: white;', {
+        downloadedZipPath: this.downloadedZipPath,
+        exists: this.downloadedZipPath ? fs.existsSync(this.downloadedZipPath) : 'N/A'
+      });
       return { success: false, error: '未找到下载的更新包' };
     }
+
+    this.logToRenderer('%c[MacUpdater] ✅ 找到下载的更新包', 'background: #10b981; color: white;', {
+      path: this.downloadedZipPath,
+      size: `${(fs.statSync(this.downloadedZipPath).size / 1024 / 1024).toFixed(1)} MB`
+    });
 
     try {
       const tempDir = app.getPath('temp');
       const extractDir = path.join(tempDir, 'VideoStitcher-Extract');
+
+      this.logToRenderer('%c[MacUpdater] 📦 开始解压', 'background: #3b82f6; color: white;', {
+        源文件: this.downloadedZipPath,
+        目标目录: extractDir
+      });
 
       // 清理旧的解压目录
       if (fs.existsSync(extractDir)) {
@@ -135,11 +208,10 @@ export class MacUpdater {
       }
       fs.mkdirSync(extractDir, { recursive: true });
 
-      console.log('[macOS 更新] 解压到:', extractDir);
-
       // 使用 macOS 原生 ditto 解压 ZIP，保留代码签名、扩展属性和资源分支
       try {
         execSync(`ditto -xk "${this.downloadedZipPath}" "${extractDir}"`, { stdio: 'pipe' });
+        this.logToRenderer('%c[MacUpdater] ✅ 解压成功', 'background: #10b981; color: white;');
       } catch (dittoError: any) {
         throw new Error(`ditto 解压失败: ${dittoError.message}`);
       }
@@ -149,16 +221,20 @@ export class MacUpdater {
         execSync(`xattr -cr "${extractDir}"`, { stdio: 'pipe' });
       } catch {
         // 清除隔离属性失败不影响安装流程
-        console.warn('[macOS 更新] 清除隔离属性失败，继续安装');
+        this.logToRenderer('%c[MacUpdater] ⚠️ 清除隔离属性失败，继续安装', 'background: #f59e0b; color: white;');
       }
 
       // 查找 .app
+      this.logToRenderer('%c[MacUpdater] 🔍 查找 .app 文件', 'background: #8b5cf6; color: white;');
       const appPath = this.findAppInDirectory(extractDir);
       if (!appPath) {
+        this.logToRenderer('%c[MacUpdater] ❌ 未在解压目录中找到 .app 文件', 'background: #ef4444; color: white;', {
+          extractDir: extractDir
+        });
         throw new Error('未在解压目录中找到 .app 文件');
       }
 
-      console.log('[macOS 更新] 找到应用:', appPath);
+      this.logToRenderer('%c[MacUpdater] ✅ 找到应用', 'background: #10b981; color: white;', { appPath });
 
       // 验证找到的路径
       if (!appPath.endsWith('.app')) {
@@ -176,32 +252,39 @@ export class MacUpdater {
         throw new Error(`找到的 .app 包缺少 Contents 目录: ${appPath}`);
       }
 
-      console.log('[macOS 更新] 路径验证通过');
+      this.logToRenderer('%c[MacUpdater] ✅ 路径验证通过', 'background: #10b981; color: white;');
 
 
       // 获取当前应用路径
       const currentAppPath = this.getCurrentAppPath();
-      console.log('[macOS 更新] 当前应用路径:', currentAppPath);
+      this.logToRenderer('%c[MacUpdater] 📍 当前应用路径', 'background: #3b82f6; color: white;', { currentAppPath });
 
       // 获取主应用 PID
       const mainPid = process.pid;
-      console.log('[macOS 更新] 主应用 PID:', mainPid);
+      this.logToRenderer('%c[MacUpdater] 🔢 主应用 PID', 'background: #3b82f6; color: white;', { mainPid });
 
       // 创建更新脚本
+      this.logToRenderer('%c[MacUpdater] 📝 创建更新脚本', 'background: #8b5cf6; color: white;');
       const scriptPath = await this.createUpdateScript(currentAppPath, appPath, mainPid);
-      console.log('[macOS 更新] 更新脚本已创建:', scriptPath);
+      this.logToRenderer('%c[MacUpdater] ✅ 更新脚本已创建', 'background: #10b981; color: white;', { scriptPath });
 
       // 启动独立更新进程
+      this.logToRenderer('%c[MacUpdater] 🚀 启动更新脚本', 'background: #f59e0b; color: white;');
       this.launchUpdateScript(scriptPath);
 
+      this.logToRenderer('%c[MacUpdater] ⏳ 500ms 后退出应用', 'background: #f59e0b; color: white;');
       // 延迟退出，确保脚本已启动
       setTimeout(() => {
+        this.logToRenderer('%c[MacUpdater] 👋 应用即将退出', 'background: #ef4444; color: white;');
         app.quit();
       }, 500);
 
       return { success: true };
     } catch (error: any) {
-      console.error('[macOS 更新] 安装失败:', error);
+      this.logToRenderer('%c[MacUpdater] ❌ 安装失败', 'background: #ef4444; color: white; font-weight: bold;', {
+        message: error.message,
+        stack: error.stack?.split('\n')?.slice(0, 5)?.join('\n')
+      });
       return { success: false, error: error.message };
     }
   }
@@ -406,7 +489,7 @@ exit 0
    * 启动独立更新脚本
    */
   private launchUpdateScript(scriptPath: string): void {
-    console.log('[macOS 更新] 启动更新脚本:', scriptPath);
+    this.logToRenderer('%c[MacUpdater] 🔧 启动更新脚本', 'background: #8b5cf6; color: white;', { scriptPath });
 
     const child = spawn('/bin/bash', [scriptPath], {
       detached: true,      // 脱离父进程
@@ -419,7 +502,10 @@ exit 0
 
     child.unref();  // 允许父进程退出
 
-    console.log('[macOS 更新] 更新脚本已启动 (PID:', child.pid, ')');
+    this.logToRenderer('%c[MacUpdater] ✅ 更新脚本已启动', 'background: #10b981; color: white;', {
+      PID: child.pid,
+      detached: true
+    });
   }
 
   /**
@@ -470,9 +556,21 @@ exit 0
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const file = fs.createWriteStream(destPath);
+      let httpRequest: any = null;
 
-      const request = (downloadUrl: string) => {
-        https.get(downloadUrl, {
+      const cleanup = () => {
+        if (httpRequest) {
+          httpRequest.destroy();
+        }
+        try {
+          file.close();
+        } catch {
+          // 忽略关闭错误
+        }
+      };
+
+      const startDownload = (downloadUrl: string) => {
+        httpRequest = https.get(downloadUrl, {
           headers: {
             'User-Agent': 'VideoStitcher-Updater',
           },
@@ -480,12 +578,13 @@ exit 0
           // 处理重定向
           if (res.statusCode === 302 || res.statusCode === 301) {
             if (res.headers.location) {
-              request(res.headers.location);
+              startDownload(res.headers.location);
               return;
             }
           }
 
           if (res.statusCode !== 200) {
+            cleanup();
             reject(new Error(`HTTP ${res.statusCode}`));
             return;
           }
@@ -497,9 +596,16 @@ exit 0
             downloadedBytes += chunk.length;
             file.write(chunk);
 
-            if (totalBytes > 0) {
-              const percent = Math.round((downloadedBytes / totalBytes) * 100);
-              onProgress(percent);
+            // 检查窗口是否已销毁，如果已销毁则停止发送进度
+            if (this.mainWindow && !this.mainWindow.isDestroyed() && !this.mainWindow.webContents.isDestroyed()) {
+              if (totalBytes > 0) {
+                const percent = Math.round((downloadedBytes / totalBytes) * 100);
+                try {
+                  onProgress(percent);
+                } catch (error) {
+                  // 忽略进度回调错误
+                }
+              }
             }
           });
 
@@ -509,22 +615,30 @@ exit 0
           });
 
           res.on('error', (error: Error) => {
-            file.close();
+            cleanup();
             if (fs.existsSync(destPath)) {
-              fs.unlinkSync(destPath);
+              try {
+                fs.unlinkSync(destPath);
+              } catch {
+                // 忽略删除错误
+              }
             }
             reject(error);
           });
         }).on('error', (error: Error) => {
-          file.close();
+          cleanup();
           if (fs.existsSync(destPath)) {
-            fs.unlinkSync(destPath);
+            try {
+              fs.unlinkSync(destPath);
+            } catch {
+              // 忽略删除错误
+            }
           }
           reject(error);
         });
       };
 
-      request(url);
+      startDownload(url);
     });
   }
 }

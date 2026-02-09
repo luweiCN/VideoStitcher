@@ -128,28 +128,45 @@ export function setupUpdateHandlers(mainWindow: BrowserWindow): MacUpdater | nul
 
   // 下载更新
   ipcMain.handle('mac-download-update', async () => {
+    console.log('%c[更新处理器] 📥 收到 mac-download-update 请求', 'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px;');
+
     if (!macUpdater) {
+      console.error('%c[更新处理器] ❌ macUpdater 未初始化', 'background: #ef4444; color: white;');
       return { success: false, error: '更新管理器未初始化' };
     }
 
+    console.log('%c[更新处理器] ✅ macUpdater 存在，开始下载', 'background: #10b981; color: white;');
+
     try {
-      return await macUpdater.downloadUpdate();
+      const result = await macUpdater.downloadUpdate();
+      console.log('%c[更新处理器] 📊 下载结果', 'background: #8b5cf6; color: white;', result);
+      return result;
     } catch (error: any) {
-      console.error('[更新处理器] 下载更新失败:', error);
+      console.error('%c[更新处理器] ❌ 下载更新失败', 'background: #ef4444; color: white; font-weight: bold;', error);
       return { success: false, error: error.message };
     }
   });
 
   // 安装更新
   ipcMain.handle('mac-install-update', async () => {
+    console.log('%c[更新处理器] 🔧 收到 mac-install-update 请求', 'background: #f59e0b; color: white; padding: 2px 5px; border-radius: 3px;');
+
     if (!macUpdater) {
+      console.error('%c[更新处理器] ❌ macUpdater 未初始化', 'background: #ef4444; color: white;');
       return { success: false, error: '更新管理器未初始化' };
     }
 
+    console.log('%c[更新处理器] ✅ macUpdater 存在，开始安装', 'background: #10b981; color: white;');
+
     try {
-      return await macUpdater.installUpdate();
+      const result = await macUpdater.installUpdate();
+      console.log('%c[更新处理器] 📊 安装结果', 'background: #8b5cf6; color: white;', result);
+      return result;
     } catch (error: any) {
-      console.error('[更新处理器] 安装更新失败:', error);
+      console.error('%c[更新处理器] ❌ 安装更新失败', 'background: #ef4444; color: white; font-weight: bold;', {
+        message: error.message,
+        stack: error.stack?.split('\n')?.slice(0, 5)?.join('\n')
+      });
       return { success: false, error: error.message };
     }
   });

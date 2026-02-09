@@ -237,41 +237,65 @@ const AdminMode: React.FC<AdminModeProps> = ({
   };
 
   const handleDownloadUpdate = async () => {
+    console.log('%c[AdminMode] 📥 handleDownloadUpdate() 被调用', 'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px;');
+    console.log('[AdminMode] 当前平台:', { isMacOS, isWindows, platform: navigator.platform });
+
     setUpdateStatus('downloading');
     setUpdateError('');
 
     try {
       // macOS 使用应用内更新
+      console.log('[AdminMode] 开始调用下载 API...');
       const result = isMacOS
         ? await window.api.macDownloadUpdate()
         : await window.api.downloadUpdate();
 
+      console.log('[AdminMode] 下载 API 返回结果:', result);
+
       if (result.error) {
+        console.error('[AdminMode] 下载返回错误:', result.error);
         setUpdateError(result.error);
         setUpdateStatus('error');
       } else {
+        console.log('[AdminMode] 下载成功，等待 update-downloaded 事件...');
         // Windows 和 macOS 都会通过事件触发 downloaded 状态
         if (isWindows || isMacOS) {
           setTimeout(() => {
+            console.log('[AdminMode] setTimeout 触发，设置状态为 downloaded');
             setUpdateStatus('downloaded');
           }, 100);
         }
       }
     } catch (err: any) {
+      console.error('[AdminMode] 下载异常:', err);
       setUpdateError(err.message || '下载更新失败');
       setUpdateStatus('error');
     }
   };
 
   const handleInstallUpdate = async () => {
+    console.log('%c[AdminMode] 🔧 handleInstallUpdate() 被调用', 'background: #f59e0b; color: white; padding: 2px 5px; border-radius: 3px;');
+    console.log('[AdminMode] 当前平台:', { isMacOS, isWindows, platform: navigator.platform });
+
     try {
       // macOS 使用应用内更新
       if (isMacOS) {
-        await window.api.macInstallUpdate();
+        console.log('[AdminMode] 调用 macInstallUpdate()...');
+        const result = await window.api.macInstallUpdate();
+        console.log('[AdminMode] macInstallUpdate() 返回结果:', result);
+        if (result.error) {
+          console.error('[AdminMode] 安装返回错误:', result.error);
+          setUpdateError(result.error);
+          setUpdateStatus('error');
+        } else {
+          console.log('[AdminMode] 安装成功，应用应该即将退出');
+        }
       } else {
+        console.log('[AdminMode] 调用 Windows 安装...');
         await window.api.installUpdate();
       }
     } catch (err: any) {
+      console.error('[AdminMode] 安装异常:', err);
       setUpdateError(err.message || '安装更新失败');
       setUpdateStatus('error');
     }
