@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  FileVideo, ImageIcon, Play, Trash2, Loader2, ArrowLeft, FolderOpen,
+  FileVideo, ImageIcon, Play, Trash2, Loader2, FolderOpen,
   Settings, CheckCircle, RefreshCcw, Maximize, Monitor, ZoomIn, ZoomOut, Layers
 } from 'lucide-react';
 import { MaterialPositions, LayerId, LayerConfig } from '../types';
@@ -366,11 +366,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
         icon={Layers}
         iconColor="text-violet-400"
         description="横竖屏一体，图层管理，所有素材独立位置调整"
-        backButtonContent={
-          <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
-            <ArrowLeft className="w-4 h-4" /> 返回首页
-          </button>
-        }
         rightContent={
           <div className="flex items-center gap-3">
             <div className="flex items-center bg-gray-900 rounded-lg p-0.5 border border-gray-800">
