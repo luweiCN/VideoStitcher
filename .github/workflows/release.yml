@@ -174,7 +174,7 @@ jobs:
       - name: 构建 macOS
         run: |
           npm run build
-          npm run dist:mac -- --publish never
+          npm run dist:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -230,7 +230,7 @@ jobs:
         shell: pwsh
         run: |
           npm run build
-          npm run dist:win -- --publish never
+          npm run dist:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
