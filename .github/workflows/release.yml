@@ -103,7 +103,7 @@ jobs:
           if [ -z "$LAST_TAG" ]; then
             COMMITS="初始发布"
           else
-            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" || echo "无提交记录")
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" || echo "无提交记录")
           fi
 
           NOTES="## 📦 发布版本 ${NEW_VERSION}

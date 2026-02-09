@@ -336,6 +336,16 @@ const AdminMode: React.FC<AdminModeProps> = ({
     }
   };
 
+  /**
+   * 清理更新日志 HTML
+   * 移除 commit hash 链接，例如: (<a ...>94282b6</a>)
+   */
+  const cleanReleaseNotes = (html: string): string => {
+    // 移除包含 commit hash 的 <a> 标签
+    // 匹配模式: (<a class="commit-link" ...><tt>hash</tt></a>)
+    return html.replace(/\s*\(\<a\s+class="commit-link"[^>]*\>\<tt\>[0-9a-f]+\<\/tt\>\<\/a\>\)/gi, '');
+  };
+
   return (
     <div className="h-screen bg-[#0a0a0f] text-white overflow-hidden flex">
       {/* 动态背景 */}
@@ -952,7 +962,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                               <div className="text-xs text-slate-500 mb-2">更新说明</div>
                               <div
                                 className="text-sm text-slate-300 release-notes-html"
-                                dangerouslySetInnerHTML={{ __html: updateInfo.releaseNotes }}
+                                dangerouslySetInnerHTML={{ __html: cleanReleaseNotes(updateInfo.releaseNotes) }}
                               />
                             </div>
                           )}
