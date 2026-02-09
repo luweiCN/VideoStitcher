@@ -48,7 +48,7 @@ function buildArgs({
   const aPos = aPosition || defaultBgPosition;
   const bPos = bPosition || defaultBPosition;
   const bgPos = bgPosition || defaultBgPosition;
-  const cvPos = coverPosition || bPos;
+  const cvPos = coverPosition || defaultBgPosition; // 修正：默认封面也应该是全屏
 
   // 构建输入文件列表和索引管理
   let inputs = [];
@@ -111,7 +111,11 @@ function buildArgs({
   // ==================== 封面图处理 ====================
   if (coverIndex >= 0) {
     // 封面图：根据 cvPos 指定的大小和位置，叠加在黑色背景上
-    filters.push(`[${coverIndex}:v]scale=${cvPos.width}:${cvPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[cv_scaled];`);
+    // 修正：使用填充模式缩放，避免拉伸，并确保高质量
+    const cvCenterX = '(iw-' + cvPos.width + ')/2';
+    const cvCenterY = '(ih-' + cvPos.height + ')/2';
+    filters.push(`[${coverIndex}:v]scale=${cvPos.width}:${cvPos.height}:force_original_aspect_ratio=increase,crop=${cvPos.width}:${cvPos.height}:${cvCenterX}:${cvCenterY},setsar=1:1,fps=30,format=yuv420p[cv_scaled];`);
+    
     filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[cv_bg];`);
     // 修正：增加 shortest=1 确保封面叠加层不会无限延长
     filters.push(`[cv_bg][cv_scaled]overlay=${cvPos.x}:${cvPos.y}:shortest=1[cover_final_v];`);
@@ -153,8 +157,8 @@ function buildArgs({
     "-map", useConcat ? "[final_a]" : "[a1]",
     "-r", "30",
     "-c:v", "libx264",
-    "-preset", "ultrafast",
-    "-crf", "28",
+    "-preset", "superfast",
+    "-crf", "23",
     "-c:a", "aac",
     "-b:a", "128k",
     outPath

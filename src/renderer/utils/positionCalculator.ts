@@ -143,35 +143,13 @@ export function getInitialPositions(
     height: bHeight,
   };
 
-  // 4. 封面图：根据实际图片尺寸或使用 B 面位置
-  let coverWidth: number;
-  let coverHeight: number;
-
-  if (coverImageMetadata) {
-    // 如果有封面图元数据，根据实际尺寸和画布大小计算合适的显示尺寸
-    const coverAspect = coverImageMetadata.width / coverImageMetadata.height;
-    const canvasAspect = width / height;
-
-    // 计算合适的封面图尺寸（最大为画布的 80%，避免太大）
-    const maxScale = 0.8;
-    if (coverAspect > canvasAspect) {
-      // 封面图更宽，按宽度适配
-      coverWidth = width * maxScale;
-      coverHeight = coverWidth / coverAspect;
-    } else {
-      // 封面图更高或接近，按高度适配
-      coverHeight = height * maxScale;
-      coverWidth = coverHeight * coverAspect;
-    }
-  } else {
-    // 没有元数据时，使用 B 面位置
-    coverWidth = bWidth;
-    coverHeight = bHeight;
-  }
+  // 4. 封面图：默认铺满全屏
+  const coverWidth = width;
+  const coverHeight = height;
 
   const coverImage: Position = {
-    x: (width - coverWidth) / 2,
-    y: (height - coverHeight) / 2,
+    x: 0,
+    y: 0,
     width: coverWidth,
     height: coverHeight,
   };
