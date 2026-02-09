@@ -20,6 +20,7 @@ import {
   Code,
   ExternalLink
 } from 'lucide-react';
+import { useGlobalSettings } from '../hooks/useGlobalSettings';
 
 interface AdminModeProps {
   onBack: () => void;
@@ -61,17 +62,17 @@ const AdminMode: React.FC<AdminModeProps> = ({
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [activeSection, setActiveSection] = useState<'system' | 'settings' | 'updates'>('system');
 
-  // 全局配置状态
-  const [globalSettings, setGlobalSettings] = useState<{
-    defaultOutputDir: string;
-    defaultConcurrency: number;
-  }>({
-    defaultOutputDir: '',
-    defaultConcurrency: 3
-  });
+  // 使用全局配置 hook 管理状态
+  const {
+    globalSettings,
+    setGlobalSettings,
+    isSaving: isSavingSettings,
+    hasChanges,
+    saveSettings: saveGlobalSettings
+  } = useGlobalSettings();
+
+  // 系统默认下载目录（用于显示）
   const [systemDefaultDownloadDir, setSystemDefaultDownloadDir] = useState<string>('');
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [settingsSaved, setSettingsSaved] = useState(false);
 
   // 检测是否为 macOS
   const isMacOS = navigator.platform.includes('Mac');
@@ -123,9 +124,6 @@ const AdminMode: React.FC<AdminModeProps> = ({
         window.api.macSetUpdateInfo(initialUpdateInfo);
       }
     }
-
-    // 加载全局配置
-    loadGlobalSettings();
   }, [initialUpdateInfo, gotoSection, onSectionHandled]);
 
   // 监听标签变化，通知 App 组件当前是否在版本更新标签
@@ -148,30 +146,18 @@ const AdminMode: React.FC<AdminModeProps> = ({
     return cleanup;
   }, [activeSection]);
 
-  const loadGlobalSettings = async () => {
-    try {
-      const result = await window.api.getGlobalSettings();
-
-      // 获取系统默认下载目录（用于显示）
-      let systemDownloadDir = '';
+  // 获取系统默认下载目录（用于显示）
+  useEffect(() => {
+    const fetchSystemDefaultDir = async () => {
       try {
-        systemDownloadDir = await window.api.getDefaultDownloadDir() || '';
+        const systemDownloadDir = await window.api.getDefaultDownloadDir() || '';
+        setSystemDefaultDownloadDir(systemDownloadDir);
       } catch (err) {
         console.error('获取默认下载目录失败:', err);
       }
-      setSystemDefaultDownloadDir(systemDownloadDir);
-
-      if (result) {
-        // main.js 已经自动处理了空值，直接使用返回的值
-        setGlobalSettings({
-          defaultOutputDir: result.defaultOutputDir || '',
-          defaultConcurrency: result.defaultConcurrency || 3
-        });
-      }
-    } catch (err) {
-      console.error('加载全局配置失败:', err);
-    }
-  };
+    };
+    fetchSystemDefaultDir();
+  }, []);
 
   const loadSystemInfo = async () => {
     try {
@@ -309,22 +295,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
 
   // 保存全局配置
   const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
-    setSettingsSaved(false);
-
-    try {
-      const result = await window.api.setGlobalSettings(globalSettings);
-      if (result.success) {
-        setSettingsSaved(true);
-        // 移除自动重置，保持已保存状态直到用户再次修改
-      } else {
-        alert(`保存失败: ${result.error}`);
-      }
-    } catch (err: any) {
-      alert(`保存失败: ${err.message}`);
-    } finally {
-      setIsSavingSettings(false);
-    }
+    await saveGlobalSettings();
   };
 
   // 监听更新进度
@@ -681,7 +652,6 @@ const AdminMode: React.FC<AdminModeProps> = ({
                                 const dir = await window.api.pickOutDir(globalSettings.defaultOutputDir);
                                 if (dir) {
                                   setGlobalSettings(prev => ({ ...prev, defaultOutputDir: dir }));
-                                  setSettingsSaved(false);
                                 }
                               } catch (err) {
                                 console.error('选择目录失败:', err);
@@ -717,7 +687,6 @@ const AdminMode: React.FC<AdminModeProps> = ({
                               value={globalSettings.defaultConcurrency}
                               onChange={(e) => {
                                 setGlobalSettings(prev => ({ ...prev, defaultConcurrency: parseInt(e.target.value) }));
-                                setSettingsSaved(false);
                               }}
                               className="w-full h-2 bg-slate-800 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gradient-to-r [&::-webkit-slider-thumb]:from-amber-600 [&::-webkit-slider-thumb]:to-orange-600 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:shadow-amber-600/30 [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:hover:scale-110"
                             />
@@ -738,7 +707,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                     {/* 保存按钮 */}
                     <div className="flex justify-end items-center gap-3 pt-6 border-t border-slate-800/50 mt-6">
                       {/* 未保存提示 */}
-                      {!isSavingSettings && !settingsSaved && (
+                      {hasChanges && (
                         <span className="text-amber-400 text-sm flex items-center gap-1.5">
                           <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
                           有未保存修改
@@ -750,9 +719,9 @@ const AdminMode: React.FC<AdminModeProps> = ({
                         className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
                           isSavingSettings
                             ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                            : settingsSaved
-                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
-                            : 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/20 hover:shadow-amber-600/30'
+                            : hasChanges
+                            ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/20 hover:shadow-amber-600/30'
+                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                         }`}
                       >
                         {isSavingSettings ? (
@@ -760,15 +729,15 @@ const AdminMode: React.FC<AdminModeProps> = ({
                             <Loader2 className="w-4 h-4 animate-spin" />
                             保存中...
                           </>
-                        ) : settingsSaved ? (
-                          <>
-                            <CheckCircle className="w-4 h-4" />
-                            已保存
-                          </>
-                        ) : (
+                        ) : hasChanges ? (
                           <>
                             <Save className="w-4 h-4" />
                             保存配置
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            已保存
                           </>
                         )}
                       </button>
