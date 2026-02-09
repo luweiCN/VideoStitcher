@@ -63,17 +63,17 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
         const result = await (window.api as any).getCpuCount();
         if (result?.success && result.cpuCount) {
           const cpuCount = result.cpuCount;
-          // 最大并发数 = CPU 核心数（用户可以调整）
-          setMaxConcurrency(cpuCount);
+          // 最大并发数限制为 16（与其他模块保持一致）
+          setMaxConcurrency(Math.min(cpuCount, 16));
         } else {
           // 备用方案：使用 navigator.hardwareConcurrency
           const cpuCount = navigator.hardwareConcurrency || 4;
-          setMaxConcurrency(cpuCount);
+          setMaxConcurrency(Math.min(cpuCount, 16));
         }
       } catch (err) {
         // 备用方案：使用 navigator.hardwareConcurrency
         const cpuCount = navigator.hardwareConcurrency || 4;
-        setMaxConcurrency(cpuCount);
+        setMaxConcurrency(Math.min(cpuCount, 16));
       }
     };
     initCpuCount();
