@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Upload, Loader2, FolderOpen, Grid3X3, CheckCircle, XCircle, ArrowLeft, AlertCircle } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 interface LosslessGridModeProps {
   onBack: () => void;
@@ -299,19 +300,13 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans">
-      {/* Header */}
-      <header className="h-16 border-b border-slate-800 flex items-center px-6 justify-between bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h2 className="font-bold text-lg flex items-center gap-2 text-cyan-400">
-            <Grid3X3 className="w-5 h-5" />
-            专业无损九宫格
-            <span className="text-slate-500 text-sm font-normal px-2 py-0.5 border border-slate-800 rounded bg-slate-900">特殊用途 · 原画质 · 无压缩</span>
-          </h2>
-        </div>
-      </header>
+      <PageHeader
+        onBack={onBack}
+        title="专业无损九宫格"
+        icon={Grid3X3}
+        iconColor="text-cyan-400"
+        description="1:1原图，无损无压缩九宫格切割"
+      />
 
       <main className="flex-1 p-6 flex gap-6 overflow-hidden max-h-[calc(100vh-64px)]">
         {/* Left: Input & Controls */}

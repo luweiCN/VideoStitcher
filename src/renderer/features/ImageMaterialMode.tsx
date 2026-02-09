@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, MouseEvent } from 'react';
 import { ArrowLeft, Upload, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 /**
  * 图片文件状态
@@ -462,19 +463,13 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
 
   return (
     <div className="h-screen bg-slate-950 text-white flex flex-col">
-      {/* Header */}
-      <header className="h-16 border-b border-slate-800 flex items-center px-6 justify-between bg-slate-900/50 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-full text-slate-400">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h2 className="font-bold text-lg flex items-center gap-2">
-            <Layers className="w-5 h-5 text-amber-400" />
-            图片素材处理工具
-            <span className="text-slate-500 text-sm font-normal">(Logo合成 + 九宫格切图)</span>
-          </h2>
-        </div>
-      </header>
+      <PageHeader
+        onBack={onBack}
+        title="图片素材处理"
+        icon={Layers}
+        iconColor="text-amber-400"
+        description="批量加Logo，导出九宫格切片和预览图"
+      />
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧：控制面板 */}

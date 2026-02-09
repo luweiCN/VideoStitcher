@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   FileVideo, ImageIcon, Play, Trash2, Loader2, ArrowLeft, FolderOpen,
-  Settings, CheckCircle, RefreshCcw, Maximize, Monitor, ZoomIn, ZoomOut
+  Settings, CheckCircle, RefreshCcw, Maximize, Monitor, ZoomIn, ZoomOut, Layers
 } from 'lucide-react';
 import { MaterialPositions, LayerId, LayerConfig } from '../types';
 import VideoEditor from '../components/VideoEditor';
 import LayerSidebar from '../components/LayerSidebar';
+import PageHeader from '../components/PageHeader';
 import { getCanvasConfig, getInitialPositions, getDefaultLayerConfigs } from '../utils/positionCalculator';
 
 interface VideoMergeModeProps {
@@ -359,21 +360,49 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
 
   return (
     <div className="h-screen flex flex-col bg-slate-950 text-slate-100 font-sans overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900">
-        <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
-          <ArrowLeft className="w-4 h-4" /> 返回首页
-        </button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-black flex items-center gap-2 text-white">极速合成</h1>
-          <div className="flex items-center bg-slate-800 rounded-lg p-1">
-            <button onClick={() => setOrientation('horizontal')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${orientation === 'horizontal' ? `bg-violet-600 text-white` : 'text-slate-400 hover:text-white'}`}>横屏</button>
-            <button onClick={() => setOrientation('vertical')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${orientation === 'vertical' ? `bg-indigo-600 text-white` : 'text-slate-400 hover:text-white'}`}>竖屏</button>
-          </div>
-          <button onClick={() => setShowHelp(!showHelp)} className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400">
-            <Settings className="w-5 h-5" />
+      <PageHeader
+        onBack={onBack}
+        title="极速合成"
+        icon={Layers}
+        iconColor="text-violet-400"
+        description="横竖屏一体，图层管理，所有素材独立位置调整"
+        backButtonContent={
+          <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
+            <ArrowLeft className="w-4 h-4" /> 返回首页
           </button>
-        </div>
-      </div>
+        }
+        rightContent={
+          <div className="flex items-center gap-3">
+            <div className="flex items-center bg-gray-900 rounded-lg p-0.5 border border-gray-800">
+              <button
+                onClick={() => setOrientation('horizontal')}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                  orientation === 'horizontal' ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20' : 'text-gray-400 hover:text-white'
+                }`}
+                type="button"
+              >
+                横屏
+              </button>
+              <button
+                onClick={() => setOrientation('vertical')}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                  orientation === 'vertical' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-gray-400 hover:text-white'
+                }`}
+                type="button"
+              >
+                竖屏
+              </button>
+            </div>
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="p-2 hover:bg-gray-800 rounded-full transition-colors text-gray-400"
+              type="button"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
+        }
+      />
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         <div className="w-full md:w-[400px] p-6 border-r border-slate-800 flex flex-col gap-5 bg-slate-900 shadow-2xl z-20 overflow-y-auto">

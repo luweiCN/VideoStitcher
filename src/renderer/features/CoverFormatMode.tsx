@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft, Upload, Loader2, Play, Trash2, CheckCircle,
-  FolderOpen, Image as ImageIcon, XCircle, AlertCircle
+  FolderOpen, Image as ImageIcon, XCircle, AlertCircle, Image
 } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 interface CoverFormatModeProps {
   onBack: () => void;
@@ -223,37 +224,33 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
 
   return (
     <div className="h-screen bg-slate-950 text-white flex flex-col">
-      {/* Header */}
-      <header className="h-16 border-b border-slate-800 flex items-center px-6 justify-between bg-slate-900/50 backdrop-blur-md shrink-0">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="font-bold text-lg">封面格式转换器</h2>
-            <p className="text-slate-500 text-xs">自动检测 横屏/竖屏/方形 并转换</p>
-          </div>
-        </div>
-
-        {/* 进度显示 */}
-        {progress.total > 0 && (
-          <div className="flex items-center gap-4">
-            <div className="text-sm">
-              <span className="font-bold text-fuchsia-400">{progress.done}</span>
-              <span className="text-slate-500"> / {progress.total}</span>
-              {progress.failed > 0 && (
-                <span className="ml-2 text-red-400">(失败 {progress.failed})</span>
-              )}
+      <PageHeader
+        onBack={onBack}
+        title="封面格式转换"
+        icon={Image}
+        iconColor="text-fuchsia-400"
+        description="自动检测比例，横版转1920x1080，竖版转1080x1920"
+        rightContent={
+          /* 进度显示 */
+          progress.total > 0 ? (
+            <div className="flex items-center gap-4">
+              <div className="text-sm">
+                <span className="font-bold text-fuchsia-400">{progress.done}</span>
+                <span className="text-gray-500"> / {progress.total}</span>
+                {progress.failed > 0 && (
+                  <span className="ml-2 text-red-400">(失败 {progress.failed})</span>
+                )}
+              </div>
+              <div className="w-32 bg-gray-800 rounded-full h-2">
+                <div
+                  className="bg-fuchsia-500 h-2 rounded-full transition-all"
+                  style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                />
+              </div>
             </div>
-            <div className="w-32 bg-slate-800 rounded-full h-2">
-              <div
-                className="bg-fuchsia-500 h-2 rounded-full transition-all"
-                style={{ width: `${(progress.done / progress.total) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </header>
+          ) : null
+        }
+      />
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">

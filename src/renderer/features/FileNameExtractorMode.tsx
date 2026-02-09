@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle } from 'lucide-react';
 import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
+import PageHeader from '../components/PageHeader';
 
 interface FileNameExtractorModeProps {
   onBack: () => void;
@@ -395,24 +396,17 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 p-8 text-white flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold">视频/图片文件名提取</h1>
-            <p className="text-slate-400 text-sm">批量导入视频或图片，多种格式导出</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        onBack={onBack}
+        title="文件名提取"
+        icon={FileText}
+        iconColor="text-pink-400"
+        description="批量提取视频/图片文件名，一键生成列表"
+      />
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="flex-1 p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 左侧：上传和设置区域 */}
         <div className="lg:col-span-1 space-y-6 flex flex-col h-[calc(100vh-140px)]">
           {/* 上传区域 */}

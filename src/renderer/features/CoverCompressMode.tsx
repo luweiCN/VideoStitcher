@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   ArrowLeft, Upload, Loader2, Play, Trash2, CheckCircle,
-  FolderOpen, Image as ImageIcon, XCircle, Settings, Cpu
+  FolderOpen, Image as ImageIcon, XCircle, Settings, Cpu, Shrink
 } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 interface CoverCompressModeProps {
   onBack: () => void;
@@ -339,44 +340,42 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
 
   return (
     <div className="h-screen bg-slate-950 text-white flex flex-col">
-      {/* Header */}
-      <header className="h-16 border-b border-slate-800 flex items-center px-6 justify-between bg-slate-900/50 backdrop-blur-md shrink-0">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="font-bold text-lg">封面压缩 ({targetSizeKB}K)</h2>
-            <p className="text-slate-500 text-xs">自动压缩至 ~{targetSizeKB}KB</p>
+      <PageHeader
+        onBack={onBack}
+        title="封面压缩"
+        icon={Shrink}
+        iconColor="text-emerald-400"
+        description={`智能压缩，自动调整质量与尺寸至 ~${targetSizeKB}KB`}
+        rightContent={
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="p-2 hover:bg-gray-800 rounded-full transition-colors text-gray-400"
+              title="帮助"
+              type="button"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+            {progress.total > 0 && (
+              <>
+                <div className="text-sm">
+                  <span className="font-bold text-emerald-400">{progress.done}</span>
+                  <span className="text-gray-500"> / {progress.total}</span>
+                  {progress.failed > 0 && (
+                    <span className="ml-2 text-red-400">(失败 {progress.failed})</span>
+                  )}
+                </div>
+                <div className="w-32 bg-gray-800 rounded-full h-2">
+                  <div
+                    className="bg-emerald-500 h-2 rounded-full transition-all"
+                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                  />
+                </div>
+              </>
+            )}
           </div>
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors ml-2"
-            title="帮助"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* 进度显示 */}
-        {progress.total > 0 && (
-          <div className="flex items-center gap-4">
-            <div className="text-sm">
-              <span className="font-bold text-emerald-400">{progress.done}</span>
-              <span className="text-slate-500"> / {progress.total}</span>
-              {progress.failed > 0 && (
-                <span className="ml-2 text-red-400">(失败 {progress.failed})</span>
-              )}
-            </div>
-            <div className="w-32 bg-slate-800 rounded-full h-2">
-              <div
-                className="bg-emerald-500 h-2 rounded-full transition-all"
-                style={{ width: `${(progress.done / progress.total) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </header>
+        }
+      />
 
       {/* 帮助面板 */}
       {showHelp && (

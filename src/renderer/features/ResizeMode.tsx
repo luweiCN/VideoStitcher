@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileVideo, Play, Trash2, Loader2, ArrowLeft, FolderOpen, Settings, CheckCircle, Maximize2, Eye, ChevronLeft, ChevronRight, Pause, Volume2, VolumeX } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 interface ResizeModeProps {
   onBack: () => void;
@@ -445,31 +446,30 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
   return (
     <div className="h-screen bg-slate-950 text-white flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="h-14 border-b border-slate-800 flex items-center px-4 bg-slate-900/50 shrink-0">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors mr-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          返回
-        </button>
-        <h1 className="text-lg font-bold text-rose-400">智能改尺寸</h1>
-        <div className="ml-auto flex items-center gap-2">
-          {videos.length > 0 && (
-            <span className="text-sm text-slate-400">
-              {currentVideoIndex + 1} / {videos.length}
-            </span>
-          )}
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-            title="帮助"
-          >
-            <Settings className="w-4 h-4 text-slate-400" />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        onBack={onBack}
+        title="智能改尺寸"
+        icon={Maximize2}
+        iconColor="text-rose-400"
+        description="Siya/海外捕鱼/尺寸统一，智能模糊背景填充"
+        rightContent={
+          <div className="flex items-center gap-2">
+            {videos.length > 0 && (
+              <span className="text-sm text-gray-400">
+                {currentVideoIndex + 1} / {videos.length}
+              </span>
+            )}
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              title="帮助"
+              type="button"
+            >
+              <Settings className="w-4 h-4 text-gray-400" />
+            </button>
+          </div>
+        }
+      />
 
       {/* Help Panel */}
       {showHelp && (

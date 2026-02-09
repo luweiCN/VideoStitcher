@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  ArrowLeft, Upload, Loader2, FolderOpen, Settings, Film, Link2,
+  Upload, Loader2, FolderOpen, Settings, Film, Link2,
   Eye, X, Play, Monitor, Smartphone, Plus, Trash2
 } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 interface VideoStitcherModeProps {
   onBack: () => void;
@@ -406,22 +407,14 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   return (
     <div className="h-screen flex flex-col bg-[#0a0a0f] text-gray-100">
       {/* Header */}
-      <header className="h-14 border-b border-gray-800 bg-[#12121a] flex items-center px-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 hover:bg-gray-800 rounded-lg text-gray-400 transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <h1 className="text-base font-bold text-white flex items-center gap-2">
-              <Link2 className="w-4 h-4 text-pink-500" />
-              A+B 前后拼接
-            </h1>
-            <p className="text-xs text-gray-500 mt-0.5">将两个视频前后拼接成一个完整视频</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 ml-auto">
-          {/* 横竖版切换 */}
+      <PageHeader
+        onBack={onBack}
+        title="A+B 前后拼接"
+        icon={Link2}
+        iconColor="text-pink-500"
+        description="将两个视频前后拼接成一个完整视频"
+        rightContent={
+          /* 横竖版切换 */
           <div className="flex items-center bg-gray-900 rounded-lg p-0.5 border border-gray-800">
             <button
               onClick={() => setOrientation('landscape')}
@@ -430,6 +423,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                   ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20'
                   : 'text-gray-400 hover:text-white'
               }`}
+              type="button"
             >
               <Monitor className="w-3.5 h-3.5" />
               横版
@@ -441,13 +435,14 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
                   : 'text-gray-400 hover:text-white'
               }`}
+              type="button"
             >
               <Smartphone className="w-3.5 h-3.5" />
               竖版
             </button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       {/* Main Content */}
       <main className="flex-1 flex overflow-hidden">
