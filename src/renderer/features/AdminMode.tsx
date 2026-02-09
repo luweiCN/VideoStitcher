@@ -650,10 +650,9 @@ const AdminMode: React.FC<AdminModeProps> = ({
                           <div className="flex-1 p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl">
                             {globalSettings.defaultOutputDir ? (
                               <>
-                                <div className="text-sm text-slate-300 truncate mb-1" title={globalSettings.defaultOutputDir}>
+                                <div className="text-sm text-slate-300 truncate" title={globalSettings.defaultOutputDir}>
                                   {globalSettings.defaultOutputDir}
                                 </div>
-                                <div className="text-xs text-slate-500">自定义默认目录</div>
                               </>
                             ) : systemDefaultDownloadDir ? (
                               <>
