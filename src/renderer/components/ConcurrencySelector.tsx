@@ -234,20 +234,17 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
                         <div className="flex items-start gap-2">
                           <Check className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
                           <div>
-                            <span className="text-slate-200 font-medium">推荐值 {recommended}</span>
-                            <span className="text-slate-400 block mt-0.5">CPU 核心 {systemCpuCount} 的一半，平衡性能与响应</span>
+                            <span className="text-slate-200 font-medium">推荐值 {recommended} (CPU 核心 {systemCpuCount} 的一半)</span>
+                            <span className="text-slate-400 block mt-0.5">平衡性能与响应</span>
                           </div>
                         </div>
                         <div className="flex items-start gap-2">
                           <Zap className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                           <div>
-                            <span className="text-slate-200 font-medium">最大值 {effectiveMax}</span>
-                            <span className="text-slate-400 block mt-0.5">
-                              {effectiveMax === 16
-                                ? `限制为 16（CPU 核心 ${systemCpuCount}）`
-                                : `CPU 核心 ${systemCpuCount}`}
-                              ，最快速度，系统可能变慢
+                            <span className="text-slate-200 font-medium">
+                              最大值 {effectiveMax} ({effectiveMax === 16 ? `限制为 16，CPU 核心 ${systemCpuCount}` : `CPU 核心 ${systemCpuCount}`})
                             </span>
+                            <span className="text-slate-400 block mt-0.5">最快速度，系统可能变慢</span>
                           </div>
                         </div>
                         {effectiveMax === 16 && (
