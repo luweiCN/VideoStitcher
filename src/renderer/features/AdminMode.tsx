@@ -715,7 +715,14 @@ const AdminMode: React.FC<AdminModeProps> = ({
                     </div>
 
                     {/* 保存按钮 */}
-                    <div className="flex justify-end pt-6 border-t border-slate-800/50 mt-6">
+                    <div className="flex justify-end items-center gap-3 pt-6 border-t border-slate-800/50 mt-6">
+                      {/* 未保存提示 */}
+                      {!isSavingSettings && !settingsSaved && (
+                        <span className="text-amber-400 text-sm flex items-center gap-1.5">
+                          <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                          有未保存修改
+                        </span>
+                      )}
                       <button
                         onClick={handleSaveSettings}
                         disabled={isSavingSettings}
