@@ -693,7 +693,6 @@ const AdminMode: React.FC<AdminModeProps> = ({
                           <ConcurrencySelector
                             value={globalSettings.defaultConcurrency}
                             onChange={(value) => setGlobalSettings(prev => ({ ...prev, defaultConcurrency: value }))}
-                            max={Math.min(systemInfo?.cpuCount || 4, 16)}
                             themeColor="amber"
                           />
                         </div>
