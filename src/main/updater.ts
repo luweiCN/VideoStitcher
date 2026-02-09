@@ -65,42 +65,78 @@ export class MacUpdater {
   }
 
   /**
+   * 将 Markdown 格式的 Release Notes 转换为简洁的 HTML
+   * 与 GitHub 渲染的格式保持一致，不添加 Tailwind 类
+   * @param markdown Markdown 文本
+   * @returns HTML 文本
+   */
+  private markdownToSimpleHtml(markdown: string): string {
+    if (!markdown) return '';
+
+    let html = markdown;
+
+    // H2 标题 - 简洁格式，不添加 Tailwind 类
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+
+    // H3 标题
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+
+    // H4 标题
+    html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+
+    // 粗体
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+    // 处理列表：先标记列表项
+    html = html.replace(/^- (.+)$/gm, '___LIST_ITEM___<li>$1</li>');
+
+    // 将连续的列表项包装在 ul 中
+    html = html.replace(/(___LIST_ITEM___<li.*?<\/li>\n?)+/g, (match) => {
+      const items = match.replace(/___LIST_ITEM___/g, '');
+      return `<ul>${items}</ul>`;
+    });
+
+    // 单换行转换为 <br>
+    html = html.replace(/([^\n])\n([^\n])/g, '$1<br>$2');
+
+    return html;
+  }
+
+  /**
    * 将 Markdown 格式的 Release Notes 转换为 HTML
+   * 优化间距，避免间距过大的问题
    * @param markdown Markdown 文本
    * @returns HTML 文本
    */
   private markdownToHtml(markdown: string): string {
     if (!markdown) return '';
-    
+
     let html = markdown;
-    
-    // H2 标题
-    html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mb-3 text-white">$1</h2>');
-    
-    // H3 标题
-    html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-indigo-300">$1</h3>');
-    
-    // H4 标题
-    html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-medium mt-3 mb-1 text-slate-200">$1</h4>');
-    
+
+    // H2 标题 - 减少上下间距
+    html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mb-2 mt-3 text-white">$1</h2>');
+
+    // H3 标题 - 减少上下间距
+    html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-3 mb-2 text-indigo-300">$1</h3>');
+
+    // H4 标题 - 减少上下间距
+    html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-medium mt-2 mb-1 text-slate-200">$1</h4>');
+
     // 粗体
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
-    
-    // 处理列表：先标记列表项，然后包装
+
+    // 处理列表：先标记列表项
     html = html.replace(/^- (.+)$/gm, '___LIST_ITEM___<li class="ml-4 text-slate-300">$1</li>');
-    
-    // 将连续的列表项包装在 ul 中
+
+    // 将连续的列表项包装在 ul 中，减少间距
     html = html.replace(/(___LIST_ITEM___<li.*?<\/li>\n?)+/g, (match) => {
       const items = match.replace(/___LIST_ITEM___/g, '');
-      return `<ul class="list-disc ml-4 space-y-1 my-2">${items}</ul>`;
+      return `<ul class="list-disc ml-4 my-2">${items}</ul>`;
     });
-    
-    // 单换行（在双换行之前处理）
-    html = html.replace(/([^\n])\n([^\n])/g, '$1<br />$2');
-    
-    // 段落（双换行）
-    html = html.replace(/\n\n+/g, '<div class="my-2"></div>');
-    
+
+    // 段落（双换行）- 减少间距
+    html = html.replace(/\n\n+/g, '<div class="my-1"></div>');
+
     return html;
   }
 
@@ -171,7 +207,7 @@ export class MacUpdater {
       this.updateInfo = {
         version: latestVersion,
         releaseDate: response.published_at,
-        releaseNotes: response.body || '', // 直接使用原始 Markdown，由前端 CSS 控制样式
+        releaseNotes: this.markdownToSimpleHtml(response.body || ''),
         downloadUrl: asset.browser_download_url,
         fileSize: asset.size,
       };

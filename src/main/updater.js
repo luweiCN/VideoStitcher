@@ -86,6 +86,7 @@ class MacUpdater {
     }
     /**
      * 将 Markdown 格式的 Release Notes 转换为 HTML
+     * 优化间距，避免间距过大的问题
      * @param markdown Markdown 文本
      * @returns HTML 文本
      */
@@ -93,25 +94,23 @@ class MacUpdater {
         if (!markdown)
             return '';
         let html = markdown;
-        // H2 标题
-        html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mb-3 text-white">$1</h2>');
-        // H3 标题
-        html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-indigo-300">$1</h3>');
-        // H4 标题
-        html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-medium mt-3 mb-1 text-slate-200">$1</h4>');
+        // H2 标题 - 减少上下间距
+        html = html.replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mb-2 mt-3 text-white">$1</h2>');
+        // H3 标题 - 减少上下间距
+        html = html.replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-3 mb-2 text-indigo-300">$1</h3>');
+        // H4 标题 - 减少上下间距
+        html = html.replace(/^#### (.+)$/gm, '<h4 class="text-base font-medium mt-2 mb-1 text-slate-200">$1</h4>');
         // 粗体
         html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-white">$1</strong>');
-        // 处理列表：先标记列表项，然后包装
+        // 处理列表：先标记列表项
         html = html.replace(/^- (.+)$/gm, '___LIST_ITEM___<li class="ml-4 text-slate-300">$1</li>');
-        // 将连续的列表项包装在 ul 中
+        // 将连续的列表项包装在 ul 中，减少间距
         html = html.replace(/(___LIST_ITEM___<li.*?<\/li>\n?)+/g, (match) => {
             const items = match.replace(/___LIST_ITEM___/g, '');
-            return `<ul class="list-disc ml-4 space-y-1 my-2">${items}</ul>`;
+            return `<ul class="list-disc ml-4 my-2">${items}</ul>`;
         });
-        // 单换行（在双换行之前处理）
-        html = html.replace(/([^\n])\n([^\n])/g, '$1<br />$2');
-        // 段落（双换行）
-        html = html.replace(/\n\n+/g, '<div class="my-2"></div>');
+        // 段落（双换行）- 减少间距
+        html = html.replace(/\n\n+/g, '<div class="my-1"></div>');
         return html;
     }
     /**
@@ -274,8 +273,11 @@ class MacUpdater {
             // 获取当前应用路径
             const currentAppPath = this.getCurrentAppPath();
             console.log('[macOS 更新] 当前应用路径:', currentAppPath);
+            // 获取主应用 PID
+            const mainPid = process.pid;
+            console.log('[macOS 更新] 主应用 PID:', mainPid);
             // 创建更新脚本
-            const scriptPath = await this.createUpdateScript(currentAppPath, appPath);
+            const scriptPath = await this.createUpdateScript(currentAppPath, appPath, mainPid);
             console.log('[macOS 更新] 更新脚本已创建:', scriptPath);
             // 启动独立更新进程
             this.launchUpdateScript(scriptPath);
@@ -362,8 +364,11 @@ class MacUpdater {
     }
     /**
      * 创建更新脚本
+     * @param oldAppPath 旧应用路径
+     * @param newAppPath 新应用路径
+     * @param mainPid 主应用进程 ID
      */
-    async createUpdateScript(oldAppPath, newAppPath) {
+    async createUpdateScript(oldAppPath, newAppPath, mainPid) {
         const tempDir = electron_1.app.getPath('temp');
         const scriptPath = path.join(tempDir, 'update-install.sh');
         const logPath = path.join(tempDir, 'updater.log');
@@ -382,11 +387,12 @@ LOG="${logPath}"
 echo "========================================" > "$LOG"
 echo "VideoStitcher 自动更新" >> "$LOG"
 echo "时间: $(date)" >> "$LOG"
+echo "主应用 PID: ${mainPid}" >> "$LOG"
 echo "========================================" >> "$LOG"
 
 # 等待主应用完全退出
 echo "等待主应用退出..." >> "$LOG"
-PID=${process.pid}
+PID=${mainPid}
 WAIT_COUNT=0
 while ps -p $PID > /dev/null 2>&1; do
   sleep 0.5
