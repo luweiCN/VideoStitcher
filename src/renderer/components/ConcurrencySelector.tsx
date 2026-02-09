@@ -242,7 +242,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
                           <Zap className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
                           <div>
                             <span className="text-slate-200 font-medium">
-                              最大值 {effectiveMax} (CPU 核心数但最高不超过 16)
+                              最大值 {effectiveMax} (CPU 核心数，最高不超过 16)
                             </span>
                             <span className="text-slate-400 block mt-0.5">最快速度，系统可能变慢</span>
                           </div>
