@@ -941,10 +941,10 @@ ipcMain.handle("get-global-settings", async () => {
       console.log('[全局配置] 使用系统下载目录:', settings.defaultOutputDir);
     }
 
-    return settings;
+    return { success: true, settings };
   } catch (err) {
     console.error('[全局配置] 读取失败:', err);
-    return { ...DEFAULT_SETTINGS, defaultOutputDir: app.getPath('downloads') };
+    return { success: false, error: err.message };
   }
 });
 
