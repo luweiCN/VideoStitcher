@@ -79,11 +79,21 @@ export function setupUpdateHandlers(mainWindow: BrowserWindow): MacUpdater | nul
           console.warn('[更新处理器] 未找到适用于当前架构的 macOS 安装包');
         }
 
+        // 处理下载 URL - electron-updater 可能只返回文件名
+        let downloadUrl = file?.url || '';
+        if (downloadUrl && !downloadUrl.startsWith('http://') && !downloadUrl.startsWith('https://')) {
+          // URL 只是文件名，构建完整的 GitHub Release 下载 URL
+          const filename = file?.path || downloadUrl;
+          const version = result.versionInfo.version;
+          downloadUrl = `https://github.com/luweiCN/VideoStitcher/releases/download/v${version}/${filename}`;
+          console.log('[更新处理器] URL 只是文件名，构建完整下载 URL:', downloadUrl);
+        }
+
         const updateInfo = {
           version: result.versionInfo.version,
           releaseDate: result.versionInfo.releaseDate,
           releaseNotes: result.updateInfo?.releaseNotes || '',
-          downloadUrl: file?.url || '',
+          downloadUrl: downloadUrl,
           fileSize: file?.size || 0,
         };
 
