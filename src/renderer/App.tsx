@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Film, Download, AlertCircle, Bell } from 'lucide-react';
+import { X, Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Link, Download, AlertCircle, Bell } from 'lucide-react';
 import VideoMergeMode from './features/VideoMergeMode';
 import FileNameExtractorMode from './features/FileNameExtractorMode';
 import CoverFormatMode from './features/CoverFormatMode';
@@ -450,11 +450,11 @@ const App: React.FC = () => {
                   className="group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all hover:border-pink-500 hover:shadow-lg hover:shadow-pink-500/10 hover:-translate-y-0.5"
                 >
                   <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
-                    <Film className="w-16 h-16" />
+                    <Link className="w-16 h-16" />
                   </div>
                   <div className="relative z-10 space-y-3">
                     <div className="w-12 h-12 bg-pink-500/10 rounded-xl flex items-center justify-center group-hover:bg-pink-500 group-hover:text-white transition-colors text-pink-400">
-                      <Film className="w-6 h-6" />
+                      <Link className="w-6 h-6" />
                     </div>
                     <div>
                       <h2 className="text-lg font-bold mb-1 text-white group-hover:text-pink-400 transition-colors">A+B 前后拼接</h2>
