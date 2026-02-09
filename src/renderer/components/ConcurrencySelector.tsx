@@ -168,7 +168,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
       </div>
 
       {/* 滑轨容器 */}
-      <div className="bg-slate-900/50 rounded-xl p-3 border border-slate-800">
+      <div className="bg-slate-900/50 rounded-xl px-3 pt-3 pb-5 border border-slate-800">
         {/* 值显示 */}
         <div className="flex items-center justify-between mb-3">
           <div className={`
