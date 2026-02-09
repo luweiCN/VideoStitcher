@@ -745,7 +745,7 @@ const getConfigPath = () => {
 
 // 默认配置
 const DEFAULT_SETTINGS = {
-  defaultOutputDir: '', // 空表示使用系统默认下载文件夹
+  defaultOutputDir: '', // 将在运行时动态设置为系统下载目录
   defaultConcurrency: Math.max(1, Math.floor((require('os').cpus().length || 4) / 2))
 };
 
@@ -754,19 +754,27 @@ ipcMain.handle("get-global-settings", async () => {
   try {
     const configPath = getConfigPath();
 
+    let settings = { ...DEFAULT_SETTINGS };
+
     if (fs.existsSync(configPath)) {
       const data = fs.readFileSync(configPath, 'utf-8');
-      const settings = JSON.parse(data);
-      console.log('[全局配置] 读取配置:', settings);
-      return { ...DEFAULT_SETTINGS, ...settings };
+      const loadedSettings = JSON.parse(data);
+      console.log('[全局配置] 读取配置:', loadedSettings);
+      settings = { ...DEFAULT_SETTINGS, ...loadedSettings };
     } else {
-      // 配置文件不存在，返回默认值
-      console.log('[全局配置] 配置文件不存在，使用默认值:', DEFAULT_SETTINGS);
-      return { ...DEFAULT_SETTINGS };
+      console.log('[全局配置] 配置文件不存在，使用默认值');
     }
+
+    // 如果 defaultOutputDir 为空，自动使用系统下载目录
+    if (!settings.defaultOutputDir) {
+      settings.defaultOutputDir = app.getPath('downloads');
+      console.log('[全局配置] 使用系统下载目录:', settings.defaultOutputDir);
+    }
+
+    return settings;
   } catch (err) {
     console.error('[全局配置] 读取失败:', err);
-    return { ...DEFAULT_SETTINGS };
+    return { ...DEFAULT_SETTINGS, defaultOutputDir: app.getPath('downloads') };
   }
 });
 

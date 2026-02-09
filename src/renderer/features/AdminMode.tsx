@@ -152,7 +152,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
     try {
       const result = await window.api.getGlobalSettings();
 
-      // 获取系统默认下载目录
+      // 获取系统默认下载目录（用于显示）
       let systemDownloadDir = '';
       try {
         systemDownloadDir = await window.api.getDefaultDownloadDir() || '';
@@ -162,14 +162,11 @@ const AdminMode: React.FC<AdminModeProps> = ({
       setSystemDefaultDownloadDir(systemDownloadDir);
 
       if (result) {
-        // 如果未设置默认输出目录，使用系统默认下载目录
-        let outputDir = result.defaultOutputDir || systemDownloadDir;
+        // main.js 已经自动处理了空值，直接使用返回的值
         setGlobalSettings({
-          defaultOutputDir: outputDir,
+          defaultOutputDir: result.defaultOutputDir || '',
           defaultConcurrency: result.defaultConcurrency || 3
         });
-        // 加载完成后标记为已保存状态
-        setSettingsSaved(true);
       }
     } catch (err) {
       console.error('加载全局配置失败:', err);
