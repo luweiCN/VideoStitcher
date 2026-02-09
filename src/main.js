@@ -145,6 +145,13 @@ app.whenReady().then(() => {
   registerFileHandlers();
   // 配置自动更新
   setupAutoUpdater();
+  
+  // macOS 应用内更新处理器
+  if (process.platform === 'darwin') {
+    const { setupUpdateHandlers } = require('./main/ipc-handlers');
+    setupUpdateHandlers(win);
+    console.log('[主进程] macOS 更新处理器已启用');
+  }
 });
 
 // 自动更新配置和事件处理

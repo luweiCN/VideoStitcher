@@ -166,7 +166,11 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
     setUpdateError('');
 
     try {
-      const result = await window.api.checkForUpdates();
+      // macOS 使用应用内更新
+      const result = isMacOS 
+        ? await window.api.macCheckForUpdates()
+        : await window.api.checkForUpdates();
+
       if (result.success && result.hasUpdate && result.updateInfo) {
         setUpdateInfo(result.updateInfo);
         setUpdateStatus('available');
@@ -186,12 +190,17 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
     setUpdateError('');
 
     try {
-      const result = await window.api.downloadUpdate();
+      // macOS 使用应用内更新
+      const result = isMacOS
+        ? await window.api.macDownloadUpdate()
+        : await window.api.downloadUpdate();
+
       if (result.error) {
         setUpdateError(result.error);
         setUpdateStatus('error');
       } else {
-        if (isWindows) {
+        // Windows 和 macOS 都会通过事件触发 downloaded 状态
+        if (isWindows || isMacOS) {
           setTimeout(() => {
             setUpdateStatus('downloaded');
           }, 100);
@@ -205,14 +214,19 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
 
   const handleInstallUpdate = async () => {
     try {
-      await window.api.installUpdate();
+      // macOS 使用应用内更新
+      if (isMacOS) {
+        await window.api.macInstallUpdate();
+      } else {
+        await window.api.installUpdate();
+      }
     } catch (err: any) {
       setUpdateError(err.message || '安装更新失败');
       setUpdateStatus('error');
     }
   };
 
-  // macOS 用户跳转到 GitHub Releases 页面下载更新
+  // macOS 用户跳转到 GitHub Releases 页面下载更新（保留作为备用）
   const handleGoToRelease = () => {
     const releaseUrl = 'https://github.com/luweiCN/VideoStitcher/releases/latest';
     window.api.openExternal(releaseUrl);
@@ -857,19 +871,8 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                           </button>
                         )}
 
-                        {/* macOS: 显示"前往下载"按钮，跳转到 GitHub Releases */}
-                        {updateStatus === 'available' && isMacOS && (
-                          <button
-                            onClick={handleGoToRelease}
-                            className="flex-1 px-5 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 hover:shadow-purple-600/30"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                            前往下载
-                          </button>
-                        )}
-
-                        {/* Windows: 显示"下载更新"按钮，应用内更新 */}
-                        {updateStatus === 'available' && isWindows && (
+                        {/* macOS & Windows: 显示"下载更新"按钮，应用内更新 */}
+                        {updateStatus === 'available' && (isMacOS || isWindows) && (
                           <button
                             onClick={handleDownloadUpdate}
                             className="flex-1 px-5 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30"
