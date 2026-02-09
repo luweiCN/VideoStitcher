@@ -36,17 +36,14 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
-  // 并发数设置（用于计算实际显示）
-  const [maxConcurrency, setMaxConcurrency] = useState(4); // 最大并发数（基于 CPU 核心数）
-
   // 进度状态
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
   const [logs, setLogs] = useState<string[]>([]);
 
-  // 计算实际并发数显示文本
+  // 计算实际并发数显示文本（最大值由 ConcurrencySelector 组件自动限制为 16）
   const actualConcurrency = useMemo(() => {
-    return concurrency === 0 ? `自动 (${maxConcurrency})` : concurrency;
-  }, [concurrency, maxConcurrency]);
+    return concurrency === 0 ? `自动 (16)` : concurrency;
+  }, [concurrency]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,30 +51,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   };
-
-  // 初始化时获取 CPU 核心数
-  useEffect(() => {
-    const initCpuCount = async () => {
-      try {
-        // 从后端获取真实的 CPU 核心数
-        const result = await (window.api as any).getCpuCount();
-        if (result?.success && result.cpuCount) {
-          const cpuCount = result.cpuCount;
-          // 最大并发数限制为 16（与其他模块保持一致）
-          setMaxConcurrency(Math.min(cpuCount, 16));
-        } else {
-          // 备用方案：使用 navigator.hardwareConcurrency
-          const cpuCount = navigator.hardwareConcurrency || 4;
-          setMaxConcurrency(Math.min(cpuCount, 16));
-        }
-      } catch (err) {
-        // 备用方案：使用 navigator.hardwareConcurrency
-        const cpuCount = navigator.hardwareConcurrency || 4;
-        setMaxConcurrency(Math.min(cpuCount, 16));
-      }
-    };
-    initCpuCount();
-  }, []);
 
   // 加载全局默认配置（已移至 useConcurrencyCache hook）
 
@@ -468,7 +441,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
           <ConcurrencySelector
             value={concurrency}
             onChange={setConcurrency}
-            max={maxConcurrency}
             disabled={isProcessing}
             themeColor="emerald"
             className="p-4 bg-slate-950 rounded-xl border border-slate-800"
