@@ -763,6 +763,14 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                             <div className="flex-1">
                               <div className="font-medium text-slate-400">点击下方按钮检查更新</div>
                             </div>
+                            <button
+                              onClick={handleCheckUpdates}
+                              disabled={updateStatus === 'checking'}
+                              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
+                              检查更新
+                            </button>
                           </>
                         )}
                         {updateStatus === 'checking' && (
@@ -771,6 +779,13 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                             <div className="flex-1">
                               <div className="font-medium text-blue-400">正在检查更新...</div>
                             </div>
+                            <button
+                              disabled
+                              className="px-5 py-2.5 bg-slate-700 text-slate-400 rounded-lg font-medium transition-all flex items-center gap-2 opacity-50 cursor-not-allowed"
+                            >
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              检查更新
+                            </button>
                           </>
                         )}
                         {updateStatus === 'available' && (
@@ -781,6 +796,15 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                             <div className="flex-1">
                               <div className="font-medium text-emerald-400">发现新版本 {updateInfo?.version}</div>
                             </div>
+                            {isMacOS || isWindows ? (
+                              <button
+                                onClick={handleDownloadUpdate}
+                                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30"
+                              >
+                                <Download className="w-4 h-4" />
+                                下载更新
+                              </button>
+                            ) : null}
                           </>
                         )}
                         {updateStatus === 'not-available' && (
@@ -791,6 +815,14 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                             <div className="flex-1">
                               <div className="font-medium text-teal-400">已是最新版本 {systemInfo?.version}</div>
                             </div>
+                            <button
+                              onClick={handleCheckUpdates}
+                              disabled={updateStatus === 'checking'}
+                              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
+                              检查更新
+                            </button>
                           </>
                         )}
                         {updateStatus === 'downloading' && (
@@ -806,6 +838,13 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                               </div>
                             </div>
                             <div className="text-lg font-bold text-blue-400">{downloadProgress}%</div>
+                            <button
+                              disabled
+                              className="px-5 py-2.5 bg-slate-700 text-slate-400 rounded-lg font-medium transition-all flex items-center gap-2 opacity-50 cursor-not-allowed"
+                            >
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              下载中...
+                            </button>
                           </>
                         )}
                         {updateStatus === 'downloaded' && (
@@ -816,6 +855,15 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                             <div className="flex-1">
                               <div className="font-medium text-green-400">更新已下载，准备安装</div>
                             </div>
+                            {isMacOS || isWindows ? (
+                              <button
+                                onClick={handleInstallUpdate}
+                                className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-green-600/20 hover:shadow-green-600/30"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                立即重启并安装
+                              </button>
+                            ) : null}
                           </>
                         )}
                         {updateStatus === 'error' && (
@@ -826,42 +874,15 @@ const AdminMode: React.FC<AdminModeProps> = ({ onBack, initialUpdateInfo }) => {
                             <div className="flex-1">
                               <div className="font-medium text-red-400">{updateError || '检查更新失败'}</div>
                             </div>
+                            <button
+                              onClick={handleCheckUpdates}
+                              disabled={updateStatus === 'checking'}
+                              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
+                              检查更新
+                            </button>
                           </>
-                        )}
-                      </div>
-
-                      {/* 版本更新操作按钮 */}
-                      <div className="flex items-center gap-3">
-                        {(updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error') && (
-                          <button
-                            onClick={handleCheckUpdates}
-                            disabled={updateStatus === 'checking'}
-                            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
-                            检查更新
-                          </button>
-                        )}
-
-                        {/* macOS & Windows: 显示"下载更新"按钮 */}
-                        {updateStatus === 'available' && (isMacOS || isWindows) && (
-                          <button
-                            onClick={handleDownloadUpdate}
-                            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30"
-                          >
-                            <Download className="w-4 h-4" />
-                            下载更新
-                          </button>
-                        )}
-
-                        {updateStatus === 'downloaded' && (isMacOS || isWindows) && (
-                          <button
-                            onClick={handleInstallUpdate}
-                            className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-green-600/20 hover:shadow-green-600/30"
-                          >
-                            <CheckCircle className="w-4 h-4" />
-                            立即重启并安装
-                          </button>
                         )}
                       </div>
 

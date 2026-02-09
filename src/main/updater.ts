@@ -296,8 +296,12 @@ export class MacUpdater {
       const currentAppPath = this.getCurrentAppPath();
       console.log('[macOS 更新] 当前应用路径:', currentAppPath);
 
+      // 获取主应用 PID
+      const mainPid = process.pid;
+      console.log('[macOS 更新] 主应用 PID:', mainPid);
+
       // 创建更新脚本
-      const scriptPath = await this.createUpdateScript(currentAppPath, appPath);
+      const scriptPath = await this.createUpdateScript(currentAppPath, appPath, mainPid);
       console.log('[macOS 更新] 更新脚本已创建:', scriptPath);
 
       // 启动独立更新进程
@@ -393,8 +397,11 @@ export class MacUpdater {
 
   /**
    * 创建更新脚本
+   * @param oldAppPath 旧应用路径
+   * @param newAppPath 新应用路径
+   * @param mainPid 主应用进程 ID
    */
-  private async createUpdateScript(oldAppPath: string, newAppPath: string): Promise<string> {
+  private async createUpdateScript(oldAppPath: string, newAppPath: string, mainPid: number): Promise<string> {
     const tempDir = app.getPath('temp');
     const scriptPath = path.join(tempDir, 'update-install.sh');
     const logPath = path.join(tempDir, 'updater.log');
@@ -416,11 +423,12 @@ LOG="${logPath}"
 echo "========================================" > "$LOG"
 echo "VideoStitcher 自动更新" >> "$LOG"
 echo "时间: $(date)" >> "$LOG"
+echo "主应用 PID: ${mainPid}" >> "$LOG"
 echo "========================================" >> "$LOG"
 
 # 等待主应用完全退出
 echo "等待主应用退出..." >> "$LOG"
-PID=${process.pid}
+PID=${mainPid}
 WAIT_COUNT=0
 while ps -p $PID > /dev/null 2>&1; do
   sleep 0.5
