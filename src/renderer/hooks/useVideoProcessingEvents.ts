@@ -9,6 +9,16 @@ export interface VideoStartData {
   concurrency: number;
 }
 
+/**
+ * 单个任务开始处理
+ */
+export interface VideoTaskStartData {
+  /** 任务索引 */
+  index: number;
+  /** 任务标识 */
+  taskId?: string;
+}
+
 export interface VideoProgressData {
   done: number;
   failed: number;
@@ -42,6 +52,8 @@ export interface VideoLogData {
 export interface VideoProcessingHandlers {
   /** 处理开始 */
   onStart?: (data: VideoStartData) => void;
+  /** 单个任务开始 */
+  onTaskStart?: (data: VideoTaskStartData) => void;
   /** 处理进度更新 */
   onProgress?: (data: VideoProgressData) => void;
   /** 单个任务失败 */
@@ -79,7 +91,7 @@ export interface VideoProcessingHandlers {
  * ```
  */
 export function useVideoProcessingEvents(handlers: VideoProcessingHandlers) {
-  const { onStart, onProgress, onFailed, onFinish, onLog } = handlers;
+  const { onStart, onTaskStart, onProgress, onFailed, onFinish, onLog } = handlers;
 
   useEffect(() => {
     // 注册所有监听器
@@ -88,6 +100,11 @@ export function useVideoProcessingEvents(handlers: VideoProcessingHandlers) {
     if (onStart) {
       window.api.onVideoStart(onStart);
       unsubscribers.push(() => window.api.removeAllListeners('video-start'));
+    }
+
+    if (onTaskStart) {
+      window.api.onVideoTaskStart(onTaskStart);
+      unsubscribers.push(() => window.api.removeAllListeners('video-task-start'));
     }
 
     if (onProgress) {
@@ -114,5 +131,5 @@ export function useVideoProcessingEvents(handlers: VideoProcessingHandlers) {
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
-  }, [onStart, onProgress, onFailed, onFinish, onLog]);
+  }, [onStart, onTaskStart, onProgress, onFailed, onFinish, onLog]);
 }

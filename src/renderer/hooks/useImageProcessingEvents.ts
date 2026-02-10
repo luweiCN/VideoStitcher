@@ -8,10 +8,21 @@ export interface ImageStartData {
   mode: string;
 }
 
+/**
+ * 单个任务开始处理
+ */
+export interface ImageTaskStartData {
+  /** 任务索引 */
+  index: number;
+  /** 任务标识 */
+  taskId?: string;
+}
+
 export interface ImageProgressData {
   done: number;
   failed: number;
   total: number;
+  current: string;
 }
 
 export interface ImageFailedData {
@@ -30,6 +41,8 @@ export interface ImageFinishData {
 export interface ImageProcessingHandlers {
   /** 处理开始 */
   onStart?: (data: ImageStartData) => void;
+  /** 单个任务开始 */
+  onTaskStart?: (data: ImageTaskStartData) => void;
   /** 处理进度更新 */
   onProgress?: (data: ImageProgressData) => void;
   /** 单个任务失败 */
@@ -49,6 +62,9 @@ export interface ImageProcessingHandlers {
  *   onStart: (data) => {
  *     addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
  *   },
+ *   onTaskStart: (data) => {
+ *     console.log('任务开始:', data.index);
+ *   },
  *   onProgress: (data) => {
  *     addLog(`进度: ${data.done}/${data.total}`);
  *   },
@@ -62,7 +78,7 @@ export interface ImageProcessingHandlers {
  * ```
  */
 export function useImageProcessingEvents(handlers: ImageProcessingHandlers) {
-  const { onStart, onProgress, onFailed, onFinish } = handlers;
+  const { onStart, onTaskStart, onProgress, onFailed, onFinish } = handlers;
 
   useEffect(() => {
     // 注册所有监听器
@@ -71,6 +87,11 @@ export function useImageProcessingEvents(handlers: ImageProcessingHandlers) {
     if (onStart) {
       window.api.onImageStart(onStart);
       unsubscribers.push(() => window.api.removeAllListeners('image-start'));
+    }
+
+    if (onTaskStart) {
+      window.api.onImageTaskStart(onTaskStart);
+      unsubscribers.push(() => window.api.removeAllListeners('image-task-start'));
     }
 
     if (onProgress) {
@@ -92,5 +113,5 @@ export function useImageProcessingEvents(handlers: ImageProcessingHandlers) {
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
-  }, [onStart, onProgress, onFailed, onFinish]);
+  }, [onStart, onTaskStart, onProgress, onFailed, onFinish]);
 }
