@@ -603,9 +603,9 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
   let done = 0;
   let failed = 0;
 
-  win.webContents.send("job-start", {
+  win.webContents.send("video-start", {
     total,
-    orientation,
+    mode: orientation,
     concurrency: queue.concurrency,
   });
 
@@ -617,32 +617,34 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
       const outPath = path.join(outDir, outName);
 
       // 发送任务开始处理事件
-      win.webContents.send("job-task-start", { index });
+      win.webContents.send("video-task-start", { index });
 
       const payload = { aPath: a, bPath: b, outPath, orientation };
 
       const tryRun = async (attempt) => {
-        win.webContents.send("job-log", {
-          msg: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n`,
+        win.webContents.send("video-log", {
+          index,
+          message: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n`,
         });
         return runFfmpeg(payload, (s) => {
-          win.webContents.send("job-log", { msg: s });
+          win.webContents.send("video-log", { index, message: s });
         });
       };
 
       try {
         await tryRun(1);
         done++;
-        win.webContents.send("job-progress", {
+        win.webContents.send("video-progress", {
           done,
           failed,
           total,
           index,
-          outPath,
+          outputPath: outPath,
         });
       } catch (err) {
-        win.webContents.send("job-log", {
-          msg: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n`,
+        win.webContents.send("video-log", {
+          index,
+          message: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n`,
         });
         try {
           await tryRun(2);
@@ -656,7 +658,7 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
           });
         } catch (err2) {
           failed++;
-          win.webContents.send("job-failed", {
+          win.webContents.send("video-failed", {
             done,
             failed,
             total,
@@ -669,7 +671,7 @@ ipcMain.handle("start-merge", async (_e, { orientation }) => {
   });
 
   await Promise.allSettled(tasks);
-  win.webContents.send("job-finish", { done, failed, total });
+  win.webContents.send("video-finish", { done, failed, total });
   return { done, failed, total };
 });
 

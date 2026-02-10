@@ -10,7 +10,7 @@ import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useJobEvents } from '../hooks/useJobEvents';
+import { useVideoProcessingEvents } from '../hooks/useVideoProcessingEvents';
 
 interface VideoStitcherModeProps {
   onBack: () => void;
@@ -329,7 +329,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   };
 
   // 监听 A+B 前后拼接任务事件
-  useJobEvents({
+  useVideoProcessingEvents({
     onStart: (data) => {
       setProgress({ done: 0, failed: 0, total: data.total });
       addLog(`开始处理 ${data.total} 个合成任务...`);
@@ -347,7 +347,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
       }));
     },
     onLog: (data) => {
-      addLog(data.msg);
+      addLog(data.message);
     },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
