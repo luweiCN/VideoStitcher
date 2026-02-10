@@ -8,6 +8,34 @@ const path = require('path');
 const fs = require('fs').promises;
 
 /**
+ * 辅助函数：在第 N 个分隔符左侧插入文本
+ * 例如: Part1-Part2-Part3-Part4-Part5-Part6-Part7-Part8-Part9
+ * 在第8个'-'左侧插入 'NEW' 变为: Part1-Part2-Part3-Part4-Part5-Part6-Part7-Part8NEW-Part9
+ * 
+ * @param {string} originalName - 原始名称
+ * @param {string} insertText - 要插入的文本
+ * @param {string} delimiter - 分隔符 (默认 '-')
+ * @param {number} targetIndex - 目标分隔符索引 (默认 8)
+ */
+function getModifiedName(originalName, insertText, delimiter = '-', targetIndex = 8) {
+  if (!originalName) return insertText;
+  
+  const parts = originalName.split(delimiter);
+  if (parts.length < targetIndex) {
+    // 如果分隔符数量不足，直接加在末尾
+    return originalName + insertText;
+  }
+  
+  const prefixParts = parts.slice(0, targetIndex);
+  const suffixParts = parts.slice(targetIndex);
+  
+  const prefix = prefixParts.join(delimiter);
+  const suffix = suffixParts.join(delimiter);
+  
+  return prefix + insertText + (suffix ? delimiter + suffix : '');
+}
+
+/**
  * 图片压缩服务
  * 将图片压缩到指定大小 (KB) 以内
  *
@@ -160,8 +188,12 @@ async function convertCoverFormat(inputPath, quality = 90, outputDir = null) {
  * VideoMaster 原逻辑:
  * - 使用 Canvas drawImage 提取区域
  * - 导出 9 张单独图片
+ * 
+ * @param {string} inputPath - 输入图片路径
+ * @param {string} outputDir - 输出目录
+ * @param {string} baseNameOverride - 可选的原始文件名覆盖（用于保持特殊的命名规则）
  */
-async function createGridImage(inputPath, outputDir) {
+async function createGridImage(inputPath, outputDir, baseNameOverride = null) {
   const metadata = await sharp(inputPath).metadata();
   const { width, height } = metadata;
 
@@ -169,7 +201,7 @@ async function createGridImage(inputPath, outputDir) {
   const tileWidth = Math.floor(width / 3);
   const tileHeight = Math.floor(height / 3);
 
-  const inputBaseName = path.parse(inputPath).name;
+  const inputBaseName = baseNameOverride || path.parse(inputPath).name;
   const results = [];
 
   // 确保输出目录存在
@@ -181,7 +213,10 @@ async function createGridImage(inputPath, outputDir) {
       const left = col * tileWidth;
       const top = row * tileHeight;
       const index = row * 3 + col + 1;
-      const outputPath = path.join(outputDir, `${inputBaseName}_${index}.png`);
+      
+      // 使用辅助函数生成符合要求的名称
+      const finalName = getModifiedName(inputBaseName, `九宫格${index}`);
+      const outputPath = path.join(outputDir, `${finalName}.png`);
 
       await sharp(inputPath)
         .extract({ left, top, width: tileWidth, height: tileHeight })
@@ -235,7 +270,9 @@ async function processImageMaterial(
   // ========== 步骤 1: 根据用户选择的模式生成 800x800 预览图 ==========
   let previewPath;
   if (exportOptions.single) {
-    previewPath = path.join(outputDir, 'preview', `${inputBaseName}_preview.jpg`);
+    // 使用特殊的命名规则
+    const finalName = getModifiedName(inputBaseName, '800尺寸单图');
+    previewPath = path.join(outputDir, 'preview', `${finalName}.jpg`);
     await fs.mkdir(path.dirname(previewPath), { recursive: true });
 
     // Sharp fit 参数映射（所有都生成 800x800 方形）
@@ -303,17 +340,15 @@ async function processImageMaterial(
     // 限制 Logo 最大尺寸为画布的 50%
     const finalLogoSize = Math.min(logoSize, 400);
 
+    const finalName = getModifiedName(inputBaseName, '800尺寸单图');
+
     if (logoPosition && (logoPosition.x !== 50 || logoPosition.y !== 50)) {
       // 使用自定义位置
       logoImagePath = exportOptions.single
-        ? path.join(outputDir, 'logo', `${inputBaseName}_logo.jpg`)
+        ? path.join(outputDir, 'logo', `${finalName}.jpg`)
         : path.join(require('os').tmpdir(), 'videostitcher-temp', `${inputBaseName}_temp_logo.jpg`);
 
-      if (exportOptions.single) {
-        await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
-      } else {
-        await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
-      }
+      await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
 
       // 使用 composite 配合 left/top 参数定位 Logo
       const logoBuffer = await sharp(logoPath)
@@ -338,14 +373,10 @@ async function processImageMaterial(
     } else {
       // 使用默认右下角位置
       logoImagePath = exportOptions.single
-        ? path.join(outputDir, 'logo', `${inputBaseName}_logo.jpg`)
+        ? path.join(outputDir, 'logo', `${finalName}.jpg`)
         : path.join(require('os').tmpdir(), 'videostitcher-temp', `${inputBaseName}_temp_logo.jpg`);
 
-      if (exportOptions.single) {
-        await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
-      } else {
-        await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
-      }
+      await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
 
       await sharp(previewPath)
         .composite([
@@ -370,7 +401,8 @@ async function processImageMaterial(
   if (exportOptions.grid) {
     const gridResult = await createGridImage(
       logoImagePath,
-      path.join(outputDir, 'grid')
+      path.join(outputDir, 'grid'),
+      inputBaseName // 传递原始基础名以保持命名规则
     );
     results.grid = gridResult;
   }
