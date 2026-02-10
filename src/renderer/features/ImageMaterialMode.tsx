@@ -447,6 +447,18 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         icon={Layers}
         iconColor="text-amber-400"
         description="批量加Logo，导出九宫格切片和预览图"
+        featureInfo={{
+          title: '图片素材处理',
+          description: '批量为图片添加 Logo 水印，支持导出九宫格切片和预览图。',
+          details: [
+            '支持批量上传图片，自动添加 Logo 水印',
+            'Logo 可拖动调整位置，支持缩放大小',
+            '三种预览模式：裁剪正方形、拉伸填充、保持比例',
+            '导出选项：单张完整图（800×800）、九宫格切片（9张）',
+            '实时预览效果，所见即所得',
+          ],
+          themeColor: 'amber',
+        }}
       />
 
       <div className="flex-1 flex overflow-hidden">

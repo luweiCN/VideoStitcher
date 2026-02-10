@@ -123,7 +123,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
 
   const { outputDir, setOutputDir } = useOutputDirCache('VideoMergeMode');
   const { concurrency, setConcurrency } = useConcurrencyCache('VideoMergeMode');
-  const [showHelp, setShowHelp] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [exportMultiplier, setExportMultiplier] = useState<1 | 2 | 3>(1);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
@@ -348,34 +347,37 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
         icon={Layers}
         iconColor="text-violet-400"
         description="横竖屏一体，图层管理，所有素材独立位置调整"
+        featureInfo={{
+          title: '极速合成',
+          description: '支持横竖屏一体化的视频合成工具，可添加多种素材进行视频合成。',
+          details: [
+            '支持横屏（1920×1080）和竖屏（1080×1920）两种输出尺寸',
+            '支持四种素材：背景图、B面视频（必选）、A面视频、封面图',
+            '在预览区拖拽调整素材位置，支持重置框位和铺满全屏',
+            '支持导出倍数批量处理（×2、×3）',
+            '实时预览合成效果，所见即所得',
+          ],
+          themeColor: 'violet',
+        }}
         rightContent={
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-gray-900 rounded-lg p-0.5 border border-gray-800">
-              <button
-                onClick={() => setOrientation('horizontal')}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                  orientation === 'horizontal' ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20' : 'text-gray-400 hover:text-white'
-                }`}
-                type="button"
-              >
-                横屏
-              </button>
-              <button
-                onClick={() => setOrientation('vertical')}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                  orientation === 'vertical' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-gray-400 hover:text-white'
-                }`}
-                type="button"
-              >
-                竖屏
-              </button>
-            </div>
+          <div className="flex items-center bg-gray-900 rounded-lg p-0.5 border border-gray-800">
             <button
-              onClick={() => setShowHelp(!showHelp)}
-              className="p-2 hover:bg-gray-800 rounded-full transition-colors text-gray-400"
+              onClick={() => setOrientation('horizontal')}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                orientation === 'horizontal' ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20' : 'text-gray-400 hover:text-white'
+              }`}
               type="button"
             >
-              <Settings className="w-5 h-5" />
+              横屏
+            </button>
+            <button
+              onClick={() => setOrientation('vertical')}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                orientation === 'vertical' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-gray-400 hover:text-white'
+              }`}
+              type="button"
+            >
+              竖屏
             </button>
           </div>
         }
@@ -520,20 +522,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
           <LayerSidebar layers={layerConfigs} activeLayer={activeLayer} onLayerSelect={setActiveLayer} onLayerVisibilityChange={handleLayerVisibilityChange} />
         </div>
       </div>
-
-      {showHelp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-8 shadow-2xl relative">
-            <button onClick={() => setShowHelp(false)} className="absolute top-6 right-6 p-2 text-slate-500">✕</button>
-            <h3 className="text-2xl font-black mb-6 text-white italic">操作指南</h3>
-            <div className="space-y-4 text-slate-300 text-sm">
-              <p>1. 选择方向并上传背景</p>
-              <p>2. 选中图层进行拖拽调整</p>
-              <p>3. 导入视频开始批量合成</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

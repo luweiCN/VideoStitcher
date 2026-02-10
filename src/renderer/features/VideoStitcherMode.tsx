@@ -450,6 +450,18 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         icon={Link2}
         iconColor="text-pink-500"
         description="将两个视频前后拼接成一个完整视频"
+        featureInfo={{
+          title: 'A+B 前后拼接',
+          description: '将两个视频素材库按顺序前后拼接，A 面在前、B 面在后，自动生成完整的拼接视频。',
+          details: [
+            '分别上传 A 面和 B 面视频作为素材库',
+            '系统自动将两个库的视频按顺序组合',
+            '较大的库会循环使用，确保每个素材都被处理',
+            'A 面在前，B 面在后，顺序拼接成一个完整视频',
+            '自动调整帧率为 30fps，统一输出分辨率',
+          ],
+          themeColor: 'pink',
+        }}
         rightContent={
           /* 横竖版切换 */
           <div className="flex items-center bg-gray-900 rounded-lg p-0.5 border border-gray-800">
@@ -486,21 +498,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         {/* Left Sidebar - Upload */}
         <div className="w-80 border-r border-gray-800 bg-[#12121a] flex flex-col shrink-0">
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-            {/* 功能说明 */}
-            <div className="bg-gradient-to-br from-pink-500/5 to-violet-500/5 border border-pink-500/10 rounded-xl p-4">
-              <h3 className="text-xs font-bold text-pink-400 mb-2 flex items-center gap-1.5">
-                <Link2 className="w-3.5 h-3.5" />
-                功能说明
-              </h3>
-              <ul className="text-[10px] text-gray-400 space-y-1.5 leading-relaxed">
-                <li>• 分别上传 A 面和 B 面视频作为素材库</li>
-                <li>• 系统自动将两个库的视频按顺序组合</li>
-                <li>• 较大的库会循环使用，确保每个素材都被处理</li>
-                <li>• A 面在前，B 面在后，顺序拼接成一个完整视频</li>
-                <li>• 自动调整帧率为 30fps，统一输出分辨率</li>
-              </ul>
-            </div>
-
             {/* Stats Card */}
             {stats.totalCombos > 0 && (
               <div className="bg-gradient-to-br from-pink-500/10 to-violet-500/10 border border-pink-500/20 rounded-xl p-4">

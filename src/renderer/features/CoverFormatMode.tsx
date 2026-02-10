@@ -209,6 +209,18 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
         icon={Image}
         iconColor="text-fuchsia-400"
         description="自动检测比例，横版转1920x1080，竖版转1080x1920"
+        featureInfo={{
+          title: '封面格式转换',
+          description: '自动检测图片比例并转换为标准尺寸，支持批量处理。',
+          details: [
+            '横版图片自动转为 1920×1080',
+            '竖版图片自动转为 1080×1920',
+            '方形图片自动转为 800×800',
+            '支持批量处理，自动添加尺寸后缀到文件名',
+            '图片会被拉伸填充目标尺寸，可能导致轻微变形',
+          ],
+          themeColor: 'rose', // fuchsia 不在主题列表中，使用 rose 作为近似色
+        }}
         rightContent={
           /* 进度显示 */
           progress.total > 0 ? (
@@ -260,35 +272,6 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
             <p className="text-slate-400 font-bold">点击或拖拽添加图片</p>
             <p className="text-slate-600 text-xs mt-2">支持 JPG、PNG、WEBP</p>
           </label>
-
-          {/* 功能说明 */}
-          <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
-            <h3 className="text-xs font-bold text-fuchsia-400 uppercase mb-3">
-              功能说明
-            </h3>
-            <ul className="space-y-2 text-sm text-slate-400">
-              <li className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span><span className="text-slate-300">横版图片</span> → 1920x1080</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span><span className="text-slate-300">竖版图片</span> → 1080x1920</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span><span className="text-slate-300">方形图片</span> → 800x800</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>支持批量处理，自动添加尺寸后缀</span>
-              </li>
-            </ul>
-            <div className="mt-3 pt-3 border-t border-slate-800 text-xs text-slate-500 flex items-start gap-2">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-              <span>图片会被拉伸填充目标尺寸，可能导致变形</span>
-            </div>
-          </div>
 
           {/* File Count */}
           {files.length > 0 && (

@@ -44,7 +44,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const { concurrency, setConcurrency } = useConcurrencyCache('ResizeMode');
   const [mode, setMode] = useState<ResizeMode>('siya');
   const [blurAmount, setBlurAmount] = useState(20);
-  const [showHelp, setShowHelp] = useState(false);
 
   // 预览相关状态
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
@@ -429,47 +428,26 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
         icon={Maximize2}
         iconColor="text-rose-400"
         description="Siya/海外捕鱼/尺寸统一，智能模糊背景填充"
+        featureInfo={{
+          title: '智能改尺寸',
+          description: '支持四种视频尺寸转换模式，使用模糊背景填充适配目标尺寸。',
+          details: [
+            'Siya模式：竖屏视频转为横屏（1920×1080）或方形（1920×1920）',
+            '海外捕鱼模式：横屏视频转为竖屏（1080×1920）或方形（1920×1920）',
+            '统一横屏：强制所有视频转为横屏比例（1920×1080）',
+            '统一竖屏：强制所有视频转为竖屏比例（1080×1920）',
+            '可调整模糊程度，实时预览转换效果',
+          ],
+          themeColor: 'rose',
+        }}
         rightContent={
-          <div className="flex items-center gap-2">
-            {videos.length > 0 && (
-              <span className="text-sm text-gray-400">
-                {currentVideoIndex + 1} / {videos.length}
-              </span>
-            )}
-            <button
-              onClick={() => setShowHelp(!showHelp)}
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-              title="帮助"
-              type="button"
-            >
-              <Settings className="w-4 h-4 text-gray-400" />
-            </button>
-          </div>
+          videos.length > 0 && (
+            <span className="text-sm text-gray-400">
+              {currentVideoIndex + 1} / {videos.length}
+            </span>
+          )
         }
       />
-
-      {/* Help Panel */}
-      {showHelp && (
-        <div className="p-4 bg-slate-900/50 border-b border-slate-800 shrink-0">
-          <div className="max-w-4xl mx-auto">
-            <h3 className="font-bold mb-2 text-rose-400 text-sm">使用说明</h3>
-            <div className="grid grid-cols-2 gap-4 text-xs text-slate-300">
-              <div>
-                <strong className="text-rose-300">Siya模式</strong>: 竖屏转横屏/方形
-              </div>
-              <div>
-                <strong className="text-rose-300">海外捕鱼</strong>: 横屏转竖屏/方形
-              </div>
-              <div>
-                <strong className="text-rose-300">统一横屏</strong>: 强制转横屏
-              </div>
-              <div>
-                <strong className="text-rose-300">统一竖屏</strong>: 强制转竖屏
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">

@@ -37,7 +37,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
   const { concurrency, setConcurrency } = useConcurrencyCache('CoverCompressMode');
   const [targetSizeKB, setTargetSizeKB] = useState(380);
   const [isDragging, setIsDragging] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
 
   // 进度状态
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
@@ -306,46 +305,38 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
         icon={Shrink}
         iconColor="text-emerald-400"
         description={`智能压缩，自动调整质量与尺寸至 ~${targetSizeKB}KB`}
+        featureInfo={{
+          title: '封面压缩',
+          description: '智能压缩工具，自动调整图片质量与尺寸直到满足目标大小。',
+          details: [
+            '自动调整图片质量和尺寸，确保输出文件接近目标大小',
+            '使用渐进式 JPEG 编码，优化压缩效果',
+            '支持批量处理多个图片',
+            '可调整目标文件大小（KB）',
+            '显示压缩前后大小对比，实时预览效果',
+          ],
+          themeColor: 'emerald',
+        }}
         rightContent={
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowHelp(!showHelp)}
-              className="p-2 hover:bg-gray-800 rounded-full transition-colors text-gray-400"
-              title="帮助"
-              type="button"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-            {progress.total > 0 && (
-              <>
-                <div className="text-sm">
-                  <span className="font-bold text-emerald-400">{progress.done}</span>
-                  <span className="text-gray-500"> / {progress.total}</span>
-                  {progress.failed > 0 && (
-                    <span className="ml-2 text-red-400">(失败 {progress.failed})</span>
-                  )}
-                </div>
-                <div className="w-32 bg-gray-800 rounded-full h-2">
-                  <div
-                    className="bg-emerald-500 h-2 rounded-full transition-all"
-                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                  />
-                </div>
-              </>
-            )}
-          </div>
+          progress.total > 0 && (
+            <>
+              <div className="text-sm">
+                <span className="font-bold text-emerald-400">{progress.done}</span>
+                <span className="text-gray-500"> / {progress.total}</span>
+                {progress.failed > 0 && (
+                  <span className="ml-2 text-red-400">(失败 {progress.failed})</span>
+                )}
+              </div>
+              <div className="w-32 bg-gray-800 rounded-full h-2">
+                <div
+                  className="bg-emerald-500 h-2 rounded-full transition-all"
+                  style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                />
+              </div>
+            </>
+          )
         }
       />
-
-      {/* 帮助面板 */}
-      {showHelp && (
-        <div className="px-6 py-3 bg-emerald-500/10 border-b border-emerald-500/20">
-          <div className="text-sm text-emerald-300">
-            <strong>使用说明：</strong>
-            智能压缩工具，自动调整图片质量与尺寸，直到满足目标大小。使用渐进式 JPEG 编码，支持批量处理。
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
@@ -376,31 +367,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
             <p className="text-slate-400 font-bold">点击或拖拽添加图片</p>
             <p className="text-slate-600 text-xs mt-2">支持 JPG、PNG、WEBP</p>
           </label>
-
-          {/* 功能说明 */}
-          <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
-            <h3 className="text-xs font-bold text-emerald-400 uppercase mb-3">
-              功能说明
-            </h3>
-            <ul className="space-y-2 text-sm text-slate-400">
-              <li className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>目标大小: ~{targetSizeKB}KB</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>智能调整: 质量/尺寸</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>输出格式: JPG (渐进式)</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span>支持批量处理</span>
-              </li>
-            </ul>
-          </div>
 
           {/* File Count */}
           {files.length > 0 && (

@@ -314,6 +314,18 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
         icon={Grid3X3}
         iconColor="text-cyan-400"
         description="1:1原图，无损无压缩九宫格切割"
+        featureInfo={{
+          title: '专业无损九宫格',
+          description: '对原图进行无损 3×3 切割，保持原始分辨率和画质。',
+          details: [
+            '不进行任何压缩或缩放，按原图分辨率直接切割',
+            '自动进行 3×3 九宫格分割，输出 9 张图片',
+            '输出格式为 PNG，保证无损画质',
+            '建议上传 1:1 正方形原图以获得最佳效果',
+            '支持拖拽上传和批量处理',
+          ],
+          themeColor: 'cyan',
+        }}
       />
 
       <main className="flex-1 p-6 flex gap-6 overflow-hidden max-h-[calc(100vh-64px)]">
@@ -342,12 +354,6 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
               <p className="text-sm text-slate-300 font-medium">点击或拖拽上传图片</p>
               <p className="text-xs text-slate-500 mt-1">建议上传 1:1 正方形原图</p>
             </label>
-
-            <div className="bg-cyan-950/30 border border-cyan-900/50 rounded-lg p-3">
-              <p className="text-xs text-cyan-200 leading-relaxed">
-                <span className="font-bold">💡 功能说明：</span> 此模式对正方形图片进行优化，确保每个切片至少达到 800x800 分辨率。对于大图则直接按原图比例无损切割。输出格式为 PNG 以保证最佳画质。
-              </p>
-            </div>
           </div>
 
           {/* Output Directory */}
