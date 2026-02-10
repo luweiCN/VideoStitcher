@@ -10,6 +10,7 @@ const api = {
     setConcurrency: (concurrency) => electron_1.ipcRenderer.invoke('set-concurrency', { concurrency }),
     startMerge: (orientation) => electron_1.ipcRenderer.invoke('start-merge', { orientation }),
     // 新的视频处理 API
+    videoStitchAB: (config) => electron_1.ipcRenderer.invoke('video-stitch-ab', config),
     videoHorizontalMerge: (config) => electron_1.ipcRenderer.invoke('video-horizontal-merge', config),
     videoVerticalMerge: (config) => electron_1.ipcRenderer.invoke('video-vertical-merge', config),
     videoResize: (config) => electron_1.ipcRenderer.invoke('video-resize', config),

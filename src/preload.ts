@@ -161,6 +161,7 @@ export interface ElectronAPI {
 
   // 新的视频处理事件
   onVideoStart: (callback: (data: { total: number; mode: string; concurrency: number }) => void) => void;
+  onVideoTaskStart: (callback: (data: { index: number; taskId?: string }) => void) => void;
   onVideoProgress: (callback: (data: { done: number; failed: number; total: number; index: number; outputPath: string }) => void) => void;
   onVideoFailed: (callback: (data: { done: number; failed: number; total: number; index: number; error: string }) => void) => void;
   onVideoFinish: (callback: (data: { done: number; failed: number; total: number }) => void) => void;
@@ -168,6 +169,7 @@ export interface ElectronAPI {
 
   // 图片处理事件
   onImageStart: (callback: (data: { total: number; mode: string }) => void) => void;
+  onImageTaskStart: (callback: (data: { index: number; taskId?: string }) => void) => void;
   onImageProgress: (callback: (data: { done: number; failed: number; total: number; current: string; result?: any }) => void) => void;
   onImageFailed: (callback: (data: { done: number; failed: number; total: number; current: string; error: string }) => void) => void;
   onImageFinish: (callback: (data: { done: number; failed: number; total: number }) => void) => void;
@@ -310,6 +312,7 @@ const api: ElectronAPI = {
 
   // 新的视频处理事件
   onVideoStart: (cb) => ipcRenderer.on('video-start', (_e, data) => cb(data)),
+  onVideoTaskStart: (cb) => ipcRenderer.on('video-task-start', (_e, data) => cb(data)),
   onVideoProgress: (cb) => ipcRenderer.on('video-progress', (_e, data) => cb(data)),
   onVideoFailed: (cb) => ipcRenderer.on('video-failed', (_e, data) => cb(data)),
   onVideoFinish: (cb) => ipcRenderer.on('video-finish', (_e, data) => cb(data)),
@@ -317,6 +320,7 @@ const api: ElectronAPI = {
 
   // 图片处理事件
   onImageStart: (cb) => ipcRenderer.on('image-start', (_e, data) => cb(data)),
+  onImageTaskStart: (cb) => ipcRenderer.on('image-task-start', (_e, data) => cb(data)),
   onImageProgress: (cb) => ipcRenderer.on('image-progress', (_e, data) => cb(data)),
   onImageFailed: (cb) => ipcRenderer.on('image-failed', (_e, data) => cb(data)),
   onImageFinish: (cb) => ipcRenderer.on('image-finish', (_e, data) => cb(data)),
