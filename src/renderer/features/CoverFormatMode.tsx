@@ -5,7 +5,10 @@ import {
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
+import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
+import { useOperationLogs } from '../hooks/useOperationLogs';
+import { useJobEvents } from '../hooks/useJobEvents';
 
 interface CoverFormatModeProps {
   onBack: () => void;
@@ -29,33 +32,35 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
 
   // 进度状态
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
-  const [logs, setLogs] = useState<string[]>([]);
+
+  // 使用日志 Hook
+  const {
+    logs,
+    addLog,
+    clearLogs,
+    copyLogs,
+    downloadLogs,
+    logsContainerRef,
+    logsEndRef,
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    autoScrollPaused,
+    resumeAutoScroll,
+    scrollToBottom,
+    scrollToTop,
+    onUserInteractStart,
+  } = useOperationLogs({
+    moduleNameCN: '封面格式化',
+    moduleNameEN: 'CoverFormat',
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 添加日志
-  const addLog = (msg: string) => {
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  };
-
-  // 清理监听器
-  useEffect(() => {
-    const cleanup = () => {
-      window.api.removeAllListeners('image-start');
-      window.api.removeAllListeners('image-progress');
-      window.api.removeAllListeners('image-failed');
-      window.api.removeAllListeners('image-finish');
-    };
-
-    window.api.onImageStart((data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
-      setProgress({ done: 0, failed: 0, total: data.total });
-    });
-
-    window.api.onImageProgress((data) => {
+  // 使用任务事件 Hook 处理图片处理事件
+  useJobEvents({
+    jobType: 'image',
+    onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
-
       // 更新对应文件的状态
       if (data.current) {
         setFiles(prev => prev.map(f => {
@@ -65,25 +70,9 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
           return f;
         }));
       }
-    });
-
-    window.api.onImageFailed((data) => {
-      addLog(`❌ 处理失败: ${data.current} - ${data.error}`);
-      setFiles(prev => prev.map(f => {
-        if (f.path === data.current) {
-          return { ...f, status: 'error', error: data.error };
-        }
-        return f;
-      }));
-    });
-
-    window.api.onImageFinish((data) => {
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`);
-      setIsProcessing(false);
-    });
-
-    return cleanup;
-  }, []);
+    },
+    onProcessingChange: setIsProcessing,
+  });
 
   // 选择图片文件
   const handleSelectImages = async () => {
@@ -348,22 +337,24 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
           </button>
 
           {/* Logs */}
-          {logs.length > 0 && (
-            <div className="flex-1 min-h-[150px] bg-slate-950 rounded-xl border border-slate-800 p-3 overflow-hidden flex flex-col">
-              <h4 className="text-xs font-bold text-slate-400 mb-2">处理日志</h4>
-              <div className="flex-1 overflow-y-auto text-xs font-mono space-y-1">
-                {logs.map((log, i) => (
-                  <div key={i} className={
-                    log.includes('❌') ? 'text-red-400' :
-                    log.includes('✅') ? 'text-green-400' :
-                    'text-slate-300'
-                  }>
-                    {log}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <OperationLogPanel
+            logs={logs}
+            addLog={addLog}
+            clearLogs={clearLogs}
+            copyLogs={copyLogs}
+            downloadLogs={downloadLogs}
+            logsContainerRef={logsContainerRef}
+            logsEndRef={logsEndRef}
+            autoScrollEnabled={autoScrollEnabled}
+            setAutoScrollEnabled={setAutoScrollEnabled}
+            autoScrollPaused={autoScrollPaused}
+            resumeAutoScroll={resumeAutoScroll}
+            scrollToBottom={scrollToBottom}
+            scrollToTop={scrollToTop}
+            onUserInteractStart={onUserInteractStart}
+            height="150px"
+            themeColor="cyan"
+          />
         </div>
 
         {/* Right List Panel */}

@@ -6,8 +6,11 @@ import {
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
+import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
+import { useOperationLogs } from '../hooks/useOperationLogs';
+import { useJobEvents } from '../hooks/useJobEvents';
 
 interface CoverCompressModeProps {
   onBack: () => void;
@@ -38,7 +41,27 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
 
   // 进度状态
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
-  const [logs, setLogs] = useState<string[]>([]);
+
+  // 使用日志 Hook
+  const {
+    logs,
+    addLog,
+    clearLogs,
+    copyLogs,
+    downloadLogs,
+    logsContainerRef,
+    logsEndRef,
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    autoScrollPaused,
+    resumeAutoScroll,
+    scrollToBottom,
+    scrollToTop,
+    onUserInteractStart,
+  } = useOperationLogs({
+    moduleNameCN: '封面压缩',
+    moduleNameEN: 'CoverCompress',
+  });
 
   // 计算实际并发数显示文本（最大值由 ConcurrencySelector 组件自动限制为 16）
   const actualConcurrency = useMemo(() => {
@@ -47,34 +70,11 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 添加日志
-  const addLog = (msg: string) => {
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  };
-
-  // 加载全局默认配置（已移至 useConcurrencyCache hook）
-
-  // 清理监听器
-  useEffect(() => {
-    const cleanup = () => {
-      window.api.removeAllListeners('image-start');
-      window.api.removeAllListeners('image-progress');
-      window.api.removeAllListeners('image-failed');
-      window.api.removeAllListeners('image-finish');
-    };
-
-    window.api.onImageStart((data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
-      setProgress({ done: 0, failed: 0, total: data.total });
-
-      // 重置所有文件状态为 processing
-      setFiles(prev => prev.map(f => ({ ...f, status: 'processing' as const, compressedSize: undefined })));
-    });
-
-    window.api.onImageProgress((data) => {
+  // 使用任务事件 Hook 处理图片处理事件
+  useJobEvents({
+    jobType: 'image',
+    onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
-
       // 更新对应文件的状态，从 result 中获取压缩后大小
       if (data.current) {
         setFiles(prev => prev.map(f => {
@@ -89,25 +89,15 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
           return f;
         }));
       }
-    });
-
-    window.api.onImageFailed((data) => {
-      addLog(`❌ 处理失败: ${data.current} - ${data.error}`);
-      setFiles(prev => prev.map(f => {
-        if (f.path === data.current) {
-          return { ...f, status: 'error' as const, error: data.error };
-        }
-        return f;
-      }));
-    });
-
-    window.api.onImageFinish((data) => {
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`);
-      setIsProcessing(false);
-    });
-
-    return cleanup;
-  }, []);
+    },
+    onProcessingChange: (isProcessing) => {
+      setIsProcessing(isProcessing);
+      // 重置所有文件状态为 processing
+      if (isProcessing) {
+        setFiles(prev => prev.map(f => ({ ...f, status: 'processing' as const, compressedSize: undefined })));
+      }
+    },
+  });
 
   // 格式化文件大小
   const formatSize = (bytes: number): string => {
@@ -275,7 +265,7 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
     if (isProcessing) return;
 
     setIsProcessing(true);
-    setLogs([]);
+    clearLogs();
     setProgress({ done: 0, failed: 0, total: files.length });
 
     addLog('开始封面压缩处理...');
@@ -476,22 +466,24 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
           </button>
 
           {/* Logs */}
-          {logs.length > 0 && (
-            <div className="flex-1 min-h-[150px] bg-slate-950 rounded-xl border border-slate-800 p-3 overflow-hidden flex flex-col">
-              <h4 className="text-xs font-bold text-slate-400 mb-2">处理日志</h4>
-              <div className="flex-1 overflow-y-auto text-xs font-mono space-y-1">
-                {logs.map((log, i) => (
-                  <div key={i} className={
-                    log.includes('❌') ? 'text-red-400' :
-                    log.includes('✅') ? 'text-green-400' :
-                    'text-slate-300'
-                  }>
-                    {log}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <OperationLogPanel
+            logs={logs}
+            addLog={addLog}
+            clearLogs={clearLogs}
+            copyLogs={copyLogs}
+            downloadLogs={downloadLogs}
+            logsContainerRef={logsContainerRef}
+            logsEndRef={logsEndRef}
+            autoScrollEnabled={autoScrollEnabled}
+            setAutoScrollEnabled={setAutoScrollEnabled}
+            autoScrollPaused={autoScrollPaused}
+            resumeAutoScroll={resumeAutoScroll}
+            scrollToBottom={scrollToBottom}
+            scrollToTop={scrollToTop}
+            onUserInteractStart={onUserInteractStart}
+            height="150px"
+            themeColor="emerald"
+          />
         </div>
 
         {/* Right List Panel */}

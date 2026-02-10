@@ -3,8 +3,11 @@ import { FileVideo, Play, Trash2, Loader2, ArrowLeft, Settings, CheckCircle, Max
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
+import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
+import { useOperationLogs } from '../hooks/useOperationLogs';
+import { useJobEvents } from '../hooks/useJobEvents';
 
 interface ResizeModeProps {
   onBack: () => void;
@@ -62,14 +65,29 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
-  const [logs, setLogs] = useState<string[]>([]);
+
+  // 使用日志 Hook
+  const {
+    logs,
+    addLog,
+    clearLogs,
+    copyLogs,
+    downloadLogs,
+    logsContainerRef,
+    logsEndRef,
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    autoScrollPaused,
+    resumeAutoScroll,
+    scrollToBottom,
+    scrollToTop,
+    onUserInteractStart,
+  } = useOperationLogs({
+    moduleNameCN: '视频缩放',
+    moduleNameEN: 'Resize',
+  });
 
   // 加载全局默认配置（已移至 useConcurrencyCache hook）
-
-  // 添加日志
-  const addLog = useCallback((msg: string) => {
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  }, []);
 
   // 获取视频预览 URL 和元数据
   const generatePreviews = useCallback(async () => {
@@ -127,41 +145,14 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     }
   }, [videos, currentVideoIndex, mode, addLog]);
 
-  // 监听视频处理事件
-  useEffect(() => {
-    const cleanup = () => {
-      window.api.removeAllListeners('video-start');
-      window.api.removeAllListeners('video-progress');
-      window.api.removeAllListeners('video-failed');
-      window.api.removeAllListeners('video-finish');
-      window.api.removeAllListeners('video-log');
-    };
-
-    window.api.onVideoStart((data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`);
-      setProgress({ done: 0, failed: 0, total: data.total });
-    });
-
-    window.api.onVideoProgress((data) => {
+  // 使用任务事件 Hook 处理视频处理事件
+  useJobEvents({
+    jobType: 'video',
+    onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
-    });
-
-    window.api.onVideoFailed((data) => {
-      addLog(`❌ 任务 ${data.index + 1} 失败: ${data.error}`);
-    });
-
-    window.api.onVideoFinish((data) => {
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`);
-      setIsProcessing(false);
-    });
-
-    window.api.onVideoLog((data) => {
-      addLog(`[任务 ${data.index + 1}] ${data.message}`);
-    });
-
-    return cleanup;
-  }, [addLog]);
+    },
+    onProcessingChange: setIsProcessing,
+  });
 
   // 当视频列表或模式改变时，重新生成预览
   useEffect(() => {
@@ -359,7 +350,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     if (isProcessing) return;
 
     setIsProcessing(true);
-    setLogs([]);
+    clearLogs();
     addLog('开始智能改尺寸处理...');
     addLog(`视频: ${videos.length} 个`);
     addLog(`模式: ${MODE_CONFIG[mode].name}`);
@@ -805,30 +796,24 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
           </div>
 
           {/* Logs */}
-          <div className="h-48 border-t border-slate-800 bg-slate-900">
-            <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="font-medium text-xs text-slate-300">处理日志</h3>
-              {logs.length > 0 && (
-                <button
-                  onClick={() => setLogs([])}
-                  className="text-[10px] text-slate-500 hover:text-slate-300"
-                >
-                  清空
-                </button>
-              )}
-            </div>
-            <div className="h-36 overflow-y-auto p-3 text-[10px] font-mono space-y-0.5">
-              {logs.length === 0 ? (
-                <div className="text-slate-600 text-center">暂无日志</div>
-              ) : (
-                logs.map((log, i) => (
-                  <div key={i} className={log.includes('❌') ? 'text-red-400' : log.includes('✅') ? 'text-green-400' : 'text-slate-300'}>
-                    {log}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          <OperationLogPanel
+            logs={logs}
+            addLog={addLog}
+            clearLogs={clearLogs}
+            copyLogs={copyLogs}
+            downloadLogs={downloadLogs}
+            logsContainerRef={logsContainerRef}
+            logsEndRef={logsEndRef}
+            autoScrollEnabled={autoScrollEnabled}
+            setAutoScrollEnabled={setAutoScrollEnabled}
+            autoScrollPaused={autoScrollPaused}
+            resumeAutoScroll={resumeAutoScroll}
+            scrollToBottom={scrollToBottom}
+            scrollToTop={scrollToTop}
+            onUserInteractStart={onUserInteractStart}
+            height="192px"
+            themeColor="emerald"
+          />
         </div>
       </div>
     </div>

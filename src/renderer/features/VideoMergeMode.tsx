@@ -9,8 +9,11 @@ import LayerSidebar from '../components/LayerSidebar';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
+import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
+import { useOperationLogs } from '../hooks/useOperationLogs';
+import { useJobEvents } from '../hooks/useJobEvents';
 import { getCanvasConfig, getInitialPositions, getDefaultLayerConfigs } from '../utils/positionCalculator';
 
 interface VideoMergeModeProps {
@@ -43,15 +46,26 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const lockedLayers = useMemo(() => new Set<LayerId>(['aVideo', 'bgImage', 'coverImage']), []);
   const [canvasZoom, setCanvasZoom] = useState<number>(100);
 
-  // 日志和滚动
-  const [logs, setLogs] = useState<string[]>([]);
-  const logsEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs]);
+  // 使用日志 Hook
+  const {
+    logs,
+    addLog,
+    clearLogs,
+    copyLogs,
+    downloadLogs,
+    logsContainerRef,
+    logsEndRef,
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    autoScrollPaused,
+    resumeAutoScroll,
+    scrollToBottom,
+    scrollToTop,
+    onUserInteractStart,
+  } = useOperationLogs({
+    moduleNameCN: '视频合成',
+    moduleNameEN: 'VideoMerge',
+  });
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
@@ -120,9 +134,14 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
 
   // 加载全局默认配置（已移至 useConcurrencyCache hook）
 
-  const addLog = (msg: string) => {
-    setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  };
+  // 使用任务事件 Hook 处理视频处理事件
+  useJobEvents({
+    jobType: 'video',
+    onProgress: (data) => {
+      setProgress({ done: data.done, failed: data.failed, total: data.total });
+    },
+    onProcessingChange: setIsProcessing,
+  });
 
   useEffect(() => {
     const cleanup = () => {
@@ -470,15 +489,25 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
             </div>
           )}
 
-          <div className="bg-slate-950 rounded-xl p-3 border border-slate-800">
-            <h3 className="text-[10px] font-bold text-slate-400 mb-2">处理日志</h3>
-            <div className="h-32 overflow-y-auto text-[9px] font-mono space-y-0.5 custom-scrollbar">
-              {logs.length === 0 ? <div className="text-slate-600 text-center py-4">暂无日志</div> : <>
-                {logs.map((log, i) => <div key={i} className={log.includes('❌') ? 'text-red-400' : log.includes('✅') ? 'text-green-400' : 'text-slate-400'}>{log}</div>)}
-                <div ref={logsEndRef} />
-              </>}
-            </div>
-          </div>
+          {/* 日志面板 */}
+          <OperationLogPanel
+            logs={logs}
+            addLog={addLog}
+            clearLogs={clearLogs}
+            copyLogs={copyLogs}
+            downloadLogs={downloadLogs}
+            logsContainerRef={logsContainerRef}
+            logsEndRef={logsEndRef}
+            autoScrollEnabled={autoScrollEnabled}
+            setAutoScrollEnabled={setAutoScrollEnabled}
+            autoScrollPaused={autoScrollPaused}
+            resumeAutoScroll={resumeAutoScroll}
+            scrollToBottom={scrollToBottom}
+            scrollToTop={scrollToTop}
+            onUserInteractStart={onUserInteractStart}
+            height="200px"
+            themeColor={primaryColor === 'violet' ? 'violet' : 'indigo'}
+          />
         </div>
 
         <main className="flex-1 bg-slate-950 flex flex-col items-center justify-center p-8 relative overflow-hidden">

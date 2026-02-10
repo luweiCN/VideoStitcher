@@ -2,7 +2,10 @@ import React, { useState, useRef, useEffect, MouseEvent } from 'react';
 import { ArrowLeft, Upload, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
+import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
+import { useOperationLogs } from '../hooks/useOperationLogs';
+import { useJobEvents } from '../hooks/useJobEvents';
 
 /**
  * 图片文件状态
@@ -86,8 +89,26 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   // 输出目录
   const { outputDir, setOutputDir } = useOutputDirCache('ImageMaterialMode');
 
-  // 日志
-  const [logs, setLogs] = useState<string[]>([]);
+  // 使用日志 Hook
+  const {
+    logs,
+    addLog,
+    clearLogs,
+    copyLogs,
+    downloadLogs,
+    logsContainerRef,
+    logsEndRef,
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    autoScrollPaused,
+    resumeAutoScroll,
+    scrollToBottom,
+    scrollToTop,
+    onUserInteractStart,
+  } = useOperationLogs({
+    moduleNameCN: '图片素材',
+    moduleNameEN: 'ImageMaterial',
+  });
 
   // 常量
   const PREVIEW_SIZE = 400; // 显示大小 (像素)
@@ -100,11 +121,6 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
 
   // 预览触发器 - 用于触发重绘
   const [previewTrigger, setPreviewTrigger] = useState(0);
-
-  // 添加日志
-  const addLog = (msg: string) => {
-    setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-  };
 
   // 加载指定索引的预览图片
   const loadPreviewImage = async (imagePath: string) => {
@@ -577,20 +593,24 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
           </div>
 
           {/* 7. 处理日志 */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <h3 className="text-sm font-bold text-slate-400 uppercase mb-2">处理日志</h3>
-            <div className="flex-1 overflow-y-auto text-xs font-mono space-y-1 bg-slate-950 rounded-lg p-3 border border-slate-800">
-              {logs.length === 0 ? (
-                <div className="text-slate-500 text-center py-4">暂无日志</div>
-              ) : (
-                logs.map((log, i) => (
-                  <div key={i} className={log.includes('❌') ? 'text-red-400' : log.includes('✅') ? 'text-green-400' : 'text-slate-300'}>
-                    {log}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          <OperationLogPanel
+            logs={logs}
+            addLog={addLog}
+            clearLogs={clearLogs}
+            copyLogs={copyLogs}
+            downloadLogs={downloadLogs}
+            logsContainerRef={logsContainerRef}
+            logsEndRef={logsEndRef}
+            autoScrollEnabled={autoScrollEnabled}
+            setAutoScrollEnabled={setAutoScrollEnabled}
+            autoScrollPaused={autoScrollPaused}
+            resumeAutoScroll={resumeAutoScroll}
+            scrollToBottom={scrollToBottom}
+            scrollToTop={scrollToTop}
+            onUserInteractStart={onUserInteractStart}
+            className="flex-1"
+            themeColor="pink"
+          />
 
           {/* 开始处理按钮 */}
           <button
