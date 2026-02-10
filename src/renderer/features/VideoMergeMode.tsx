@@ -382,7 +382,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       />
 
       <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-        <div className="w-full md:w-[400px] p-6 border-r border-slate-800 flex flex-col gap-5 bg-slate-900 shadow-2xl z-20 shrink-0">
+        <div className="w-full md:w-[400px] p-6 border-r border-slate-800 flex flex-col gap-5 bg-slate-900 shadow-2xl z-20 h-full min-h-0 md:overflow-y-auto">
           <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3">
             <h2 className="text-[11px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-2">第一步：设置背景 (可选)</h2>
             <button onClick={handleSelectBgImage} className="group relative block w-full aspect-video rounded-xl border-2 border-dashed border-slate-800 hover:border-violet-500 transition-all overflow-hidden bg-slate-900">
