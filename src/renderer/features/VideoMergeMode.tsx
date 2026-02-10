@@ -381,125 +381,117 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
         }
       />
 
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        <div className="w-full md:w-[400px] border-r border-slate-800 bg-slate-900 shadow-2xl z-20 flex flex-col">
-          {/* 顶部设置区域 - 可滚动 */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-5">
-            <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3">
-              <h2 className="text-[11px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-2">第一步：设置背景 (可选)</h2>
-              <button onClick={handleSelectBgImage} className="group relative block w-full aspect-video rounded-xl border-2 border-dashed border-slate-800 hover:border-violet-500 transition-all overflow-hidden bg-slate-900">
-                {materials.bgImage ? <img src={`preview://${encodeURIComponent(materials.bgImage)}`} alt="背景" className="w-full h-full object-cover" /> : <div className="absolute inset-0 flex flex-col items-center justify-center p-4"><ImageIcon className="w-6 h-6 mb-2 text-slate-700 group-hover:text-violet-500 transition-colors" /><span className="text-[10px] text-slate-500 font-bold text-center">点击上传背景图</span></div>}
-              </button>
-            </div>
-
-            <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3 flex flex-col">
-              <h2 className="text-[11px] font-black text-violet-400 uppercase tracking-widest">第二步：导入b面视频 (必选)</h2>
-              <button onClick={handleSelectVideos} className="group relative block w-full rounded-xl border-2 border-dashed border-slate-800 hover:border-violet-500 transition-all overflow-hidden bg-slate-900 p-6 flex flex-col items-center">
-                <FileVideo className="w-8 h-8 mb-2 text-slate-700 group-hover:text-violet-500" />
-                <span className="text-[11px] text-slate-500 font-bold">点击添加b面视频 (支持批量)</span>
-                {videos.length > 0 && <span className="text-[10px] text-emerald-400 mt-2">已选择 {videos.length} 个视频</span>}
-              </button>
-            </div>
-
-            <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[11px] font-black text-violet-400 uppercase tracking-widest">第三步：A面添加 (可选)</h2>
-                {sideAVideos.length > 0 && <button onClick={() => setSideAVideos([])} className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1"><Trash2 className="w-3 h-3" />清空</button>}
-              </div>
-              <button onClick={handleSelectSideAVideos} className={`group relative block w-full p-4 rounded-xl border-2 border-dashed transition-all ${sideAVideos.length > 0 ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-800 hover:border-violet-500 bg-slate-900'}`}>
-                <div className="flex flex-col items-center justify-center text-center">
-                  {sideAVideos.length > 0 ? <><CheckCircle className="w-6 h-6 mb-2 text-emerald-500" /><span className="text-[10px] text-emerald-400 font-bold">已添加 {sideAVideos.length} 个 A 面</span></> : <><FileVideo className="w-6 h-6 mb-2 text-slate-700 group-hover:text-violet-500" /><span className="text-[10px] text-slate-500 font-bold">点击添加 A 面视频</span></>}
-                </div>
-              </button>
-            </div>
-
-            <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[11px] font-black text-violet-400 uppercase tracking-widest">第四步：视频封面 (可选)</h2>
-                {covers.length > 0 && <button onClick={() => setCovers([])} className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1"><Trash2 className="w-3 h-3" />清空</button>}
-              </div>
-              <button onClick={handleSelectCovers} className={`group relative block w-full p-4 rounded-xl border-2 border-dashed transition-all ${covers.length > 0 ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-800 hover:border-violet-500 bg-slate-900'}`}>
-                <div className="flex flex-col items-center justify-center text-center">
-                  {covers.length > 0 ? <><CheckCircle className="w-6 h-6 mb-2 text-emerald-500" /><span className="text-[10px] text-emerald-400 font-bold">已添加 {covers.length} 张封面</span></> : <><ImageIcon className="w-6 h-6 mb-2 text-slate-700 group-hover:text-violet-500" /><span className="text-[10px] text-slate-500 font-bold">点击添加封面图片</span></>}
-                </div>
-              </button>
-            </div>
-
-            <div className="space-y-4 pt-2">
-              <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                <OutputDirSelector
-                  value={outputDir}
-                  onChange={setOutputDir}
-                  disabled={isProcessing}
-                  themeColor="violet"
-                />
-              </div>
-
-              <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                <ConcurrencySelector
-                  value={concurrency}
-                  onChange={setConcurrency}
-                  disabled={isProcessing}
-                  themeColor="violet"
-                  compact
-                />
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-bold text-slate-300">导出倍数</span>
-                  <span className="text-[9px] text-slate-500">预计导出 {videos.length * exportMultiplier} 条</span>
-                </div>
-                <div className="flex gap-2">
-                  {[2, 3].map(m => (
-                    <button key={m} onClick={() => setExportMultiplier(prev => prev === m ? 1 : m as 1|2|3)} className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all border ${exportMultiplier === m ? `bg-${primaryColor}-600 text-white` : 'bg-slate-900 border-slate-700 text-slate-500 hover:text-violet-400'}`}>×{m}</button>
-                  ))}
-                </div>
-              </div>
-
-              <button onClick={startProcessing} disabled={videos.length === 0 || isProcessing || !outputDir} className={`w-full py-5 bg-gradient-to-r from-${primaryColor}-600 to-${primaryColor}-700 font-black rounded-2xl transition-all flex items-center justify-center gap-3 shadow-2xl shadow-${primaryColor}-900/40 disabled:opacity-50`}>
-                {isProcessing ? <><Loader2 className="w-6 h-6 animate-spin" />正在全力渲染中...</> : <><Play className="w-6 h-6 fill-current" />一键开始批量处理</>}
-              </button>
-            </div>
+      <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+        <div className="w-full md:w-[400px] p-6 border-r border-slate-800 flex flex-col gap-5 bg-slate-900 shadow-2xl z-20 shrink-0">
+          <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3">
+            <h2 className="text-[11px] font-black text-violet-400 uppercase tracking-widest flex items-center gap-2">第一步：设置背景 (可选)</h2>
+            <button onClick={handleSelectBgImage} className="group relative block w-full aspect-video rounded-xl border-2 border-dashed border-slate-800 hover:border-violet-500 transition-all overflow-hidden bg-slate-900">
+              {materials.bgImage ? <img src={`preview://${encodeURIComponent(materials.bgImage)}`} alt="背景" className="w-full h-full object-cover" /> : <div className="absolute inset-0 flex flex-col items-center justify-center p-4"><ImageIcon className="w-6 h-6 mb-2 text-slate-700 group-hover:text-violet-500 transition-colors" /><span className="text-[10px] text-slate-500 font-bold text-center">点击上传背景图</span></div>}
+            </button>
           </div>
 
-          {/* 日志面板 - 固定在中间 */}
-          <div className="shrink-0 border-t border-slate-800 bg-slate-900">
-            <OperationLogPanel
-              logs={logs}
-              addLog={addLog}
-              clearLogs={clearLogs}
-              copyLogs={copyLogs}
-              downloadLogs={downloadLogs}
-              logsContainerRef={logsContainerRef}
-              logsEndRef={logsEndRef}
-              autoScrollEnabled={autoScrollEnabled}
-              setAutoScrollEnabled={setAutoScrollEnabled}
-              autoScrollPaused={autoScrollPaused}
-              resumeAutoScroll={resumeAutoScroll}
-              scrollToBottom={scrollToBottom}
-              scrollToTop={scrollToTop}
-              onUserInteractStart={onUserInteractStart}
-              height="180px"
-              themeColor={primaryColor === 'violet' ? 'violet' : 'indigo'}
-            />
+          <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3 flex flex-col">
+            <h2 className="text-[11px] font-black text-violet-400 uppercase tracking-widest">第二步：导入b面视频 (必选)</h2>
+            <button onClick={handleSelectVideos} className="group relative block w-full rounded-xl border-2 border-dashed border-slate-800 hover:border-violet-500 transition-all overflow-hidden bg-slate-900 p-6 flex flex-col items-center">
+              <FileVideo className="w-8 h-8 mb-2 text-slate-700 group-hover:text-violet-500" />
+              <span className="text-[11px] text-slate-500 font-bold">点击添加b面视频 (支持批量)</span>
+              {videos.length > 0 && <span className="text-[10px] text-emerald-400 mt-2">已选择 {videos.length} 个视频</span>}
+            </button>
           </div>
 
-          {/* 处理进度 - 固定在底部 */}
+          <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[11px] font-black text-violet-400 uppercase tracking-widest">第三步：A面添加 (可选)</h2>
+              {sideAVideos.length > 0 && <button onClick={() => setSideAVideos([])} className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1"><Trash2 className="w-3 h-3" />清空</button>}
+            </div>
+            <button onClick={handleSelectSideAVideos} className={`group relative block w-full p-4 rounded-xl border-2 border-dashed transition-all ${sideAVideos.length > 0 ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-800 hover:border-violet-500 bg-slate-900'}`}>
+              <div className="flex flex-col items-center justify-center text-center">
+                {sideAVideos.length > 0 ? <><CheckCircle className="w-6 h-6 mb-2 text-emerald-500" /><span className="text-[10px] text-emerald-400 font-bold">已添加 {sideAVideos.length} 个 A 面</span></> : <><FileVideo className="w-6 h-6 mb-2 text-slate-700 group-hover:text-violet-500" /><span className="text-[10px] text-slate-500 font-bold">点击添加 A 面视频</span></>}
+              </div>
+            </button>
+          </div>
+
+          <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-[11px] font-black text-violet-400 uppercase tracking-widest">第四步：视频封面 (可选)</h2>
+              {covers.length > 0 && <button onClick={() => setCovers([])} className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1"><Trash2 className="w-3 h-3" />清空</button>}
+            </div>
+            <button onClick={handleSelectCovers} className={`group relative block w-full p-4 rounded-xl border-2 border-dashed transition-all ${covers.length > 0 ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-800 hover:border-violet-500 bg-slate-900'}`}>
+              <div className="flex flex-col items-center justify-center text-center">
+                {covers.length > 0 ? <><CheckCircle className="w-6 h-6 mb-2 text-emerald-500" /><span className="text-[10px] text-emerald-400 font-bold">已添加 {covers.length} 张封面</span></> : <><ImageIcon className="w-6 h-6 mb-2 text-slate-700 group-hover:text-violet-500" /><span className="text-[10px] text-slate-500 font-bold">点击添加封面图片</span></>}
+              </div>
+            </button>
+          </div>
+
+          <div className="space-y-4 pt-2">
+            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+              <OutputDirSelector
+                value={outputDir}
+                onChange={setOutputDir}
+                disabled={isProcessing}
+                themeColor="violet"
+              />
+            </div>
+
+            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+              <ConcurrencySelector
+                value={concurrency}
+                onChange={setConcurrency}
+                disabled={isProcessing}
+                themeColor="violet"
+                compact
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <div className="flex flex-col">
+                <span className="text-[11px] font-bold text-slate-300">导出倍数</span>
+                <span className="text-[9px] text-slate-500">预计导出 {videos.length * exportMultiplier} 条</span>
+              </div>
+              <div className="flex gap-2">
+                {[2, 3].map(m => (
+                  <button key={m} onClick={() => setExportMultiplier(prev => prev === m ? 1 : m as 1|2|3)} className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all border ${exportMultiplier === m ? `bg-${primaryColor}-600 text-white` : 'bg-slate-900 border-slate-700 text-slate-500 hover:text-violet-400'}`}>×{m}</button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={startProcessing} disabled={videos.length === 0 || isProcessing || !outputDir} className={`w-full py-5 bg-gradient-to-r from-${primaryColor}-600 to-${primaryColor}-700 font-black rounded-2xl transition-all flex items-center justify-center gap-3 shadow-2xl shadow-${primaryColor}-900/40 disabled:opacity-50`}>
+              {isProcessing ? <><Loader2 className="w-6 h-6 animate-spin" />正在全力渲染中...</> : <><Play className="w-6 h-6 fill-current" />一键开始批量处理</>}
+            </button>
+          </div>
+
           {isProcessing && progress.total > 0 && (
-            <div className="shrink-0 border-t border-slate-800 bg-slate-900 p-4">
-              <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between text-[11px] font-bold">
-                  <span className="text-slate-400">处理进度</span>
-                  <span className={primaryColor === 'violet' ? 'text-violet-400' : 'text-indigo-400'}>{progress.done} / {progress.total}</span>
-                </div>
-                <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                  <div className={`bg-${primaryColor}-600 h-full transition-all duration-500`} style={{ width: `${progressPercent}%` }} />
-                </div>
-                {progress.failed > 0 && <div className="text-[10px] text-red-400 font-bold">⚠️ {progress.failed} 个任务失败</div>}
+            <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between text-[11px] font-bold">
+                <span className="text-slate-400">处理进度</span>
+                <span className={primaryColor === 'violet' ? 'text-violet-400' : 'text-indigo-400'}>{progress.done} / {progress.total}</span>
               </div>
+              <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                <div className={`bg-${primaryColor}-600 h-full transition-all duration-500`} style={{ width: `${progressPercent}%` }} />
+              </div>
+              {progress.failed > 0 && <div className="text-[10px] text-red-400 font-bold">⚠️ {progress.failed} 个任务失败</div>}
             </div>
           )}
+
+          {/* 日志面板 */}
+          <OperationLogPanel
+            logs={logs}
+            addLog={addLog}
+            clearLogs={clearLogs}
+            copyLogs={copyLogs}
+            downloadLogs={downloadLogs}
+            logsContainerRef={logsContainerRef}
+            logsEndRef={logsEndRef}
+            autoScrollEnabled={autoScrollEnabled}
+            setAutoScrollEnabled={setAutoScrollEnabled}
+            autoScrollPaused={autoScrollPaused}
+            resumeAutoScroll={resumeAutoScroll}
+            scrollToBottom={scrollToBottom}
+            scrollToTop={scrollToTop}
+            onUserInteractStart={onUserInteractStart}
+            height="200px"
+            themeColor={primaryColor === 'violet' ? 'violet' : 'indigo'}
+          />
         </div>
 
         <main className="flex-1 bg-slate-950 flex flex-col items-center justify-center p-8 relative overflow-hidden">
