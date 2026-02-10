@@ -3,6 +3,7 @@ import { Upload, Loader2, Grid3X3, CheckCircle, XCircle, ArrowLeft, AlertCircle,
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
+import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
 
 interface LosslessGridModeProps {
   onBack: () => void;
@@ -188,23 +189,15 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
     };
   }, [images]);
 
-  // 监听处理进度
-  useEffect(() => {
-    const cleanup = () => {
-      window.api.removeAllListeners('image-start');
-      window.api.removeAllListeners('image-progress');
-      window.api.removeAllListeners('image-failed');
-      window.api.removeAllListeners('image-finish');
-    };
-
-    window.api.onImageStart((data) => {
+  // 使用图片处理事件 Hook
+  useImageProcessingEvents({
+    onStart: (data) => {
       // 处理开始时标记所有待处理图片为处理中
       setImages(prev => prev.map(img =>
         img.status === 'pending' ? { ...img, status: 'processing' } : img
       ));
-    });
-
-    window.api.onImageProgress((data) => {
+    },
+    onProgress: (data) => {
       // 更新当前处理的图片状态
       if (data.current) {
         setImages(prev => prev.map(img => {
@@ -214,9 +207,8 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
           return img;
         }));
       }
-    });
-
-    window.api.onImageFailed((data) => {
+    },
+    onFailed: (data) => {
       // 标记失败的图片
       if (data.current) {
         setImages(prev => prev.map(img => {
@@ -226,14 +218,11 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
           return img;
         }));
       }
-    });
-
-    window.api.onImageFinish((data) => {
+    },
+    onFinish: (data) => {
       setIsProcessing(false);
-    });
-
-    return cleanup;
-  }, []);
+    },
+  });
 
   // 开始处理
   const startProcessing = async () => {
