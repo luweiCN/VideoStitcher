@@ -8,7 +8,7 @@ import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useJobEvents } from '../hooks/useJobEvents';
+import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
 
 interface CoverFormatModeProps {
   onBack: () => void;
@@ -56,11 +56,15 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 使用任务事件 Hook 处理图片处理事件
-  useJobEvents({
-    jobType: 'image',
+  // 使用图片处理事件 Hook
+  useImageProcessingEvents({
+    onStart: (data) => {
+      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
+      setProgress({ done: 0, failed: 0, total: data.total });
+    },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
       // 更新对应文件的状态
       if (data.current) {
         setFiles(prev => prev.map(f => {
@@ -71,7 +75,19 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
         }));
       }
     },
-    onProcessingChange: setIsProcessing,
+    onFailed: (data) => {
+      addLog(`❌ 处理失败: ${data.current} - ${data.error}`, 'error');
+      setFiles(prev => prev.map(f => {
+        if (f.path === data.current) {
+          return { ...f, status: 'error', error: data.error };
+        }
+        return f;
+      }));
+    },
+    onFinish: (data) => {
+      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
+      setIsProcessing(false);
+    },
   });
 
   // 选择图片文件

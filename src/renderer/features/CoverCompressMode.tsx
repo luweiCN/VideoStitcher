@@ -10,7 +10,7 @@ import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useJobEvents } from '../hooks/useJobEvents';
+import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
 
 interface CoverCompressModeProps {
   onBack: () => void;
@@ -70,11 +70,17 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 使用任务事件 Hook 处理图片处理事件
-  useJobEvents({
-    jobType: 'image',
+  // 使用图片处理事件 Hook
+  useImageProcessingEvents({
+    onStart: (data) => {
+      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
+      setProgress({ done: 0, failed: 0, total: data.total });
+      // 重置所有文件状态为 processing
+      setFiles(prev => prev.map(f => ({ ...f, status: 'processing' as const, compressedSize: undefined })));
+    },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
       // 更新对应文件的状态，从 result 中获取压缩后大小
       if (data.current) {
         setFiles(prev => prev.map(f => {
@@ -90,12 +96,18 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
         }));
       }
     },
-    onProcessingChange: (isProcessing) => {
-      setIsProcessing(isProcessing);
-      // 重置所有文件状态为 processing
-      if (isProcessing) {
-        setFiles(prev => prev.map(f => ({ ...f, status: 'processing' as const, compressedSize: undefined })));
-      }
+    onFailed: (data) => {
+      addLog(`❌ 处理失败: ${data.current} - ${data.error}`, 'error');
+      setFiles(prev => prev.map(f => {
+        if (f.path === data.current) {
+          return { ...f, status: 'error' as const, error: data.error };
+        }
+        return f;
+      }));
+    },
+    onFinish: (data) => {
+      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
+      setIsProcessing(false);
     },
   });
 

@@ -5,7 +5,7 @@ import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useJobEvents } from '../hooks/useJobEvents';
+import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
 
 /**
  * 图片文件状态
@@ -350,20 +350,12 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     setIsDragging(false);
   };
 
-  // 监听处理进度
-  useEffect(() => {
-    const cleanup = () => {
-      window.api.removeAllListeners('image-start');
-      window.api.removeAllListeners('image-progress');
-      window.api.removeAllListeners('image-failed');
-      window.api.removeAllListeners('image-finish');
-    };
-
-    window.api.onImageStart((data) => {
+  // 使用图片处理事件 Hook
+  useImageProcessingEvents({
+    onStart: (data) => {
       addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
-    });
-
-    window.api.onImageProgress((data) => {
+    },
+    onProgress: (data) => {
       addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
       setImages(prev => prev.map((img) => {
         if (img.path === data.current) {
@@ -371,25 +363,21 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         }
         return img;
       }));
-    });
-
-    window.api.onImageFailed((data) => {
-      addLog(`❌ 处理失败: ${data.current} - ${data.error}`);
+    },
+    onFailed: (data) => {
+      addLog(`❌ 处理失败: ${data.current} - ${data.error}`, 'error');
       setImages(prev => prev.map((img) => {
         if (img.path === data.current) {
           return { ...img, status: 'error' };
         }
         return img;
       }));
-    });
-
-    window.api.onImageFinish((data) => {
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`);
+    },
+    onFinish: (data) => {
+      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
       setIsProcessing(false);
-    });
-
-    return cleanup;
-  }, []);
+    },
+  });
 
   // 开始处理
   const processImages = async () => {
@@ -408,7 +396,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     if (isProcessing) return;
 
     setIsProcessing(true);
-    setLogs([]);
+    clearLogs();
     addLog('开始图片素材处理...');
     addLog(`素材: ${images.length} 张`);
     addLog(`Logo: ${logoPath ? '已设置' : '无'}`);

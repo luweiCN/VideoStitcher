@@ -7,7 +7,7 @@ import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useJobEvents } from '../hooks/useJobEvents';
+import { useVideoProcessingEvents } from '../hooks/useVideoProcessingEvents';
 
 interface ResizeModeProps {
   onBack: () => void;
@@ -145,13 +145,26 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     }
   }, [videos, currentVideoIndex, mode, addLog]);
 
-  // 使用任务事件 Hook 处理视频处理事件
-  useJobEvents({
-    jobType: 'video',
+  // 使用视频处理事件 Hook
+  useVideoProcessingEvents({
+    onStart: (data) => {
+      addLog(`开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`);
+      setProgress({ done: 0, failed: 0, total: data.total });
+    },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
     },
-    onProcessingChange: setIsProcessing,
+    onFailed: (data) => {
+      addLog(`❌ 任务 ${data.index + 1} 失败: ${data.error}`, 'error');
+    },
+    onFinish: (data) => {
+      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
+      setIsProcessing(false);
+    },
+    onLog: (data) => {
+      addLog(`[任务 ${data.index + 1}] ${data.message}`);
+    },
   });
 
   // 当视频列表或模式改变时，重新生成预览

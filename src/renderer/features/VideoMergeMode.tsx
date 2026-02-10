@@ -13,7 +13,7 @@ import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useJobEvents } from '../hooks/useJobEvents';
+import { useVideoProcessingEvents } from '../hooks/useVideoProcessingEvents';
 import { getCanvasConfig, getInitialPositions, getDefaultLayerConfigs } from '../utils/positionCalculator';
 
 interface VideoMergeModeProps {
@@ -134,43 +134,27 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
 
   // 加载全局默认配置（已移至 useConcurrencyCache hook）
 
-  // 使用任务事件 Hook 处理视频处理事件
-  useJobEvents({
-    jobType: 'video',
-    onProgress: (data) => {
-      setProgress({ done: data.done, failed: data.failed, total: data.total });
-    },
-    onProcessingChange: setIsProcessing,
-  });
-
-  useEffect(() => {
-    const cleanup = () => {
-      window.api.removeAllListeners('video-start');
-      window.api.removeAllListeners('video-progress');
-      window.api.removeAllListeners('video-failed');
-      window.api.removeAllListeners('video-finish');
-      window.api.removeAllListeners('video-log');
-    };
-    window.api.onVideoStart((data) => {
+  // 使用视频处理事件 Hook
+  useVideoProcessingEvents({
+    onStart: (data) => {
       addLog(`开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`);
       setProgress({ done: 0, failed: 0, total: data.total });
-    });
-    window.api.onVideoProgress((data) => {
+    },
+    onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
       addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
-    });
-    window.api.onVideoFailed((data) => {
-      addLog(`❌ 任务 ${data.index + 1} 失败: ${data.error}`);
-    });
-    window.api.onVideoFinish((data) => {
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`);
+    },
+    onFailed: (data) => {
+      addLog(`❌ 任务 ${data.index + 1} 失败: ${data.error}`, 'error');
+    },
+    onFinish: (data) => {
+      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
       setIsProcessing(false);
-    });
-    window.api.onVideoLog((data) => {
+    },
+    onLog: (data) => {
       addLog(`[任务 ${data.index + 1}] ${data.message}`);
-    });
-    return cleanup;
-  }, []);
+    },
+  });
 
   const handleSelectBgImage = async () => {
     try {
