@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle, Hash } from 'lucide-react';
 import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
 import PageHeader from '../components/PageHeader';
 
@@ -30,8 +30,11 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   const [format, setFormat] = useState<ExportFormat>('text');
   const [isEditing, setIsEditing] = useState(false);
   const [showReplacePanel, setShowReplacePanel] = useState(false);
+  const [showSequencePanel, setShowSequencePanel] = useState(false);
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
+  const [sequenceDelimiter, setSequenceDelimiter] = useState('-');
+  const [sequenceIndex, setSequenceIndex] = useState<number>(8);
   const [tempNames, setTempNames] = useState<Record<string, string>>({});
   const [platform, setPlatform] = useState<string>('unknown');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -184,6 +187,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     setIsEditing(false);
     setTempNames({});
     setShowReplacePanel(false);
+    setShowSequencePanel(false);
     setFindText('');
     setReplaceText('');
   };
@@ -200,6 +204,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     setTempNames(names);
     setIsEditing(true);
     setShowReplacePanel(false);
+    setShowSequencePanel(false);
   };
 
   /**
@@ -207,6 +212,16 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
    */
   const toggleReplacePanel = () => {
     setShowReplacePanel(!showReplacePanel);
+    setShowSequencePanel(false);
+    setIsEditing(false);
+  };
+
+  /**
+   * 切换序号面板
+   */
+  const toggleSequencePanel = () => {
+    setShowSequencePanel(!showSequencePanel);
+    setShowReplacePanel(false);
     setIsEditing(false);
   };
 
@@ -236,6 +251,39 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     setShowReplacePanel(false);
     setFindText('');
     setReplaceText('');
+  };
+
+  /**
+   * 处理批量添加序号
+   */
+  const handleApplySequence = () => {
+    if (!sequenceDelimiter || sequenceIndex <= 0) return;
+
+    setFiles(prev => prev.map((f, i) => {
+      const parts = f.name.split(sequenceDelimiter);
+      if (parts.length < sequenceIndex) return f;
+
+      const sequenceNum = (i + 1).toString();
+      // 在第 N 个分隔符左侧增加序号
+      // 例如 index 为 8，则在 parts[7] 后面增加序号
+      parts[sequenceIndex - 1] = parts[sequenceIndex - 1] + sequenceNum;
+      
+      const newBaseName = parts.join(sequenceDelimiter);
+      if (newBaseName !== f.name) {
+        const dotIndex = f.originalName.lastIndexOf('.');
+        const extension = dotIndex !== -1 ? f.originalName.substring(dotIndex) : '';
+        const newFileName = newBaseName + extension;
+
+        return {
+          ...f,
+          name: newBaseName,
+          originalName: newFileName
+        };
+      }
+      return f;
+    }));
+
+    setShowSequencePanel(false);
   };
 
   /**
@@ -515,6 +563,20 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                 {/* 左侧工具按钮 */}
                 <div className="flex gap-2">
                   <button
+                    onClick={toggleSequencePanel}
+                    className={`
+                      flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors
+                      ${showSequencePanel
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
+                      }
+                    `}
+                    title="批量增加序号"
+                  >
+                    <Hash className="w-4 h-4" />
+                    序号
+                  </button>
+                  <button
                     onClick={toggleReplacePanel}
                     className={`
                       flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors
@@ -618,6 +680,55 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
             </div>
           )}
 
+          {/* 批量序号面板 */}
+          {showSequencePanel && (
+            <div className="mx-6 mb-4 p-4 bg-slate-800/50 border border-indigo-500/30 rounded-2xl">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-sm text-indigo-300 flex items-center gap-2">
+                  <Hash className="w-4 h-4" />
+                  批量增加序号
+                </h3>
+                <button
+                  onClick={() => setShowSequencePanel(false)}
+                  className="p-1 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex gap-4 items-end">
+                <div className="w-24 space-y-1">
+                  <label className="text-xs text-slate-400 ml-1">分隔符</label>
+                  <input
+                    type="text"
+                    value={sequenceDelimiter}
+                    onChange={(e) => setSequenceDelimiter(e.target.value)}
+                    placeholder="例如: -"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white text-center"
+                  />
+                </div>
+                <div className="w-32 space-y-1">
+                  <label className="text-xs text-slate-400 ml-1">在第 N 个分隔符左侧</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={sequenceIndex}
+                    onChange={(e) => setSequenceIndex(parseInt(e.target.value) || 1)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white text-center"
+                  />
+                </div>
+                <div className="flex-1 text-xs text-slate-500 pb-2 italic">
+                  说明：序号将根据文件在列表中的顺序（1, 2, 3...）自动生成并插入。
+                </div>
+                <button
+                  onClick={handleApplySequence}
+                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] h-[38px]"
+                >
+                  应用序号
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 文件列表内容 */}
           <div className="flex-1 overflow-y-auto p-0 custom-scrollbar">
             {/* 进度显示 */}
@@ -666,7 +777,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                 <div className="text-xs">
                   <p className="font-bold text-indigo-300 mb-1">💡 批量重命名文件：</p>
                   <p className="text-indigo-200/70 leading-relaxed">
-                    1. 点击右上角 <strong className="text-indigo-400">"编辑名称"</strong> 或 <strong className="text-indigo-400">"替换"</strong> 修改文件名。<br />
+                    1. 点击右上角 <strong className="text-indigo-400">"编辑名称"</strong>、<strong className="text-indigo-400">"替换"</strong> 或 <strong className="text-indigo-400">"序号"</strong> 修改文件名。<br />
                     2. 确认无误后点击 <strong className="text-indigo-400">"执行重命名"</strong> 按钮。<br />
                     3. 重命名完成后可点击 <strong className="text-indigo-400">"撤销"</strong> 按钮恢复原始文件名。
                   </p>
