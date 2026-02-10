@@ -1,0 +1,96 @@
+import { useEffect } from 'react';
+
+/**
+ * 图片处理事件数据类型定义
+ */
+export interface ImageStartData {
+  total: number;
+  mode: string;
+}
+
+export interface ImageProgressData {
+  done: number;
+  failed: number;
+  total: number;
+}
+
+export interface ImageFailedData {
+  current: string;
+  error: string;
+}
+
+export interface ImageFinishData {
+  done: number;
+  failed: number;
+}
+
+/**
+ * 图片处理事件处理器
+ */
+export interface ImageProcessingHandlers {
+  /** 处理开始 */
+  onStart?: (data: ImageStartData) => void;
+  /** 处理进度更新 */
+  onProgress?: (data: ImageProgressData) => void;
+  /** 单个任务失败 */
+  onFailed?: (data: ImageFailedData) => void;
+  /** 所有任务完成 */
+  onFinish?: (data: ImageFinishData) => void;
+}
+
+/**
+ * 图片处理事件 Hook
+ *
+ * 监听图片处理相关的事件，自动管理监听器的注册和清理
+ *
+ * @example
+ * ```tsx
+ * useImageProcessingEvents({
+ *   onStart: (data) => {
+ *     addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
+ *   },
+ *   onProgress: (data) => {
+ *     addLog(`进度: ${data.done}/${data.total}`);
+ *   },
+ *   onFailed: (data) => {
+ *     addLog(`❌ 处理失败: ${data.current} - ${data.error}`, 'error');
+ *   },
+ *   onFinish: (data) => {
+ *     addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
+ *   },
+ * });
+ * ```
+ */
+export function useImageProcessingEvents(handlers: ImageProcessingHandlers) {
+  const { onStart, onProgress, onFailed, onFinish } = handlers;
+
+  useEffect(() => {
+    // 注册所有监听器
+    const unsubscribers: (() => void)[] = [];
+
+    if (onStart) {
+      window.api.onImageStart(onStart);
+      unsubscribers.push(() => window.api.removeAllListeners('image-start'));
+    }
+
+    if (onProgress) {
+      window.api.onImageProgress(onProgress);
+      unsubscribers.push(() => window.api.removeAllListeners('image-progress'));
+    }
+
+    if (onFailed) {
+      window.api.onImageFailed(onFailed);
+      unsubscribers.push(() => window.api.removeAllListeners('image-failed'));
+    }
+
+    if (onFinish) {
+      window.api.onImageFinish(onFinish);
+      unsubscribers.push(() => window.api.removeAllListeners('image-finish'));
+    }
+
+    // 清理函数：移除所有监听器
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }, [onStart, onProgress, onFailed, onFinish]);
+}

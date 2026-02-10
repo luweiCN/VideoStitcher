@@ -6,8 +6,11 @@ import {
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
+import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
+import { useOperationLogs } from '../hooks/useOperationLogs';
+import { useJobEvents } from '../hooks/useJobEvents';
 
 interface VideoStitcherModeProps {
   onBack: () => void;
@@ -46,9 +49,28 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   // 组合项处理状态
   const [comboStatusMap, setComboStatusMap] = useState<Record<string, 'pending' | 'processing' | 'completed' | 'failed'>>({});
 
-  // 日志状态
-  const [logs, setLogs] = useState<string[]>([]);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  // 日志管理
+  const {
+    logs,
+    addLog,
+    clearLogs,
+    copyLogs,
+    downloadLogs,
+    logsEndRef,
+    logsContainerRef,
+
+    // 自动滚动相关
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    autoScrollPaused,
+    resumeAutoScroll,
+    scrollToBottom,
+    scrollToTop,
+    onUserInteractStart,
+  } = useOperationLogs({
+    moduleNameCN: 'A+B前后拼接',
+    moduleNameEN: 'VideoStitcher',
+  });
 
   // 预览相关
   const [orientation, setOrientation] = useState<Orientation>('landscape');
@@ -89,11 +111,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     });
   }, [aFiles, bFiles, comboStatusMap]);
 
-  // 日志自动滚动到底部
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
-
   // 加载全局默认配置
   useEffect(() => {
     const loadGlobalSettings = async () => {
@@ -122,16 +139,33 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
 
   const selectedCombo = combinations[selectedComboIndex];
 
+  // 记录当前正在生成的预览标识（基于文件路径和方向，更稳定）
+  const currentPreviewKeyRef = useRef<string>('');
+  // 取消标记：用于标记预览生成是否被取消
+  const isPreviewCancelledRef = useRef(false);
+
   // 自动生成预览视频：当选中的组合或横竖屏变化时
   useEffect(() => {
     if (!selectedCombo) return;
+
+    // 使用文件路径和方向作为唯一标识，更稳定
+    const previewKey = `${selectedCombo.aVideo.path}-${selectedCombo.bVideo.path}-${orientation}`;
+
+    // 如果是同一个预览，跳过
+    if (currentPreviewKeyRef.current === previewKey) {
+      return;
+    }
+
+    currentPreviewKeyRef.current = previewKey;
+    isPreviewCancelledRef.current = false; // 重置取消标记
 
     // 立即清空旧预览并显示 loading
     setPreviewVideoPath(null);
     setIsGeneratingPreview(true);
 
-    const generatePreview = async () => {
-      setLogs(prev => [...prev, `[预览] 正在生成 ${selectedCombo.outputName} 的预览视频...`]);
+    // 防抖延迟 - 避免快速切换时频繁触发
+    const debounceTimer = setTimeout(async () => {
+      addLog(`[预览] 正在生成 ${selectedCombo.outputName} 的预览视频 (${orientation === 'landscape' ? '横屏' : '竖屏'})`);
 
       try {
         const result = await window.api.generateStitchPreview({
@@ -140,20 +174,38 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
           orientation
         });
 
+        // 检查是否还是当前预览或已被取消
+        if (isPreviewCancelledRef.current || currentPreviewKeyRef.current !== previewKey) {
+          // 已经切换到其他预览，删除这个临时文件
+          if (result.tempPath) {
+            window.api.deleteTempPreview(result.tempPath);
+          }
+          addLog(`[预览] 已切换，忽略 ${selectedCombo.outputName} 的预览结果`, 'warning');
+          return;
+        }
+
         if (result.success && result.tempPath) {
           setPreviewVideoPath(result.tempPath);
-          setLogs(prev => [...prev, `[预览] 预览视频生成完成`]);
+          addLog(`[预览] ${selectedCombo.outputName} 预览视频生成完成`, 'success');
         } else {
-          setLogs(prev => [...prev, `[错误] 预览生成失败: ${result.error}`]);
+          addLog(`[错误] 预览生成失败: ${result.error}`, 'error');
         }
       } catch (err: any) {
-        setLogs(prev => [...prev, `[错误] 预览生成异常: ${err.message}`]);
+        addLog(`[错误] 预览生成异常: ${err.message}`, 'error');
       } finally {
-        setIsGeneratingPreview(false);
+        // 只有未取消的任务才更新状态
+        if (!isPreviewCancelledRef.current) {
+          setIsGeneratingPreview(false);
+        }
       }
-    };
+    }, 300); // 300ms 防抖延迟
 
-    generatePreview();
+    // 清理函数：取消预览生成
+    return () => {
+      clearTimeout(debounceTimer);
+      isPreviewCancelledRef.current = true; // 标记为已取消
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCombo, orientation]);
 
   // 预览视频加载完成后自动播放并设置音量
@@ -276,40 +328,28 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     setSelectedComboIndex(0);
   };
 
-  // 监听处理进度
-  useEffect(() => {
-    const cleanup = () => {
-      window.api.removeAllListeners('job-start');
-      window.api.removeAllListeners('job-task-start');
-      window.api.removeAllListeners('job-log');
-      window.api.removeAllListeners('job-progress');
-      window.api.removeAllListeners('job-failed');
-      window.api.removeAllListeners('job-finish');
-    };
-
-    window.api.onJobStart((data) => {
+  // 监听 A+B 前后拼接任务事件
+  useJobEvents({
+    onStart: (data) => {
       setProgress({ done: 0, failed: 0, total: data.total });
-      setLogs(prev => [...prev, `开始处理 ${data.total} 个合成任务...`]);
+      addLog(`开始处理 ${data.total} 个合成任务...`);
       // 重置所有状态为 pending
       const newStatusMap: Record<string, 'pending' | 'processing' | 'completed' | 'failed'> = {};
       combinations.forEach(combo => {
         newStatusMap[combo.id] = 'pending';
       });
       setComboStatusMap(newStatusMap);
-    });
-
-    window.api.onJobTaskStart((data) => {
+    },
+    onTaskStart: (data) => {
       setComboStatusMap(prev => ({
         ...prev,
         [`combo-${data.index}`]: 'processing'
       }));
-    });
-
-    window.api.onJobLog((data) => {
-      setLogs(prev => [...prev, data.msg]);
-    });
-
-    window.api.onJobProgress((data) => {
+    },
+    onLog: (data) => {
+      addLog(data.msg);
+    },
+    onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
       // 更新对应组合项的状态为 completed
       if (data.index !== undefined) {
@@ -318,23 +358,19 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
           [`combo-${data.index}`]: 'completed'
         }));
       }
-    });
-
-    window.api.onJobFailed((data) => {
-      setLogs(prev => [...prev, `[错误] 任务 #${data.index + 1} 处理失败: ${data.error || '未知错误'}`]);
+    },
+    onFailed: (data) => {
+      addLog(`[错误] 任务 #${data.index + 1} 处理失败: ${data.error || '未知错误'}`, 'error');
       setComboStatusMap(prev => ({
         ...prev,
         [`combo-${data.index}`]: 'failed'
       }));
-    });
-
-    window.api.onJobFinish((data) => {
+    },
+    onFinish: (data) => {
       setIsProcessing(false);
-      setLogs(prev => [...prev, `所有任务完成! 成功: ${data.done}, 失败: ${data.failed}`]);
-    });
-
-    return cleanup;
-  }, [combinations]);
+      addLog(`所有任务完成! 成功: ${data.done}, 失败: ${data.failed}`, 'success');
+    },
+  });
 
   // 开始合成
   const startMerge = async () => {
@@ -842,40 +878,25 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
           </div>
 
           {/* Logs - Fill remaining space */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl m-4 p-4 flex flex-col flex-1 min-h-0">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2 shrink-0">
-                <span>处理日志</span>
-                {logs.length > 0 && (
-                  <button
-                    onClick={() => setLogs([])}
-                    className="ml-auto text-[10px] text-gray-500 hover:text-gray-300"
-                  >
-                    清空
-                  </button>
-                )}
-              </h3>
-              <div className="flex-1 overflow-y-auto custom-scrollbar font-mono text-[10px] leading-relaxed min-h-0">
-                {logs.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-gray-600">
-                    <span className="text-xs">暂无日志</span>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {logs.map((log, index) => (
-                      <div key={index} className={`break-words ${
-                        log.includes('[错误]') ? 'text-rose-400' :
-                        log.includes('成功') || log.includes('完成') ? 'text-green-400' :
-                        'text-gray-400'
-                      }`}>
-                        {log}
-                      </div>
-                    ))}
-                    <div ref={logsEndRef} />
-                  </div>
-                )}
-              </div>
-            </div>
+          <div className="flex-1 flex flex-col min-h-0 m-4">
+            <OperationLogPanel
+              logs={logs}
+              addLog={addLog}
+              clearLogs={clearLogs}
+              copyLogs={copyLogs}
+              downloadLogs={downloadLogs}
+              logsContainerRef={logsContainerRef}
+              logsEndRef={logsEndRef}
+              // 自动滚动相关
+              autoScrollEnabled={autoScrollEnabled}
+              setAutoScrollEnabled={setAutoScrollEnabled}
+              autoScrollPaused={autoScrollPaused}
+              resumeAutoScroll={resumeAutoScroll}
+              scrollToBottom={scrollToBottom}
+              scrollToTop={scrollToTop}
+              onUserInteractStart={onUserInteractStart}
+              themeColor="pink"
+            />
           </div>
 
           {/* Start Button - Fixed at bottom */}

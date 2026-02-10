@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { Zap, Cpu, Check, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Zap, Cpu, Check, AlertTriangle, Lightbulb, Info } from 'lucide-react';
 
 interface ConcurrencySelectorProps {
   /** 当前并发数 */
@@ -198,12 +198,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
                       cursor-pointer
                     `}
                   >
-                    {/* 信息图标 */}
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 16v-4" />
-                      <path d="M12 8h.01" />
-                    </svg>
+                    <Info className="w-4 h-4" />
                   </button>
                 </Tooltip.Trigger>
                 <Tooltip.Portal>
