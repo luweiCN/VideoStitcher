@@ -386,15 +386,22 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     if (isProcessing) return;
 
     setIsProcessing(true);
+    clearLogs();
 
     try {
       const aPaths = aFiles.map(f => f.path);
       const bPaths = bFiles.map(f => f.path);
-      await window.api.setLibs(aPaths, bPaths, outputDir);
-      await window.api.startMerge(orientation);
+      await window.api.videoStitchAB({
+        aFiles: aPaths,
+        bFiles: bPaths,
+        outputDir,
+        orientation,
+        concurrency: concurrency === 0 ? undefined : concurrency
+      });
     } catch (err: any) {
       console.error('合成失败:', err);
       setIsProcessing(false);
+      addLog(`❌ 合成失败: ${err.message || err}`, 'error');
     }
   };
 

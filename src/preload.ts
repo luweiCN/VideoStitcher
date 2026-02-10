@@ -11,6 +11,15 @@ export interface ElectronAPI {
   startMerge: (orientation: 'landscape' | 'portrait') => Promise<{ done: number; failed: number; total: number }>;
 
   // === 新的视频处理 API ===
+  // A+B 前后拼接
+  videoStitchAB: (config: {
+    aFiles: string[];
+    bFiles: string[];
+    outputDir: string;
+    orientation: 'landscape' | 'portrait';
+    concurrency?: number;
+  }) => Promise<{ done: number; failed: number; total: number }>;
+
   // 横屏合成
   videoHorizontalMerge: (config: {
     aVideos: string[];
@@ -258,6 +267,7 @@ const api: ElectronAPI = {
   startMerge: (orientation) => ipcRenderer.invoke('start-merge', { orientation }),
 
   // 新的视频处理 API
+  videoStitchAB: (config) => ipcRenderer.invoke('video-stitch-ab', config),
   videoHorizontalMerge: (config) => ipcRenderer.invoke('video-horizontal-merge', config),
   videoVerticalMerge: (config) => ipcRenderer.invoke('video-vertical-merge', config),
   videoResize: (config) => ipcRenderer.invoke('video-resize', config),

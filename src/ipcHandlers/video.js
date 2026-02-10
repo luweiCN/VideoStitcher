@@ -653,9 +653,117 @@ async function handleClearResizePreviews(event, { previewPaths }) {
 }
 
 /**
+ * A+B 前后拼接处理
+ * 用于 VideoStitcherMode 的 A+B 前后拼接功能
+ *
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 参数对象
+ * @param {string[]} params.aFiles - A面视频列表（前段）
+ * @param {string[]} params.bFiles - B面视频列表（后段）
+ * @param {string} params.outputDir - 输出目录
+ * @param {string} params.orientation - 拼接方向 (landscape | portrait)
+ * @param {number} [params.concurrency] - 并发数
+ */
+async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, concurrency }) {
+  if (!aFiles.length || !bFiles.length) {
+    throw new Error('A库或B库为空');
+  }
+  if (!outputDir) {
+    throw new Error('未选择输出目录');
+  }
+
+  const { buildPairs } = require('../ffmpeg/pair');
+  const pairs = buildPairs(aFiles, bFiles);
+  const total = pairs.length;
+
+  // 设置并发数
+  queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
+
+  let done = 0;
+  let failed = 0;
+
+  event.sender.send('video-start', {
+    total,
+    mode: orientation,
+    concurrency: queue.concurrency,
+  });
+
+  const tasks = pairs.map(({ a, b, index }) => {
+    return queue.push(async () => {
+      const aName = path.parse(a).name;
+      const bName = path.parse(b).name;
+      const outName = `${aName}__${bName}__${String(index).padStart(4, '0')}.mp4`;
+      const outPath = path.join(outputDir, outName);
+
+      // 发送任务开始处理事件
+      event.sender.send('video-task-start', { index });
+
+      const payload = { aPath: a, bPath: b, outPath, orientation };
+
+      const tryRun = async (attempt) => {
+        event.sender.send('video-log', {
+          index,
+          message: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n`,
+        });
+        return runFfmpeg(payload, (s) => {
+          event.sender.send('video-log', { index, message: s });
+        });
+      };
+
+      try {
+        await tryRun(1);
+        done++;
+        event.sender.send('video-progress', {
+          done,
+          failed,
+          total,
+          index,
+          outputPath: outPath,
+        });
+      } catch (err) {
+        event.sender.send('video-log', {
+          index,
+          message: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n`,
+        });
+        try {
+          await tryRun(2);
+          done++;
+          event.sender.send('video-progress', {
+            done,
+            failed,
+            total,
+            index,
+            outputPath: outPath,
+          });
+        } catch (err2) {
+          failed++;
+          event.sender.send('video-failed', {
+            done,
+            failed,
+            total,
+            index,
+            error: err2.message,
+          });
+        }
+      }
+    });
+  });
+
+  await Promise.allSettled(tasks);
+  event.sender.send('video-finish', { done, failed, total });
+
+  return { done, failed, total };
+}
+
+/**
  * 注册所有视频处理 IPC 处理器
  */
 function registerVideoHandlers() {
+  // A+B 前后拼接
+  ipcMain.handle('video-stitch-ab', async (event, config) => {
+    return handleStitchAB(event, config);
+  });
+
   // 横屏合成
   ipcMain.handle('video-horizontal-merge', async (event, config) => {
     return handleHorizontalMerge(event, config);
@@ -704,6 +812,7 @@ function registerVideoHandlers() {
 
 module.exports = {
   registerVideoHandlers,
+  handleStitchAB,
   handleHorizontalMerge,
   handleVerticalMerge,
   handleResize,

@@ -4,8 +4,6 @@ const path = require("path");
 const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
 
-const { buildPairs } = require("./ffmpeg/pair");
-const { TaskQueue } = require("./ffmpeg/queue");
 const { runFfmpeg } = require("./ffmpeg/runFfmpeg");
 
 /**
@@ -22,11 +20,6 @@ const { registerAuthHandlers } = require("./ipcHandlers/auth");
 const { registerFileHandlers } = require("./ipcHandlers/file");
 
 let win;
-let A = [];
-let B = [];
-let outDir = "";
-
-const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 
 // 检测开发环境
 const isDevelopment =
@@ -579,100 +572,6 @@ ipcMain.handle("pick-outdir", async (_e, { defaultPath } = {}) => {
   });
   if (res.canceled) return "";
   return res.filePaths[0];
-});
-
-ipcMain.handle("set-libs", async (_e, { aFiles, bFiles, outputDir }) => {
-  A = aFiles || [];
-  B = bFiles || [];
-  outDir = outputDir || "";
-  return { aCount: A.length, bCount: B.length, outDir };
-});
-
-ipcMain.handle("set-concurrency", async (_e, { concurrency }) => {
-  queue.setConcurrency(Number(concurrency) || 1);
-  return { concurrency: queue.concurrency };
-});
-
-ipcMain.handle("start-merge", async (_e, { orientation }) => {
-  if (!A.length || !B.length) throw new Error("A库或B库为空");
-  if (!outDir) throw new Error("未选择输出目录");
-
-  const pairs = buildPairs(A, B);
-  const total = pairs.length;
-
-  let done = 0;
-  let failed = 0;
-
-  win.webContents.send("video-start", {
-    total,
-    mode: orientation,
-    concurrency: queue.concurrency,
-  });
-
-  const tasks = pairs.map(({ a, b, index }) => {
-    return queue.push(async () => {
-      const aName = path.parse(a).name;
-      const bName = path.parse(b).name;
-      const outName = `${aName}__${bName}__${String(index).padStart(4, "0")}.mp4`;
-      const outPath = path.join(outDir, outName);
-
-      // 发送任务开始处理事件
-      win.webContents.send("video-task-start", { index });
-
-      const payload = { aPath: a, bPath: b, outPath, orientation };
-
-      const tryRun = async (attempt) => {
-        win.webContents.send("video-log", {
-          index,
-          message: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n`,
-        });
-        return runFfmpeg(payload, (s) => {
-          win.webContents.send("video-log", { index, message: s });
-        });
-      };
-
-      try {
-        await tryRun(1);
-        done++;
-        win.webContents.send("video-progress", {
-          done,
-          failed,
-          total,
-          index,
-          outputPath: outPath,
-        });
-      } catch (err) {
-        win.webContents.send("video-log", {
-          index,
-          message: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n`,
-        });
-        try {
-          await tryRun(2);
-          done++;
-          win.webContents.send("job-progress", {
-            done,
-            failed,
-            total,
-            index,
-            outPath,
-          });
-        } catch (err2) {
-          failed++;
-          win.webContents.send("video-failed", {
-            done,
-            failed,
-            total,
-            index,
-            error: err2.message,
-          });
-        }
-      }
-    });
-  });
-
-  await Promise.allSettled(tasks);
-  win.webContents.send("video-finish", { done, failed, total });
-  return { done, failed, total };
 });
 
 // 自动更新相关的 IPC 处理器
