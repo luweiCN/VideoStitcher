@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle, Hash } from 'lucide-react';
+import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle, Hash, CopyCheck } from 'lucide-react';
 import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
 import PageHeader from '../components/PageHeader';
 
@@ -284,6 +284,33 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     }));
 
     setShowSequencePanel(false);
+  };
+
+  /**
+   * 将第一个文件名应用到所有文件
+   */
+  const applyFirstNameToAll = () => {
+    if (files.length <= 1) return;
+    
+    const firstName = isEditing ? (tempNames[files[0].id] || files[0].name) : files[0].name;
+    
+    if (isEditing) {
+      const newTempNames = { ...tempNames };
+      files.forEach(f => {
+        newTempNames[f.id] = firstName;
+      });
+      setTempNames(newTempNames);
+    } else {
+      setFiles(prev => prev.map(f => {
+        const dotIndex = f.originalName.lastIndexOf('.');
+        const extension = dotIndex !== -1 ? f.originalName.substring(dotIndex) : '';
+        return {
+          ...f,
+          name: firstName,
+          originalName: `${firstName}${extension}`
+        };
+      }));
+    }
   };
 
   /**
@@ -806,17 +833,31 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     <tr key={file.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors group">
                       <td className="p-4 text-slate-500 font-mono text-sm">{index + 1}</td>
                       <td className="p-4 font-medium text-slate-200">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={tempNames[file.id] ?? file.name}
-                            onChange={(e) => handleTempNameChange(file.id, e.target.value)}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500/50 text-sm transition-all"
-                            autoFocus={index === 0}
-                          />
-                        ) : (
-                          <span className="select-all">{file.name}</span>
-                        )}
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={tempNames[file.id] ?? file.name}
+                                onChange={(e) => handleTempNameChange(file.id, e.target.value)}
+                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500/50 text-sm transition-all"
+                                autoFocus={index === 0}
+                              />
+                            ) : (
+                              <span className="select-all">{file.name}</span>
+                            )}
+                          </div>
+                          {index === 0 && files.length > 1 && (
+                            <button
+                              onClick={applyFirstNameToAll}
+                              className="flex items-center gap-1.5 px-2 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-md text-xs font-medium border border-indigo-500/20 transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
+                              title="将此名称应用到后续所有文件"
+                            >
+                              <CopyCheck className="w-3.5 h-3.5" />
+                              应用当前
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 text-right">
                         {!isEditing && (
