@@ -134,6 +134,8 @@ export interface OperationLogPanelProps {
   width?: string;
   /** 可选：固定高度 */
   height?: string;
+  /** 可选：最小高度 */
+  minHeight?: number;
   /** 样式变体 */
   variant?: LogVariant;
   /** 主题颜色 */
