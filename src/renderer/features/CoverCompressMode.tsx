@@ -350,14 +350,14 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Control Panel */}
-        <div className="w-full max-w-md border-r border-slate-800 bg-slate-900 p-6 flex flex-col gap-6 shrink-0 min-h-0">
+        <div className="w-full max-w-md border-r border-slate-800 bg-slate-900 p-6 flex flex-col gap-6 shrink-0 overflow-y-auto">
           {/* Upload Area */}
           <label
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={handleSelectImages}
-            className={`flex flex-col items-center justify-center h-50 border-2 border-dashed rounded-2xl transition-all cursor-pointer group ${
+            className={`flex flex-col items-center justify-center h-50 border-2 border-dashed rounded-2xl transition-all cursor-pointer group shrink-0 ${
               isDragging
                 ? 'border-emerald-500 bg-emerald-500/10'
                 : 'border-slate-800 hover:border-emerald-500 hover:bg-slate-800/50'
@@ -493,8 +493,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
             scrollToBottom={scrollToBottom}
             scrollToTop={scrollToTop}
             onUserInteractStart={onUserInteractStart}
-            className="flex-1"
-            minHeight={200}
             themeColor="emerald"
           />
         </div>

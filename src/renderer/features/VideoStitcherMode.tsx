@@ -761,7 +761,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                 </div>
 
                 {/* Info Sidebar */}
-                <div className="w-64 border-l border-gray-800 bg-[#12121a] p-4 overflow-y-auto custom-scrollbar">
+                <div className="w-64 border-l border-gray-800 bg-[#12121a] p-4 overflow-y-auto custom-scrollbar min-h-0">
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">合成详情</h3>
 
                   {/* Output Info */}
@@ -837,9 +837,8 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         </div>
 
         {/* Right Sidebar - Settings + Logs + Start Button */}
-        <div className="w-80 border-l border-gray-800 bg-[#12121a] flex flex-col shrink-0">
-          {/* Settings + Progress - Fixed at top */}
-          <div className="shrink-0 p-4 space-y-4 border-b border-gray-800">
+        <div className="w-80 border-l border-gray-800 bg-[#12121a] flex flex-col shrink-0 overflow-y-hidden">
+          <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             {/* Settings */}
             <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 space-y-4">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
@@ -882,32 +881,30 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                 )}
               </div>
             )}
-          </div>
 
-          {/* Logs - Fill remaining space */}
-          <div className="flex-1 flex flex-col min-h-0 m-4">
-            <OperationLogPanel
-              logs={logs}
-              addLog={addLog}
-              clearLogs={clearLogs}
-              copyLogs={copyLogs}
-              downloadLogs={downloadLogs}
-              logsContainerRef={logsContainerRef}
-              logsEndRef={logsEndRef}
-              // 自动滚动相关
-              autoScrollEnabled={autoScrollEnabled}
-              setAutoScrollEnabled={setAutoScrollEnabled}
-              autoScrollPaused={autoScrollPaused}
-              resumeAutoScroll={resumeAutoScroll}
-              scrollToBottom={scrollToBottom}
-              scrollToTop={scrollToTop}
-              onUserInteractStart={onUserInteractStart}
-              themeColor="pink"
-            />
-          </div>
+            {/* Logs */}
+            <div className="flex-1 min-h-[300px]">
+              <OperationLogPanel
+                logs={logs}
+                addLog={addLog}
+                clearLogs={clearLogs}
+                copyLogs={copyLogs}
+                downloadLogs={downloadLogs}
+                logsContainerRef={logsContainerRef}
+                logsEndRef={logsEndRef}
+                // 自动滚动相关
+                autoScrollEnabled={autoScrollEnabled}
+                setAutoScrollEnabled={setAutoScrollEnabled}
+                autoScrollPaused={autoScrollPaused}
+                resumeAutoScroll={resumeAutoScroll}
+                scrollToBottom={scrollToBottom}
+                scrollToTop={scrollToTop}
+                onUserInteractStart={onUserInteractStart}
+                themeColor="pink"
+              />
+            </div>
 
-          {/* Start Button - Fixed at bottom */}
-          <div className="shrink-0 p-4 border-t border-gray-800 bg-[#12121a]">
+            {/* Start Button */}
             <button
               onClick={startMerge}
               disabled={isProcessing || aFiles.length === 0 || bFiles.length === 0}

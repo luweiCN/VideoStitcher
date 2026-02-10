@@ -809,24 +809,25 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
           </div>
 
           {/* Logs */}
-          <OperationLogPanel
-            logs={logs}
-            addLog={addLog}
-            clearLogs={clearLogs}
-            copyLogs={copyLogs}
-            downloadLogs={downloadLogs}
-            logsContainerRef={logsContainerRef}
-            logsEndRef={logsEndRef}
-            autoScrollEnabled={autoScrollEnabled}
-            setAutoScrollEnabled={setAutoScrollEnabled}
-            autoScrollPaused={autoScrollPaused}
-            resumeAutoScroll={resumeAutoScroll}
-            scrollToBottom={scrollToBottom}
-            scrollToTop={scrollToTop}
-            onUserInteractStart={onUserInteractStart}
-            height="192px"
-            themeColor="emerald"
-          />
+          <div className="border-t border-slate-800 p-4" style={{ height: 350 }}>
+            <OperationLogPanel
+              logs={logs}
+              addLog={addLog}
+              clearLogs={clearLogs}
+              copyLogs={copyLogs}
+              downloadLogs={downloadLogs}
+              logsContainerRef={logsContainerRef}
+              logsEndRef={logsEndRef}
+              autoScrollEnabled={autoScrollEnabled}
+              setAutoScrollEnabled={setAutoScrollEnabled}
+              autoScrollPaused={autoScrollPaused}
+              resumeAutoScroll={resumeAutoScroll}
+              scrollToBottom={scrollToBottom}
+              scrollToTop={scrollToTop}
+              onUserInteractStart={onUserInteractStart}
+              themeColor="emerald"
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -180,6 +180,9 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
 
   const tasks = bVideos.map((b, index) => {
     return queue.push(async () => {
+      // 发送任务开始事件
+      event.sender.send('video-task-start', { index });
+
       // 使用预分配的 A 面视频和封面图
       const selectedAVideo = globalASideAssignments[index];
       const selectedCoverImage = globalCoverAssignments[index];
@@ -332,6 +335,9 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverI
 
   const tasks = mainVideos.map((mainVideo, index) => {
     return queue.push(async () => {
+      // 发送任务开始事件
+      event.sender.send('video-task-start', { index });
+
       // 使用预分配的 A 面视频和封面图
       const selectedAVideo = globalASideAssignments[index];
       const selectedCoverImage = globalCoverAssignments[index];
@@ -421,6 +427,9 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
 
       tasks.push(queue.push(async () => {
         const index = i * configs.length + j;
+
+        // 发送任务开始事件
+        event.sender.send('video-task-start', { index });
 
         try {
           console.log(`[handleResize] 处理任务 ${index}: ${videoPath}, 目标: ${config.width}x${config.height}, 模糊: ${blurAmount}`);

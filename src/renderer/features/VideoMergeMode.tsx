@@ -489,7 +489,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
             scrollToBottom={scrollToBottom}
             scrollToTop={scrollToTop}
             onUserInteractStart={onUserInteractStart}
-            height="200px"
             themeColor={primaryColor === 'violet' ? 'violet' : 'indigo'}
           />
         </div>

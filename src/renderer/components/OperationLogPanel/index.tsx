@@ -245,6 +245,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
     width: width || '100%',
     height: height || '100%',
     minHeight: minHeight || 200, // 确保最小高度，防止被压缩
+    minWidth: 250, // 确保最小宽度，防止被压缩
   };
 
   return (

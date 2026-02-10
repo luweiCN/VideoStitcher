@@ -132,6 +132,8 @@ export interface OperationLogPanelProps {
 
   /** 可选：固定宽度 */
   width?: string;
+  /** 可选：最小宽度 */
+  minWidth?: number;
   /** 可选：固定高度 */
   height?: string;
   /** 可选：最小高度 */

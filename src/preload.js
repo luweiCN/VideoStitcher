@@ -47,12 +47,14 @@ const api = {
     onJobFinish: (cb) => electron_1.ipcRenderer.on('job-finish', (_e, data) => cb(data)),
     // 新的视频处理事件
     onVideoStart: (cb) => electron_1.ipcRenderer.on('video-start', (_e, data) => cb(data)),
+    onVideoTaskStart: (cb) => electron_1.ipcRenderer.on('video-task-start', (_e, data) => cb(data)),
     onVideoProgress: (cb) => electron_1.ipcRenderer.on('video-progress', (_e, data) => cb(data)),
     onVideoFailed: (cb) => electron_1.ipcRenderer.on('video-failed', (_e, data) => cb(data)),
     onVideoFinish: (cb) => electron_1.ipcRenderer.on('video-finish', (_e, data) => cb(data)),
     onVideoLog: (cb) => electron_1.ipcRenderer.on('video-log', (_e, data) => cb(data)),
     // 图片处理事件
     onImageStart: (cb) => electron_1.ipcRenderer.on('image-start', (_e, data) => cb(data)),
+    onImageTaskStart: (cb) => electron_1.ipcRenderer.on('image-task-start', (_e, data) => cb(data)),
     onImageProgress: (cb) => electron_1.ipcRenderer.on('image-progress', (_e, data) => cb(data)),
     onImageFailed: (cb) => electron_1.ipcRenderer.on('image-failed', (_e, data) => cb(data)),
     onImageFinish: (cb) => electron_1.ipcRenderer.on('image-finish', (_e, data) => cb(data)),

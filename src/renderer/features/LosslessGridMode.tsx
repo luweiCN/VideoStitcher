@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, Loader2, Grid3X3, CheckCircle, XCircle, ArrowLeft, AlertCircle, FolderOpen } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
+import OperationLogPanel from '../components/OperationLogPanel';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
+import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
 
 interface LosslessGridModeProps {
@@ -26,7 +28,27 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   const { outputDir, setOutputDir } = useOutputDirCache('LosslessGridMode');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 使用日志 Hook
+  const {
+    logs,
+    addLog,
+    clearLogs,
+    copyLogs,
+    downloadLogs,
+    logsContainerRef,
+    logsEndRef,
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    autoScrollPaused,
+    resumeAutoScroll,
+    scrollToBottom,
+    scrollToTop,
+    onUserInteractStart,
+  } = useOperationLogs({
+    moduleNameCN: '专业无损九宫格',
+    moduleNameEN: 'LosslessGrid',
+  });
 
   // 处理拖拽上传
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -96,62 +118,73 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   }, []);
 
   // 文件选择处理
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+  const handleSelectImages = async () => {
+    try {
+      const selectedPaths = await window.api.pickFiles('选择图片', [
+        { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'webp'] }
+      ]);
 
-    const imageFiles = files.filter(file =>
-      file.type.startsWith('image/')
-    );
+      if (selectedPaths.length > 0) {
+        const newImages: ImageFile[] = [];
 
-    if (imageFiles.length === 0) {
-      return;
-    }
+        for (const path of selectedPaths) {
+          const name = path.split('/').pop() || path.split('\\').pop() || path;
 
-    const newImages: ImageFile[] = [];
+          // 获取预览 URL
+          let previewUrl: string | undefined;
+          let naturalWidth: number | undefined;
+          let naturalHeight: number | undefined;
 
-    for (const file of imageFiles) {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
+          try {
+            const result = await window.api.getPreviewUrl(path);
+            if (result.success && result.url) {
+              previewUrl = result.url;
 
-      await new Promise<void>((resolve) => {
-        img.onload = () => {
-          const previewUrl = URL.createObjectURL(file);
+              // 获取图片尺寸
+              const img = new Image();
+              await new Promise<void>((resolve) => {
+                img.onload = () => {
+                  naturalWidth = img.naturalWidth;
+                  naturalHeight = img.naturalHeight;
+                  resolve();
+                };
+                img.onerror = () => resolve();
+                img.src = result.url;
+              });
+            }
+          } catch (err) {
+            console.warn('获取预览失败:', path, err);
+          }
+
+          // 获取文件大小
+          let size = 0;
+          try {
+            const fileInfo = await window.api.getFileInfo(path);
+            if (fileInfo.success && fileInfo.info) {
+              size = fileInfo.info.size;
+            }
+          } catch (err) {
+            console.warn('获取文件大小失败:', path, err);
+          }
+
           newImages.push({
             id: Math.random().toString(36).substr(2, 9),
-            path: file.path,
-            name: file.name,
-            size: file.size,
+            path,
+            name,
+            size,
             status: 'pending' as const,
-            naturalWidth: img.naturalWidth,
-            naturalHeight: img.naturalHeight,
+            naturalWidth,
+            naturalHeight,
             previewUrl
           });
-          URL.revokeObjectURL(url);
-          resolve();
-        };
-        img.onerror = () => {
-          const previewUrl = URL.createObjectURL(file);
-          newImages.push({
-            id: Math.random().toString(36).substr(2, 9),
-            path: file.path,
-            name: file.name,
-            size: file.size,
-            status: 'pending' as const,
-            previewUrl
-          });
-          URL.revokeObjectURL(url);
-          resolve();
-        };
-        img.src = url;
-      });
-    }
+        }
 
-    setImages(prev => [...prev, ...newImages]);
-
-    // 清空 input 以便可以重复选择相同文件
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+        setImages(prev => [...prev, ...newImages]);
+        addLog(`已添加 ${newImages.length} 张图片`);
+      }
+    } catch (err) {
+      console.error('选择图片失败:', err);
+      addLog(`选择图片失败: ${err}`, 'error');
     }
   };
 
@@ -192,12 +225,14 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   // 使用图片处理事件 Hook
   useImageProcessingEvents({
     onStart: (data) => {
+      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
       // 处理开始时标记所有待处理图片为处理中
       setImages(prev => prev.map(img =>
         img.status === 'pending' ? { ...img, status: 'processing' } : img
       ));
     },
     onProgress: (data) => {
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
       // 更新当前处理的图片状态
       if (data.current) {
         setImages(prev => prev.map(img => {
@@ -209,6 +244,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
       }
     },
     onFailed: (data) => {
+      addLog(`❌ 处理失败: ${data.current} - ${data.error}`, 'error');
       // 标记失败的图片
       if (data.current) {
         setImages(prev => prev.map(img => {
@@ -220,6 +256,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
       }
     },
     onFinish: (data) => {
+      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
       setIsProcessing(false);
     },
   });
@@ -227,6 +264,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   // 开始处理
   const startProcessing = async () => {
     if (images.length === 0) {
+      addLog('⚠️ 请先添加图片');
       return;
     }
     if (!outputDir) {
@@ -234,6 +272,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
       const dir = await window.api.pickOutDir();
       if (dir) {
         setOutputDir(dir);
+        addLog(`输出目录: ${dir}`);
       } else {
         return;
       }
@@ -241,6 +280,9 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
     if (isProcessing) return;
 
     setIsProcessing(true);
+    clearLogs();
+    addLog('开始九宫格切割处理...');
+    addLog(`图片: ${images.length} 张`);
 
     try {
       const imagePaths = images.map(img => img.path);
@@ -249,7 +291,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
         outputDir
       });
     } catch (err: any) {
-      console.error('处理失败:', err);
+      addLog(`❌ 处理失败: ${err.message || err}`, 'error');
       setIsProcessing(false);
     }
   };
@@ -292,15 +334,8 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
+              onClick={handleSelectImages}
             >
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageUpload}
-              />
               <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <Upload className="w-6 h-6 text-slate-400 group-hover:text-cyan-400" />
               </div>
@@ -324,6 +359,25 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
               themeColor="cyan"
             />
           </div>
+
+          {/* Logs */}
+          <OperationLogPanel
+            logs={logs}
+            addLog={addLog}
+            clearLogs={clearLogs}
+            copyLogs={copyLogs}
+            downloadLogs={downloadLogs}
+            logsContainerRef={logsContainerRef}
+            logsEndRef={logsEndRef}
+            autoScrollEnabled={autoScrollEnabled}
+            setAutoScrollEnabled={setAutoScrollEnabled}
+            autoScrollPaused={autoScrollPaused}
+            resumeAutoScroll={resumeAutoScroll}
+            scrollToBottom={scrollToBottom}
+            scrollToTop={scrollToTop}
+            onUserInteractStart={onUserInteractStart}
+            themeColor="cyan"
+          />
 
           {/* Actions */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl mt-auto">

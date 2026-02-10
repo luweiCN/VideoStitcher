@@ -30,7 +30,10 @@ async function handleImageCompress(event, { images, targetSizeKB, outputDir, con
   event.sender.send('image-start', { total, mode: 'compress', concurrency: actualConcurrency });
 
   // 创建处理任务
-  const tasks = images.map(async (imagePath) => {
+  const tasks = images.map(async (imagePath, index) => {
+    // 发送任务开始事件
+    event.sender.send('image-task-start', { index });
+
     try {
       // 检查文件扩展名
       const ext = path.extname(imagePath).toLowerCase();
@@ -105,7 +108,12 @@ async function handleCoverFormat(event, { images, quality, outputDir }) {
 
   event.sender.send('image-start', { total, mode: 'coverFormat' });
 
-  for (const imagePath of images) {
+  for (let index = 0; index < images.length; index++) {
+    const imagePath = images[index];
+
+    // 发送任务开始事件
+    event.sender.send('image-task-start', { index });
+
     try {
       // 检查文件扩展名
       const ext = path.extname(imagePath).toLowerCase();
@@ -158,7 +166,12 @@ async function handleGridImage(event, { images, outputDir }) {
 
   event.sender.send('image-start', { total, mode: 'grid' });
 
-  for (const imagePath of images) {
+  for (let index = 0; index < images.length; index++) {
+    const imagePath = images[index];
+
+    // 发送任务开始事件
+    event.sender.send('image-task-start', { index });
+
     try {
       // 检查文件扩展名
       const ext = path.extname(imagePath).toLowerCase();
@@ -260,7 +273,12 @@ async function handleImageMaterial(event, {
 
   event.sender.send('image-start', { total, mode: 'material' });
 
-  for (const imagePath of images) {
+  for (let index = 0; index < images.length; index++) {
+    const imagePath = images[index];
+
+    // 发送任务开始事件
+    event.sender.send('image-task-start', { index });
+
     try {
       // 检查文件扩展名
       const ext = path.extname(imagePath).toLowerCase();
