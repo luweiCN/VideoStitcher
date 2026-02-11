@@ -192,14 +192,45 @@ async function convertCoverFormat(inputPath, quality = 90, outputDir = null) {
  * @param {string} inputPath - 输入图片路径
  * @param {string} outputDir - 输出目录
  * @param {string} baseNameOverride - 可选的原始文件名覆盖（用于保持特殊的命名规则）
+ * @param {number} targetTileSize - 目标格子尺寸 (默认 800)，如果原图格子小于此尺寸则放大
  */
-async function createGridImage(inputPath, outputDir, baseNameOverride = null) {
+async function createGridImage(inputPath, outputDir, baseNameOverride = null, targetTileSize = 800) {
   const metadata = await sharp(inputPath).metadata();
-  const { width, height } = metadata;
+  let { width, height } = metadata;
+
+  let processingInput = inputPath;
+  let currentWidth = width;
+  let currentHeight = height;
+  let isTempFile = false;
+
+  // 如果提供了 targetTileSize，并且当前是正方形比例且尺寸不足，则先整体放大
+  // 例如：800x800 的图，想切出 800x800 的九宫格，需要先放大到 2400x2400
+  const ratio = width / height;
+  const isSquare = ratio >= 0.9 && ratio <= 1.1;
+
+  if (targetTileSize && isSquare && (width < targetTileSize * 3)) {
+    const os = require('os');
+    const tmpDir = path.join(os.tmpdir(), 'videostitcher-temp');
+    await fs.mkdir(tmpDir, { recursive: true });
+    const tempPath = path.join(tmpDir, `grid_master_${Date.now()}.png`);
+    
+    await sharp(inputPath)
+      .resize(targetTileSize * 3, targetTileSize * 3, {
+        fit: 'fill',
+        withoutEnlargement: false
+      })
+      .png()
+      .toFile(tempPath);
+    
+    processingInput = tempPath;
+    currentWidth = targetTileSize * 3;
+    currentHeight = targetTileSize * 3;
+    isTempFile = true;
+  }
 
   // 计算每个格子的尺寸
-  const tileWidth = Math.floor(width / 3);
-  const tileHeight = Math.floor(height / 3);
+  const tileWidth = Math.floor(currentWidth / 3);
+  const tileHeight = Math.floor(currentHeight / 3);
 
   const inputBaseName = baseNameOverride || path.parse(inputPath).name;
   const results = [];
@@ -218,7 +249,7 @@ async function createGridImage(inputPath, outputDir, baseNameOverride = null) {
       const finalName = getModifiedName(inputBaseName, `九宫格${index}`);
       const outputPath = path.join(outputDir, `${finalName}.png`);
 
-      await sharp(inputPath)
+      await sharp(processingInput)
         .extract({ left, top, width: tileWidth, height: tileHeight })
         .png()
         .toFile(outputPath);
@@ -229,6 +260,15 @@ async function createGridImage(inputPath, outputDir, baseNameOverride = null) {
         position: { row: row + 1, col: col + 1 },
         size: { width: tileWidth, height: tileHeight }
       });
+    }
+  }
+
+  // 清理临时文件
+  if (isTempFile) {
+    try {
+      await fs.unlink(processingInput);
+    } catch (e) {
+      console.error('清理临时文件失败:', e);
     }
   }
 
@@ -266,146 +306,109 @@ async function processImageMaterial(
 ) {
   const inputBaseName = path.parse(inputPath).name;
   const results = {};
+  const GRID_SIZE = 2400; // 800 * 3, 确保每张小图也是 800x800
+  const SINGLE_SIZE = 800;
 
-  // ========== 步骤 1: 根据用户选择的模式生成 800x800 预览图 ==========
-  let previewPath;
-  if (exportOptions.single) {
-    // 使用特殊的命名规则
-    const finalName = getModifiedName(inputBaseName, '800尺寸单图');
-    previewPath = path.join(outputDir, 'preview', `${finalName}.jpg`);
-    await fs.mkdir(path.dirname(previewPath), { recursive: true });
+  // ========== 步骤 1: 生成高分辨率母图 (2400x2400) 用于九宫格或高质量单图 ==========
+  // 即使只导出单图，我们也先按 2400 处理以保证 Logo 质量，最后再缩小
+  const masterTmpDir = path.join(require('os').tmpdir(), 'videostitcher-temp');
+  await fs.mkdir(masterTmpDir, { recursive: true });
+  const masterPath = path.join(masterTmpDir, `${inputBaseName}_master.png`);
 
-    // Sharp fit 参数映射（所有都生成 800x800 方形）
-    const fitMapping = {
-      'cover': 'cover',      // 裁剪正方形
-      'inside': 'contain',   // 保持比例，留白
-      'fill': 'fill'         // 强制拉伸
-    };
+  const fitMapping = {
+    'cover': 'cover',
+    'inside': 'contain',
+    'fill': 'fill'
+  };
 
-    const previewOptions = {
-      width: 800,
-      height: 800,
-      fit: fitMapping[previewSize] || 'cover'
-    };
+  const masterOptions = {
+    width: GRID_SIZE,
+    height: GRID_SIZE,
+    fit: fitMapping[previewSize] || 'cover'
+  };
 
-    // 保持比例模式：添加白色背景
-    if (previewSize === 'inside') {
-      previewOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
-    }
-
-    await sharp(inputPath)
-      .resize(previewOptions)
-      .jpeg({ quality: 90 })
-      .toFile(previewPath);
-
-    results.preview = previewPath;
-  } else {
-    // 即使不导出单图，也需要生成预览图用于后续处理（放在临时位置）
-    const tmpDir = path.join(require('os').tmpdir(), 'videostitcher-temp');
-    await fs.mkdir(tmpDir, { recursive: true });
-    previewPath = path.join(tmpDir, `${inputBaseName}_temp_preview.jpg`);
-
-    const fitMapping = {
-      'cover': 'cover',
-      'inside': 'contain',
-      'fill': 'fill'
-    };
-
-    const previewOptions = {
-      width: 800,
-      height: 800,
-      fit: fitMapping[previewSize] || 'cover'
-    };
-
-    if (previewSize === 'inside') {
-      previewOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
-    }
-
-    await sharp(inputPath)
-      .resize(previewOptions)
-      .jpeg({ quality: 90 })
-      .toFile(previewPath);
+  if (previewSize === 'inside') {
+    masterOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
   }
 
-  // ========== 步骤 2: 添加 Logo 生成带 Logo 的图片 ==========
-  let logoImagePath = previewPath;
+  await sharp(inputPath)
+    .resize(masterOptions)
+    .png() // 使用 PNG 作为中间格式
+    .toFile(masterPath);
+
+  // ========== 步骤 2: 在母图上添加 Logo (坐标和尺寸需乘以 3) ==========
+  let logoMasterPath = masterPath;
   if (logoPath) {
-    // 获取 Logo 原始尺寸
     const logoMetadata = await sharp(logoPath).metadata();
     const logoOriginalSize = Math.max(logoMetadata.width, logoMetadata.height);
+    
+    // UI 是基于 800 尺寸设计的，所以在 2400 母图上要乘以 3
+    const logoSizeOn800 = Math.floor(logoOriginalSize * logoScale);
+    const finalLogoSize = Math.min(logoSizeOn800, 400) * 3; // 扩大3倍
 
-    // 根据缩放比例计算 Logo 尺寸
-    const logoSize = Math.floor(logoOriginalSize * logoScale);
-
-    // 限制 Logo 最大尺寸为画布的 50%
-    const finalLogoSize = Math.min(logoSize, 400);
-
-    const finalName = getModifiedName(inputBaseName, '800尺寸单图');
+    logoMasterPath = path.join(masterTmpDir, `${inputBaseName}_master_logo.png`);
 
     if (logoPosition && (logoPosition.x !== 50 || logoPosition.y !== 50)) {
-      // 使用自定义位置
-      logoImagePath = exportOptions.single
-        ? path.join(outputDir, 'logo', `${finalName}.jpg`)
-        : path.join(require('os').tmpdir(), 'videostitcher-temp', `${inputBaseName}_temp_logo.jpg`);
-
-      await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
-
-      // 使用 composite 配合 left/top 参数定位 Logo
+      // 坐标也扩大3倍
       const logoBuffer = await sharp(logoPath)
         .resize(finalLogoSize, finalLogoSize, { fit: 'inside' })
         .toBuffer();
 
-      await sharp(previewPath)
-        .composite([
-          {
-            input: logoBuffer,
-            left: Math.round(logoPosition.x),
-            top: Math.round(logoPosition.y),
-            blend: 'over'
-          }
-        ])
-        .jpeg({ quality: 95 })
-        .toFile(logoImagePath);
-
-      if (exportOptions.single) {
-        results.logo = logoImagePath;
-      }
+      await sharp(masterPath)
+        .composite([{
+          input: logoBuffer,
+          left: Math.round(logoPosition.x * 3),
+          top: Math.round(logoPosition.y * 3),
+          blend: 'over'
+        }])
+        .png()
+        .toFile(logoMasterPath);
     } else {
-      // 使用默认右下角位置
-      logoImagePath = exportOptions.single
-        ? path.join(outputDir, 'logo', `${finalName}.jpg`)
-        : path.join(require('os').tmpdir(), 'videostitcher-temp', `${inputBaseName}_temp_logo.jpg`);
+      // 默认右下角
+      const logoBuffer = await sharp(logoPath)
+        .resize(finalLogoSize, finalLogoSize, { fit: 'inside' })
+        .toBuffer();
 
-      await fs.mkdir(path.dirname(logoImagePath), { recursive: true });
-
-      await sharp(previewPath)
-        .composite([
-          {
-            input: await sharp(logoPath)
-              .resize(finalLogoSize, finalLogoSize, { fit: 'inside' })
-              .toBuffer(),
-            gravity: 'southeast',
-            blend: 'over'
-          }
-        ])
-        .jpeg({ quality: 95 })
-        .toFile(logoImagePath);
-
-      if (exportOptions.single) {
-        results.logo = logoImagePath;
-      }
+      await sharp(masterPath)
+        .composite([{
+          input: logoBuffer,
+          gravity: 'southeast',
+          blend: 'over'
+        }])
+        .png()
+        .toFile(logoMasterPath);
     }
   }
 
-  // ========== 步骤 3: 对带 Logo 的图片进行九宫格切片 ==========
+  // ========== 步骤 3: 导出单张 800x800 图片 ==========
+  if (exportOptions.single) {
+    const finalName = getModifiedName(inputBaseName, '800尺寸单图');
+    const singleOutputPath = path.join(outputDir, 'single', `${finalName}.jpg`);
+    await fs.mkdir(path.dirname(singleOutputPath), { recursive: true });
+
+    await sharp(logoMasterPath)
+      .resize(SINGLE_SIZE, SINGLE_SIZE)
+      .jpeg({ quality: 95 })
+      .toFile(singleOutputPath);
+    
+    results.logo = singleOutputPath; // single 导出的结果
+  }
+
+  // ========== 步骤 4: 导出九宫格 (每个小图 800x800) ==========
   if (exportOptions.grid) {
     const gridResult = await createGridImage(
-      logoImagePath,
+      logoMasterPath,
       path.join(outputDir, 'grid'),
-      inputBaseName // 传递原始基础名以保持命名规则
+      inputBaseName
     );
     results.grid = gridResult;
   }
+
+  // 清理中间大图 (可选，如果不清理系统会自动清理临时目录)
+  try {
+    await fs.unlink(masterPath);
+    if (logoMasterPath !== masterPath) await fs.unlink(logoMasterPath);
+  } catch (e) {}
 
   return {
     success: true,

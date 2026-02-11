@@ -321,7 +321,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
 
             <div className="bg-cyan-950/30 border border-cyan-900/50 rounded-lg p-3">
               <p className="text-xs text-cyan-200 leading-relaxed">
-                <span className="font-bold">💡 功能说明：</span> 此模式不进行任何压缩，直接按原图分辨率进行 3x3 切割。输出格式为 PNG 以保证无损画质。
+                <span className="font-bold">💡 功能说明：</span> 此模式对正方形图片进行优化，确保每个切片至少达到 800x800 分辨率。对于大图则直接按原图比例无损切割。输出格式为 PNG 以保证最佳画质。
               </p>
             </div>
           </div>
