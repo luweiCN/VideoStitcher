@@ -21,3 +21,17 @@ export { FileSelectorGroup, useFileSelectorGroup } from './FileSelectorGroup';
 // 预览弹窗
 export { FilePreviewModal } from './FilePreviewModal';
 export type { FilePreviewModalProps } from './FilePreviewModal';
+
+// 文件处理 hook
+export { useFileProcessor } from './useFileProcessor';
+export type { FileProcessResult, FileProcessConfig, RawFileData } from './useFileProcessor';
+export { detectFileType, checkFileTypeCompatibility, buildNotificationMessage } from './useFileProcessor';
+
+// 文件 Tooltip
+export { FileTooltipContent } from './FileTooltip';
+export { formatFileSize } from './FileTooltip';
+
+// 主题配置
+export { getThemeConfig } from './themeConfig';
+export type { ThemeColor, ThemeConfig } from './themeConfig';
+

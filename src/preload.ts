@@ -255,6 +255,25 @@ export interface ElectronAPI {
   batchRenameFiles: (config: {
     operations: Array<{ sourcePath: string; targetName: string }>;
   }) => Promise<{ success: number; failed: number; errors: Array<{ file: string; error: string }> }>;
+  // 读取目录内容
+  readDirectory: (config: {
+    dirPath: string;
+    includeHidden?: boolean;
+    recursive?: boolean;
+    maxDepth?: number;
+    extensions?: Array<string>;
+  }) => Promise<{
+    success: boolean;
+    files?: Array<{ path: string; name: string; isDirectory: boolean }>;
+    error?: string;
+  }>;
+  // 检查路径类型（文件或目录）
+  checkPathType: (filePath: string) => Promise<{
+    success: boolean;
+    isDirectory?: boolean;
+    isFile?: boolean;
+    error?: string;
+  }>;
   // 在系统文件管理器中显示文件
   showItemInFolder: (path: string) => Promise<void>;
   // 用系统默认程序打开文件
@@ -402,6 +421,8 @@ const api: ElectronAPI = {
 
   // 文件操作 API
   batchRenameFiles: (config) => ipcRenderer.invoke('file:batch-rename', config),
+  readDirectory: (config) => ipcRenderer.invoke('file:read-directory', config),
+  checkPathType: (filePath) => ipcRenderer.invoke('file:check-path-type', { filePath }),
   showItemInFolder: (path) => ipcRenderer.invoke('file:show-item-in-folder', path),
   openPath: (path) => ipcRenderer.invoke('file:open-path', path),
 

@@ -121,6 +121,8 @@ const api = {
     getPlatform: () => electron_1.ipcRenderer.invoke('get-platform'),
     // 文件操作 API
     batchRenameFiles: (config) => electron_1.ipcRenderer.invoke('file:batch-rename', config),
+    readDirectory: (config) => electron_1.ipcRenderer.invoke('file:read-directory', config),
+    checkPathType: (filePath) => electron_1.ipcRenderer.invoke('file:check-path-type', { filePath }),
     showItemInFolder: (path) => electron_1.ipcRenderer.invoke('file:show-item-in-folder', path),
     openPath: (path) => electron_1.ipcRenderer.invoke('file:open-path', path),
     // 文件操作事件

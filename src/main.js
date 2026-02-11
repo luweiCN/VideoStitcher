@@ -39,6 +39,42 @@ function createWindow() {
     },
   });
 
+  // 阻止默认的拖放行为（打开文件）
+  // 这样可以让拖放事件在渲染进程中正常触发
+  win.webContents.on('will-navigate', (event, url) => {
+    // 如果是 file:// 协议，阻止默认行为
+    if (url.startsWith('file://')) {
+      event.preventDefault();
+    }
+  });
+
+  // 在页面加载完成后注入 JavaScript 阻止默认拖放行为
+  win.webContents.on('dom-ready', () => {
+    win.webContents.executeJavaScript(`
+      // 阻止默认的拖放行为
+      document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
+
+      document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
+
+      // 阻止链接的默认行为
+      document.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (link && link.href.startsWith('file://')) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, false);
+
+      console.log('[Main] 已注入拖放事件阻止代码');
+    `).catch(err => console.error('注入拖放阻止代码失败:', err));
+  });
+
   // 开发模式下加载 Vite 服务器，生产模式加载构建文件
   if (isDevelopment) {
     console.log(

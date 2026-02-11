@@ -472,33 +472,38 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
               </div>
             )}
 
-            {/* A 面视频选择器 */}
-            <FileSelector
-              id="videoStitcherA"
-              name="A 面视频（前段）"
-              accept="video"
-              multiple
-              showList
-                            maxHeight={200}
-              themeColor="violet"
-              directoryCache
-              onChange={handleAFilesChange}
-              disabled={isProcessing}
-            />
+            {/* 文件选择器组 - 启用拖放和粘贴分配 */}
+            <FileSelectorGroup>
+              <div className="space-y-4">
+                {/* A 面视频选择器 */}
+                <FileSelector
+                  id="videoStitcherA"
+                  name="A 面视频（前段）"
+                  accept="video"
+                  multiple
+                  showList
+                  maxHeight={200}
+                  themeColor="violet"
+                  directoryCache
+                  onChange={handleAFilesChange}
+                  disabled={isProcessing}
+                />
 
-            {/* B 面视频选择器 */}
-            <FileSelector
-              id="videoStitcherB"
-              name="B 面视频（后段）"
-              accept="video"
-              multiple
-              showList
-                            maxHeight={200}
-              themeColor="indigo"
-              directoryCache
-              onChange={handleBFilesChange}
-              disabled={isProcessing}
-            />
+                {/* B 面视频选择器 */}
+                <FileSelector
+                  id="videoStitcherB"
+                  name="B 面视频（后段）"
+                  accept="video"
+                  multiple
+                  showList
+                  maxHeight={200}
+                  themeColor="indigo"
+                  directoryCache
+                  onChange={handleBFilesChange}
+                  disabled={isProcessing}
+                />
+              </div>
+            </FileSelectorGroup>
           </div>
         </div>
 

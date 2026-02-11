@@ -1,10 +1,11 @@
 /**
  * 文件操作 IPC 处理器
- * 支持批量重命名文件
+ * 支持批量重命名文件、读取目录内容
  */
 
 const { ipcMain, shell } = require('electron');
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 
 /**
@@ -95,12 +96,105 @@ async function handleBatchRename(event, { operations }) {
 }
 
 /**
+ * 读取目录内容
+ *
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 参数对象
+ * @param {string} params.dirPath - 目录路径
+ * @param {boolean} params.includeHidden - 是否包含隐藏文件（默认 false）
+ * @param {boolean} params.recursive - 是否递归读取子目录（默认 false）
+ * @param {number} params.maxDepth - 递归最大深度（默认 10）
+ * @param {Array<string>} params.extensions - 只包含指定扩展名的文件（默认 null，包含所有）
+ * @returns {Promise<Object>} 结果对象 { success: boolean, files?: Array, error?: string }
+ */
+async function handleReadDirectory(event, { dirPath, includeHidden = false, recursive = false, maxDepth = 10, extensions = null }) {
+  try {
+    // 检查路径是否存在且是目录
+    const stats = await fs.stat(dirPath);
+    if (!stats.isDirectory()) {
+      return { success: false, error: '不是有效的目录' };
+    }
+
+    const files = [];
+
+    /**
+     * 递归读取目录
+     * @param {string} currentDir - 当前目录路径
+     * @param {number} currentDepth - 当前深度
+     */
+    async function readDirRecursive(currentDir, currentDepth = 0) {
+      // 检查深度限制
+      if (currentDepth >= maxDepth) {
+        console.log(`[读取目录] 达到最大深度 ${maxDepth}，停止递归`);
+        return;
+      }
+
+      // 读取目录内容
+      const entries = await fs.readdir(currentDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        // 跳过隐藏文件和文件夹（如果不包含）
+        if (!includeHidden && entry.name.startsWith('.')) continue;
+
+        const fullPath = path.join(currentDir, entry.name);
+
+        if (entry.isFile()) {
+          // 检查扩展名过滤
+          if (extensions) {
+            const ext = path.extname(entry.name).toLowerCase().slice(1);
+            if (!extensions.includes(ext)) continue;
+          }
+
+          files.push({
+            path: fullPath,
+            name: entry.name,
+            isDirectory: false
+          });
+        } else if (entry.isDirectory() && recursive) {
+          // 递归读取子目录
+          await readDirRecursive(fullPath, currentDepth + 1);
+        }
+      }
+    }
+
+    await readDirRecursive(dirPath);
+
+    return { success: true, files };
+  } catch (error) {
+    console.error('[读取目录] 失败:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * 注册所有文件操作 IPC 处理器
  */
 function registerFileHandlers() {
   // 批量重命名
   ipcMain.handle('file:batch-rename', async (event, params) => {
     return handleBatchRename(event, params);
+  });
+
+  // 读取目录内容
+  ipcMain.handle('file:read-directory', async (event, params) => {
+    return handleReadDirectory(event, params);
+  });
+
+  // 检查路径类型（文件或目录）
+  ipcMain.handle('file:check-path-type', async (event, { filePath }) => {
+    try {
+      const stats = await fs.stat(filePath);
+      return {
+        success: true,
+        isDirectory: stats.isDirectory(),
+        isFile: stats.isFile()
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   });
 
   // 在系统文件管理器中显示文件
@@ -116,5 +210,6 @@ function registerFileHandlers() {
 
 module.exports = {
   registerFileHandlers,
-  handleBatchRename
+  handleBatchRename,
+  handleReadDirectory
 };

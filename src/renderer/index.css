@@ -194,3 +194,76 @@
 .animate-in {
   animation: tooltip-slide-up 0.15s ease-out;
 }
+
+/* ============================================
+   Radix UI Toast 动画
+   ============================================ */
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-slide-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+@keyframes toast-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes toast-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Toast 动画 - 只应用于 Toast.Root 组件 */
+[data-radix-toast][data-state='open'][data-swipe='true'] {
+  animation: toast-slide-out 0.4s ease-out forwards;
+}
+
+[data-radix-toast][data-state='closed'] {
+  animation: toast-fade-out 0.2s ease-out forwards;
+}
+
+[data-radix-toast][data-state='open']:not([data-swipe='true']) {
+  animation: toast-slide-in 0.4s ease-out;
+}
+
+[data-radix-toast][data-swipe='move'] {
+  transform: translateX(var(--radix-toast-swipe-end-x));
+  transition: transform 0.2s ease-out;
+}
+
+[data-radix-toast][data-swipe='cancel'] {
+  transform: translateX(0);
+  transition: transform 0.2s ease-out;
+}
+
+[data-radix-toast][data-swipe='end'] {
+  animation: toast-fade-in 0.2s ease-out forwards;
+}
