@@ -461,7 +461,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
               accept="all"
               multiple
               showList={false}
-              themeColor="indigo"
+              themeColor="pink"
               directoryCache
               onChange={handleFilesChange}
             />
@@ -480,7 +480,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     className={`
                       flex items-center gap-2 p-2 rounded-lg text-sm transition-all
                       ${format === opt.value
-                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/50'
+                        ? 'bg-pink-500/20 text-pink-400 border border-pink-500/50'
                         : 'bg-slate-800 text-slate-400 border border-transparent hover:bg-slate-700'
                       }
                     `}
@@ -499,7 +499,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                 <span className="text-xs text-slate-500">{generatedContent.length} 字符</span>
               </label>
               <textarea
-                className="flex-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-sm text-slate-300 resize-none focus:outline-none focus:border-indigo-500/50 custom-scrollbar"
+                className="flex-1 w-full bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-sm text-slate-300 resize-none focus:outline-none focus:border-pink-500/50 custom-scrollbar"
                 value={generatedContent}
                 readOnly
                 placeholder="导入文件后在此处预览..."
@@ -515,7 +515,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                   w-full py-3 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all
                   ${files.length === 0
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                    : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 hover:scale-[1.02]'
+                    : 'bg-pink-500 hover:bg-pink-600 text-white shadow-lg shadow-pink-500/20 hover:scale-[1.02]'
                   }
                 `}
               >
@@ -540,7 +540,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
           {/* 文件列表头部 */}
           <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10 flex-shrink-0">
             <h2 className="font-bold text-lg flex items-center gap-2">
-              <FileIcon className="w-5 h-5 text-indigo-400" />
+              <FileIcon className="w-5 h-5 text-pink-400" />
               文件列表
               <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">{files.length}</span>
             </h2>
@@ -553,7 +553,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     className={`
                       flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors
                       ${showSequencePanel
-                        ? 'bg-indigo-500 text-white'
+                        ? 'bg-pink-500 text-white'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
                       }
                     `}
@@ -567,7 +567,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     className={`
                       flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors
                       ${showReplacePanel
-                        ? 'bg-indigo-500 text-white'
+                        ? 'bg-pink-500 text-white'
                         : 'bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white'
                       }
                     `}
@@ -602,7 +602,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-bold transition-all
                     ${isRenaming
                       ? 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                      : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                      : 'bg-pink-500 hover:bg-pink-600 text-white shadow-lg shadow-pink-500/20'
                     }
                   `}
                 >
@@ -621,9 +621,9 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
 
           {/* 批量替换面板 */}
           {showReplacePanel && (
-            <div className="mx-6 mb-4 p-4 bg-slate-800/50 border border-indigo-500/30 rounded-2xl">
+            <div className="mx-6 mb-4 p-4 bg-slate-800/50 border border-pink-500/30 rounded-2xl">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-sm text-indigo-300 flex items-center gap-2">
+                <h3 className="font-bold text-sm text-pink-300 flex items-center gap-2">
                   <ArrowRightLeft className="w-4 h-4" />
                   批量文字替换
                 </h3>
@@ -642,7 +642,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     value={findText}
                     onChange={(e) => setFindText(e.target.value)}
                     placeholder="输入要查找的文字..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pink-500 text-white"
                   />
                 </div>
                 <div className="flex-1 space-y-1">
@@ -652,13 +652,13 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     value={replaceText}
                     onChange={(e) => setReplaceText(e.target.value)}
                     placeholder="输入替换后的文字..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pink-500 text-white"
                   />
                 </div>
                 <button
                   onClick={handleReplaceAll}
                   disabled={!findText}
-                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] h-[38px]"
+                  className="px-4 py-2 bg-pink-500 hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-bold shadow-lg shadow-pink-500/20 transition-all active:scale-[0.98] h-[38px]"
                 >
                   全部替换
                 </button>
@@ -668,9 +668,9 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
 
           {/* 批量序号面板 */}
           {showSequencePanel && (
-            <div className="mx-6 mb-4 p-4 bg-slate-800/50 border border-indigo-500/30 rounded-2xl">
+            <div className="mx-6 mb-4 p-4 bg-slate-800/50 border border-pink-500/30 rounded-2xl">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-sm text-indigo-300 flex items-center gap-2">
+                <h3 className="font-bold text-sm text-pink-300 flex items-center gap-2">
                   <Hash className="w-4 h-4" />
                   批量增加序号
                 </h3>
@@ -689,7 +689,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     value={sequenceDelimiter}
                     onChange={(e) => setSequenceDelimiter(e.target.value)}
                     placeholder="例如: -"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white text-center"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pink-500 text-white text-center"
                   />
                 </div>
                 <div className="w-32 space-y-1">
@@ -699,7 +699,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     min="1"
                     value={sequenceIndex}
                     onChange={(e) => setSequenceIndex(parseInt(e.target.value) || 1)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 text-white text-center"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-pink-500 text-white text-center"
                   />
                 </div>
                 <div className="flex-1 text-xs text-slate-500 pb-2 italic">
@@ -707,7 +707,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                 </div>
                 <button
                   onClick={handleApplySequence}
-                  className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] h-[38px]"
+                  className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-pink-500/20 transition-all active:scale-[0.98] h-[38px]"
                 >
                   应用序号
                 </button>
@@ -719,18 +719,18 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
           <div className="flex-1 overflow-y-auto p-0 custom-scrollbar">
             {/* 进度显示 */}
             {isRenaming && (
-              <div className="mx-6 mt-4 p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl">
+              <div className="mx-6 mt-4 p-4 bg-pink-500/10 border border-pink-500/30 rounded-2xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-indigo-300">
+                  <span className="text-sm font-medium text-pink-300">
                     正在重命名...
                   </span>
-                  <span className="text-sm text-indigo-400">
+                  <span className="text-sm text-pink-400">
                     {renameProgress.current} / {renameProgress.total}
                   </span>
                 </div>
                 <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all duration-300 ease-out"
+                    className="bg-gradient-to-r from-pink-500 to-purple-500 h-full transition-all duration-300 ease-out"
                     style={{ width: `${(renameProgress.current / renameProgress.total) * 100}%` }}
                   />
                 </div>
@@ -756,16 +756,16 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
             )}
 
             {files.length > 0 && !renameResults && (
-              <div className="p-4 bg-indigo-500/10 border-b border-indigo-500/20 flex items-start gap-3">
-                <div className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-500">
+              <div className="p-4 bg-pink-500/10 border-b border-pink-500/20 flex items-start gap-3">
+                <div className="p-1.5 bg-pink-500/20 rounded-lg text-pink-500">
                   <Code className="w-4 h-4" />
                 </div>
                 <div className="text-xs">
-                  <p className="font-bold text-indigo-300 mb-1">💡 批量重命名文件：</p>
-                  <p className="text-indigo-200/70 leading-relaxed">
-                    1. 点击右上角 <strong className="text-indigo-400">"编辑名称"</strong>、<strong className="text-indigo-400">"替换"</strong> 或 <strong className="text-indigo-400">"序号"</strong> 修改文件名。<br />
-                    2. 确认无误后点击 <strong className="text-indigo-400">"执行重命名"</strong> 按钮。<br />
-                    3. 重命名完成后可点击 <strong className="text-indigo-400">"撤销"</strong> 按钮恢复原始文件名。
+                  <p className="font-bold text-pink-300 mb-1">💡 批量重命名文件：</p>
+                  <p className="text-pink-200/70 leading-relaxed">
+                    1. 点击右上角 <strong className="text-pink-400">"编辑名称"</strong>、<strong className="text-pink-400">"替换"</strong> 或 <strong className="text-pink-400">"序号"</strong> 修改文件名。<br />
+                    2. 确认无误后点击 <strong className="text-pink-400">"执行重命名"</strong> 按钮。<br />
+                    3. 重命名完成后可点击 <strong className="text-pink-400">"撤销"</strong> 按钮恢复原始文件名。
                   </p>
                 </div>
               </div>
@@ -799,7 +799,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                                 type="text"
                                 value={tempNames[file.id] ?? file.name}
                                 onChange={(e) => handleTempNameChange(file.id, e.target.value)}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 focus:outline-none focus:border-indigo-500/50 text-sm transition-all"
+                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 focus:outline-none focus:border-pink-500/50 text-sm transition-all"
                                 autoFocus={index === 0}
                               />
                             ) : (
@@ -809,7 +809,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                           {index === 0 && files.length > 1 && (
                             <button
                               onClick={applyFirstNameToAll}
-                              className="flex items-center gap-1.5 px-2 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-md text-xs font-medium border border-indigo-500/20 transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
+                              className="flex items-center gap-1.5 px-2 py-1 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-md text-xs font-medium border border-pink-500/20 transition-all hover:scale-105 active:scale-95 whitespace-nowrap"
                               title="将此名称应用到后续所有文件"
                             >
                               <CopyCheck className="w-3.5 h-3.5" />
@@ -847,7 +847,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
               </button>
               <button
                 onClick={saveEdits}
-                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="flex items-center gap-2 px-6 py-2.5 bg-pink-500 hover:bg-pink-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-pink-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <Save className="w-4 h-4" />
                 保存修改
