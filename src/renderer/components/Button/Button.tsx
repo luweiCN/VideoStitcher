@@ -49,37 +49,37 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     // 主题色配置（用于 secondary 变体）
     const themeColors: Record<ThemeColor, { bg: string; border: string; text: string }> = {
       pink: {
-        bg: 'from-pink-600/20 to-pink-600/20 hover:from-pink-600/30 hover:to-pink-600/30',
+        bg: 'from-pink-600/20 to-rose-600/20 hover:from-pink-600/30 hover:to-rose-600/30',
         border: 'border-pink-500/30',
         text: 'text-pink-400',
       },
       violet: {
-        bg: 'from-violet-600/20 to-violet-600/20 hover:from-violet-600/30 hover:to-violet-600/30',
+        bg: 'from-violet-600/20 to-purple-600/20 hover:from-violet-600/30 hover:to-purple-600/30',
         border: 'border-violet-500/30',
         text: 'text-violet-400',
       },
       indigo: {
-        bg: 'from-indigo-600/20 to-indigo-600/20 hover:from-indigo-600/30 hover:to-indigo-600/30',
+        bg: 'from-indigo-600/20 to-blue-600/20 hover:from-indigo-600/30 hover:to-blue-600/30',
         border: 'border-indigo-500/30',
         text: 'text-indigo-400',
       },
       blue: {
-        bg: 'from-blue-600/20 to-blue-600/20 hover:from-blue-600/30 hover:to-blue-600/30',
+        bg: 'from-blue-600/20 to-sky-600/20 hover:from-blue-600/30 hover:to-sky-600/30',
         border: 'border-blue-500/30',
         text: 'text-blue-400',
       },
       emerald: {
-        bg: 'from-emerald-600/20 to-emerald-600/20 hover:from-emerald-600/30 hover:to-emerald-600/30',
+        bg: 'from-emerald-600/20 to-green-600/20 hover:from-emerald-600/30 hover:to-green-600/30',
         border: 'border-emerald-500/30',
         text: 'text-emerald-400',
       },
       rose: {
-        bg: 'from-rose-600/20 to-rose-600/20 hover:from-rose-600/30 hover:to-rose-600/30',
+        bg: 'from-rose-600/20 to-pink-600/20 hover:from-rose-600/30 hover:to-pink-600/30',
         border: 'border-rose-500/30',
         text: 'text-rose-400',
       },
       amber: {
-        bg: 'from-amber-600/20 to-amber-600/20 hover:from-amber-600/30 hover:to-amber-600/30',
+        bg: 'from-amber-600/20 to-orange-600/20 hover:from-amber-600/30 hover:to-orange-600/30',
         border: 'border-amber-500/30',
         text: 'text-amber-400',
       },
@@ -89,7 +89,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         text: 'text-cyan-400',
       },
       fuchsia: {
-        bg: 'from-fuchsia-600/20 to-fuchsia-600/20 hover:from-fuchsia-600/30 hover:to-fuchsia-600/30',
+        bg: 'from-fuchsia-600/20 to-pink-600/20 hover:from-fuchsia-600/30 hover:to-pink-600/30',
         border: 'border-fuchsia-500/30',
         text: 'text-fuchsia-400',
       },
