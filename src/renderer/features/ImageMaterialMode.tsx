@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect, MouseEvent, useCallback } from 'react';
-import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, Trash2, Settings } from 'lucide-react';
+import * as Slider from '@radix-ui/react-slider';
+import * as Checkbox from '@radix-ui/react-checkbox';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import ConcurrencySelector from '../components/ConcurrencySelector';
-import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
+import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
+import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
 
@@ -17,7 +20,7 @@ interface ImageFile {
   id: string;
   path: string;
   name: string;
-  status: 'pending' | 'processing' | 'completed' | 'error';
+  status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
 }
 
 /**
@@ -80,8 +83,8 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   // 处理状态
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 并发线程数
-  const [concurrency, setConcurrency] = useState(4);
+  // 并发线程数 - 使用缓存
+  const { concurrency, setConcurrency } = useConcurrencyCache('ImageMaterialMode');
 
   // 导出选项
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
@@ -124,6 +127,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const previewImageRef = useRef<HTMLImageElement | null>(null);
+  const fileSelectorRef = useRef<FileSelectorRef>(null);
 
   // 预览触发器 - 用于触发重绘
   const [previewTrigger, setPreviewTrigger] = useState(0);
@@ -183,6 +187,11 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
    * 处理素材图片选择 - 使用 FileSelector
    */
   const handleImagesChange = useCallback((files: string[]) => {
+    // 如果是空数组（来自 clearFiles 触发的 onChange），不处理
+    if (files.length === 0) {
+      return;
+    }
+
     const newImages: ImageFile[] = files.map(path => ({
       id: Math.random().toString(36).substr(2, 9),
       path,
@@ -204,6 +213,11 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     if (newImages.length > 0) {
       addLog(`已添加 ${newImages.length} 张素材图片`, 'info');
     }
+
+    // 延迟清空 FileSelector 内部列表，避免 onChange 触发死循环
+    setTimeout(() => {
+      fileSelectorRef.current?.clearFiles();
+    }, 0);
   }, [addLog]);
 
   /**
@@ -447,8 +461,8 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     addLog(`预览模式: ${PREVIEW_SIZE_MODES[previewSizeMode].name}`, 'info');
     addLog(`导出选项: ${exportOptions.single ? '单图 ' : ''}${exportOptions.grid ? '九宫格' : ''}`, 'info');
 
-    // 重置所有图片状态
-    setImages(prev => prev.map(img => ({ ...img, status: 'pending' as const })));
+    // 重置所有图片状态为 waiting（等待处理）
+    setImages(prev => prev.map(img => ({ ...img, status: 'waiting' as const })));
 
     try {
       await window.api.imageMaterial({
@@ -509,12 +523,13 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧：文件选择 + 基础设置 */}
-        <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+        <div className="w-96 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="p-4 space-y-4">
             {/* 文件选择器组 */}
             <FileSelectorGroup>
               {/* 素材图片 */}
               <FileSelector
+                ref={fileSelectorRef}
                 id="materialImages"
                 name="素材图片"
                 accept="image"
@@ -540,34 +555,30 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
 
             {/* Logo 控制 */}
             {logoImage && (
-              <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-2 text-amber-400 text-sm font-bold">
-                  <Move className="w-4 h-4" /> Logo 调整
-                </div>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>缩放</span>
-                    <span>{(logoScale * 100).toFixed(0)}%</span>
+              <div className="bg-black/50 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold uppercase tracking-wider">
+                    <Move className="w-3 h-3" /> Logo 调整
                   </div>
-                  <input
-                    type="range"
-                    min="0.1"
-                    max="3"
-                    step="0.1"
-                    value={logoScale}
-                    onChange={(e) => setLogoScale(parseFloat(e.target.value))}
-                    className="w-full accent-amber-500 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
-                  />
+                  <span className="text-xs text-amber-400 font-mono">{(logoScale * 100).toFixed(0)}%</span>
                 </div>
-                <Button
-                  onClick={clearLogo}
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-slate-500 hover:text-red-400"
-                  leftIcon={<Trash2 className="w-3 h-3" />}
+                {/* Radix UI Slider */}
+                <Slider.Root
+                  className="relative flex items-center select-none touch-none h-4"
+                  value={[logoScale]}
+                  onValueChange={([value]) => setLogoScale(value)}
+                  min={0.1}
+                  max={3}
+                  step={0.1}
                 >
-                  清除 Logo
-                </Button>
+                  <Slider.Track className="bg-slate-800 relative grow rounded-full h-1.5">
+                    <Slider.Range className="absolute h-full rounded-full bg-amber-500" />
+                  </Slider.Track>
+                  <Slider.Thumb
+                    className="block w-3 h-3 rounded-full bg-amber-500 hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all cursor-grab active:cursor-grabbing"
+                    aria-label="Logo 缩放"
+                  />
+                </Slider.Root>
               </div>
             )}
 
@@ -593,24 +604,30 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             </div>
 
             {/* 导出选项 */}
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-2">
+            <div className="bg-black/50 border border-slate-800 rounded-xl p-3 space-y-2">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">导出选项</h3>
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <div
-                  className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${exportOptions.single ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-600 bg-black/50'}`}
-                  onClick={() => setExportOptions(prev => ({ ...prev, single: !prev.single }))}
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <Checkbox.Root
+                  className="w-4 h-4 rounded flex items-center justify-center border transition-all cursor-pointer data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 data-[state=unchecked]:border-slate-600 data-[state=unchecked]:bg-black/50"
+                  checked={exportOptions.single}
+                  onCheckedChange={(checked: boolean) => setExportOptions(prev => ({ ...prev, single: checked }))}
                 >
-                  {exportOptions.single && <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={3} />}
-                </div>
+                  <Checkbox.Indicator className="text-white">
+                    <Check className="w-3 h-3" strokeWidth={3} />
+                  </Checkbox.Indicator>
+                </Checkbox.Root>
                 <span className="text-sm text-slate-300">单张完整图</span>
               </label>
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <div
-                  className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${exportOptions.grid ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-600 bg-black/50'}`}
-                  onClick={() => setExportOptions(prev => ({ ...prev, grid: !prev.grid }))}
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <Checkbox.Root
+                  className="w-4 h-4 rounded flex items-center justify-center border transition-all cursor-pointer data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 data-[state=unchecked]:border-slate-600 data-[state=unchecked]:bg-black/50"
+                  checked={exportOptions.grid}
+                  onCheckedChange={(checked: boolean) => setExportOptions(prev => ({ ...prev, grid: checked }))}
                 >
-                  {exportOptions.grid && <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={3} />}
-                </div>
+                  <Checkbox.Indicator className="text-white">
+                    <Check className="w-3 h-3" strokeWidth={3} />
+                  </Checkbox.Indicator>
+                </Checkbox.Root>
                 <span className="text-sm text-slate-300">九宫格切片</span>
               </label>
             </div>
@@ -641,22 +658,31 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
               </div>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 min-h-[200px]">
+          <div className="flex-1 overflow-y-auto p-4 max-h-[240px]">
             <div className="grid grid-cols-2 gap-3">
               {images.map((img, index) => (
                 <button
                   key={img.id}
                   onClick={() => switchToPreview(index)}
                   className={`bg-black/50 border rounded-xl p-3 flex items-center gap-3 transition-all ${
-                    index === currentIndex
+                    img.status === 'error'
+                      ? 'border-red-500/50'
+                      : img.status === 'completed'
+                      ? 'border-emerald-500/50'
+                      : img.status === 'waiting'
+                      ? 'border-amber-500/30'
+                      : index === currentIndex
                       ? 'border-amber-500 bg-amber-500/20'
                       : 'border-slate-800 hover:border-slate-700'
                   }`}
                 >
                   <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                    {img.status === 'completed' && <Check className="w-4 h-4 text-emerald-500" />}
+                    {img.status === 'completed' && <Check className="w-4 h-4 text-amber-500" />}
                     {img.status === 'processing' && <Loader2 className="w-4 h-4 animate-spin text-amber-500" />}
                     {img.status === 'error' && <span className="text-red-500 text-xs">✗</span>}
+                    {img.status === 'waiting' && (
+                      <div className="w-3.5 h-3.5 rounded-full bg-amber-500/30" />
+                    )}
                     {img.status === 'pending' && <span className="text-slate-600 text-xs">{index + 1}</span>}
                   </div>
                   <div className="flex-1 min-w-0 text-left">
@@ -674,8 +700,8 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
           </div>
 
           {/* 预览画布 */}
-          <div className="flex-shrink-0 border-t border-slate-800 bg-black p-4">
-            <div className="flex items-center justify-center">
+          <div className="flex-1 flex flex-col flex-shrink-0 border-t border-slate-800 bg-black p-4 min-h-0">
+            <div className="flex-1 flex items-center justify-center">
               <div
                 ref={containerRef}
                 className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
@@ -712,21 +738,29 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
           <div className="flex flex-col flex-1 overflow-y-auto p-4 space-y-4">
             {/* 输出目录 */}
-            <OutputDirSelector
-              value={outputDir}
-              onChange={setOutputDir}
-              disabled={isProcessing}
-              themeColor="amber"
-            />
+            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-4">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Settings className="w-3.5 h-3.5" />
+                设置
+              </h3>
 
-            {/* 并发线程数 */}
-            <ConcurrencySelector
-              value={concurrency}
-              onChange={setConcurrency}
-              disabled={isProcessing}
-              themeColor="amber"
-              className="w-full"
-            />
+              <OutputDirSelector
+                value={outputDir}
+                onChange={setOutputDir}
+                disabled={isProcessing}
+                themeColor="amber"
+              />
+
+              {/* 并发线程数 */}
+              <ConcurrencySelector
+                id="image-material-concurrency"
+                value={concurrency}
+                onChange={setConcurrency}
+                disabled={isProcessing}
+                themeColor="amber"
+                compact
+              />
+            </div>
 
             {/* 日志面板 */}
             <OperationLogPanel

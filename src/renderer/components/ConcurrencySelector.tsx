@@ -4,6 +4,8 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import { Zap, Cpu, Check, AlertTriangle, Lightbulb, Info } from 'lucide-react';
 
 interface ConcurrencySelectorProps {
+  /** 组件 ID */
+  id?: string;
   /** 当前并发数 */
   value: number;
   /** 并发数变化回调 */
@@ -79,6 +81,7 @@ const themeColors = {
  * - 智能推荐值和性能提示
  */
 const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
+  id,
   value,
   onChange,
   max: propMax,
@@ -152,7 +155,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
   };
 
   return (
-    <div className={className}>
+    <div id={id} className={className}>
       {/* 标签栏 */}
       <div className="flex items-center justify-between mb-2">
         <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
