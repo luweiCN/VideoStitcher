@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, MouseEvent, useCallback } from 'react';
-import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, Trash2, Settings } from 'lucide-react';
+import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, Trash2, Settings, Eye } from 'lucide-react';
 import * as Slider from '@radix-ui/react-slider';
 import * as Checkbox from '@radix-ui/react-checkbox';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import ConcurrencySelector from '../components/ConcurrencySelector';
+import { FilePreviewModal } from '../components/FilePreviewModal';
 import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
@@ -21,6 +22,7 @@ interface ImageFile {
   path: string;
   name: string;
   status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
+  previewUrl?: string;  // 预览图片 URL - 懒加载
 }
 
 /**
@@ -132,6 +134,10 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   // 预览触发器 - 用于触发重绘
   const [previewTrigger, setPreviewTrigger] = useState(0);
 
+  // 预览弹窗状态
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
+
   /**
    * 加载指定索引的预览图片
    */
@@ -180,6 +186,33 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   const goToNext = () => {
     if (currentIndex < images.length - 1) {
       switchToPreview(currentIndex + 1);
+    }
+  };
+
+  /**
+   * 打开任务列表预览
+   */
+  const handleOpenPreview = (index: number) => {
+    setPreviewIndex(index);
+    setShowPreview(true);
+  };
+
+  // 关闭预览
+  const handleClosePreview = () => {
+    setShowPreview(false);
+  };
+
+  // 上一张预览
+  const handlePreviousPreview = () => {
+    if (previewIndex > 0) {
+      setPreviewIndex(previewIndex - 1);
+    }
+  };
+
+  // 下一张预览
+  const handleNextPreview = () => {
+    if (previewIndex < images.length - 1) {
+      setPreviewIndex(previewIndex + 1);
     }
   };
 
@@ -671,23 +704,55 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                       ? 'border-emerald-500/50'
                       : img.status === 'waiting'
                       ? 'border-amber-500/30'
+                      : img.status === 'processing'
+                      ? 'border-amber-500/50'
                       : index === currentIndex
                       ? 'border-amber-500 bg-amber-500/20'
                       : 'border-slate-800 hover:border-slate-700'
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                    {img.status === 'completed' && <Check className="w-4 h-4 text-amber-500" />}
-                    {img.status === 'processing' && <Loader2 className="w-4 h-4 animate-spin text-amber-500" />}
-                    {img.status === 'error' && <span className="text-red-500 text-xs">✗</span>}
-                    {img.status === 'waiting' && (
-                      <div className="w-3.5 h-3.5 rounded-full bg-amber-500/30" />
+                  {/* 缩略图 */}
+                  <div
+                    className="relative w-16 h-16 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden group cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenPreview(index);
+                    }}
+                  >
+                    {img.previewUrl ? (
+                      <img src={img.previewUrl} alt={img.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-slate-600" />
                     )}
-                    {img.status === 'pending' && <span className="text-slate-600 text-xs">{index + 1}</span>}
+                    {/* 悬浮眼睛图标 */}
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Eye className="w-6 h-6 text-white" />
+                    </div>
+                    {/* 状态图标 */}
+                    {img.status === 'processing' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
+                      </div>
+                    )}
+                    {img.status === 'completed' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <Check className="w-5 h-5 text-emerald-500" />
+                      </div>
+                    )}
+                    {img.status === 'error' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <span className="text-red-500 text-sm">✗</span>
+                      </div>
+                    )}
+                    {img.status === 'waiting' && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <div className="w-4 h-4 rounded-full bg-amber-500/50" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <div className="text-sm text-slate-300 truncate">{img.name}</div>
-                    {index === currentIndex && <div className="text-xs text-amber-400">当前预览</div>}
+                    <div className="font-bold truncate text-sm text-slate-100">{img.name}</div>
+                    {index === currentIndex && <div className="text-xs text-amber-400 mt-0.5">当前预览</div>}
                   </div>
                 </button>
               ))}
@@ -798,6 +863,28 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             </Button>
           </div>
         </div>
+
+        {/* 预览弹窗 */}
+        {showPreview && images[previewIndex] && (
+          <FilePreviewModal
+            file={{
+              path: images[previewIndex].path,
+              name: images[previewIndex].name,
+              type: 'image'
+            }}
+            visible={showPreview}
+            onClose={handleClosePreview}
+            allFiles={images.map(img => ({
+              path: img.path,
+              name: img.name,
+              type: 'image' as const,
+            }))}
+            currentIndex={previewIndex}
+            onPrevious={handlePreviousPreview}
+            onNext={handleNextPreview}
+            themeColor="amber"
+          />
+        )}
       </div>
     </div>
   );
