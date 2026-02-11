@@ -57,12 +57,12 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
   // 使用图片处理事件 Hook
   useImageProcessingEvents({
     onStart: (data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
+      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`, 'info');
       setProgress({ done: 0, failed: 0, total: data.total });
     },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
       // 更新对应文件的状态
       if (data.current) {
         setFiles(prev => prev.map(f => {
@@ -101,7 +101,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
       };
     });
     setFiles(prev => [...prev, ...newFiles]);
-    addLog(`已添加 ${filePaths.length} 张图片`);
+    addLog(`已添加 ${filePaths.length} 张图片`, 'info');
   }, [addLog]);
 
   // 移除文件
@@ -117,11 +117,11 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
   // 开始处理
   const startProcessing = async () => {
     if (files.length === 0) {
-      addLog('⚠️ 请先添加图片');
+      addLog('⚠️ 请先添加图片', 'warning');
       return;
     }
     if (!outputDir) {
-      addLog('⚠️ 请先选择输出目录');
+      addLog('⚠️ 请先选择输出目录', 'warning');
       return;
     }
     if (isProcessing) return;
@@ -133,9 +133,9 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
     // 重置所有文件状态为 pending
     setFiles(prev => prev.map(f => ({ ...f, status: 'pending' as const })));
 
-    addLog('开始封面格式转换处理...');
-    addLog(`图片: ${files.length} 张`);
-    addLog(`质量: ${quality}%`);
+    addLog('开始封面格式转换处理...', 'info');
+    addLog(`图片: ${files.length} 张`, 'info');
+    addLog(`质量: ${quality}%`, 'info');
 
     try {
       await window.api.imageCoverFormat({
@@ -144,7 +144,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
         outputDir
       });
     } catch (err: any) {
-      addLog(`❌ 处理失败: ${err.message || err}`);
+      addLog(`❌ 处理失败: ${err.message || err}`, 'error');
       setIsProcessing(false);
     }
   };

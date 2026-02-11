@@ -36,6 +36,16 @@ export interface ImageFinishData {
 }
 
 /**
+ * 单个任务完成处理
+ */
+export interface ImageTaskFinishData {
+  /** 任务索引 */
+  index: number;
+  /** 任务标识 */
+  taskId?: string;
+}
+
+/**
  * 图片处理事件处理器
  */
 export interface ImageProcessingHandlers {
@@ -49,6 +59,8 @@ export interface ImageProcessingHandlers {
   onFailed?: (data: ImageFailedData) => void;
   /** 所有任务完成 */
   onFinish?: (data: ImageFinishData) => void;
+  /** 单个任务完成 */
+  onTaskFinish?: (data: ImageTaskFinishData) => void;
 }
 
 /**
@@ -78,7 +90,7 @@ export interface ImageProcessingHandlers {
  * ```
  */
 export function useImageProcessingEvents(handlers: ImageProcessingHandlers) {
-  const { onStart, onTaskStart, onProgress, onFailed, onFinish } = handlers;
+  const { onStart, onTaskStart, onProgress, onFailed, onFinish, onTaskFinish } = handlers;
 
   useEffect(() => {
     // 注册所有监听器
@@ -107,6 +119,11 @@ export function useImageProcessingEvents(handlers: ImageProcessingHandlers) {
     if (onFinish) {
       window.api.onImageFinish(onFinish);
       unsubscribers.push(() => window.api.removeAllListeners('image-finish'));
+    }
+
+    if (onTaskFinish) {
+      window.api.onImageTaskFinish(onTaskFinish);
+      unsubscribers.push(() => window.api.removeAllListeners('image-task-finish'));
     }
 
     // 清理函数：移除所有监听器

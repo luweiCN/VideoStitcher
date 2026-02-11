@@ -130,7 +130,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     try {
       const result = await window.api.getPreviewUrl(imagePath);
       if (!result.success || !result.url) {
-        addLog(`获取预览 URL 失败: ${result.error || '未知错误'}`);
+        addLog(`获取预览 URL 失败: ${result.error || '未知错误'}`, 'error');
         return;
       }
       const img = new Image();
@@ -141,10 +141,10 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         setPreviewTrigger(prev => prev + 1);
       };
       img.onerror = () => {
-        addLog(`加载图片失败: ${imagePath}`);
+        addLog(`加载图片失败: ${imagePath}`, 'error');
       };
     } catch (err) {
-      addLog(`加载预览失败: ${err}`);
+      addLog(`加载预览失败: ${err}`, 'error');
     }
   };
 
@@ -197,7 +197,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     });
 
     if (newImages.length > 0) {
-      addLog(`已添加 ${newImages.length} 张素材图片`);
+      addLog(`已添加 ${newImages.length} 张素材图片`, 'info');
     }
   }, [addLog]);
 
@@ -207,7 +207,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   const handleLogoChange = useCallback(async (files: string[]) => {
     if (files.length > 0) {
       setLogoPath(files[0]);
-      addLog(`已选择 Logo: ${files[0].split('/').pop()}`);
+      addLog(`已选择 Logo: ${files[0].split('/').pop()}`, 'info');
 
       // 加载 Logo 图片
       const result = await window.api.getPreviewUrl(files[0]);
@@ -362,10 +362,10 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   // 使用图片处理事件 Hook
   useImageProcessingEvents({
     onStart: (data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
+      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`, 'info');
     },
     onProgress: (data) => {
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
       setImages(prev => prev.map((img) => {
         if (img.path === data.current) {
           return { ...img, status: 'completed' };
@@ -391,26 +391,26 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   // 开始处理
   const processImages = async () => {
     if (images.length === 0) {
-      addLog('⚠️ 请先选择素材图片');
+      addLog('⚠️ 请先选择素材图片', 'warning');
       return;
     }
     if (!outputDir) {
-      addLog('⚠️ 请先选择输出目录');
+      addLog('⚠️ 请先选择输出目录', 'warning');
       return;
     }
     if (!exportOptions.single && !exportOptions.grid) {
-      addLog('⚠️ 请至少选择一种导出模式（单图或九宫格）');
+      addLog('⚠️ 请至少选择一种导出模式（单图或九宫格）', 'warning');
       return;
     }
     if (isProcessing) return;
 
     setIsProcessing(true);
     clearLogs();
-    addLog('开始图片素材处理...');
-    addLog(`素材: ${images.length} 张`);
-    addLog(`Logo: ${logoPath ? '已设置' : '无'}`);
-    addLog(`预览模式: ${PREVIEW_SIZE_MODES[previewSizeMode].name}`);
-    addLog(`导出选项: ${exportOptions.single ? '单图 ' : ''}${exportOptions.grid ? '九宫格' : ''}`);
+    addLog('开始图片素材处理...', 'info');
+    addLog(`素材: ${images.length} 张`, 'info');
+    addLog(`Logo: ${logoPath ? '已设置' : '无'}`, 'info');
+    addLog(`预览模式: ${PREVIEW_SIZE_MODES[previewSizeMode].name}`, 'info');
+    addLog(`导出选项: ${exportOptions.single ? '单图 ' : ''}${exportOptions.grid ? '九宫格' : ''}`, 'info');
 
     // 重置所有图片状态
     setImages(prev => prev.map(img => ({ ...img, status: 'pending' as const })));
@@ -426,7 +426,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         exportOptions
       });
     } catch (err: any) {
-      addLog(`❌ 处理失败: ${err.message || err}`);
+      addLog(`❌ 处理失败: ${err.message || err}`, 'error');
       setIsProcessing(false);
     }
   };

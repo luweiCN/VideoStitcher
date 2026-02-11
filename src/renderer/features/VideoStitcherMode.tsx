@@ -182,7 +182,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
 
     // 防抖延迟 - 避免快速切换时频繁触发
     const debounceTimer = setTimeout(async () => {
-      addLog(`[预览] 正在生成 ${selectedCombo.outputName} 的预览视频 (${orientation === 'landscape' ? '横屏' : '竖屏'})`);
+      addLog(`[预览] 正在生成 ${selectedCombo.outputName} 的预览视频 (${orientation === 'landscape' ? '横屏' : '竖屏'})`, 'info');
 
       try {
         const result = await window.api.generateStitchPreview({
@@ -298,7 +298,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   useVideoProcessingEvents({
     onStart: (data) => {
       setProgress({ done: 0, failed: 0, total: data.total });
-      addLog(`开始处理 ${data.total} 个合成任务...`);
+      addLog(`开始处理 ${data.total} 个合成任务...`, 'info');
       // 重置所有状态为 pending
       const newStatusMap: Record<string, 'pending' | 'processing' | 'completed' | 'failed'> = {};
       combinations.forEach(combo => {
@@ -313,7 +313,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
       }));
     },
     onLog: (data) => {
-      addLog(data.message);
+      addLog(data.message, 'info');
     },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });

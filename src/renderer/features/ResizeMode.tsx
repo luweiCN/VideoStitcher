@@ -98,7 +98,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
     try {
       const videoPath = videos[currentVideoIndex];
-      addLog(`生成预览: ${videoPath.split('/').pop()}`);
+      addLog(`生成预览: ${videoPath.split('/').pop()}`, 'info');
 
       // 使用 Electron 的预览 URL API
       const previewResult = await window.api.getPreviewUrl(videoPath);
@@ -136,10 +136,10 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       }
 
       setPreviewImages(previews);
-      addLog(`预览准备完成: ${previews.length} 个版本`);
+      addLog(`预览准备完成: ${previews.length} 个版本`, 'info');
     } catch (err: any) {
       setPreviewError(err.message || '生成预览失败');
-      addLog(`预览生成异常: ${err.message}`);
+      addLog(`预览生成异常: ${err.message}`, 'error');
     } finally {
       setIsGeneratingPreview(false);
     }
@@ -148,12 +148,12 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   // 使用视频处理事件 Hook
   useVideoProcessingEvents({
     onStart: (data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`);
+      addLog(`开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`, 'info');
       setProgress({ done: 0, failed: 0, total: data.total });
     },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
     },
     onFailed: (data) => {
       addLog(`❌ 任务 ${data.index + 1} 失败: ${data.error}`, 'error');
@@ -163,7 +163,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       setIsProcessing(false);
     },
     onLog: (data) => {
-      addLog(`[任务 ${data.index + 1}] ${data.message}`);
+      addLog(`[任务 ${data.index + 1}] ${data.message}`, 'info');
     },
   });
 
@@ -224,7 +224,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     if (files.length > 0) {
       setVideos(files);
       setCurrentVideoIndex(0);
-      addLog(`已选择 ${files.length} 个视频`);
+      addLog(`已选择 ${files.length} 个视频`, 'info');
       // 立即生成第一个视频的预览
       generatePreviews();
     }
@@ -351,22 +351,22 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
   const startProcessing = async () => {
     if (videos.length === 0) {
-      addLog('⚠️ 请先选择视频');
+      addLog('⚠️ 请先选择视频', 'warning');
       return;
     }
     if (!outputDir) {
-      addLog('⚠️ 请先选择输出目录');
+      addLog('⚠️ 请先选择输出目录', 'warning');
       return;
     }
     if (isProcessing) return;
 
     setIsProcessing(true);
     clearLogs();
-    addLog('开始智能改尺寸处理...');
-    addLog(`视频: ${videos.length} 个`);
-    addLog(`模式: ${MODE_CONFIG[mode].name}`);
-    addLog(`输出: ${MODE_CONFIG[mode].outputs.map(o => o.label).join(', ')}`);
-    addLog(`模糊程度: ${blurAmount}`);
+    addLog('开始智能改尺寸处理...', 'info');
+    addLog(`视频: ${videos.length} 个`, 'info');
+    addLog(`模式: ${MODE_CONFIG[mode].name}`, 'info');
+    addLog(`输出: ${MODE_CONFIG[mode].outputs.map(o => o.label).join(', ')}`, 'info');
+    addLog(`模糊程度: ${blurAmount}`, 'info');
 
     try {
       await window.api.videoResize({
@@ -377,7 +377,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
         concurrency
       });
     } catch (err: any) {
-      addLog(`❌ 处理失败: ${err.message || err}`);
+      addLog(`❌ 处理失败: ${err.message || err}`, 'error');
       setIsProcessing(false);
     }
   };

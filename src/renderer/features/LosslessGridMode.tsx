@@ -107,7 +107,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
     }
 
     setImages(prev => [...prev, ...newImages]);
-    addLog(`已添加 ${newImages.length} 张图片`);
+    addLog(`已添加 ${newImages.length} 张图片`, 'info');
   }, [addLog]);
 
   // 移除图片
@@ -147,14 +147,14 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   // 使用图片处理事件 Hook
   useImageProcessingEvents({
     onStart: (data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`);
+      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`, 'info');
       // 处理开始时标记所有待处理图片为处理中
       setImages(prev => prev.map(img =>
         img.status === 'pending' ? { ...img, status: 'processing' } : img
       ));
     },
     onProgress: (data) => {
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
       // 更新当前处理的图片状态
       if (data.current) {
         setImages(prev => prev.map(img => {
@@ -186,7 +186,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   // 开始处理
   const startProcessing = async () => {
     if (images.length === 0) {
-      addLog('⚠️ 请先添加图片');
+      addLog('⚠️ 请先添加图片', 'warning');
       return;
     }
     if (!outputDir) {
@@ -194,7 +194,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
       const dir = await window.api.pickOutDir();
       if (dir) {
         setOutputDir(dir);
-        addLog(`输出目录: ${dir}`);
+        addLog(`输出目录: ${dir}`, 'info');
       } else {
         return;
       }
@@ -203,8 +203,8 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
 
     setIsProcessing(true);
     clearLogs();
-    addLog('开始九宫格切割处理...');
-    addLog(`图片: ${images.length} 张`);
+    addLog('开始九宫格切割处理...', 'info');
+    addLog(`图片: ${images.length} 张`, 'info');
 
     try {
       const imagePaths = images.map(img => img.path);

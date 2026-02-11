@@ -75,7 +75,7 @@ function formatTimestamp(): string {
  * 根据消息内容推断日志类型
  */
 function inferLogType(message: string): LogEntry['type'] {
-  if (message.includes('[错误]') || message.includes('❌') || message.includes('失败')) {
+  if (message.includes('[错误]') || message.includes('❌')) {
     return 'error';
   }
   if (message.includes('成功') || message.includes('完成') || message.includes('✅')) {

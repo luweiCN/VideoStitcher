@@ -182,12 +182,12 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   // 使用视频处理事件 Hook
   useVideoProcessingEvents({
     onStart: (data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`);
+      addLog(`开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`, 'info');
       setProgress({ done: 0, failed: 0, total: data.total });
     },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`);
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
     },
     onFailed: (data) => {
       addLog(`❌ 任务 ${data.index + 1} 失败: ${data.error}`, 'error');
@@ -197,7 +197,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       setIsProcessing(false);
     },
     onLog: (data) => {
-      addLog(`[任务 ${data.index + 1}] ${data.message}`);
+      addLog(`[任务 ${data.index + 1}] ${data.message}`, 'info');
     },
   });
 
@@ -209,7 +209,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       const metadata = await window.api.getVideoMetadata(filePath);
       return metadata;
     } catch (err) {
-      addLog(`无法读取视频元数据: ${filePath}`);
+      addLog(`无法读取视频元数据: ${filePath}`, 'error');
       return null;
     }
   }, [addLog]);
@@ -222,7 +222,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       const metadata = await window.api.getVideoMetadata(filePath);
       return { width: metadata.width, height: metadata.height };
     } catch (err) {
-      addLog(`无法读取图片尺寸: ${filePath}`);
+      addLog(`无法读取图片尺寸: ${filePath}`, 'error');
       return null;
     }
   }, [addLog]);
@@ -233,13 +233,13 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const handleBVideosChange = useCallback(async (files: string[]) => {
     setBVideos(files);
     if (files.length > 0) {
-      addLog(`已选择 ${files.length} 个主视频`);
+      addLog(`已选择 ${files.length} 个主视频`, 'info');
       const metadata = await fetchVideoMetadata(files[0]);
       if (metadata) {
         setBVideoMetadata(metadata);
         const newPositions = getInitialPositions(canvasConfig, metadata, aVideoMetadata, coverImageMetadata);
         setMaterialPositions(prev => ({ ...prev, bVideo: newPositions.bVideo }));
-        addLog(`主视频: ${metadata.width}x${metadata.height}`);
+        addLog(`主视频: ${metadata.width}x${metadata.height}`, 'info');
       }
     }
   }, [fetchVideoMetadata, canvasConfig, aVideoMetadata, coverImageMetadata, addLog]);
@@ -250,13 +250,13 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const handleAVideosChange = useCallback(async (files: string[]) => {
     setAVideos(files);
     if (files.length > 0) {
-      addLog(`已选择 ${files.length} 个A面视频`);
+      addLog(`已选择 ${files.length} 个A面视频`, 'info');
       const metadata = await fetchVideoMetadata(files[0]);
       if (metadata) {
         setAVideoMetadata(metadata);
         const newPositions = getInitialPositions(canvasConfig, bVideoMetadata, metadata, coverImageMetadata);
         setMaterialPositions(prev => ({ ...prev, aVideo: newPositions.aVideo }));
-        addLog(`A 面视频: ${metadata.width}x${metadata.height}`);
+        addLog(`A 面视频: ${metadata.width}x${metadata.height}`, 'info');
       }
     }
   }, [fetchVideoMetadata, canvasConfig, bVideoMetadata, coverImageMetadata, addLog]);
@@ -267,7 +267,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const handleBgImagesChange = useCallback(async (files: string[]) => {
     setBgImages(files);
     if (files.length > 0) {
-      addLog(`已选择背景图: ${files[0]}`);
+      addLog(`已选择背景图: ${files[0]}`, 'info');
     }
   }, [addLog]);
 
@@ -277,13 +277,13 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const handleCoversChange = useCallback(async (files: string[]) => {
     setCovers(files);
     if (files.length > 0) {
-      addLog(`已选择 ${files.length} 个封面`);
+      addLog(`已选择 ${files.length} 个封面`, 'info');
       const size = await fetchImageSize(files[0]);
       if (size) {
         setCoverImageMetadata(size);
         const newPositions = getInitialPositions(canvasConfig, bVideoMetadata, aVideoMetadata, size);
         setMaterialPositions(prev => ({ ...prev, coverImage: newPositions.coverImage }));
-        addLog(`封面图: ${size.width}x${size.height}`);
+        addLog(`封面图: ${size.width}x${size.height}`, 'info');
       }
     }
   }, [fetchImageSize, canvasConfig, bVideoMetadata, aVideoMetadata, addLog]);
@@ -297,7 +297,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const resetPositions = () => {
     const defaults = getInitialPositions(canvasConfig, bVideoMetadata, aVideoMetadata, coverImageMetadata);
     setMaterialPositions(defaults);
-    addLog('已重置素材位置');
+    addLog('已重置素材位置', 'info');
   };
 
   const maximizePositions = () => {
@@ -308,23 +308,23 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       bVideo: { ...maxPosition },
       coverImage: { ...maxPosition },
     });
-    addLog('已设置素材铺满全屏');
+    addLog('已设置素材铺满全屏', 'info');
   };
 
   const startProcessing = async () => {
     if (bVideos.length === 0) {
-      addLog('⚠️ 请先选择主视频');
+      addLog('⚠️ 请先选择主视频', 'warning');
       return;
     }
     if (!outputDir) {
-      addLog('⚠️ 请先选择输出目录');
+      addLog('⚠️ 请先选择输出目录', 'warning');
       return;
     }
     if (isProcessing) return;
     setIsProcessing(true);
     setLogs([]);
     const modeText = orientation === 'horizontal' ? '横屏' : '竖屏';
-    addLog(`开始${modeText}合成处理...`);
+    addLog(`开始${modeText}合成处理...`, 'info');
     const totalTasks = bVideos.length * exportMultiplier;
     const expandedAVideos: string[] = [];
     const expandedCovers: string[] = [];
@@ -380,7 +380,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
         });
       }
     } catch (err: any) {
-      addLog(`❌ 处理失败: ${err.message || err}`);
+      addLog(`❌ 处理失败: ${err.message || err}`, 'error');
       setIsProcessing(false);
     }
   };
@@ -390,7 +390,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const progressPercent = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="h-screen flex flex-col bg-black text-gray-100 font-sans overflow-hidden">
+    <div className="h-screen flex flex-col bg-black text-slate-100 font-sans overflow-hidden">
       <PageHeader
         onBack={onBack}
         title="极速合成"
@@ -414,7 +414,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
             <button
               onClick={() => setOrientation('horizontal')}
               className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                orientation === 'horizontal' ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20' : 'text-gray-400 hover:text-white'
+                orientation === 'horizontal' ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20' : 'text-slate-400 hover:text-white'
               }`}
               type="button"
             >
@@ -423,7 +423,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
             <button
               onClick={() => setOrientation('vertical')}
               className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                orientation === 'vertical' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-gray-400 hover:text-white'
+                orientation === 'vertical' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:text-white'
               }`}
               type="button"
             >
@@ -441,7 +441,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
             {bVideos.length > 0 && (
               <div className="bg-gradient-to-br from-violet-500/10 to-indigo-500/10 border border-violet-500/20 rounded-xl p-4">
                 <div className="text-2xl font-bold text-violet-400">{bVideos.length * exportMultiplier}</div>
-                <div className="text-xs text-gray-400">个合成视频</div>
+                <div className="text-xs text-slate-400">个合成视频</div>
               </div>
             )}
 
@@ -570,7 +570,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             {/* Settings */}
             <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-4">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                 <Settings className="w-3.5 h-3.5" />
                 设置
               </h3>
@@ -619,12 +619,12 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
             {/* Progress Display - Always show when processing */}
             {progress.total > 0 && (
               <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">处理进度</h3>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">处理进度</h3>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-400">已完成</span>
+                  <span className="text-slate-400">已完成</span>
                   <span className="text-violet-400 font-bold">{progress.done}/{progress.total}</span>
                 </div>
-                <div className="w-full bg-gray-800 rounded-full h-2">
+                <div className="w-full bg-slate-800 rounded-full h-2">
                   <div
                     className="bg-gradient-to-r from-violet-500 to-indigo-500 h-2 rounded-full transition-all"
                     style={{ width: `${(progress.done / progress.total) * 100}%` }}
