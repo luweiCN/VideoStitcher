@@ -622,16 +622,15 @@ export const FileSelector: React.FC<FileSelectorProps> = ({
    * 根据文件类型返回上传区域的图标
    */
   const renderUploadAreaIcon = () => {
-    // 使用主题色
-    const iconColorClass = `text-[${theme.primary}] transition-colors`;
+    const iconStyle = { color: theme.primary };
 
     if (accept === 'video') {
-      return <FileVideo className={`w-7 h-7 ${iconColorClass}`} strokeWidth={1.5} />;
+      return <FileVideo className="w-7 h-7" strokeWidth={1.5} style={iconStyle} />;
     }
     if (accept === 'image') {
-      return <ImageIcon className={`w-7 h-7 ${iconColorClass}`} strokeWidth={1.5} />;
+      return <ImageIcon className="w-7 h-7" strokeWidth={1.5} style={iconStyle} />;
     }
-    return <Upload className={`w-7 h-7 ${iconColorClass}`} strokeWidth={1.5} />;
+    return <Upload className="w-7 h-7" strokeWidth={1.5} style={iconStyle} />;
   };
 
   const renderFileIcon = (file: FileItem) => {
