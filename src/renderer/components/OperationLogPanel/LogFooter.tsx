@@ -52,6 +52,12 @@ const SWITCH_THEME_MAP: Record<LogThemeColor, SwitchThemeConfig> = {
     checkedBorder: 'border-emerald-500',
     shadow: 'shadow-[0_0_8px_rgba(52,211,153,0.5)]'
   },
+  amber: {
+    focusRing: 'focus:ring-amber-500/50',
+    checkedBg: 'bg-amber-500',
+    checkedBorder: 'border-amber-500',
+    shadow: 'shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+  },
   gray: {
     focusRing: 'focus:ring-gray-500/50',
     checkedBg: 'bg-gray-500',

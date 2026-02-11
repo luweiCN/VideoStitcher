@@ -37,7 +37,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
   width,
   height,
   minHeight,
-  themeColor = 'slate',
+  themeColor = 'cyan',
   className = '',
 }) => {
   const theme: LogStyleConfig = THEME_COLOR_MAP[themeColor];
