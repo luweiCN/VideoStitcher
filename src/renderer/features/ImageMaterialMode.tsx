@@ -3,6 +3,7 @@ import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
+import ConcurrencySelector from '../components/ConcurrencySelector';
 import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
@@ -78,6 +79,9 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
 
   // 处理状态
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // 并发线程数
+  const [concurrency, setConcurrency] = useState(4);
 
   // 导出选项
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
@@ -365,23 +369,53 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     onStart: (data) => {
       addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`, 'info');
     },
+    onTaskStart: (data) => {
+      // 记录当前处理第几个任务
+      addLog(`开始处理第 ${data.index + 1} 个任务`, 'info');
+      // 更新对应任务为处理中状态
+      setImages(prev => {
+        const fileIndex = data.index;
+        let found = false;
+        return prev.map((f, idx) => {
+          if (idx === fileIndex && !found) {
+            found = true;
+            return { ...f, status: 'processing' as const };
+          }
+          return f;
+        });
+      });
+    },
+    onTaskFinish: (data) => {
+      // 记录第几个任务完成
+      addLog(`第 ${data.index + 1} 个任务完成`, 'success');
+      // 更新对应任务为完成状态
+      setImages(prev => {
+        const fileIndex = data.index;
+        let found = false;
+        return prev.map((f, idx) => {
+          if (idx === fileIndex && !found) {
+            found = true;
+            return { ...f, status: 'completed' as const };
+          }
+          return f;
+        });
+      });
+    },
     onProgress: (data) => {
       addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
-      setImages(prev => prev.map((img) => {
-        if (img.path === data.current) {
-          return { ...img, status: 'completed' };
-        }
-        return img;
-      }));
     },
     onFailed: (data) => {
       addLog(`❌ 处理失败: ${data.current} - ${data.error}`, 'error');
-      setImages(prev => prev.map((img) => {
-        if (img.path === data.current) {
-          return { ...img, status: 'error' };
-        }
-        return img;
-      }));
+      // 找到对应的任务并更新为失败状态
+      const failedIndex = images.findIndex(img => img.path === data.current);
+      if (failedIndex >= 0) {
+        setImages(prev => prev.map((img, idx) => {
+          if (idx === failedIndex) {
+            return { ...img, status: 'error' as const };
+          }
+          return img;
+        }));
+      }
     },
     onFinish: (data) => {
       addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
@@ -424,7 +458,8 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         previewSize: previewSizeMode,
         logoPosition,
         logoScale,
-        exportOptions
+        exportOptions,
+        concurrency: concurrency === 0 ? undefined : concurrency,
       });
     } catch (err: any) {
       addLog(`❌ 处理失败: ${err.message || err}`, 'error');
@@ -632,9 +667,8 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                 </button>
               ))}
               {images.length === 0 && (
-                <div className="col-span-2 text-center text-slate-500 py-12">
-                  <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                  <p className="text-sm">请上传素材图片</p>
+                <div className="col-span-2 text-center text-slate-500 py-12 min-h-[200px] flex items-center justify-center">
+                  <p className="text-sm">暂无任务</p>
                 </div>
               )}
             </div>
@@ -684,6 +718,15 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
               onChange={setOutputDir}
               disabled={isProcessing}
               themeColor="amber"
+            />
+
+            {/* 并发线程数 */}
+            <ConcurrencySelector
+              value={concurrency}
+              onChange={setConcurrency}
+              disabled={isProcessing}
+              themeColor="amber"
+              className="w-full"
             />
 
             {/* 日志面板 */}

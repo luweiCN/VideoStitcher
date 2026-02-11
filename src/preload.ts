@@ -93,6 +93,7 @@ export interface ElectronAPI {
     logoPosition?: { x: number; y: number }; // Logo 位置 (相对 800x800 画布)
     logoScale?: number; // Logo 缩放比例 (1 = 原始大小)
     exportOptions?: { single: boolean; grid: boolean }; // 导出选项
+    concurrency?: number; // 并发线程数
   }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
 
   // 图片素材处理预览
@@ -177,6 +178,7 @@ export interface ElectronAPI {
   onImageProgress: (callback: (data: { done: number; failed: number; total: number; current: string; result?: any }) => void) => void;
   onImageFailed: (callback: (data: { done: number; failed: number; total: number; current: string; error: string }) => void) => void;
   onImageFinish: (callback: (data: { done: number; failed: number; total: number }) => void) => void;
+  onImageTaskFinish: (callback: (data: { index: number }) => void) => void;
 
   // 预览事件
   onPreviewStart: (callback: (data: { mode: string }) => void) => void;
@@ -353,6 +355,7 @@ const api: ElectronAPI = {
   onImageProgress: (cb) => ipcRenderer.on('image-progress', (_e, data) => cb(data)),
   onImageFailed: (cb) => ipcRenderer.on('image-failed', (_e, data) => cb(data)),
   onImageFinish: (cb) => ipcRenderer.on('image-finish', (_e, data) => cb(data)),
+  onImageTaskFinish: (cb) => ipcRenderer.on('image-task-finish', (_e, data) => cb(data)),
 
   // 移除监听器
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
