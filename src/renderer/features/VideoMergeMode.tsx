@@ -5,12 +5,12 @@ import {
 } from 'lucide-react';
 import { MaterialPositions, LayerId, LayerConfig } from '../types';
 import VideoEditor from '../components/VideoEditor';
-import LayerSidebar from '../components/LayerSidebar';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
+import { Button } from '../components/Button/Button';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
@@ -43,6 +43,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
 
   const lockedLayers = useMemo(() => new Set<LayerId>(['aVideo', 'bgImage', 'coverImage']), []);
   const [canvasZoom, setCanvasZoom] = useState<number>(100);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // 使用日志 Hook
   const {
@@ -135,6 +136,47 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
 
   useEffect(() => {
     setMaterialPositions(getInitialPositions(canvasConfig));
+  }, [canvasConfig]);
+
+  // 横竖屏切换时自动计算最佳缩放比例
+  useEffect(() => {
+    const calculateBestFitZoom = () => {
+      if (!previewContainerRef.current) return;
+
+      const container = previewContainerRef.current;
+      // 获取父容器的实际尺寸（VideoEditor 会基于这个宽度计算缩放）
+      const parentWidth = container.clientWidth;
+      const parentHeight = container.clientHeight;
+
+      // VideoEditor 缩放逻辑: scaledWidth = parentWidth * (canvasZoom / 100)
+      // scaledHeight = (scaledWidth / canvasWidth) * canvasHeight
+
+      // 减去少量预留边距，底部控制条高度约 100px (mt-8 + 控制条内容)
+      const padding = 10;
+      const controlBarHeight = 100;
+      const availableWidth = parentWidth - padding * 2;
+      const availableHeight = parentHeight - padding * 2 - controlBarHeight;
+
+      // 计算让画布适配可用空间需要的缩放比例
+      // 按宽度适配: zoom = (availableWidth / parentWidth) * 100
+      const zoomByWidth = (availableWidth / parentWidth) * 100;
+      // 按高度适配: zoom = (availableHeight / ((parentWidth / canvasWidth) * canvasHeight)) * 100
+      const scaledHeightAt100 = (parentWidth / canvasConfig.width) * canvasConfig.height;
+      const zoomByHeight = (availableHeight / scaledHeightAt100) * 100;
+
+      // 取较小的值确保画布完全适配
+      const targetZoom = Math.min(zoomByWidth, zoomByHeight);
+
+      // 限制缩放范围在 25%-200% 之间，向上取整
+      const clampedZoom = Math.max(25, Math.min(200, Math.ceil(targetZoom)));
+      setCanvasZoom(clampedZoom);
+
+      console.log(`[自动缩放] 父容器: ${parentWidth}x${parentHeight}, 可用: ${availableWidth}x${availableHeight}, 画布: ${canvasConfig.width}x${canvasConfig.height}, 按宽度缩放: ${zoomByWidth.toFixed(1)}%, 按高度缩放: ${zoomByHeight.toFixed(1)}%, 采用较小值: ${clampedZoom}%`);
+    };
+
+    // 延迟计算以确保容器已渲染
+    const timer = setTimeout(calculateBestFitZoom, 100);
+    return () => clearTimeout(timer);
   }, [canvasConfig]);
 
   // 使用视频处理事件 Hook
@@ -348,7 +390,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const progressPercent = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="h-screen flex flex-col bg-slate-950 text-slate-100 font-sans overflow-hidden">
+    <div className="h-screen flex flex-col bg-black text-gray-100 font-sans overflow-hidden">
       <PageHeader
         onBack={onBack}
         title="极速合成"
@@ -391,74 +433,155 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
         }
       />
 
-      <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
-        <div className="w-full md:w-[400px] p-6 border-r border-slate-800 flex flex-col gap-5 bg-slate-900 shadow-2xl z-20 h-full min-h-0 md:overflow-y-auto">
-          {/* 文件选择器组 */}
-          <FileSelectorGroup>
-            <div className="space-y-5">
-              {/* 背景图 */}
-              <FileSelector
-                id="bgImage"
-                name="背景图 (可选)"
-                accept="image"
-                multiple={false}
-                showList
-                themeColor={primaryColor}
-                directoryCache
-                onChange={handleBgImagesChange}
-              />
+      <main className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - File Selectors */}
+        <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+          <div className="p-4 space-y-4">
+            {/* 统计卡片 */}
+            {bVideos.length > 0 && (
+              <div className="bg-gradient-to-br from-violet-500/10 to-indigo-500/10 border border-violet-500/20 rounded-xl p-4">
+                <div className="text-2xl font-bold text-violet-400">{bVideos.length * exportMultiplier}</div>
+                <div className="text-xs text-gray-400">个合成视频</div>
+              </div>
+            )}
 
-              {/* B 面视频 - 必选 */}
-              <FileSelector
-                id="bVideo"
-                name="主视频 (B面 - 必选)"
-                accept="video"
-                multiple
-                showList
-                themeColor={primaryColor}
-                directoryCache
-                required
-                onChange={handleBVideosChange}
-              />
+            {/* 文件选择器组 */}
+            <FileSelectorGroup>
+              <div className="space-y-4">
+                {/* 背景图 */}
+                <FileSelector
+                  id="bgImage"
+                  name="背景图 (可选)"
+                  accept="image"
+                  multiple={false}
+                  showList
+                  themeColor={primaryColor}
+                  directoryCache
+                  onChange={handleBgImagesChange}
+                />
 
-              {/* A 面视频 - 可选 */}
-              <FileSelector
-                id="aVideo"
-                name="A 面视频 (可选)"
-                accept="video"
-                multiple
-                showList
-                themeColor={primaryColor}
-                directoryCache
-                onChange={handleAVideosChange}
-              />
+                {/* B 面视频 - 必选 */}
+                <FileSelector
+                  id="bVideo"
+                  name="主视频 (B面 - 必选)"
+                  accept="video"
+                  multiple
+                  showList
+                  themeColor={primaryColor}
+                  directoryCache
+                  required
+                  onChange={handleBVideosChange}
+                />
 
-              {/* 封面图 - 可选 */}
-              <FileSelector
-                id="cover"
-                name="封面图 (可选)"
-                accept="image"
-                multiple
-                showList
-                themeColor={primaryColor}
-                directoryCache
-                onChange={handleCoversChange}
-              />
+                {/* A 面视频 - 可选 */}
+                <FileSelector
+                  id="aVideo"
+                  name="A 面视频 (可选)"
+                  accept="video"
+                  multiple
+                  showList
+                  themeColor={primaryColor}
+                  directoryCache
+                  onChange={handleAVideosChange}
+                />
+
+                {/* 封面图 - 可选 */}
+                <FileSelector
+                  id="cover"
+                  name="封面图 (可选)"
+                  accept="image"
+                  multiple
+                  showList
+                  themeColor={primaryColor}
+                  directoryCache
+                  onChange={handleCoversChange}
+                />
+              </div>
+            </FileSelectorGroup>
+          </div>
+        </div>
+
+        {/* Main Content Area - Preview */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-black">
+          <div className="flex-1 flex items-center justify-center p-8 overflow-hidden">
+            <div className="h-full w-full flex flex-col items-center justify-center py-4">
+              <div ref={previewContainerRef} className="flex-1 w-full flex items-center justify-center min-h-0 overflow-auto">
+                <VideoEditor
+                  mode={orientation}
+                  canvasWidth={canvasConfig.width}
+                  canvasHeight={canvasConfig.height}
+                  positions={materialPositions}
+                  onPositionChange={handlePositionChange}
+                  onActiveLayerChange={setActiveLayer}
+                  activeLayer={activeLayer}
+                  layerConfigs={layerConfigs}
+                  materials={materials}
+                  canvasZoom={canvasZoom}
+                  onCanvasZoomChange={setCanvasZoom}
+                />
+              </div>
+              <div className="mt-8 flex flex-col items-center gap-4">
+                <div className="flex items-center gap-6 bg-slate-900/80 backdrop-blur-sm border border-slate-800 px-6 py-4 rounded-xl">
+                  <button
+                    onClick={resetPositions}
+                    className="text-[10px] font-black text-slate-400 hover:text-white flex items-center gap-2"
+                  >
+                    <RefreshCcw className="w-3 h-3" />
+                    重置框位
+                  </button>
+                  <div className="w-px h-4 bg-slate-800" />
+                  <button
+                    onClick={maximizePositions}
+                    className="text-[10px] font-black text-slate-400 hover:text-white flex items-center gap-2"
+                  >
+                    <Maximize className="w-3 h-3" />
+                    铺满全屏
+                  </button>
+                  <div className="w-px h-4 bg-slate-800" />
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setCanvasZoom(prev => Math.max(25, prev - 25))}
+                      className="w-7 h-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded flex items-center justify-center text-white"
+                    >
+                      <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <div className="bg-slate-800 px-3 py-1 rounded border border-slate-700 min-w-[60px] text-center text-xs font-bold text-white">
+                      {canvasZoom}%
+                    </div>
+                    <button
+                      onClick={() => setCanvasZoom(prev => Math.min(200, prev + 25))}
+                      className="w-7 h-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded flex items-center justify-center text-white"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="w-px h-4 bg-slate-800" />
+                  <p className="text-[11px] font-mono text-violet-400">
+                    分辨率: {canvasConfig.width} × {canvasConfig.height}
+                  </p>
+                </div>
+              </div>
             </div>
-          </FileSelectorGroup>
+          </div>
+        </div>
 
-          {/* 其他设置 */}
-          <div className="space-y-4 pt-2">
-            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+        {/* Right Sidebar - Settings + Logs + Button */}
+        <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+          <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+            {/* Settings */}
+            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-4">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <Settings className="w-3.5 h-3.5" />
+                设置
+              </h3>
+
               <OutputDirSelector
                 value={outputDir}
                 onChange={setOutputDir}
                 disabled={isProcessing}
                 themeColor={primaryColor}
               />
-            </div>
 
-            <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
               <ConcurrencySelector
                 value={concurrency}
                 onChange={setConcurrency}
@@ -468,159 +591,87 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
               />
             </div>
 
-            <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
-              <div className="flex flex-col">
-                <span className="text-[11px] font-bold text-slate-300">导出倍数</span>
-                <span className="text-[9px] text-slate-500">预计导出 {bVideos.length * exportMultiplier} 条</span>
-              </div>
-              <div className="flex gap-2">
-                {[2, 3].map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setExportMultiplier(prev => prev === m ? 1 : m as 1|2|3)}
-                    className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all border ${
-                      exportMultiplier === m
-                        ? `bg-${primaryColor}-600 text-white`
-                        : 'bg-slate-900 border-slate-700 text-slate-500 hover:text-violet-400'
-                    }`}
-                  >
-                    ×{m}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={startProcessing}
-              disabled={bVideos.length === 0 || isProcessing || !outputDir}
-              className={`w-full py-5 bg-gradient-to-r from-${primaryColor}-600 to-${primaryColor}-700 font-black rounded-2xl transition-all flex items-center justify-center gap-3 shadow-2xl shadow-${primaryColor}-900/40 disabled:opacity-50`}
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                  正在全力渲染中...
-                </>
-              ) : (
-                <>
-                  <Play className="w-6 h-6 fill-current" />
-                  一键开始批量处理
-                </>
-              )}
-            </button>
-          </div>
-
-          {isProcessing && progress.total > 0 && (
-            <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 space-y-3">
-              <div className="flex items-center justify-between text-[11px] font-bold">
-                <span className="text-slate-400">处理进度</span>
-                <span className={primaryColor === 'violet' ? 'text-violet-400' : 'text-indigo-400'}>
-                  {progress.done} / {progress.total}
-                </span>
-              </div>
-              <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                <div
-                  className={`bg-${primaryColor}-600 h-full transition-all duration-500`}
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              {progress.failed > 0 && (
-                <div className="text-[10px] text-red-400 font-bold">
-                  ⚠️ {progress.failed} 个任务失败
+            {/* 导出倍数 */}
+            <div className="bg-black/50 border border-slate-800 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-slate-300">导出倍数</span>
+                  <span className="text-[10px] text-slate-500">预计导出 {bVideos.length * exportMultiplier} 条</span>
                 </div>
-              )}
+                <div className="flex gap-2">
+                  {[2, 3].map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setExportMultiplier(prev => prev === m ? 1 : m as 1|2|3)}
+                      className={`w-8 h-8 rounded-lg text-[10px] font-bold transition-all border ${
+                        exportMultiplier === m
+                          ? `bg-${primaryColor}-600 text-white`
+                          : 'bg-slate-900 border-slate-700 text-slate-500 hover:text-violet-400'
+                      }`}
+                    >
+                      ×{m}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-          )}
 
-          {/* 日志面板 */}
-          <OperationLogPanel
-            logs={logs}
-            addLog={addLog}
-            clearLogs={clearLogs}
-            copyLogs={copyLogs}
-            downloadLogs={downloadLogs}
-            logsContainerRef={logsContainerRef}
-            logsEndRef={logsEndRef}
-            autoScrollEnabled={autoScrollEnabled}
-            setAutoScrollEnabled={setAutoScrollEnabled}
-            autoScrollPaused={autoScrollPaused}
-            resumeAutoScroll={resumeAutoScroll}
-            scrollToBottom={scrollToBottom}
-            scrollToTop={scrollToTop}
-            onUserInteractStart={onUserInteractStart}
-            themeColor={primaryColor === 'violet' ? 'violet' : 'indigo'}
-          />
-        </div>
+            {/* Progress Display - Always show when processing */}
+            {progress.total > 0 && (
+              <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">处理进度</h3>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">已完成</span>
+                  <span className="text-violet-400 font-bold">{progress.done}/{progress.total}</span>
+                </div>
+                <div className="w-full bg-gray-800 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-violet-500 to-indigo-500 h-2 rounded-full transition-all"
+                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                  />
+                </div>
+                {progress.failed > 0 && (
+                  <div className="text-xs text-rose-400">失败: {progress.failed}</div>
+                )}
+              </div>
+            )}
 
-        <main className="flex-1 bg-slate-950 flex flex-col items-center justify-center p-8 relative overflow-hidden">
-          <div className="h-full w-full flex flex-col items-center justify-center py-4">
-            <div className="flex-1 w-full flex items-center justify-center min-h-0 overflow-auto">
-              <VideoEditor
-                mode={orientation}
-                canvasWidth={canvasConfig.width}
-                canvasHeight={canvasConfig.height}
-                positions={materialPositions}
-                onPositionChange={handlePositionChange}
-                onActiveLayerChange={setActiveLayer}
-                activeLayer={activeLayer}
-                layerConfigs={layerConfigs}
-                materials={materials}
-                canvasZoom={canvasZoom}
-                onCanvasZoomChange={setCanvasZoom}
+            {/* Logs */}
+            <div className="flex-1 min-h-[300px]">
+              <OperationLogPanel
+                logs={logs}
+                addLog={addLog}
+                clearLogs={clearLogs}
+                copyLogs={copyLogs}
+                downloadLogs={downloadLogs}
+                logsContainerRef={logsContainerRef}
+                logsEndRef={logsEndRef}
+                autoScrollEnabled={autoScrollEnabled}
+                setAutoScrollEnabled={setAutoScrollEnabled}
+                autoScrollPaused={autoScrollPaused}
+                resumeAutoScroll={resumeAutoScroll}
+                scrollToBottom={scrollToBottom}
+                scrollToTop={scrollToTop}
+                onUserInteractStart={onUserInteractStart}
+                themeColor={primaryColor === 'violet' ? 'violet' : 'indigo'}
               />
             </div>
-            <div className="mt-8 flex flex-col items-center gap-4">
-              <div className="flex items-center gap-6 bg-slate-900/80 backdrop-blur-md px-6 py-4 rounded-2xl border border-slate-800">
-                <button
-                  onClick={resetPositions}
-                  className="text-[10px] font-black text-slate-400 hover:text-white flex items-center gap-2"
-                >
-                  <RefreshCcw className="w-3 h-3" />
-                  重置框位
-                </button>
-                <div className="w-px h-4 bg-slate-800" />
-                <button
-                  onClick={maximizePositions}
-                  className="text-[10px] font-black text-slate-400 hover:text-white flex items-center gap-2"
-                >
-                  <Maximize className="w-3 h-3" />
-                  铺满全屏
-                </button>
-                <div className="w-px h-4 bg-slate-800" />
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setCanvasZoom(prev => Math.min(200, prev + 25))}
-                    className="w-7 h-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded flex items-center justify-center text-white"
-                  >
-                    <ZoomIn className="w-3.5 h-3.5" />
-                  </button>
-                  <div className="bg-slate-800 px-3 py-1 rounded border border-slate-700 min-w-[60px] text-center text-xs font-bold text-white">
-                    {canvasZoom}%
-                  </div>
-                  <button
-                    onClick={() => setCanvasZoom(prev => Math.max(25, prev - 25))}
-                    className="w-7 h-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded flex items-center justify-center text-white"
-                  >
-                    <ZoomOut className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="w-px h-4 bg-slate-800" />
-                <p className="text-[11px] font-mono text-violet-400">
-                  分辨率: {canvasConfig.width} × {canvasConfig.height}
-                </p>
-              </div>
-            </div>
-          </div>
-        </main>
 
-        <div className="w-full md:w-[200px] p-4 border-l border-slate-800 bg-slate-900 shadow-2xl z-20 overflow-y-auto">
-          <LayerSidebar
-            layers={layerConfigs}
-            activeLayer={activeLayer}
-            onLayerSelect={setActiveLayer}
-            onLayerVisibilityChange={handleLayerVisibilityChange}
-          />
+            {/* Start Button */}
+            <Button
+              onClick={startProcessing}
+              disabled={bVideos.length === 0 || isProcessing || !outputDir}
+              variant="primary"
+              size="md"
+              fullWidth
+              loading={isProcessing}
+              leftIcon={!isProcessing && <Play className="w-4 h-4" />}
+            >
+              {isProcessing ? '处理中...' : '开始处理'}
+            </Button>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
