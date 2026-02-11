@@ -18,7 +18,7 @@ interface FeatureInfoTooltipProps {
   /** 详细说明列表（可选） */
   details?: string[];
   /** 主题颜色 */
-  themeColor?: 'pink' | 'violet' | 'indigo' | 'blue' | 'emerald' | 'rose' | 'amber' | 'cyan';
+  themeColor?: 'pink' | 'violet' | 'indigo' | 'blue' | 'emerald' | 'rose' | 'amber' | 'cyan' | 'fuchsia';
 }
 
 const FeatureInfoTooltip: React.FC<FeatureInfoTooltipProps> = ({
@@ -76,6 +76,12 @@ const FeatureInfoTooltip: React.FC<FeatureInfoTooltipProps> = ({
       dot: 'bg-cyan-500',
       label: 'text-cyan-400',
       bg: 'bg-cyan-500/10',
+    },
+    fuchsia: {
+      title: 'text-fuchsia-500',
+      dot: 'bg-fuchsia-500',
+      label: 'text-fuchsia-400',
+      bg: 'bg-fuchsia-500/10',
     },
   };
 

@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 // 按钮变体类型
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
-type ThemeColor = 'pink' | 'violet' | 'indigo' | 'blue' | 'emerald' | 'rose' | 'amber' | 'cyan';
+type ThemeColor = 'pink' | 'violet' | 'indigo' | 'blue' | 'emerald' | 'rose' | 'amber' | 'cyan' | 'fuchsia';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -87,6 +87,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         bg: 'from-cyan-600/20 to-blue-600/20 hover:from-cyan-600/30 hover:to-blue-600/30',
         border: 'border-cyan-500/30',
         text: 'text-cyan-400',
+      },
+      fuchsia: {
+        bg: 'from-fuchsia-600/20 to-fuchsia-600/20 hover:from-fuchsia-600/30 hover:to-fuchsia-600/30',
+        border: 'border-fuchsia-500/30',
+        text: 'text-fuchsia-400',
       },
     };
 

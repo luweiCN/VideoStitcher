@@ -20,7 +20,7 @@ interface PageHeaderProps {
     /** 详细说明列表 */
     details?: string[];
     /** 主题颜色 */
-    themeColor?: 'pink' | 'violet' | 'indigo' | 'blue' | 'emerald' | 'rose' | 'amber' | 'cyan';
+    themeColor?: 'pink' | 'violet' | 'indigo' | 'blue' | 'emerald' | 'rose' | 'amber' | 'cyan' | 'fuchsia';
   };
   /** 图标颜色类名 */
   iconColor?: string;
