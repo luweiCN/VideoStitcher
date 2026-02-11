@@ -31,29 +31,32 @@ async function handleImageCompress(event, { images, targetSizeKB, outputDir, con
   event.sender.send('image-start', { total, mode: 'compress', concurrency: actualConcurrency });
 
   // 创建处理任务
-  const tasks = images.map(async (imagePath, index) => {
-    // 发送任务开始事件
-    event.sender.send('image-task-start', { index });
+  const tasks = images.map((imagePath, index) => {
+    // 返回一个函数，调用时才执行处理并发送开始事件
+    return async () => {
+      // 发送任务开始事件（任务真正开始处理时才发送）
+      event.sender.send('image-task-start', { index });
 
-    try {
-      // 检查文件扩展名
-      const ext = path.extname(imagePath).toLowerCase();
+      try {
+        // 检查文件扩展名
+        const ext = path.extname(imagePath).toLowerCase();
       const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
 
       if (!validExtensions.includes(ext)) {
         throw new Error(`不支持的文件格式: ${ext}。请选择图片文件 (jpg, png, webp 等)`);
       }
 
-      // 传递 outputDir 参数
-      const result = await compressImage(imagePath, targetSizeKB, outputDir);
-      return { success: true, imagePath, result };
-    } catch (err) {
-      return {
-        success: false,
-        error: err.message,
-        imagePath
-      };
-    }
+        // 传递 outputDir 参数
+        const result = await compressImage(imagePath, targetSizeKB, outputDir);
+        return { success: true, imagePath, result };
+      } catch (err) {
+        return {
+          success: false,
+          error: err.message,
+          imagePath
+        };
+      }
+    };
   });
 
   // 并行执行所有任务（使用动态并发数）
@@ -62,7 +65,8 @@ async function handleImageCompress(event, { images, targetSizeKB, outputDir, con
 
   for (let i = 0; i < tasks.length; i += actualConcurrency) {
     const batch = tasks.slice(i, i + actualConcurrency);
-    const batchResults = await Promise.all(batch);
+    // 执行批次中的任务函数（每个函数会发送 image-task-start 事件）
+    const batchResults = await Promise.all(batch.map(task => task()));
 
     for (const item of batchResults) {
       if (item.success) {
@@ -74,6 +78,10 @@ async function handleImageCompress(event, { images, targetSizeKB, outputDir, con
           total,
           current: item.imagePath,
           result: item.result
+        });
+        // 发送单个任务完成事件（带索引）
+        event.sender.send('image-task-finish', {
+          index: done - 1  // 当前已完成数量作为索引（从1开始）
         });
       } else {
         failed++;
@@ -354,6 +362,8 @@ async function handleImageMaterial(event, {
       );
       results.push(result);
       done++;
+      // 发送单个任务完成事件
+      event.sender.send('image-task-finish', { index });
       event.sender.send('image-progress', {
         done,
         failed,
