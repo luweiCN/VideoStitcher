@@ -17,8 +17,6 @@ interface FeatureInfoTooltipProps {
   description: string;
   /** 详细说明列表（可选） */
   details?: string[];
-  /** 图标颜色 */
-  iconColor?: string;
   /** 主题颜色 */
   themeColor?: 'pink' | 'violet' | 'indigo' | 'blue' | 'emerald' | 'rose' | 'amber' | 'cyan';
 }
@@ -27,7 +25,6 @@ const FeatureInfoTooltip: React.FC<FeatureInfoTooltipProps> = ({
   title,
   description,
   details,
-  iconColor = 'text-gray-400',
   themeColor = 'violet',
 }) => {
   // 主题颜色配置
@@ -35,34 +32,50 @@ const FeatureInfoTooltip: React.FC<FeatureInfoTooltipProps> = ({
     pink: {
       title: 'text-pink-500',
       dot: 'bg-pink-500',
+      label: 'text-pink-400',
+      bg: 'bg-pink-500/10',
     },
     violet: {
       title: 'text-violet-500',
       dot: 'bg-violet-500',
+      label: 'text-violet-400',
+      bg: 'bg-violet-500/10',
     },
     indigo: {
       title: 'text-indigo-500',
       dot: 'bg-indigo-500',
+      label: 'text-indigo-400',
+      bg: 'bg-indigo-500/10',
     },
     blue: {
       title: 'text-blue-500',
       dot: 'bg-blue-500',
+      label: 'text-blue-400',
+      bg: 'bg-blue-500/10',
     },
     emerald: {
       title: 'text-emerald-500',
       dot: 'bg-emerald-500',
+      label: 'text-emerald-400',
+      bg: 'bg-emerald-500/10',
     },
     rose: {
       title: 'text-rose-500',
       dot: 'bg-rose-500',
+      label: 'text-rose-400',
+      bg: 'bg-rose-500/10',
     },
     amber: {
       title: 'text-amber-500',
       dot: 'bg-amber-500',
+      label: 'text-amber-400',
+      bg: 'bg-amber-500/10',
     },
     cyan: {
       title: 'text-cyan-500',
       dot: 'bg-cyan-500',
+      label: 'text-cyan-400',
+      bg: 'bg-cyan-500/10',
     },
   };
 
@@ -74,16 +87,15 @@ const FeatureInfoTooltip: React.FC<FeatureInfoTooltipProps> = ({
         <Tooltip.Trigger asChild>
           <button
             className={`
-              flex items-center gap-1.5 px-2 py-1 rounded-lg
-              ${iconColor}
-              hover:bg-slate-800/50
+              flex items-center gap-1.5 px-2.5 py-1 rounded-lg
+              ${colors.bg} ${colors.label}
               transition-all duration-200
               hover:scale-105
             `}
             type="button"
           >
             <Info className="w-3.5 h-3.5" />
-            <span className="text-xs">功能说明</span>
+            <span className="text-xs font-medium">功能说明</span>
           </button>
         </Tooltip.Trigger>
         <Tooltip.Portal>

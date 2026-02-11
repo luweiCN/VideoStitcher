@@ -236,7 +236,6 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
         icon={Grid3X3}
         iconColor="text-cyan-400"
         description="1:1原图，无损无压缩九宫格切割"
-        featureTag="正方形图切片≥800×800"
         featureInfo={{
           title: '专业无损九宫格',
           description: '对原图进行无损 3×3 切割，保持原始分辨率和画质。正方形图片优化：确保每个切片至少达到 800×800 分辨率；大图按原图比例无损切割。输出格式为 PNG 以保证最佳画质。',

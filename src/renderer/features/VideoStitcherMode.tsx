@@ -416,7 +416,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         icon={Link2}
         iconColor="text-pink-500"
         description="将两个视频前后拼接成一个完整视频"
-        featureTag="A面+B面顺序拼接"
         featureInfo={{
           title: 'A+B 前后拼接',
           description: '将两个视频素材库按顺序前后拼接，A 面在前、B 面在后，自动生成完整的拼接视频。',

@@ -226,7 +226,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
         icon={Shrink}
         iconColor="text-emerald-400"
         description={`智能压缩，自动调整质量与尺寸至 ~${targetSizeKB}KB`}
-        featureTag="自动调整至目标大小"
         featureInfo={{
           title: '封面压缩',
           description: '智能压缩工具，自动调整图片质量与尺寸直到满足目标大小。',

@@ -427,7 +427,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
         icon={Maximize2}
         iconColor="text-rose-400"
         description="Siya/海外捕鱼/尺寸统一，智能模糊背景填充"
-        featureTag="模糊背景填充适配"
         featureInfo={{
           title: '智能改尺寸',
           description: '支持四种视频尺寸转换模式，使用模糊背景填充适配目标尺寸。',
