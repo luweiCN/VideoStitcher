@@ -457,6 +457,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         icon={Layers}
         iconColor="text-amber-400"
         description="批量加Logo，导出九宫格切片和预览图"
+        featureTag="Logo水印+九宫格切片"
         featureInfo={{
           title: '图片素材处理',
           description: '批量为图片添加 Logo 水印，支持导出九宫格切片和预览图。',

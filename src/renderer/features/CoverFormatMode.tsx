@@ -157,6 +157,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
         icon={Image}
         iconColor="text-fuchsia-400"
         description="自动检测比例，横版转1920x1080，竖版转1080x1920"
+        featureTag="自动检测比例转换"
         featureInfo={{
           title: '封面格式转换',
           description: '自动检测图片比例并转换为标准尺寸，支持批量处理。',

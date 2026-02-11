@@ -74,15 +74,16 @@ const FeatureInfoTooltip: React.FC<FeatureInfoTooltipProps> = ({
         <Tooltip.Trigger asChild>
           <button
             className={`
-              p-1.5 rounded-lg
+              flex items-center gap-1.5 px-2 py-1 rounded-lg
               ${iconColor}
               hover:bg-slate-800/50
               transition-all duration-200
-              hover:scale-110
+              hover:scale-105
             `}
             type="button"
           >
-            <Info className="w-4 h-4" />
+            <Info className="w-3.5 h-3.5" />
+            <span className="text-xs">功能说明</span>
           </button>
         </Tooltip.Trigger>
         <Tooltip.Portal>

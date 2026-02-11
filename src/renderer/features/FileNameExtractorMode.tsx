@@ -436,6 +436,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
         icon={FileText}
         iconColor="text-pink-400"
         description="批量提取视频/图片文件名，一键生成列表"
+        featureTag="批量提取+批量重命名"
         featureInfo={{
           title: '文件名提取',
           description: '批量提取视频/图片文件名，支持多种导出格式和批量重命名。',

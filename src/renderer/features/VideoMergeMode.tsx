@@ -355,6 +355,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
         icon={Layers}
         iconColor="text-violet-400"
         description="横竖屏一体，图层管理，所有素材独立位置调整"
+        featureTag="横竖屏一体，拖拽定位"
         featureInfo={{
           title: '极速合成',
           description: '支持横竖屏一体化的视频合成工具，可添加多种素材进行视频合成。',
