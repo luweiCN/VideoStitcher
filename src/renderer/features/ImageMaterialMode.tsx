@@ -7,7 +7,7 @@ import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import ConcurrencySelector from '../components/ConcurrencySelector';
 import { FilePreviewModal } from '../components/FilePreviewModal';
-import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '../components/FileSelector';
+import { FileSelector, FileSelectorGroup, type FileSelectorRef, formatFileSize } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
@@ -22,8 +22,46 @@ interface ImageFile {
   path: string;
   name: string;
   status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
-  previewUrl?: string;  // 预览图片 URL - 懒加载
+  previewUrl?: string;      // 预览图片 URL
+  originalSize?: number;    // 原始文件大小（字节）
+  width?: number;           // 图片宽度
+  height?: number;          // 图片高度
+  orientation?: string;     // 方向: portrait/landscape/square
 }
+
+/**
+ * 获取图片信息
+ */
+const getImageInfo = async (filePath: string): Promise<{ width?: number; height?: number; orientation?: string }> => {
+  try {
+    const result = await window.api.getImageDimensions(filePath);
+    if (result) {
+      return {
+        width: result.width,
+        height: result.height,
+        orientation: result.orientation
+      };
+    }
+  } catch (err) {
+    console.error('获取图片信息失败:', err);
+  }
+  return {};
+};
+
+/**
+ * 获取文件大小
+ */
+const getFileInfo = async (filePath: string): Promise<number | undefined> => {
+  try {
+    const result = await window.api.getFileInfo(filePath);
+    if (result.success && result.info) {
+      return result.info.size;
+    }
+  } catch (err) {
+    console.error('获取文件信息失败:', err);
+  }
+  return undefined;
+};
 
 /**
  * Logo 位置状态 (相对于 800x800 画布)
@@ -219,7 +257,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   /**
    * 处理素材图片选择 - 使用 FileSelector
    */
-  const handleImagesChange = useCallback((files: string[]) => {
+  const handleImagesChange = useCallback(async (files: string[]) => {
     // 如果是空数组（来自 clearFiles 触发的 onChange），不处理
     if (files.length === 0) {
       return;
@@ -229,12 +267,36 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
       id: Math.random().toString(36).substr(2, 9),
       path,
       name: path.split('/').pop() || path,
-      status: 'pending' as const
+      status: 'pending' as const,
+      previewUrl: undefined
     }));
 
+    // 为新图片加载预览 URL 和图片信息
+    const imagesWithInfo = await Promise.all(
+      newImages.map(async (img) => {
+        try {
+          // 并行加载预览 URL、尺寸信息和文件大小
+          const [result, info, fileInfo] = await Promise.all([
+            window.api.getPreviewUrl(img.path),
+            getImageInfo(img.path),
+            getFileInfo(img.path)
+          ]);
+          return {
+            ...img,
+            previewUrl: result.success && result.url ? result.url : undefined,
+            originalSize: fileInfo,
+            ...info
+          };
+        } catch (err) {
+          console.error('加载预览失败:', err);
+        }
+        return img;
+      })
+    );
+
     setImages(prev => {
-      const updated = [...prev, ...newImages];
-      // 如果是第一批图片，加载第一张用于预览
+      const updated = [...prev, ...imagesWithInfo];
+      // 如果是第一批图片，加载第一张用于 Canvas 预览
       if (prev.length === 0 && files.length > 0) {
         setTimeout(() => {
           loadPreviewImage(files[0]);
@@ -676,28 +738,15 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                 <Layers className="w-4 h-4 text-amber-400" />
                 任务列表
               </h2>
-              <div className="flex items-center gap-3">
-                <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">{images.length}</span>
-                {images.length > 0 && (
-                  <Button
-                    onClick={clearImages}
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-slate-400 hover:text-rose-400"
-                  >
-                    清除全部
-                  </Button>
-                )}
-              </div>
+              <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">{images.length}</span>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 max-h-[240px]">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="grid grid-cols-1 gap-3">
               {images.map((img, index) => (
-                <button
+                <div
                   key={img.id}
-                  onClick={() => switchToPreview(index)}
-                  className={`bg-black/50 border rounded-xl p-3 flex items-center gap-3 transition-all ${
+                  className={`bg-black/50 border rounded-xl p-4 flex items-center gap-4 transition-all ${
                     img.status === 'error'
                       ? 'border-red-500/50'
                       : img.status === 'completed'
@@ -706,18 +755,13 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                       ? 'border-amber-500/30'
                       : img.status === 'processing'
                       ? 'border-amber-500/50'
-                      : index === currentIndex
-                      ? 'border-amber-500 bg-amber-500/20'
                       : 'border-slate-800 hover:border-slate-700'
                   }`}
                 >
                   {/* 缩略图 */}
                   <div
                     className="relative w-16 h-16 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden group cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenPreview(index);
-                    }}
+                    onClick={() => switchToPreview(index)}
                   >
                     {img.previewUrl ? (
                       <img src={img.previewUrl} alt={img.name} className="w-full h-full object-cover" />
@@ -750,14 +794,43 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                       </div>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="font-bold truncate text-sm text-slate-100">{img.name}</div>
-                    {index === currentIndex && <div className="text-xs text-amber-400 mt-0.5">当前预览</div>}
+
+                  {/* 文件信息 */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold truncate text-sm text-slate-100">{img.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{img.path}</p>
+                    {/* 文件大小和尺寸 */}
+                    <div className="flex items-center gap-3 mt-1">
+                      {img.originalSize && (
+                        <p className="text-sm text-slate-400">{formatFileSize(img.originalSize)}</p>
+                      )}
+                      {img.width && img.height && (
+                        <p className="text-xs text-slate-500">{img.width}×{img.height}</p>
+                      )}
+                      {img.orientation && (
+                        <p className="text-xs text-slate-500 px-1.5 py-0.5 bg-slate-800 rounded">
+                          {img.orientation === 'portrait' ? '竖版' : img.orientation === 'landscape' ? '横版' : '方版'}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </button>
+
+                  {/* 状态和操作 */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {index === currentIndex && (
+                      <span className="text-xs text-amber-400 px-2 py-1 bg-amber-500/10 rounded-lg">当前预览</span>
+                    )}
+                    <button
+                      onClick={() => removeImage(img.id)}
+                      className="p-2 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               ))}
               {images.length === 0 && (
-                <div className="col-span-2 text-center text-slate-500 py-12 flex items-center justify-center">
+                <div className="text-center text-slate-500 py-12 flex items-center justify-center">
                   <p className="text-sm">暂无任务</p>
                 </div>
               )}
