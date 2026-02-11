@@ -786,7 +786,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
               scrollToBottom={scrollToBottom}
               scrollToTop={scrollToTop}
               onUserInteractStart={onUserInteractStart}
-              themeColor="emerald"
+              themeColor="rose"
             />
           </div>
         </div>

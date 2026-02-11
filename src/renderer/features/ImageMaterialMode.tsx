@@ -611,7 +611,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             scrollToTop={scrollToTop}
             onUserInteractStart={onUserInteractStart}
             className="flex-1"
-            themeColor="pink"
+            themeColor="amber"
           />
 
           {/* 开始处理按钮 */}
