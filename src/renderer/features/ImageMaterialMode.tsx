@@ -511,8 +511,9 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         {/* 左侧：文件选择 + 基础设置 */}
         <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="p-4 space-y-4">
-            {/* 文件选择器 */}
+            {/* 文件选择器组 */}
             <FileSelectorGroup>
+              {/* 素材图片 */}
               <FileSelector
                 id="materialImages"
                 name="素材图片"
@@ -523,10 +524,8 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                 directoryCache
                 onChange={handleImagesChange}
               />
-            </FileSelectorGroup>
 
-            {/* Logo 选择 */}
-            <FileSelectorGroup>
+              {/* Logo 水印 */}
               <FileSelector
                 id="logoImage"
                 name="Logo 水印 (可选)"
