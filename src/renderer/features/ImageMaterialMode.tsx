@@ -280,9 +280,9 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
       }
     } else {
       // 占位背景
-      ctx.fillStyle = '#1e293b';
+      ctx.fillStyle = '#0f172a';
       ctx.fillRect(0, 0, BASE_SIZE, BASE_SIZE);
-      ctx.strokeStyle = '#334155';
+      ctx.strokeStyle = '#1e293b';
       ctx.strokeRect(0, 0, BASE_SIZE, BASE_SIZE);
     }
 
