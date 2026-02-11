@@ -153,6 +153,7 @@ const OutputDirSelector: React.FC<OutputDirSelectorProps> = ({
           variant="secondary"
           size="md"
           fullWidth
+          themeColor={themeColor as any}
           leftIcon={<FolderOpen className="w-4 h-4" />}
         >
           {value ? '更改目录' : '选择目录'}
