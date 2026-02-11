@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, MouseEvent, useCallback } from 'react';
-import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
+import { Button } from '../components/Button/Button';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
@@ -450,7 +451,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   };
 
   return (
-    <div className="h-screen bg-slate-950 text-white flex flex-col">
+    <div className="h-screen bg-black text-slate-100 flex flex-col">
       <PageHeader
         onBack={onBack}
         title="图片素材处理"
@@ -473,7 +474,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
 
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧：控制面板 */}
-        <div className="w-96 border-r border-slate-800 bg-slate-900 p-6 flex flex-col gap-5 overflow-y-auto">
+        <div className="w-96 border-r border-slate-800 bg-black p-4 flex flex-col gap-4 overflow-y-auto">
           {/* 文件选择器组 */}
           <FileSelectorGroup>
             <div className="space-y-5">
@@ -514,7 +515,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                   className={`w-full p-3 rounded-lg border text-left transition-all text-sm ${
                     previewSizeMode === mode
                       ? 'border-amber-500 bg-amber-500/20 text-amber-400'
-                      : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                      : 'border-slate-800 bg-black/50 text-slate-400 hover:border-slate-700'
                   }`}
                 >
                   <div className="font-medium">{PREVIEW_SIZE_MODES[mode].name}</div>
@@ -527,7 +528,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
           {/* 导出选项 */}
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-slate-400 uppercase">导出选项</h3>
-            <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div className="space-y-2 bg-black/50 p-4 rounded-xl border border-slate-800">
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <div
                   className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${exportOptions.single ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-600 bg-slate-900'}`}
@@ -551,7 +552,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
 
           {/* Logo 控制 */}
           {logoImage && (
-            <div className="space-y-4 p-4 bg-slate-950 rounded-xl border border-slate-800">
+            <div className="space-y-4 bg-black/50 rounded-xl border border-slate-800 p-4">
               <div className="flex items-center gap-2 text-amber-400 text-sm font-bold">
                 <Move className="w-4 h-4" /> Logo 调整
               </div>
@@ -570,12 +571,15 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                   className="w-full accent-amber-500 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
-              <button
+              <Button
                 onClick={clearLogo}
-                className="w-full py-2 text-xs text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                variant="ghost"
+                size="sm"
+                className="w-full text-slate-500 hover:text-red-400"
+                leftIcon={<Trash2 className="w-3 h-3" />}
               >
                 清除 Logo
-              </button>
+              </Button>
               <p className="text-xs text-slate-500 leading-relaxed">
                 在预览图中拖动 Logo 可调整位置。
               </p>
@@ -615,46 +619,54 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
           />
 
           {/* 开始处理按钮 */}
-          <button
+          <Button
             onClick={processImages}
             disabled={images.length === 0 || isProcessing || !outputDir || (!exportOptions.single && !exportOptions.grid)}
-            className="w-full py-4 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-900/20"
+            variant="primary"
+            size="md"
+            fullWidth
+            loading={isProcessing}
+            leftIcon={!isProcessing && <FolderOpen className="w-4 h-4" />}
+            themeColor="amber"
           >
-            {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <FolderOpen className="w-5 h-5" />}
             {isProcessing ? '处理中...' : '开始处理'}
-          </button>
+          </Button>
         </div>
 
         {/* 中间：预览画布 */}
-        <div className="flex-1 bg-slate-950 flex flex-col items-center justify-center p-8 relative">
+        <div className="flex-1 bg-black flex flex-col items-center justify-center p-8 relative">
           <div className="absolute top-6 left-6 text-sm text-slate-500 font-mono">PREVIEW CANVAS</div>
 
           {images.length > 0 && (
             <>
               {/* 上一个/下一个按钮 */}
               <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
-                <button
+                <Button
                   onClick={goToPrevious}
                   disabled={currentIndex === 0}
-                  className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  variant="ghost"
+                  size="sm"
+                  className="p-3"
                   title="上一张"
                 >
                   <ChevronLeft className="w-6 h-6 text-slate-400" />
-                </button>
+                </Button>
               </div>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
-                <button
+                <Button
                   onClick={goToNext}
                   disabled={currentIndex >= images.length - 1}
-                  className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:border-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  variant="ghost"
+                  size="sm"
+                  className="p-3"
                   title="下一张"
                 >
                   <ChevronRight className="w-6 h-6 text-slate-400" />
-                </button>
+                </Button>
               </div>
 
               {/* 预览计数器 */}
-              <div className="absolute top-6 right-6 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg">
+              <div className="absolute top-6 right-6 px-3 py-1.5 bg-black/50 border border-slate-800 rounded-lg">
                 <span className="text-sm text-slate-400">
                   {currentIndex + 1} / {images.length}
                 </span>
@@ -664,7 +676,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
 
           <div
             ref={containerRef}
-            className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-[url('https://transparenttextures.com/patterns/stardust.png')] bg-slate-900"
+            className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-[url('https://transparenttextures.com/patterns/stardust.png')] bg-black"
             style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
           >
             <canvas
@@ -694,7 +706,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         </div>
 
         {/* 右侧：文件列表 */}
-        <div className="w-72 border-l border-slate-800 bg-slate-900 flex flex-col">
+        <div className="w-72 border-l border-slate-800 bg-black flex flex-col">
           {/* 文件列表头部 */}
           <div className="p-4 border-b border-slate-800">
             <div className="flex items-center justify-between mb-2">
@@ -727,7 +739,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                   className={`w-full text-left p-3 rounded-lg border transition-all ${
                     index === currentIndex
                       ? 'border-amber-500 bg-amber-500/20'
-                      : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+                      : 'border-slate-800 bg-black/50 hover:border-slate-700'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
