@@ -3,6 +3,7 @@ import { Upload, Loader2, Grid3X3, CheckCircle, XCircle, ArrowLeft, AlertCircle,
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
+import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
@@ -27,7 +28,6 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   const [images, setImages] = useState<ImageFile[]>([]);
   const { outputDir, setOutputDir } = useOutputDirCache('LosslessGridMode');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
 
   // 使用日志 Hook
   const {
@@ -50,143 +50,65 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
     moduleNameEN: 'LosslessGrid',
   });
 
-  // 处理拖拽上传
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    const imageFiles = files.filter(file =>
-      file.type.startsWith('image/')
-    );
-
-    if (imageFiles.length === 0) {
-      return;
-    }
-
-    // 获取图片尺寸信息
+  // 文件选择处理 - 使用 FileSelector
+  const handleImagesChange = useCallback(async (filePaths: string[]) => {
     const newImages: ImageFile[] = [];
 
-    for (const file of imageFiles) {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
+    for (const path of filePaths) {
+      const name = path.split('/').pop() || path.split('\\').pop() || path;
 
-      await new Promise<void>((resolve) => {
-        img.onload = () => {
-          const previewUrl = URL.createObjectURL(file);
-          newImages.push({
-            id: Math.random().toString(36).substr(2, 9),
-            path: file.path,
-            name: file.name,
-            size: file.size,
-            status: 'pending' as const,
-            naturalWidth: img.naturalWidth,
-            naturalHeight: img.naturalHeight,
-            previewUrl
+      // 获取预览 URL
+      let previewUrl: string | undefined;
+      let naturalWidth: number | undefined;
+      let naturalHeight: number | undefined;
+
+      try {
+        const result = await window.api.getPreviewUrl(path);
+        if (result.success && result.url) {
+          previewUrl = result.url;
+
+          // 获取图片尺寸
+          const img = new Image();
+          await new Promise<void>((resolve) => {
+            img.onload = () => {
+              naturalWidth = img.naturalWidth;
+              naturalHeight = img.naturalHeight;
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = result.url;
           });
-          URL.revokeObjectURL(url);
-          resolve();
-        };
-        img.onerror = () => {
-          const previewUrl = URL.createObjectURL(file);
-          newImages.push({
-            id: Math.random().toString(36).substr(2, 9),
-            path: file.path,
-            name: file.name,
-            size: file.size,
-            status: 'pending' as const,
-            previewUrl
-          });
-          URL.revokeObjectURL(url);
-          resolve();
-        };
-        img.src = url;
+        }
+      } catch (err) {
+        console.warn('获取预览失败:', path, err);
+      }
+
+      // 获取文件大小
+      let size = 0;
+      try {
+        const fileInfo = await window.api.getFileInfo(path);
+        if (fileInfo.success && fileInfo.info) {
+          size = fileInfo.info.size;
+        }
+      } catch (err) {
+        console.warn('获取文件大小失败:', path, err);
+      }
+
+      newImages.push({
+        id: Math.random().toString(36).substr(2, 9),
+        path,
+        name,
+        size,
+        status: 'pending' as const,
+        naturalWidth,
+        naturalHeight,
+        previewUrl
       });
     }
 
     setImages(prev => [...prev, ...newImages]);
-  }, []);
-
-  // 文件选择处理
-  const handleSelectImages = async () => {
-    try {
-      const selectedPaths = await window.api.pickFiles('选择图片', [
-        { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'webp'] }
-      ]);
-
-      if (selectedPaths.length > 0) {
-        const newImages: ImageFile[] = [];
-
-        for (const path of selectedPaths) {
-          const name = path.split('/').pop() || path.split('\\').pop() || path;
-
-          // 获取预览 URL
-          let previewUrl: string | undefined;
-          let naturalWidth: number | undefined;
-          let naturalHeight: number | undefined;
-
-          try {
-            const result = await window.api.getPreviewUrl(path);
-            if (result.success && result.url) {
-              previewUrl = result.url;
-
-              // 获取图片尺寸
-              const img = new Image();
-              await new Promise<void>((resolve) => {
-                img.onload = () => {
-                  naturalWidth = img.naturalWidth;
-                  naturalHeight = img.naturalHeight;
-                  resolve();
-                };
-                img.onerror = () => resolve();
-                img.src = result.url;
-              });
-            }
-          } catch (err) {
-            console.warn('获取预览失败:', path, err);
-          }
-
-          // 获取文件大小
-          let size = 0;
-          try {
-            const fileInfo = await window.api.getFileInfo(path);
-            if (fileInfo.success && fileInfo.info) {
-              size = fileInfo.info.size;
-            }
-          } catch (err) {
-            console.warn('获取文件大小失败:', path, err);
-          }
-
-          newImages.push({
-            id: Math.random().toString(36).substr(2, 9),
-            path,
-            name,
-            size,
-            status: 'pending' as const,
-            naturalWidth,
-            naturalHeight,
-            previewUrl
-          });
-        }
-
-        setImages(prev => [...prev, ...newImages]);
-        addLog(`已添加 ${newImages.length} 张图片`);
-      }
-    } catch (err) {
-      console.error('选择图片失败:', err);
-      addLog(`选择图片失败: ${err}`, 'error');
-    }
-  };
+    addLog(`已添加 ${newImages.length} 张图片`);
+  }, [addLog]);
 
   // 移除图片
   const removeImage = (id: string) => {
@@ -337,23 +259,18 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
               <Upload className="w-4 h-4" /> 图片上传
             </h3>
 
-            <label
-              className={`flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-xl transition-all cursor-pointer group ${
-                isDragging
-                  ? 'border-cyan-500 bg-cyan-950/30'
-                  : 'border-slate-700 hover:border-cyan-500 hover:bg-slate-800/50'
-              }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={handleSelectImages}
-            >
-              <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <Upload className="w-6 h-6 text-slate-400 group-hover:text-cyan-400" />
-              </div>
-              <p className="text-sm text-slate-300 font-medium">点击或拖拽上传图片</p>
-              <p className="text-xs text-slate-500 mt-1">建议上传 1:1 正方形原图</p>
-            </label>
+            <FileSelector
+              id="losslessGridImages"
+              name="图片文件"
+              accept="image"
+              multiple
+              showList={false}
+                            maxHeight={160}
+              themeColor="cyan"
+              directoryCache
+              onChange={handleImagesChange}
+              disabled={isProcessing}
+            />
           </div>
 
           {/* Output Directory */}

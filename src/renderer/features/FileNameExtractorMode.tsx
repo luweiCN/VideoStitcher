@@ -1,9 +1,8 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle, Hash, CopyCheck, Eye } from 'lucide-react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
+import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle, Hash, CopyCheck } from 'lucide-react';
 import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
 import PageHeader from '../components/PageHeader';
-import InlineMediaPreview from '../components/InlineMediaPreview';
-import MediaPreviewModal from '../components/MediaPreviewModal';
+import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
 
 interface FileNameExtractorModeProps {
   onBack: () => void;
@@ -27,7 +26,6 @@ type ExportFormat = 'text' | 'md_list' | 'md_table' | 'json';
 const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack }) => {
   // 状态管理
   const [files, setFiles] = useState<VideoFile[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
   const [copied, setCopied] = useState(false);
   const [format, setFormat] = useState<ExportFormat>('text');
   const [isEditing, setIsEditing] = useState(false);
@@ -39,16 +37,12 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   const [sequenceIndex, setSequenceIndex] = useState<number>(8);
   const [tempNames, setTempNames] = useState<Record<string, string>>({});
   const [platform, setPlatform] = useState<string>('unknown');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 重命名相关状态
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameProgress, setRenameProgress] = useState({ current: 0, total: 0 });
   const [renameResults, setRenameResults] = useState<{ success: number; failed: number } | null>(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
-
-  // 预览相关状态
-  const [previewFile, setPreviewFile] = useState<VideoFile | null>(null);
 
   // 获取系统平台信息
   useEffect(() => {
@@ -98,55 +92,13 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     };
   }, []);
 
-  // ==================== 拖拽处理 ====================
+  // ==================== 文件选择处理 ====================
   /**
-   * 处理拖拽悬停事件
+   * 处理文件选择 - 使用 FileSelector
    */
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  /**
-   * 处理拖拽离开事件
-   */
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  /**
-   * 处理文件拖放事件
-   * 注意：在 Electron 中拖放获取的是文件路径，需要特殊处理
-   */
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    // 获取拖放的文件路径
-    const filePaths = Array.from(e.dataTransfer.files).map(file => {
-      return (file as any).path || file.name;
-    });
-
-    if (filePaths.length > 0) {
-      addFilesByPaths(filePaths);
-    }
-  };
-
-  /**
-   * 处理文件选择对话框
-   */
-  const handleSelectFiles = async () => {
-    try {
-      const selectedFiles = await window.api.pickFiles('选择视频或图片文件', [
-        { name: 'Media Files', extensions: ['mp4', 'mov', 'mkv', 'm4v', 'avi', 'jpg', 'jpeg', 'png', 'webp'] }
-      ]);
-      if (selectedFiles.length > 0) {
-        addFilesByPaths(selectedFiles);
-      }
-    } catch (err) {
-      console.error('选择文件失败:', err);
-    }
-  };
+  const handleFilesChange = useCallback((filePaths: string[]) => {
+    addFilesByPaths(filePaths);
+  }, []);
 
   // ==================== 文件处理 ====================
   /**
@@ -502,28 +454,18 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
         {/* 左侧：上传和设置区域 */}
         <div className="lg:col-span-1 space-y-6 flex flex-col h-[calc(100vh-140px)]">
           {/* 上传区域 */}
-          <div
-            className={`
-              border-2 border-dashed rounded-3xl p-6 text-center transition-all cursor-pointer flex-shrink-0
-              flex flex-col items-center justify-center gap-3 h-48
-              ${isDragging
-                ? 'border-indigo-500 bg-indigo-500/10'
-                : 'border-slate-800 bg-slate-900/50 hover:border-indigo-500/50 hover:bg-slate-900'
-              }
-            `}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={handleSelectFiles}
-          >
-            <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400">
-              <Upload className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="font-medium">点击或拖拽文件</p>
-              <p className="text-slate-400 text-xs mt-1">支持批量导入</p>
-            </div>
-          </div>
+          <FileSelector
+            id="fileNameExtractorFiles"
+            name="视频/图片文件"
+            accept={['mp4', 'mov', 'mkv', 'm4v', 'avi', 'jpg', 'jpeg', 'png', 'webp']}
+            multiple
+            showList={false}
+            minHeight={100}
+            maxHeight={200}
+            themeColor="indigo"
+            directoryCache
+            onChange={handleFilesChange}
+          />
 
           {/* 控制面板 */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col flex-1 min-h-0">
@@ -841,7 +783,6 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                 <thead className="sticky top-0 bg-slate-900 z-10 shadow-sm">
                   <tr className="border-b border-slate-800 text-slate-400 text-sm">
                     <th className="p-4 font-medium w-16">#</th>
-                    <th className="p-4 font-medium w-24">预览</th>
                     <th className="p-4 font-medium">文件名</th>
                     <th className="p-4 font-medium text-right">操作</th>
                   </tr>
@@ -850,12 +791,6 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                   {files.map((file, index) => (
                     <tr key={file.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors group">
                       <td className="p-4 text-slate-500 font-mono text-sm">{index + 1}</td>
-                      <td className="p-4">
-                        <InlineMediaPreview 
-                          filePath={file.path} 
-                          onClick={() => setPreviewFile(file)} 
-                        />
-                      </td>
                       <td className="p-4 font-medium text-slate-200">
                         <div className="flex items-center gap-3">
                           <div className="flex-1">
@@ -940,14 +875,6 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
         })}
         onClose={() => setShowPreviewDialog(false)}
         onConfirm={handleConfirmRename}
-      />
-
-      {/* 媒体预览弹窗 */}
-      <MediaPreviewModal
-        isOpen={!!previewFile}
-        onClose={() => setPreviewFile(null)}
-        filePath={previewFile?.path || ''}
-        fileName={previewFile?.name || ''}
       />
     </div>
   );

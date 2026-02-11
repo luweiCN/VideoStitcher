@@ -89,7 +89,7 @@ const FeatureInfoTooltip: React.FC<FeatureInfoTooltipProps> = ({
           <Tooltip.Content
             className={`
               max-w-sm
-              bg-slate-900
+              bg-black
               border border-slate-700/50
               shadow-xl shadow-black/40
               rounded-lg px-4 py-3
@@ -99,7 +99,7 @@ const FeatureInfoTooltip: React.FC<FeatureInfoTooltipProps> = ({
             align="end"
             sideOffset={8}
           >
-            <Tooltip.Arrow className="fill-slate-900 stroke-slate-700/50 stroke-2" />
+            <Tooltip.Arrow className="fill-black stroke-slate-700/50 stroke-2" />
             <div className="space-y-3">
               {/* 标题 */}
               <div className="flex items-center gap-2 pb-2 border-b border-slate-700/50">
@@ -108,13 +108,13 @@ const FeatureInfoTooltip: React.FC<FeatureInfoTooltipProps> = ({
               </div>
 
               {/* 描述 */}
-              <p className="text-gray-300 text-xs leading-relaxed">{description}</p>
+              <p className="text-slate-300 text-xs leading-relaxed">{description}</p>
 
               {/* 详细说明列表 */}
               {details && details.length > 0 && (
                 <ul className="space-y-2 pt-2 border-t border-slate-700/50">
                   {details.map((detail, index) => (
-                    <li key={index} className="text-[12px] text-gray-400 leading-relaxed flex items-start gap-2">
+                    <li key={index} className="text-[12px] text-slate-400 leading-relaxed flex items-start gap-2">
                       <span className={`${colors.dot} w-1 h-1 rounded-full mt-1.5 shrink-0`} />
                       <span>{detail}</span>
                     </li>

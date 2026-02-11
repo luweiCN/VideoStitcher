@@ -3,7 +3,7 @@
  * 支持批量重命名文件
  */
 
-const { ipcMain } = require('electron');
+const { ipcMain, shell } = require('electron');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -101,6 +101,16 @@ function registerFileHandlers() {
   // 批量重命名
   ipcMain.handle('file:batch-rename', async (event, params) => {
     return handleBatchRename(event, params);
+  });
+
+  // 在系统文件管理器中显示文件
+  ipcMain.handle('file:show-item-in-folder', async (event, filePath) => {
+    shell.showItemInFolder(filePath);
+  });
+
+  // 用系统默认程序打开文件
+  ipcMain.handle('file:open-path', async (event, filePath) => {
+    await shell.openPath(filePath);
   });
 }
 

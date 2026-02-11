@@ -1,0 +1,331 @@
+/**
+ * VideoPlayer - Plyr 动态主题色
+ *
+ * 使用 CSS 变量实现主题色动态切换
+ * 通过父容器传入 --plyr-color-main 变量
+ */
+
+/* Plyr 主容器 - 使用 CSS 变量 */
+.plyr {
+  /* 从父容器继承主题色，如果没有则使用默认 cyan */
+  --plyr-theme-main: var(--plyr-color-main, #22d3ee);
+  --plyr-theme-hover: var(--plyr-color-hover, #67e8f9);
+  --plyr-theme-glow: var(--plyr-color-glow, rgba(34, 211, 238, 0.3));
+
+  --plyr-video-background: transparent;
+  --plyr-video-controls-background: rgba(9, 9, 11, 0.9);
+  --plyr-video-control-color: #a1a1aa;
+  --plyr-video-control-color-hover: #f4f4f5;
+  --plyr-video-control-background-hover: rgba(39, 39, 42, 0.8);
+  --plyr-audio-controls-background: rgba(9, 9, 11, 0.9);
+  --plyr-audio-control-color: #a1a1aa;
+  --plyr-audio-control-color-hover: #f4f4f5;
+  --plyr-audio-control-background-hover: rgba(39, 39, 42, 0.8);
+
+  /* 圆角 */
+  --plyr-border-radius: 12px;
+  --plyr-menu-radius: 12px;
+  --plyr-menu-arrow-size: 8px;
+  --plyr-video-control-radius: 12px;
+  --plyr-video-control-gap: 12px;
+  --plyr-video-control-padding: 12px;
+
+  /* 确保填满父容器 */
+  width: 100%;
+  height: 100%;
+}
+
+/* Plyr 视频包装器 */
+.plyr__video-wrapper {
+  width: 100%;
+  height: 100%;
+}
+
+/* Plyr 容器 */
+.plyr__video-embed {
+  width: 100%;
+  height: 100%;
+}
+
+/* 播放按钮（大） - 居中放大动画 */
+.plyr__control--overlaid {
+  background: color-mix(in srgb, var(--plyr-theme-main) 90%, transparent);
+  backdrop-filter: blur(10px);
+  border: none;
+  box-shadow: 0 0 0 4px var(--plyr-theme-glow);
+  /* 默认状态：居中但不放大 */
+  transform: translate(-50%, -50%) !important;
+  /* 平滑过渡动画 */
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* 悬浮状态：居中且放大，其他样式也有变化 */
+.plyr__control--overlaid:hover,
+.plyr__control--overlaid:focus {
+  background: var(--plyr-theme-hover) !important;
+  box-shadow: 0 0 0 6px var(--plyr-theme-glow), 0 0 20px var(--plyr-theme-glow) !important;
+  /* 保持居中的同时放大 */
+  transform: translate(-50%, -50%) scale(1.1) !important;
+}
+
+/* SVG 图标平滑过渡 */
+.plyr__control--overlaid svg {
+  transition: transform 0.2s ease;
+}
+
+/* 进度条 */
+.plyr__progress {
+  padding: 12px 0;
+}
+
+.plyr__progress__buffer {
+  color: rgba(161, 161, 170, 0.3);
+}
+
+.plyr__progress__buffer::-webkit-progress-value,
+.plyr__progress__buffer::-moz-progress-bar {
+  background-color: rgba(161, 161, 170, 0.3);
+  border-radius: 100px;
+}
+
+/* 已播放进度 */
+.plyr__progress__played::-webkit-progress-value,
+.plyr__progress__played::-moz-progress-bar {
+  background-color: var(--plyr-theme-main);
+  box-shadow: 0 0 10px var(--plyr-theme-glow);
+}
+
+.plyr__progress__played[role='progressbar']::-webkit-progress-value {
+  background-color: var(--plyr-theme-main);
+}
+
+/* 进度条滑块 */
+.plyr__progress__handle {
+  background: var(--plyr-theme-main);
+  box-shadow: 0 0 0 4px var(--plyr-theme-glow), 0 0 10px var(--plyr-theme-glow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.plyr__progress__handle:hover,
+.plyr--is-hovered .plyr__progress__handle {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 6px var(--plyr-theme-glow), 0 0 15px var(--plyr-theme-glow);
+}
+
+/* 控制按钮 */
+.plyr__controls {
+  padding: 12px;
+}
+
+.plyr__control {
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.plyr__control:hover {
+  background: rgba(39, 39, 42, 0.8);
+  color: var(--plyr-theme-main);
+}
+
+.plyr__control.plyr__tab-focus {
+  /* 焦点状态和普通样式保持一致 */
+  background: transparent;
+  color: #a1a1aa;
+  outline: none;
+  box-shadow: none;
+}
+
+/* 音量控制 */
+.plyr__volume {
+  width: 120px;
+}
+
+.plyr__volume__input::-webkit-slider-runnable-track {
+  background: rgba(161, 161, 170, 0.3);
+  border-radius: 100px;
+}
+
+.plyr__volume__input::-moz-range-track {
+  background: rgba(161, 161, 170, 0.3);
+  border-radius: 100px;
+}
+
+.plyr__volume__input::-webkit-slider-thumb {
+  background: var(--plyr-theme-main);
+  box-shadow: 0 0 0 3px var(--plyr-theme-glow);
+}
+
+.plyr__volume__input::-moz-range-thumb {
+  background: var(--plyr-theme-main);
+  box-shadow: 0 0 0 3px var(--plyr-theme-glow);
+}
+
+/* 时间显示 */
+.plyr__time {
+  font-size: 13px;
+  font-weight: 500;
+  color: #a1a1aa;
+}
+
+/* 设置菜单 */
+.plyr__menu {
+  background: transparent;
+  backdrop-filter: none;
+  border: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* 菜单容器也去掉背景 */
+.plyr__menu__container {
+  background: transparent;
+}
+
+/* 菜单内部列表背景保持，用于可读性 */
+.plyr__menu__list {
+  background: rgba(9, 9, 11, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 8px;
+}
+
+/* 控制项容器 - 去掉焦点边框和背景色 */
+.plyr__controls__item {
+  outline: none;
+  border: none;
+}
+
+.plyr__controls__item:focus-visible {
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.plyr__menu__container {
+  background: transparent;
+}
+
+.plyr__menu__label {
+  color: #a1a1aa;
+}
+
+.plyr__menu__value {
+  color: var(--plyr-theme-main);
+}
+
+.plyr__menu__item:hover {
+  background: rgba(39, 39, 42, 0.8);
+}
+
+.plyr__menu__item.plyr__tab-focus {
+  /* 焦点状态和普通样式保持一致 */
+  background: transparent;
+  color: #a1a1aa;
+  outline: none;
+  box-shadow: none;
+}
+
+/* 工具提示 */
+.plyr__tooltip {
+  background: rgba(9, 9, 11, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(161, 161, 170, 0.2);
+  border-radius: 8px;
+  color: #f4f4f5;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.plyr__tooltip::before {
+  border-top-color: rgba(9, 9, 11, 0.95);
+}
+
+/* 画中画按钮激活状态 */
+.plyr__control.plyr__control--pressed {
+  color: var(--plyr-theme-main);
+  background: color-mix(in srgb, var(--plyr-theme-main) 20%, transparent);
+}
+
+/* 全屏模式 */
+.plyr--fullscreen {
+  background: #000;
+}
+
+/* 加载动画 */
+.plyr__loading {
+  display: none;
+}
+
+/* 空心圆加载动画 */
+.plyr__loading--recording {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--plyr-theme-glow);
+  border-top-color: var(--plyr-theme-main);
+  border-radius: 50%;
+  animation: plyr-loading 1s linear infinite;
+}
+
+@keyframes plyr-loading {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 字幕样式 */
+.plyr__captions {
+  font-size: 16px;
+  font-weight: 500;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 10px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+
+/* 音频波形（如果使用） */
+.plyr__audio-controls-wrapper {
+  background: linear-gradient(to top, rgba(9, 9, 11, 0.9), transparent);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .plyr__controls {
+    padding: 8px;
+  }
+
+  .plyr__volume {
+    width: 80px;
+  }
+
+  .plyr__time {
+    font-size: 12px;
+  }
+}
+
+/* 焦点样式（无障碍） */
+.plyr:focus {
+  outline: none;
+}
+
+.plyr__control:focus-visible,
+.plyr__control--overlaid:focus-visible {
+  /* 焦点状态保持简单，和普通样式一致 */
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+/* 禁用状态 */
+.plyr__control[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.plyr__control[disabled]:hover {
+  background: transparent;
+  color: #a1a1aa;
+}

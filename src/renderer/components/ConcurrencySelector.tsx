@@ -64,7 +64,7 @@ const themeColors = {
   },
   slate: {
     primary: 'slate',
-    gradient: 'from-slate-500 to-gray-500',
+    gradient: 'from-slate-500 to-slate-500',
     shadow: 'shadow-slate-500/30',
     track: 'bg-slate-500',
   },
@@ -168,7 +168,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
       </div>
 
       {/* 滑轨容器 */}
-      <div className="bg-slate-900/50 rounded-xl px-3 pt-3 pb-5 border border-slate-800">
+      <div className="bg-black/50 rounded-xl px-3 pt-3 pb-5 border border-slate-800">
         {/* 值显示 */}
         <div className="flex items-center justify-between mb-3">
           <div className={`
@@ -208,7 +208,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
                     sideOffset={8}
                     className="z-50"
                   >
-                    <div className="px-4 py-3.5 bg-slate-950/95 backdrop-blur-xl rounded-xl border border-slate-700/50 shadow-2xl max-w-[360px]">
+                    <div className="px-4 py-3.5 bg-black/95 backdrop-blur-xl rounded-xl border border-slate-700/50 shadow-2xl max-w-[360px]">
                       {/* 标题 */}
                       <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-800">
                         <div className={`
@@ -287,7 +287,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
           step={1}
           disabled={disabled}
         >
-          <Slider.Track className="bg-slate-800 relative grow rounded-full h-2 shadow-inner">
+          <Slider.Track className="bg-neutral-900 relative grow rounded-full h-2 shadow-inner">
             <Slider.Range className={`
               absolute h-full rounded-full
               bg-gradient-to-r ${theme.gradient}

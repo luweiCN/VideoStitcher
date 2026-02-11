@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ArrowLeft, Upload, Loader2, Play, Trash2, CheckCircle,
   Image as ImageIcon, XCircle, AlertCircle, Image
@@ -6,6 +6,7 @@ import {
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
+import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
@@ -28,7 +29,6 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { outputDir, setOutputDir } = useOutputDirCache('CoverFormatMode');
   const [quality, setQuality] = useState(90);
-  const [isDragging, setIsDragging] = useState(false);
 
   // 进度状态
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
@@ -53,8 +53,6 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
     moduleNameCN: '封面格式化',
     moduleNameEN: 'CoverFormat',
   });
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 使用图片处理事件 Hook
   useImageProcessingEvents({
@@ -90,59 +88,9 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
     },
   });
 
-  // 选择图片文件
-  const handleSelectImages = async () => {
-    try {
-      const selectedPaths = await window.api.pickFiles('选择图片', [
-        { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'webp'] }
-      ]);
-
-      if (selectedPaths.length > 0) {
-        const newFiles: ImageFile[] = selectedPaths.map(path => {
-          const name = path.split('/').pop() || path.split('\\').pop() || path;
-          return {
-            id: Math.random().toString(36).substr(2, 9),
-            path,
-            name,
-            size: 0, // 无法在 Electron 渲染进程获取文件大小
-            status: 'pending' as const
-          };
-        });
-        setFiles(prev => [...prev, ...newFiles]);
-        addLog(`已添加 ${selectedPaths.length} 张图片`);
-      }
-    } catch (err) {
-      addLog(`选择图片失败: ${err}`);
-    }
-  };
-
-  // 拖拽事件处理
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-
-    const droppedPaths = e.dataTransfer.files
-      ? Array.from(e.dataTransfer.files)
-          .filter(f => f.type.startsWith('image/'))
-          .map(f => f.path)
-      : [];
-
-    if (droppedPaths.length === 0) {
-      addLog('⚠️ 未检测到图片文件');
-      return;
-    }
-
-    const newFiles: ImageFile[] = droppedPaths.map(path => {
+  // 选择图片文件 - 使用 FileSelector
+  const handleImagesChange = useCallback((filePaths: string[]) => {
+    const newFiles: ImageFile[] = filePaths.map(path => {
       const name = path.split('/').pop() || path.split('\\').pop() || path;
       return {
         id: Math.random().toString(36).substr(2, 9),
@@ -153,8 +101,8 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
       };
     });
     setFiles(prev => [...prev, ...newFiles]);
-    addLog(`已添加 ${droppedPaths.length} 张图片`);
-  };
+    addLog(`已添加 ${filePaths.length} 张图片`);
+  }, [addLog]);
 
   // 移除文件
   const removeFile = (id: string) => {
@@ -247,31 +195,19 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
       <div className="flex-1 flex overflow-hidden">
         {/* Left Control Panel */}
         <div className="w-full max-w-md border-r border-slate-800 bg-slate-900 p-6 flex flex-col gap-6 shrink-0 overflow-y-auto">
-          {/* Upload Area */}
-          <label
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={handleSelectImages}
-            className={`flex flex-col items-center justify-center h-50 border-2 border-dashed rounded-2xl transition-all cursor-pointer group shrink-0 ${
-              isDragging
-                ? 'border-fuchsia-500 bg-fuchsia-500/10'
-                : 'border-slate-800 hover:border-fuchsia-500 hover:bg-slate-800/50'
-            }`}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-            />
-            <Upload className={`w-10 h-10 mb-4 transition-colors ${
-              isDragging ? 'text-fuchsia-400' : 'text-slate-600 group-hover:text-fuchsia-400'
-            }`} />
-            <p className="text-slate-400 font-bold">点击或拖拽添加图片</p>
-            <p className="text-slate-600 text-xs mt-2">支持 JPG、PNG、WEBP</p>
-          </label>
+          {/* 图片文件选择器 */}
+          <FileSelector
+            id="coverFormatImages"
+            name="图片文件"
+            accept="image"
+            multiple
+            showList={false}
+                        maxHeight={160}
+            themeColor="fuchsia"
+            directoryCache
+            onChange={handleImagesChange}
+            disabled={isProcessing}
+          />
 
           {/* File Count */}
           {files.length > 0 && (

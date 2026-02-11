@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Link, Download, AlertCircle, Bell } from 'lucide-react';
+import * as Tooltip from '@radix-ui/react-tooltip';
 import VideoMergeMode from './features/VideoMergeMode';
 import FileNameExtractorMode from './features/FileNameExtractorMode';
 import CoverFormatMode from './features/CoverFormatMode';
@@ -476,7 +477,7 @@ const App: React.FC = () => {
     };
 
   return (
-    <>
+    <Tooltip.Provider>
       {getPageContent()}
       {showUpdateNotification && pendingUpdateInfo && createPortal(
         <UpdateNotification
@@ -486,7 +487,7 @@ const App: React.FC = () => {
         />,
         document.body
       )}
-    </>
+    </Tooltip.Provider>
   );
 };
 

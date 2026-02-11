@@ -37,7 +37,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
   width,
   height,
   minHeight,
-  themeColor = 'gray',
+  themeColor = 'slate',
   className = '',
 }) => {
   const theme: LogStyleConfig = THEME_COLOR_MAP[themeColor];
@@ -250,12 +250,12 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
 
   return (
     <div
-      className={`flex flex-col bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden ${className}`}
+      className={`flex flex-col bg-black/50 border border-slate-800 rounded-xl overflow-hidden ${className}`}
       style={containerStyle}
     >
       {/* 头部 */}
-      <div className="h-12 flex items-center justify-between px-4 border-b border-gray-800 shrink-0 whitespace-nowrap">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+      <div className="h-12 flex items-center justify-between px-4 border-b border-slate-800 shrink-0 whitespace-nowrap">
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
           处理日志
           {logs.length > 0 && (
             <span className={`text-[10px] px-1.5 py-0.5 rounded ${theme.primaryBg} ${theme.primaryColor}`}>
@@ -267,7 +267,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
         {/* 选择状态操作 */}
         {selection.startIndex !== null && (
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-500">
+            <span className="text-[10px] text-slate-500">
               {selection.endIndex === null
                 ? `起点: #${selection.startIndex + 1} · 点击选择范围`
                 : `已选 ${selection.selectedIndexes.size} 条`}
@@ -276,7 +276,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
               <>
                 <button
                   onClick={() => setSelection({ startIndex: null, endIndex: null, selectedIndexes: new Set() })}
-                  className="px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] rounded transition-colors cursor-pointer"
+                  className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] rounded transition-colors cursor-pointer"
                 >
                   取消
                 </button>
@@ -298,21 +298,21 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
               <>
                 <button
                   onClick={handleCopyAll}
-                  className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+                  className="p-1.5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
                   title="复制全部"
                 >
                   <Copy className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={downloadLogs}
-                  className="p-1.5 text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+                  className="p-1.5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
                   title="下载日志"
                 >
                   <Download className="w-3.5 h-3.5" />
                 </button>
                 <button
                   onClick={clearLogs}
-                  className="p-1.5 text-gray-500 hover:text-rose-400 transition-colors cursor-pointer"
+                  className="p-1.5 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
                   title="清空日志"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -325,7 +325,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
 
       {/* 日志内容区 - 使用虚拟列表 */}
       {logs.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-gray-600">
+        <div className="flex-1 flex items-center justify-center text-slate-600">
           <span className="text-xs">暂无日志</span>
         </div>
       ) : (

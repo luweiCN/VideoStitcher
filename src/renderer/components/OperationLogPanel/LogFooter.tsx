@@ -162,7 +162,7 @@ export const LogFooter: React.FC<LogFooterProps> = ({
   }
 
   return (
-    <div className="flex items-center justify-between px-3 py-2 bg-gray-900/80 backdrop-blur-sm border-t border-gray-800">
+    <div className="flex items-center justify-between px-3 py-2 bg-black/80 backdrop-blur-sm border-t border-slate-800">
       {/* 左侧：自动滚动开关 */}
       <div className="flex items-center gap-2">
         <SwitchControl

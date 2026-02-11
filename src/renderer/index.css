@@ -28,6 +28,36 @@
   animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* 淡入动画 (替代 framer-motion opacity) */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* 缩放淡入动画 (替代 framer-motion scale + opacity) */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scaleIn {
+  animation: scaleIn 0.2s ease-out;
+}
+
 /* ============================================
    自定义滚动条样式
    ============================================ */
@@ -131,4 +161,36 @@
 }
 .scrollbar-auto-hide:hover::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
+}
+
+/* ============================================
+   Radix UI Tooltip 动画
+   ============================================ */
+
+@keyframes tooltip-hide {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes tooltip-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hide {
+  animation: tooltip-hide 0.15s ease-out forwards;
+}
+
+.animate-in {
+  animation: tooltip-slide-up 0.15s ease-out;
 }

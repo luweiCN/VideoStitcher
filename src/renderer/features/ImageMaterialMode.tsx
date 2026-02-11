@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect, MouseEvent } from 'react';
-import { ArrowLeft, Upload, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useRef, useEffect, MouseEvent, useCallback } from 'react';
+import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
+import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
@@ -56,7 +57,7 @@ const PREVIEW_SIZE_MODES: Record<PreviewSizeMode, { name: string; desc: string }
  * 参考 VideoMaster 项目设计，使用 Sharp 后端处理
  */
 const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
-  // 素材图片列表
+  // 素材图片列表 - 保留原有的 ImageFile 结构以支持状态跟踪
   const [images, setImages] = useState<ImageFile[]>([]);
 
   // 当前预览索引
@@ -122,7 +123,9 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   // 预览触发器 - 用于触发重绘
   const [previewTrigger, setPreviewTrigger] = useState(0);
 
-  // 加载指定索引的预览图片
+  /**
+   * 加载指定索引的预览图片
+   */
   const loadPreviewImage = async (imagePath: string) => {
     try {
       const result = await window.api.getPreviewUrl(imagePath);
@@ -145,11 +148,12 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     }
   };
 
-  // 切换到指定索引的图片预览
+  /**
+   * 切换到指定索引的图片预览
+   */
   const switchToPreview = (index: number) => {
     if (index < 0 || index >= images.length) return;
     setCurrentIndex(index);
-    // 直接从闭包中获取最新的图片路径
     const imagePath = images[index]?.path;
     if (imagePath) {
       loadPreviewImage(imagePath);
@@ -170,68 +174,73 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     }
   };
 
-  // 处理图片上传
-  const handleImageUpload = async () => {
-    try {
-      const files = await window.api.pickFiles('选择素材图片', [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp'] }
-      ]);
-      if (files.length > 0) {
-        const newImages: ImageFile[] = files.map(path => ({
-          id: Math.random().toString(36).substr(2, 9),
-          path,
-          name: path.split('/').pop() || path,
-          status: 'pending' as const
-        }));
+  /**
+   * 处理素材图片选择 - 使用 FileSelector
+   */
+  const handleImagesChange = useCallback((files: string[]) => {
+    const newImages: ImageFile[] = files.map(path => ({
+      id: Math.random().toString(36).substr(2, 9),
+      path,
+      name: path.split('/').pop() || path,
+      status: 'pending' as const
+    }));
 
-        // 使用函数式更新来获取最新的 images 长度
-        setImages(prev => {
-          const updated = [...prev, ...newImages];
-          // 如果是第一批图片，加载第一张用于预览
-          if (prev.length === 0 && files.length > 0) {
-            // 使用 setTimeout 确保 state 更新后再加载
-            setTimeout(() => {
-              loadPreviewImage(files[0]);
-            }, 0);
-          }
-          return updated;
-        });
-        addLog(`已添加 ${newImages.length} 张素材图片`);
+    setImages(prev => {
+      const updated = [...prev, ...newImages];
+      // 如果是第一批图片，加载第一张用于预览
+      if (prev.length === 0 && files.length > 0) {
+        setTimeout(() => {
+          loadPreviewImage(files[0]);
+        }, 0);
       }
-    } catch (err) {
-      addLog(`选择图片失败: ${err}`);
+      return updated;
+    });
+
+    if (newImages.length > 0) {
+      addLog(`已添加 ${newImages.length} 张素材图片`);
     }
+  }, [addLog]);
+
+  /**
+   * 处理 Logo 选择 - 使用 FileSelector
+   */
+  const handleLogoChange = useCallback(async (files: string[]) => {
+    if (files.length > 0) {
+      setLogoPath(files[0]);
+      addLog(`已选择 Logo: ${files[0].split('/').pop()}`);
+
+      // 加载 Logo 图片
+      const result = await window.api.getPreviewUrl(files[0]);
+      if (result.success && result.url) {
+        const img = new Image();
+        img.src = result.url;
+        img.onload = () => {
+          setLogoImage(img);
+          // 重置位置和缩放
+          setLogoPosition({ x: 50, y: 50 });
+          setLogoScale(1);
+        };
+      }
+    } else {
+      // 清空 Logo
+      clearLogo();
+    }
+  }, [addLog]);
+
+  /**
+   * 清空 Logo
+   */
+  const clearLogo = () => {
+    setLogoPath('');
+    setLogoImage(null);
+    setLogoPosition({ x: 50, y: 50 });
+    setLogoScale(1);
+    drawPreview();
   };
 
-  // 处理 Logo 上传
-  const handleLogoUpload = async () => {
-    try {
-      const files = await window.api.pickFiles('选择 Logo 图片 (透明 PNG)', [
-        { name: 'Images', extensions: ['png', 'webp'] }
-      ]);
-      if (files.length > 0) {
-        setLogoPath(files[0]);
-        addLog(`已选择 Logo: ${files[0].split('/').pop()}`);
-
-        // 加载 Logo 图片
-        const result = await window.api.getPreviewUrl(files[0]);
-        if (result.success && result.url) {
-          const img = new Image();
-          img.src = result.url;
-          img.onload = () => {
-            setLogoImage(img);
-            // 重置位置和缩放
-            setLogoPosition({ x: 50, y: 50 });
-            setLogoScale(1);
-          };
-        }
-      }
-    } catch (err) {
-      addLog(`选择 Logo 失败: ${err}`);
-    }
-  };
-
-  // 绘制预览画布
+  /**
+   * 绘制预览画布
+   */
   const drawPreview = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -422,20 +431,21 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     }
   };
 
+  // 当视频列表或模式改变时，重新生成预览
+  useEffect(() => {
+    if (images.length > 0 && currentIndex < images.length) {
+      // 预览会在 switchToPreview 中加载
+    } else {
+      // 清空预览
+      previewImageRef.current = null;
+    }
+  }, [images, currentIndex]);
+
   // 清空图片列表
   const clearImages = () => {
     setImages([]);
     setCurrentIndex(0);
     previewImageRef.current = null;
-    drawPreview();
-  };
-
-  // 清空 Logo
-  const clearLogo = () => {
-    setLogoPath('');
-    setLogoImage(null);
-    setLogoPosition({ x: 50, y: 50 });
-    setLogoScale(1);
     drawPreview();
   };
 
@@ -464,52 +474,41 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧：控制面板 */}
         <div className="w-96 border-r border-slate-800 bg-slate-900 p-6 flex flex-col gap-5 overflow-y-auto">
-          {/* 1. 图片上传 */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-400 uppercase">1. 上传图片</h3>
-            <button
-              onClick={handleImageUpload}
-              className="w-full flex flex-col items-center justify-center h-24 border-2 border-dashed border-slate-800 rounded-xl hover:border-amber-500 hover:bg-slate-800/50 transition-all cursor-pointer"
-            >
-              <Upload className="w-6 h-6 text-slate-500 mb-1" />
-              <span className="text-xs text-slate-400">选择图片 ({images.length} 已添加)</span>
-            </button>
-          </div>
+          {/* 文件选择器组 */}
+          <FileSelectorGroup>
+            <div className="space-y-5">
+              {/* 素材图片 */}
+              <FileSelector
+                id="materialImages"
+                name="素材图片"
+                accept="image"
+                multiple
+                showList={false}
+                minHeight={100}
+                maxHeight={200}
+                themeColor="amber"
+                directoryCache
+                onChange={handleImagesChange}
+              />
 
-          {/* 2. Logo 上传 */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-400 uppercase">2. 上传 Logo (可选)</h3>
-            <div className="flex gap-2">
-              <button
-                onClick={handleLogoUpload}
-                className="flex-1 flex items-center gap-3 p-3 border border-slate-800 rounded-xl hover:border-amber-500 cursor-pointer bg-slate-950"
-              >
-                {logoImage ? (
-                  <img src={logoImage.src} className="w-10 h-10 object-contain rounded bg-white/5" />
-                ) : (
-                  <div className="w-10 h-10 rounded bg-slate-800 flex items-center justify-center">
-                    <ImageIcon className="w-5 h-5 text-slate-500" />
-                  </div>
-                )}
-                <span className="text-sm text-slate-300 flex-1 truncate text-left">
-                  {logoPath ? logoPath.split('/').pop() : '点击上传 Logo'}
-                </span>
-              </button>
-              {logoPath && (
-                <button
-                  onClick={clearLogo}
-                  className="p-3 border border-slate-800 rounded-xl hover:border-red-500 hover:bg-red-500/10 cursor-pointer bg-slate-950 text-slate-400 hover:text-red-400"
-                  title="清除 Logo"
-                >
-                  ×
-                </button>
-              )}
+              {/* Logo */}
+              <FileSelector
+                id="logoImage"
+                name="Logo 水印 (可选)"
+                accept="image"
+                multiple={false}
+                showList={false}
+                                maxHeight={120}
+                themeColor="amber"
+                directoryCache
+                onChange={handleLogoChange}
+              />
             </div>
-          </div>
+          </FileSelectorGroup>
 
-          {/* 3. 预览模式 */}
+          {/* 预览模式 */}
           <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-400 uppercase">3. 预览模式</h3>
+            <h3 className="text-sm font-bold text-slate-400 uppercase">预览模式</h3>
             <div className="space-y-2">
               {(Object.keys(PREVIEW_SIZE_MODES) as PreviewSizeMode[]).map((mode) => (
                 <button
@@ -528,9 +527,9 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             </div>
           </div>
 
-          {/* 4. 导出选项 */}
+          {/* 导出选项 */}
           <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-400 uppercase">4. 导出选项</h3>
+            <h3 className="text-sm font-bold text-slate-400 uppercase">导出选项</h3>
             <div className="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <div
@@ -553,7 +552,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             </div>
           </div>
 
-          {/* 5. Logo 控制 */}
+          {/* Logo 控制 */}
           {logoImage && (
             <div className="space-y-4 p-4 bg-slate-950 rounded-xl border border-slate-800">
               <div className="flex items-center gap-2 text-amber-400 text-sm font-bold">
@@ -574,15 +573,21 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                   className="w-full accent-amber-500 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
+              <button
+                onClick={clearLogo}
+                className="w-full py-2 text-xs text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+              >
+                清除 Logo
+              </button>
               <p className="text-xs text-slate-500 leading-relaxed">
                 在预览图中拖动 Logo 可调整位置。
               </p>
             </div>
           )}
 
-          {/* 6. 输出目录 */}
+          {/* 输出目录 */}
           <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-400 uppercase">5. 输出目录</h3>
+            <h3 className="text-sm font-bold text-slate-400 uppercase">输出目录</h3>
             <OutputDirSelector
               value={outputDir}
               onChange={setOutputDir}
@@ -592,7 +597,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             />
           </div>
 
-          {/* 7. 处理日志 */}
+          {/* 处理日志 */}
           <OperationLogPanel
             logs={logs}
             addLog={addLog}

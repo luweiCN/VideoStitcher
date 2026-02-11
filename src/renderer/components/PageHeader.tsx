@@ -51,7 +51,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   backButtonContent,
 }) => {
   return (
-    <header className="h-14 border-b border-slate-800 bg-slate-900/50 backdrop-blur-md flex items-center px-4 shrink-0">
+    <header className="h-14 border-b border-slate-800 bg-black/50 backdrop-blur-md flex items-center px-4 shrink-0">
       {/* 左侧：返回按钮 + 标题区域 */}
       <div className="flex items-center gap-3">
         {showBackButton && (

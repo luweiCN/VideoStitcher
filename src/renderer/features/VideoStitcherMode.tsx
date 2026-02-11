@@ -7,6 +7,8 @@ import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
 import OperationLogPanel from '../components/OperationLogPanel';
+import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
+import { Button } from '../components/Button/Button';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
@@ -36,9 +38,9 @@ interface CombinationItem {
 }
 
 const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
-  // 素材状态
-  const [aFiles, setAFiles] = useState<VideoFile[]>([]);
-  const [bFiles, setBFiles] = useState<VideoFile[]>([]);
+  // 素材状态 - 改为存储文件路径
+  const [aFiles, setAFiles] = useState<string[]>([]);
+  const [bFiles, setBFiles] = useState<string[]>([]);
 
   // 配置状态
   const { outputDir, setOutputDir } = useOutputDirCache('VideoStitcherMode');
@@ -96,10 +98,25 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     if (aFiles.length === 0 || bFiles.length === 0) return [];
     const totalCount = Math.max(aFiles.length, bFiles.length);
     return Array.from({ length: totalCount }, (_, index) => {
-      const aVideo = aFiles[index % aFiles.length];
-      const bVideo = bFiles[index % bFiles.length];
-      const outputName = `${aVideo.name.split('.')[0]}_${bVideo.name.split('.')[0]}.mp4`;
+      const aPath = aFiles[index % aFiles.length];
+      const bPath = bFiles[index % bFiles.length];
+      const aName = aPath.split(/[/\\]/).pop() || aPath;
+      const bName = bPath.split(/[/\\]/).pop() || bPath;
+      const outputName = `${aName.split('.')[0]}_${bName.split('.')[0]}.mp4`;
       const comboId = `combo-${index}`;
+      // 创建临时的 VideoFile 对象用于组合项
+      const aVideo: VideoFile = {
+        id: `a-${index}`,
+        path: aPath,
+        name: aName,
+        size: 0,
+      };
+      const bVideo: VideoFile = {
+        id: `b-${index}`,
+        path: bPath,
+        name: bName,
+        size: 0,
+      };
       return {
         id: comboId,
         aVideo,
@@ -249,65 +266,14 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // 拖拽处理
-  const handleDragOver = useCallback((e: React.DragEvent, side: 'a' | 'b') => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
+  // 文件选择处理 - 使用 FileSelector
+  const handleAFilesChange = useCallback((files: string[]) => {
+    setAFiles(files);
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent, side: 'a' | 'b') => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files);
-    const videoFiles = files.filter(file =>
-      file.type.startsWith('video/') ||
-      file.name.match(/\.(mp4|mov|avi|mkv|flv|wmv)$/i)
-    );
-    if (videoFiles.length === 0) return;
-
-    const newVideos: VideoFile[] = await Promise.all(videoFiles.map(async (file) => {
-      return {
-        id: Math.random().toString(36).substr(2, 9),
-        path: file.path,
-        name: file.name,
-        size: file.size,
-      };
-    }));
-
-    if (side === 'a') {
-      setAFiles(prev => [...prev, ...newVideos]);
-    } else {
-      setBFiles(prev => [...prev, ...newVideos]);
-    }
+  const handleBFilesChange = useCallback((files: string[]) => {
+    setBFiles(files);
   }, []);
-
-  // 文件选择处理
-  const handleFileSelect = async (side: 'a' | 'b') => {
-    try {
-      const files = await window.api.pickFiles(
-        side === 'a' ? '选择 A 面视频（前段）' : '选择 B 面视频（后段）',
-        [{ name: 'Videos', extensions: ['mp4', 'mov', 'avi', 'mkv'] }]
-      );
-      if (files.length === 0) return;
-
-      const newVideos: VideoFile[] = await Promise.all(files.map(async (filePath) => {
-        const infoResult = await window.api.getFileInfo(filePath);
-        return {
-          id: Math.random().toString(36).substr(2, 9),
-          path: filePath,
-          name: filePath.split(/[/\\]/).pop() || filePath,
-          size: infoResult.success && infoResult.info ? infoResult.info.size : 0,
-        };
-      }));
-
-      if (side === 'a') {
-        setAFiles(prev => [...prev, ...newVideos]);
-      } else {
-        setBFiles(prev => [...prev, ...newVideos]);
-      }
-    } catch (err) {
-      console.error('选择文件失败:', err);
-    }
-  };
 
   // 删除文件
   const removeFile = (id: string, side: 'a' | 'b') => {
@@ -442,7 +408,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   }), [combinations]);
 
   return (
-    <div className="h-screen flex flex-col bg-[#0a0a0f] text-gray-100">
+    <div className="h-screen flex flex-col bg-black text-gray-100">
       {/* Header */}
       <PageHeader
         onBack={onBack}
@@ -464,7 +430,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         }}
         rightContent={
           /* 横竖版切换 */
-          <div className="flex items-center bg-gray-900 rounded-lg p-0.5 border border-gray-800">
+          <div className="flex items-center bg-black rounded-lg p-0.5 border border-slate-800">
             <button
               onClick={() => setOrientation('landscape')}
               className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
@@ -496,7 +462,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
       {/* Main Content */}
       <main className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Upload */}
-        <div className="w-80 border-r border-gray-800 bg-[#12121a] flex flex-col shrink-0">
+        <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0">
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             {/* Stats Card */}
             {stats.totalCombos > 0 && (
@@ -506,130 +472,40 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
               </div>
             )}
 
-            {/* A 面上传 */}
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 flex items-center justify-between border-b border-gray-800">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded bg-violet-500/20 flex items-center justify-center">
-                    <Monitor className="w-3 h-3 text-violet-400" />
-                  </div>
-                  <span className="text-sm font-medium">A 面视频（前段）</span>
-                </div>
-                <span className="text-xs text-gray-500">{aFiles.length}</span>
-              </div>
+            {/* A 面视频选择器 */}
+            <FileSelector
+              id="videoStitcherA"
+              name="A 面视频（前段）"
+              accept="video"
+              multiple
+              showList
+                            maxHeight={200}
+              themeColor="violet"
+              directoryCache
+              onChange={handleAFilesChange}
+              disabled={isProcessing}
+            />
 
-              <div className="p-4 space-y-3">
-                  <div
-                    className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center hover:border-violet-500/50 hover:bg-violet-500/5 transition-all cursor-pointer group"
-                    onDragOver={(e) => handleDragOver(e, 'a')}
-                    onDrop={(e) => handleDrop(e, 'a')}
-                    onClick={() => handleFileSelect('a')}
-                  >
-                    <Upload className="w-5 h-5 text-gray-500 group-hover:text-violet-400 mx-auto mb-2" />
-                    <p className="text-xs text-gray-400">拖拽或点击上传</p>
-                  </div>
-
-                  {aFiles.length > 0 && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">已添加 {aFiles.length} 个</span>
-                        <button
-                          onClick={() => clearFiles('a')}
-                          className="text-[10px] text-rose-400 hover:text-rose-300"
-                        >
-                          清空全部
-                        </button>
-                      </div>
-                      <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
-                        {aFiles.map((file) => (
-                          <div key={file.id} className="flex items-center gap-2 p-2 bg-gray-950 rounded-lg group">
-                            <Film className="w-3 h-3 text-violet-400 shrink-0" />
-                            <span className="text-xs text-gray-300 truncate flex-1">{file.name}</span>
-                            <button
-                              onClick={() => openPreviewModal(file)}
-                              className="p-1 text-gray-500 hover:text-pink-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Eye className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => removeFile(file.id, 'a')}
-                              className="p-1 text-gray-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-            </div>
-
-            {/* B 面上传 */}
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 flex items-center justify-between border-b border-gray-800">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded bg-indigo-500/20 flex items-center justify-center">
-                    <Smartphone className="w-3 h-3 text-indigo-400" />
-                  </div>
-                  <span className="text-sm font-medium">B 面视频（后段）</span>
-                </div>
-                <span className="text-xs text-gray-500">{bFiles.length}</span>
-              </div>
-
-              <div className="p-4 space-y-3">
-                  <div
-                    className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all cursor-pointer group"
-                    onDragOver={(e) => handleDragOver(e, 'b')}
-                    onDrop={(e) => handleDrop(e, 'b')}
-                    onClick={() => handleFileSelect('b')}
-                  >
-                    <Upload className="w-5 h-5 text-gray-500 group-hover:text-indigo-400 mx-auto mb-2" />
-                    <p className="text-xs text-gray-400">拖拽或点击上传</p>
-                  </div>
-
-                  {bFiles.length > 0 && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">已添加 {bFiles.length} 个</span>
-                        <button
-                          onClick={() => clearFiles('b')}
-                          className="text-[10px] text-rose-400 hover:text-rose-300"
-                        >
-                          清空全部
-                        </button>
-                      </div>
-                      <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
-                        {bFiles.map((file) => (
-                          <div key={file.id} className="flex items-center gap-2 p-2 bg-gray-950 rounded-lg group">
-                            <Film className="w-3 h-3 text-indigo-400 shrink-0" />
-                            <span className="text-xs text-gray-300 truncate flex-1">{file.name}</span>
-                            <button
-                              onClick={() => openPreviewModal(file)}
-                              className="p-1 text-gray-500 hover:text-pink-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Eye className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => removeFile(file.id, 'b')}
-                              className="p-1 text-gray-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-            </div>
+            {/* B 面视频选择器 */}
+            <FileSelector
+              id="videoStitcherB"
+              name="B 面视频（后段）"
+              accept="video"
+              multiple
+              showList
+                            maxHeight={200}
+              themeColor="indigo"
+              directoryCache
+              onChange={handleBFilesChange}
+              disabled={isProcessing}
+            />
           </div>
         </div>
 
         {/* Main Content Area - Middle (Preview + Combinations) */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* Combination List */}
-          <div className="h-48 border-b border-gray-800 bg-[#12121a] shrink-0">
+          <div className="h-48 border-b border-slate-800 bg-black shrink-0">
             <div className="h-full flex items-center px-4">
               <div className="flex-1 overflow-x-auto custom-scrollbar">
                 <div className="flex gap-2 py-2">
@@ -654,7 +530,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                             ? 'bg-green-500/10 border-green-500'
                             : combo.status === 'failed'
                             ? 'bg-rose-500/10 border-rose-500'
-                            : 'bg-gray-900/50 border-gray-800 hover:border-gray-700'
+                            : 'bg-black/50 border-slate-800 hover:border-slate-700'
                         }`}
                       >
                         {/* Status Icon Overlay */}
@@ -709,7 +585,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
           </div>
 
           {/* Preview Area */}
-          <div className="flex-1 overflow-hidden bg-[#0a0a0f]">
+          <div className="flex-1 overflow-hidden bg-black">
             {selectedCombo ? (
               <div className="h-full flex">
                 {/* Video Preview Canvas */}
@@ -717,7 +593,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                   <div className="relative w-full h-full flex items-center justify-center">
                     {/* Canvas Frame */}
                     <div
-                      className="bg-gray-950 rounded-2xl overflow-hidden shadow-2xl border border-gray-800"
+                      className="bg-gray-950 rounded-2xl overflow-hidden shadow-2xl border border-slate-800"
                       style={orientation === 'landscape'
                         ? { width: '640px', maxHeight: '100%', aspectRatio: '16/9' }
                         : { height: '640px', maxWidth: '100%', aspectRatio: '9/16' }
@@ -738,7 +614,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                           />
                         ) : (
                           // 显示生成预览状态
-                          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-900">
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-black">
                             {isGeneratingPreview ? (
                               <>
                                 <Loader2 className="w-12 h-12 text-pink-500 animate-spin mb-4" />
@@ -758,11 +634,11 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                 </div>
 
                 {/* Info Sidebar */}
-                <div className="w-64 border-l border-gray-800 bg-[#12121a] p-4 overflow-y-auto custom-scrollbar min-h-0">
+                <div className="w-64 border-l border-slate-800 bg-black p-4 overflow-y-auto custom-scrollbar min-h-0">
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">合成详情</h3>
 
                   {/* Output Info */}
-                  <div className="bg-gray-900/50 rounded-xl p-4 mb-4 border border-gray-800">
+                  <div className="bg-black/50 rounded-xl p-4 mb-4 border border-slate-800">
                     <div className="space-y-3">
                       <div>
                         <div className="text-[10px] text-gray-500 mb-1">输出文件名</div>
@@ -834,10 +710,10 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         </div>
 
         {/* Right Sidebar - Settings + Logs + Start Button */}
-        <div className="w-80 border-l border-gray-800 bg-[#12121a] flex flex-col shrink-0 overflow-y-hidden">
+        <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             {/* Settings */}
-            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 space-y-4">
+            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-4">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
                 <Settings className="w-3.5 h-3.5" />
                 设置
@@ -861,7 +737,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
 
             {/* Progress Display - Always show when processing */}
             {progress.total > 0 && (
-              <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 space-y-3">
+              <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">处理进度</h3>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-400">已完成</span>
@@ -902,27 +778,17 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
             </div>
 
             {/* Start Button */}
-            <button
+            <Button
               onClick={startMerge}
               disabled={isProcessing || aFiles.length === 0 || bFiles.length === 0}
-              className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all text-sm shadow-lg ${
-                isProcessing
-                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-pink-600 to-violet-600 hover:from-pink-500 hover:to-violet-500 text-white shadow-pink-900/20'
-              }`}
+              variant="primary"
+              size="md"
+              fullWidth
+              loading={isProcessing}
+              leftIcon={!isProcessing && <Play className="w-4 h-4" />}
             >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  处理中...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4" />
-                  开始合成
-                </>
-              )}
-            </button>
+              {isProcessing ? '处理中...' : '开始合成'}
+            </Button>
           </div>
         </div>
       </main>
@@ -937,12 +803,12 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="bg-[#12121a] border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
-              <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+            <div className="bg-black border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
                 <h3 className="text-sm font-bold text-white truncate">{previewModalVideo.name}</h3>
                 <span className="text-xs text-gray-500">原视频尺寸 · 自动播放 · 音量 10%</span>
               </div>
-              <div className="p-4 bg-[#0a0a0f]">
+              <div className="p-4 bg-black">
                 <video
                   ref={modalVideoRef}
                   src={getPreviewUrl(previewModalVideo.path)}

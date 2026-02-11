@@ -149,6 +149,10 @@ export interface ElectronAPI {
   getFileInfo: (filePath: string) => Promise<{ success: boolean; info?: { name: string; size: number; type: string; ext: string }; error?: string }>;
   // 获取视频元数据
   getVideoMetadata: (filePath: string) => Promise<{ width: number; height: number; duration: number }>;
+  // 获取图片尺寸
+  getImageDimensions: (filePath: string) => Promise<{ width: number; height: number; orientation: 'landscape' | 'portrait' | 'square'; aspectRatio: string } | null>;
+  // 获取视频尺寸
+  getVideoDimensions: (filePath: string) => Promise<{ width: number; height: number; orientation: 'landscape' | 'portrait' | 'square'; aspectRatio: string } | null>;
 
   // === 事件监听 ===
   // 原有任务事件
@@ -251,6 +255,10 @@ export interface ElectronAPI {
   batchRenameFiles: (config: {
     operations: Array<{ sourcePath: string; targetName: string }>;
   }) => Promise<{ success: number; failed: number; errors: Array<{ file: string; error: string }> }>;
+  // 在系统文件管理器中显示文件
+  showItemInFolder: (path: string) => Promise<void>;
+  // 用系统默认程序打开文件
+  openPath: (path: string) => Promise<void>;
 
   // 文件操作事件
   onFileStart: (callback: (data: { total: number; sessionId: string }) => void) => () => void;
@@ -291,6 +299,8 @@ const api: ElectronAPI = {
   getPreviewUrl: (filePath) => ipcRenderer.invoke('get-preview-url', filePath),
   getFileInfo: (filePath) => ipcRenderer.invoke('get-file-info', filePath),
   getVideoMetadata: (filePath) => ipcRenderer.invoke('video-get-metadata', filePath),
+  getImageDimensions: (filePath) => ipcRenderer.invoke('image:get-dimensions', filePath),
+  getVideoDimensions: (filePath) => ipcRenderer.invoke('video:get-dimensions', filePath),
 
   // 智能改尺寸预览
   generateResizePreviews: (config) => ipcRenderer.invoke('generate-resize-previews', config),
@@ -392,6 +402,8 @@ const api: ElectronAPI = {
 
   // 文件操作 API
   batchRenameFiles: (config) => ipcRenderer.invoke('file:batch-rename', config),
+  showItemInFolder: (path) => ipcRenderer.invoke('file:show-item-in-folder', path),
+  openPath: (path) => ipcRenderer.invoke('file:open-path', path),
 
   // 文件操作事件
   onFileStart: (cb) => {

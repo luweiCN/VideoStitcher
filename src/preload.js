@@ -30,6 +30,8 @@ const api = {
     getPreviewUrl: (filePath) => electron_1.ipcRenderer.invoke('get-preview-url', filePath),
     getFileInfo: (filePath) => electron_1.ipcRenderer.invoke('get-file-info', filePath),
     getVideoMetadata: (filePath) => electron_1.ipcRenderer.invoke('video-get-metadata', filePath),
+    getImageDimensions: (filePath) => electron_1.ipcRenderer.invoke('image:get-dimensions', filePath),
+    getVideoDimensions: (filePath) => electron_1.ipcRenderer.invoke('video:get-dimensions', filePath),
     // 智能改尺寸预览
     generateResizePreviews: (config) => electron_1.ipcRenderer.invoke('generate-resize-previews', config),
     clearResizePreviews: (previewPaths) => electron_1.ipcRenderer.invoke('clear-resize-previews', previewPaths),
@@ -119,6 +121,8 @@ const api = {
     getPlatform: () => electron_1.ipcRenderer.invoke('get-platform'),
     // 文件操作 API
     batchRenameFiles: (config) => electron_1.ipcRenderer.invoke('file:batch-rename', config),
+    showItemInFolder: (path) => electron_1.ipcRenderer.invoke('file:show-item-in-folder', path),
+    openPath: (path) => electron_1.ipcRenderer.invoke('file:open-path', path),
     // 文件操作事件
     onFileStart: (cb) => {
         const listener = (_e, data) => cb(data);

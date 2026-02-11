@@ -5,6 +5,7 @@
 
 const { ipcMain } = require('electron');
 const path = require('path');
+const sharp = require('sharp');
 const {
   compressImage,
   convertCoverFormat,
@@ -214,6 +215,60 @@ async function handleGridImage(event, { images, outputDir }) {
 }
 
 /**
+ * 获取图片尺寸和元数据
+ * 使用 sharp 获取图片的宽度、高度、方向和长宽比
+ *
+ * @param {string} filePath - 图片文件路径
+ * @returns {Promise<Object|null>} 尺寸信息 { width, height, orientation, aspectRatio } 或 null
+ */
+async function getImageDimensions(filePath) {
+  try {
+    const ext = path.extname(filePath).toLowerCase();
+    const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.avif'];
+
+    if (!validExtensions.includes(ext)) {
+      return null;
+    }
+
+    const metadata = await sharp(filePath).metadata();
+    const width = metadata.width;
+    const height = metadata.height;
+
+    if (!width || !height) {
+      return null;
+    }
+
+    // 计算方向
+    let orientation = 'landscape';
+    if (width === height) {
+      orientation = 'square';
+    } else if (height > width) {
+      orientation = 'portrait';
+    }
+
+    // 计算长宽比，简化为常用比例
+    const ratio = width / height;
+    let aspectRatio = '16:9';
+    if (Math.abs(ratio - 16/9) < 0.1) aspectRatio = '16:9';
+    else if (Math.abs(ratio - 9/16) < 0.1) aspectRatio = '9:16';
+    else if (Math.abs(ratio - 4/3) < 0.1) aspectRatio = '4:3';
+    else if (Math.abs(ratio - 3/4) < 0.1) aspectRatio = '3:4';
+    else if (Math.abs(ratio - 1) < 0.05) aspectRatio = '1:1';
+    else aspectRatio = `${Math.round(ratio * 10) / 10}:1`;
+
+    return {
+      width,
+      height,
+      orientation,
+      aspectRatio
+    };
+  } catch (error) {
+    console.error(`[获取图片尺寸] 失败: ${filePath} - ${error.message}`);
+    return null;
+  }
+}
+
+/**
  * 图片素材处理预览
  * 生成预览效果（不保存到输出目录，而是保存到临时目录）
  */
@@ -341,6 +396,11 @@ function registerImageHandlers() {
     };
   });
 
+  // 获取图片尺寸
+  ipcMain.handle('image:get-dimensions', async (event, filePath) => {
+    return getImageDimensions(filePath);
+  });
+
   // 图片压缩
   ipcMain.handle('image-compress', async (event, config) => {
     return handleImageCompress(event, config);
@@ -369,6 +429,7 @@ function registerImageHandlers() {
 
 module.exports = {
   registerImageHandlers,
+  getImageDimensions,
   handleImageCompress,
   handleCoverFormat,
   handleGridImage,

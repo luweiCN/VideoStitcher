@@ -4,6 +4,7 @@ import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
 import OperationLogPanel from '../components/OperationLogPanel';
+import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
@@ -216,20 +217,18 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     });
   }, [volume, isMuted]);
 
-  const handleSelectVideos = async () => {
-    try {
-      const files = await window.api.pickFiles('选择视频', [
-        { name: 'Videos', extensions: ['mp4', 'mov', 'mkv', 'm4v', 'avi'] }
-      ]);
-      if (files.length > 0) {
-        setVideos(files);
-        setCurrentVideoIndex(0);
-        addLog(`已选择 ${files.length} 个视频`);
-      }
-    } catch (err) {
-      addLog(`选择视频失败: ${err}`);
+  /**
+   * 处理视频选择 - 使用 FileSelector
+   */
+  const handleVideosChange = useCallback(async (files: string[]) => {
+    if (files.length > 0) {
+      setVideos(files);
+      setCurrentVideoIndex(0);
+      addLog(`已选择 ${files.length} 个视频`);
+      // 立即生成第一个视频的预览
+      generatePreviews();
     }
-  };
+  }, [addLog]);
 
   const handlePrevVideo = () => {
     if (currentVideoIndex > 0) {
@@ -645,35 +644,18 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
             </div>
 
             {/* Video Selection */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
-              <div className="flex items-center justify-between mb-2">
-                <label className="font-medium flex items-center gap-2 text-xs">
-                  <FileVideo className="w-3 h-3 text-rose-400" />
-                  选择视频
-                </label>
-                {videos.length > 0 && (
-                  <button
-                    onClick={() => setVideos([])}
-                    className="p-1 text-slate-400 hover:text-red-400 transition-colors"
-                    title="清空"
-                    disabled={isProcessing || isGeneratingPreview}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-              <button
-                onClick={handleSelectVideos}
-                disabled={isProcessing || isGeneratingPreview}
-                className="w-full py-2 px-3 bg-rose-500/20 text-rose-400 rounded-lg hover:bg-rose-500/30 transition-colors text-xs flex items-center justify-center gap-2"
-              >
-                <FolderOpen className="w-3 h-3" />
-                选择视频文件
-              </button>
-              {videos.length > 0 && (
-                <div className="mt-2 text-xs text-slate-400">已选择 {videos.length} 个</div>
-              )}
-            </div>
+            <FileSelector
+              id="resizeVideos"
+              name="视频文件"
+              accept="video"
+              multiple
+              showList={false}
+                            maxHeight={160}
+              themeColor="rose"
+              directoryCache
+              onChange={handleVideosChange}
+              disabled={isProcessing || isGeneratingPreview}
+            />
 
             {/* Output Directory */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">

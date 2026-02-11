@@ -348,7 +348,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
   };
 
   return (
-    <div className="h-screen bg-[#0a0a0f] text-white overflow-hidden flex">
+    <div className="h-screen bg-black text-white overflow-hidden flex">
       {/* 动态背景 */}
       <div className="absolute inset-0 opacity-20 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[128px] animate-pulse" />
@@ -356,7 +356,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
       </div>
 
       {/* 左侧导航面板 */}
-      <div className={`w-20 lg:w-64 border-r border-slate-800/50 bg-[#0a0a0f]/80 backdrop-blur-xl flex flex-col transition-all duration-500 ${pageLoaded ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
+      <div className={`w-20 lg:w-64 border-r border-slate-800/50 bg-black/80 backdrop-blur-xl flex flex-col transition-all duration-500 ${pageLoaded ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'}`}>
         {/* 标题 */}
         <div className="p-6 border-b border-slate-800/50">
           <div className="flex items-center gap-3">
@@ -424,7 +424,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
       {/* 主内容区 */}
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* 页面标题 */}
-        <header className={`h-20 border-b border-slate-800/50 bg-[#0a0a0f]/50 backdrop-blur-sm flex items-center justify-between px-8 transition-all duration-700 delay-100 ${pageLoaded ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'}`}>
+        <header className={`h-20 border-b border-slate-800/50 bg-black/50 backdrop-blur-sm flex items-center justify-between px-8 transition-all duration-700 delay-100 ${pageLoaded ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0'}`}>
           <div className="flex items-center gap-4">
             <div className={`w-1 h-12 bg-gradient-to-b from-purple-600 to-pink-600 rounded-full transition-all duration-700 delay-200 ${pageLoaded ? 'h-12' : 'h-0'}`} />
             <div>
