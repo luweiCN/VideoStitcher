@@ -565,14 +565,72 @@ export const FileSelectorGroup: React.FC<FileSelectorGroupProps> = ({
 
       console.log('[FileSelectorGroup] 粘贴文件:', fileItems.length);
 
-      // 显示选择器弹窗
-      setPendingPasteFiles(fileItems);
-      setShowDistributionModal(true);
+      // 检查选择器数量（使用前面已声明的 selectors）
+      const selectorIds = Array.from(selectors.keys());
+
+      if (selectorIds.length === 1) {
+        // 只有一个选择器：直接添加文件，不弹窗
+        const singleSelectorId = selectorIds[0];
+        handleDirectPaste(singleSelectorId, fileItems);
+      } else {
+        // 多个选择器：显示选择器弹窗
+        setPendingPasteFiles(fileItems);
+        setShowDistributionModal(true);
+      }
+    };
+
+    /**
+     * 直接粘贴到单个选择器（不弹窗）
+     */
+    const handleDirectPaste = (selectorId: string, files: FileItem[]) => {
+      const selectorProps = selectorsRef.current.get(selectorId);
+      if (!selectorProps) return;
+
+      const multiple = selectorProps.multiple ?? false;
+      const maxCount = selectorProps.maxCount ?? Infinity;
+      const actualMaxCount = multiple ? maxCount : 1;
+      const currentCount = getSelectorFileCount(selectorId);
+      const currentFiles = getSelectorFiles(selectorId);
+
+      // 转换为原始文件数据格式
+      const rawFiles = files.map(f => ({ path: f.path, name: f.name }));
+
+      // 使用统一的文件处理逻辑
+      const result = processFiles(rawFiles, {
+        accept: selectorProps.accept,
+        multiple,
+        maxCount: actualMaxCount,
+        currentCount,
+        existingPaths: new Set(currentFiles.map(f => f.path))
+      });
+
+      // 更新状态
+      if (result.filesToAdd.length > 0) {
+        const callback = setFilesCallbacksRef.current.get(selectorId);
+        if (callback) {
+          callback(result.filesToAdd);
+          onFilesChange?.(selectorId, result.filesToAdd.map(f => f.path));
+        }
+      }
+
+      // 显示通知
+      const notification = buildNotificationMessage(
+        result.addedCount,
+        result.duplicateCount,
+        result.formatRejectedCount,
+        result.limitRejectedCount
+      );
+
+      if (notification.type === 'success') {
+        success(notification.message);
+      } else {
+        error(notification.message);
+      }
     };
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [getAllSelectors, error]);
+  }, [getAllSelectors, error, getSelectorFileCount, getSelectorFiles, processFiles, buildNotificationMessage, success, error, onFilesChange]);
 
   /**
    * 确认粘贴到指定选择器

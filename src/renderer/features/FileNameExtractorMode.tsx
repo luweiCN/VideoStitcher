@@ -454,18 +454,18 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
         {/* 左侧：上传和设置区域 */}
         <div className="lg:col-span-1 space-y-6 flex flex-col h-[calc(100vh-140px)]">
           {/* 上传区域 */}
-          <FileSelector
-            id="fileNameExtractorFiles"
-            name="视频/图片文件"
-            accept={['mp4', 'mov', 'mkv', 'm4v', 'avi', 'jpg', 'jpeg', 'png', 'webp']}
-            multiple
-            showList={false}
-            minHeight={100}
-            maxHeight={200}
-            themeColor="indigo"
-            directoryCache
-            onChange={handleFilesChange}
-          />
+          <FileSelectorGroup>
+            <FileSelector
+              id="fileNameExtractorFiles"
+              name="选择文件"
+              accept="all"
+              multiple
+              showList={false}
+              themeColor="indigo"
+              directoryCache
+              onChange={handleFilesChange}
+            />
+          </FileSelectorGroup>
 
           {/* 控制面板 */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 flex flex-col flex-1 min-h-0">

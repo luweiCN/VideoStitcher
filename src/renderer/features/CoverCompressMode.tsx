@@ -264,32 +264,21 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
         {/* Left Control Panel */}
         <div className="w-full max-w-md border-r border-slate-800 bg-slate-900 p-6 flex flex-col gap-6 shrink-0 overflow-y-auto">
           {/* 图片文件选择器 */}
-          <FileSelector
-            id="coverCompressImages"
-            name="图片文件"
-            accept="image"
-            multiple
-            showList={false}
-                        maxHeight={160}
-            themeColor="emerald"
-            directoryCache
-            onChange={handleImagesChange}
-            disabled={isProcessing}
-          />
-
-          {/* File Count */}
-          {files.length > 0 && (
-            <div className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
-              <span className="text-sm text-slate-300">已添加 {files.length} 张图片</span>
-              <button
-                onClick={clearFiles}
-                className="text-xs text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1"
-              >
-                <Trash2 className="w-3 h-3" />
-                清空
-              </button>
-            </div>
-          )}
+          <div className="shrink-0">
+            <FileSelectorGroup>
+              <FileSelector
+              id="coverCompressImages"
+              name="图片文件"
+              accept="image"
+              multiple
+              showList={false}
+              themeColor="emerald"
+              directoryCache
+              onChange={handleImagesChange}
+              disabled={isProcessing}
+            />
+            </FileSelectorGroup>
+          </div>
 
           {/* Target Size Setting */}
           <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">

@@ -403,7 +403,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
                 accept="image"
                 multiple={false}
                 showList
-                                maxHeight={160}
                 themeColor={primaryColor}
                 directoryCache
                 onChange={handleBgImagesChange}
@@ -416,7 +415,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
                 accept="video"
                 multiple
                 showList
-                maxHeight={200}
                 themeColor={primaryColor}
                 directoryCache
                 required
@@ -430,7 +428,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
                 accept="video"
                 multiple
                 showList
-                                maxHeight={180}
                 themeColor={primaryColor}
                 directoryCache
                 onChange={handleAVideosChange}
@@ -443,7 +440,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
                 accept="image"
                 multiple
                 showList
-                                maxHeight={180}
                 themeColor={primaryColor}
                 directoryCache
                 onChange={handleCoversChange}

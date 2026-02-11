@@ -259,18 +259,19 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
               <Upload className="w-4 h-4" /> 图片上传
             </h3>
 
-            <FileSelector
-              id="losslessGridImages"
-              name="图片文件"
-              accept="image"
-              multiple
-              showList={false}
-                            maxHeight={160}
-              themeColor="cyan"
-              directoryCache
-              onChange={handleImagesChange}
-              disabled={isProcessing}
-            />
+            <FileSelectorGroup>
+              <FileSelector
+                id="losslessGridImages"
+                name="图片文件"
+                accept="image"
+                multiple
+                showList={false}
+                themeColor="cyan"
+                directoryCache
+                onChange={handleImagesChange}
+                disabled={isProcessing}
+              />
+            </FileSelectorGroup>
           </div>
 
           {/* Output Directory */}

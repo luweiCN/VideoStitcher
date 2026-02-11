@@ -727,9 +727,24 @@ export const FileSelector: React.FC<FileSelectorProps> = ({
             <div className={`w-2 h-2 rounded-full animate-pulse`} style={{ backgroundColor: (required && !hasFiles) ? theme.primary : '#64748b' }} />
             <label className="text-sm font-semibold text-slate-100">{name}</label>
           </div>
-          <span className="text-xs font-mono px-2 py-1 rounded-full bg-black/50" style={{ color: theme.primaryLight }}>
-            {files.length > 0 ? `已选 ${files.length} 个` : ''}{!multiple ? '(单选)' : maxCount ? `(最多 ${maxCount} 个)` : '(多选)'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono px-2 py-1 rounded-full bg-black/50" style={{ color: theme.primaryLight }}>
+              {files.length > 0 ? `已选 ${files.length} 个` : ''}{!multiple ? '(单选)' : maxCount ? `(最多 ${maxCount} 个)` : '(多选)'}
+            </span>
+            {/* 不显示列表时，头部右侧显示清空按钮 */}
+            {!showList && hasFiles && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearAll();
+                }}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+                title="清空"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 上传区域 */}
@@ -785,7 +800,7 @@ export const FileSelector: React.FC<FileSelectorProps> = ({
               <span className="text-xs text-slate-400">
                 {accept === 'video' && 'MP4, MOV, MKV'}
                 {accept === 'image' && 'JPG, PNG, WebP'}
-                {accept === 'all' && '所有文件'}
+                {accept === 'all' && '所有格式文件'}
                 {Array.isArray(accept) && accept.join(', ').toUpperCase()}
               </span>
             </div>

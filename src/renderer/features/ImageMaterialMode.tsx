@@ -484,8 +484,6 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                 accept="image"
                 multiple
                 showList={false}
-                minHeight={100}
-                maxHeight={200}
                 themeColor="amber"
                 directoryCache
                 onChange={handleImagesChange}
@@ -498,7 +496,6 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                 accept="image"
                 multiple={false}
                 showList={false}
-                                maxHeight={120}
                 themeColor="amber"
                 directoryCache
                 onChange={handleLogoChange}

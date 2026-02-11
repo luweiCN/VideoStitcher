@@ -644,18 +644,19 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
             </div>
 
             {/* Video Selection */}
-            <FileSelector
-              id="resizeVideos"
-              name="视频文件"
-              accept="video"
-              multiple
-              showList={false}
-                            maxHeight={160}
-              themeColor="rose"
-              directoryCache
-              onChange={handleVideosChange}
-              disabled={isProcessing || isGeneratingPreview}
-            />
+            <FileSelectorGroup>
+              <FileSelector
+                id="resizeVideos"
+                name="视频文件"
+                accept="video"
+                multiple
+                showList={false}
+                themeColor="rose"
+                directoryCache
+                onChange={handleVideosChange}
+                disabled={isProcessing || isGeneratingPreview}
+              />
+            </FileSelectorGroup>
 
             {/* Output Directory */}
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-3">
