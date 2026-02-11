@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, MouseEvent, useCallback } from 'react';
-import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, Trash2 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import OperationLogPanel from '../components/OperationLogPanel';
@@ -473,12 +473,11 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* 左侧：控制面板 */}
-        <div className="w-96 border-r border-slate-800 bg-black p-4 flex flex-col gap-4 overflow-y-auto">
-          {/* 文件选择器组 */}
-          <FileSelectorGroup>
-            <div className="space-y-5">
-              {/* 素材图片 */}
+        {/* 左侧：文件选择 + 基础设置 */}
+        <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+          <div className="p-4 space-y-4">
+            {/* 文件选择器 */}
+            <FileSelectorGroup>
               <FileSelector
                 id="materialImages"
                 name="素材图片"
@@ -489,8 +488,10 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                 directoryCache
                 onChange={handleImagesChange}
               />
+            </FileSelectorGroup>
 
-              {/* Logo */}
+            {/* Logo 选择 */}
+            <FileSelectorGroup>
               <FileSelector
                 id="logoImage"
                 name="Logo 水印 (可选)"
@@ -501,261 +502,224 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                 directoryCache
                 onChange={handleLogoChange}
               />
-            </div>
-          </FileSelectorGroup>
+            </FileSelectorGroup>
 
-          {/* 预览模式 */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-400 uppercase">预览模式</h3>
-            <div className="space-y-2">
-              {(Object.keys(PREVIEW_SIZE_MODES) as PreviewSizeMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setPreviewSizeMode(mode)}
-                  className={`w-full p-3 rounded-lg border text-left transition-all text-sm ${
-                    previewSizeMode === mode
-                      ? 'border-amber-500 bg-amber-500/20 text-amber-400'
-                      : 'border-slate-800 bg-black/50 text-slate-400 hover:border-slate-700'
-                  }`}
+            {/* Logo 控制 */}
+            {logoImage && (
+              <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 text-amber-400 text-sm font-bold">
+                  <Move className="w-4 h-4" /> Logo 调整
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>缩放</span>
+                    <span>{(logoScale * 100).toFixed(0)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="3"
+                    step="0.1"
+                    value={logoScale}
+                    onChange={(e) => setLogoScale(parseFloat(e.target.value))}
+                    className="w-full accent-amber-500 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+                <Button
+                  onClick={clearLogo}
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-slate-500 hover:text-red-400"
+                  leftIcon={<Trash2 className="w-3 h-3" />}
                 >
-                  <div className="font-medium">{PREVIEW_SIZE_MODES[mode].name}</div>
-                  <div className="text-xs opacity-70 mt-0.5">{PREVIEW_SIZE_MODES[mode].desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
+                  清除 Logo
+                </Button>
+              </div>
+            )}
 
-          {/* 导出选项 */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-400 uppercase">导出选项</h3>
-            <div className="space-y-2 bg-black/50 p-4 rounded-xl border border-slate-800">
+            {/* 预览模式 */}
+            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-2">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">预览模式</h3>
+              <div className="space-y-2">
+                {(Object.keys(PREVIEW_SIZE_MODES) as PreviewSizeMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setPreviewSizeMode(mode)}
+                    className={`w-full p-3 rounded-lg border text-left transition-all text-sm ${
+                      previewSizeMode === mode
+                        ? 'border-amber-500 bg-amber-500/20 text-amber-400'
+                        : 'border-slate-800 bg-black/50 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-medium">{PREVIEW_SIZE_MODES[mode].name}</div>
+                    <div className="text-xs opacity-70 mt-0.5">{PREVIEW_SIZE_MODES[mode].desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 导出选项 */}
+            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-2">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">导出选项</h3>
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <div
-                  className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${exportOptions.single ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-600 bg-slate-900'}`}
+                  className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${exportOptions.single ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-600 bg-black/50'}`}
                   onClick={() => setExportOptions(prev => ({ ...prev, single: !prev.single }))}
                 >
                   {exportOptions.single && <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={3} />}
                 </div>
-                <span className="text-sm text-slate-300">导出单张完整图 (800x800)</span>
+                <span className="text-sm text-slate-300">单张完整图</span>
               </label>
               <label className="flex items-center gap-3 cursor-pointer select-none">
                 <div
-                  className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${exportOptions.grid ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-600 bg-slate-900'}`}
+                  className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${exportOptions.grid ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-600 bg-black/50'}`}
                   onClick={() => setExportOptions(prev => ({ ...prev, grid: !prev.grid }))}
                 >
                   {exportOptions.grid && <Check className="w-3.5 h-3.5 text-emerald-500" strokeWidth={3} />}
                 </div>
-                <span className="text-sm text-slate-300">导出九宫格切片 (800x800 x9)</span>
+                <span className="text-sm text-slate-300">九宫格切片</span>
               </label>
             </div>
           </div>
+        </div>
 
-          {/* Logo 控制 */}
-          {logoImage && (
-            <div className="space-y-4 bg-black/50 rounded-xl border border-slate-800 p-4">
-              <div className="flex items-center gap-2 text-amber-400 text-sm font-bold">
-                <Move className="w-4 h-4" /> Logo 调整
+        {/* 中间：任务列表 + 预览 */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* 任务列表 */}
+          <div className="flex-shrink-0 border-b border-slate-800 bg-black/50">
+            <div className="px-4 py-3 flex items-center justify-between">
+              <h2 className="font-bold text-sm text-slate-300 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-amber-400" />
+                任务列表
+              </h2>
+              <div className="flex items-center gap-3">
+                <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">{images.length}</span>
+                {images.length > 0 && (
+                  <Button
+                    onClick={clearImages}
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-slate-400 hover:text-rose-400"
+                  >
+                    清除全部
+                  </Button>
+                )}
               </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>缩放</span>
-                  <span>{(logoScale * 100).toFixed(0)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="3"
-                  step="0.1"
-                  value={logoScale}
-                  onChange={(e) => setLogoScale(parseFloat(e.target.value))}
-                  className="w-full accent-amber-500 h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer"
-                />
-              </div>
-              <Button
-                onClick={clearLogo}
-                variant="ghost"
-                size="sm"
-                className="w-full text-slate-500 hover:text-red-400"
-                leftIcon={<Trash2 className="w-3 h-3" />}
-              >
-                清除 Logo
-              </Button>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                在预览图中拖动 Logo 可调整位置。
-              </p>
             </div>
-          )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="grid grid-cols-2 gap-3">
+              {images.map((img, index) => (
+                <button
+                  key={img.id}
+                  onClick={() => switchToPreview(index)}
+                  className={`bg-black/50 border rounded-xl p-3 flex items-center gap-3 transition-all ${
+                    index === currentIndex
+                      ? 'border-amber-500 bg-amber-500/20'
+                      : 'border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                    {img.status === 'completed' && <Check className="w-4 h-4 text-emerald-500" />}
+                    {img.status === 'processing' && <Loader2 className="w-4 h-4 animate-spin text-amber-500" />}
+                    {img.status === 'error' && <span className="text-red-500 text-xs">✗</span>}
+                    {img.status === 'pending' && <span className="text-slate-600 text-xs">{index + 1}</span>}
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="text-sm text-slate-300 truncate">{img.name}</div>
+                    {index === currentIndex && <div className="text-xs text-amber-400">当前预览</div>}
+                  </div>
+                </button>
+              ))}
+              {images.length === 0 && (
+                <div className="col-span-2 text-center text-slate-500 py-12">
+                  <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">请上传素材图片</p>
+                </div>
+              )}
+            </div>
+          </div>
 
-          {/* 输出目录 */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-400 uppercase">输出目录</h3>
+          {/* 预览画布 */}
+          <div className="flex-shrink-0 border-t border-slate-800 bg-black p-4">
+            <div className="flex items-center justify-center">
+              <div
+                ref={containerRef}
+                className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
+                style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
+              >
+                <canvas
+                  ref={canvasRef}
+                  width={BASE_SIZE}
+                  height={BASE_SIZE}
+                  style={{ width: '100%', height: '100%', cursor: logoImage ? 'move' : 'default' }}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                />
+                {/* 预览标签 */}
+                {images.length > 0 && (
+                  <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white">
+                    预览: {images[currentIndex]?.name}
+                  </div>
+                )}
+              </div>
+            </div>
+            {images.length > 0 && (
+              <div className="text-center mt-3 text-xs text-slate-500">
+                {exportOptions.grid && <span className="mr-3">九宫格切片导出</span>}
+                {exportOptions.single && <span>800x800 完整图</span>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 右侧：设置 + 日志 + 按钮 */}
+        <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
+          <div className="flex flex-col flex-1 overflow-y-auto p-4 space-y-4">
+            {/* 输出目录 */}
             <OutputDirSelector
               value={outputDir}
               onChange={setOutputDir}
               disabled={isProcessing}
               themeColor="amber"
-              label=""
+            />
+
+            {/* 日志面板 */}
+            <OperationLogPanel
+              logs={logs}
+              addLog={addLog}
+              clearLogs={clearLogs}
+              copyLogs={copyLogs}
+              downloadLogs={downloadLogs}
+              logsContainerRef={logsContainerRef}
+              logsEndRef={logsEndRef}
+              autoScrollEnabled={autoScrollEnabled}
+              setAutoScrollEnabled={setAutoScrollEnabled}
+              autoScrollPaused={autoScrollPaused}
+              resumeAutoScroll={resumeAutoScroll}
+              scrollToBottom={scrollToBottom}
+              scrollToTop={scrollToTop}
+              onUserInteractStart={onUserInteractStart}
+              themeColor="amber"
             />
           </div>
-
-          {/* 处理日志 */}
-          <OperationLogPanel
-            logs={logs}
-            addLog={addLog}
-            clearLogs={clearLogs}
-            copyLogs={copyLogs}
-            downloadLogs={downloadLogs}
-            logsContainerRef={logsContainerRef}
-            logsEndRef={logsEndRef}
-            autoScrollEnabled={autoScrollEnabled}
-            setAutoScrollEnabled={setAutoScrollEnabled}
-            autoScrollPaused={autoScrollPaused}
-            resumeAutoScroll={resumeAutoScroll}
-            scrollToBottom={scrollToBottom}
-            scrollToTop={scrollToTop}
-            onUserInteractStart={onUserInteractStart}
-            className="flex-1"
-            themeColor="amber"
-          />
 
           {/* 开始处理按钮 */}
-          <Button
-            onClick={processImages}
-            disabled={images.length === 0 || isProcessing || !outputDir || (!exportOptions.single && !exportOptions.grid)}
-            variant="primary"
-            size="md"
-            fullWidth
-            loading={isProcessing}
-            leftIcon={!isProcessing && <FolderOpen className="w-4 h-4" />}
-            themeColor="amber"
-          >
-            {isProcessing ? '处理中...' : '开始处理'}
-          </Button>
-        </div>
-
-        {/* 中间：预览画布 */}
-        <div className="flex-1 bg-black flex flex-col items-center justify-center p-8 relative">
-          <div className="absolute top-6 left-6 text-sm text-slate-500 font-mono">PREVIEW CANVAS</div>
-
-          {images.length > 0 && (
-            <>
-              {/* 上一个/下一个按钮 */}
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
-                <Button
-                  onClick={goToPrevious}
-                  disabled={currentIndex === 0}
-                  variant="ghost"
-                  size="sm"
-                  className="p-3"
-                  title="上一张"
-                >
-                  <ChevronLeft className="w-6 h-6 text-slate-400" />
-                </Button>
-              </div>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2">
-                <Button
-                  onClick={goToNext}
-                  disabled={currentIndex >= images.length - 1}
-                  variant="ghost"
-                  size="sm"
-                  className="p-3"
-                  title="下一张"
-                >
-                  <ChevronRight className="w-6 h-6 text-slate-400" />
-                </Button>
-              </div>
-
-              {/* 预览计数器 */}
-              <div className="absolute top-6 right-6 px-3 py-1.5 bg-black/50 border border-slate-800 rounded-lg">
-                <span className="text-sm text-slate-400">
-                  {currentIndex + 1} / {images.length}
-                </span>
-              </div>
-            </>
-          )}
-
-          <div
-            ref={containerRef}
-            className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-[url('https://transparenttextures.com/patterns/stardust.png')] bg-black"
-            style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
-          >
-            <canvas
-              ref={canvasRef}
-              width={BASE_SIZE}
-              height={BASE_SIZE}
-              style={{ width: '100%', height: '100%', cursor: logoImage ? 'move' : 'default' }}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            />
-          </div>
-          <div className="mt-6 text-slate-500 text-sm text-center max-w-md space-y-2">
-            {images.length > 0 ? (
-              <>
-                <div className="break-all px-4">
-                  预览: {images[currentIndex]?.name}
-                </div>
-                {exportOptions.grid && <div>导出时将智能切分为 9 张</div>}
-                {exportOptions.single && <div>完整图将以 800x800 导出</div>}
-              </>
-            ) : (
-              <div>请先上传图片进行预览</div>
-            )}
-          </div>
-        </div>
-
-        {/* 右侧：文件列表 */}
-        <div className="w-72 border-l border-slate-800 bg-black flex flex-col">
-          {/* 文件列表头部 */}
-          <div className="p-4 border-b border-slate-800">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                待处理列表 ({images.length})
-              </div>
-              {images.length > 0 && (
-                <button
-                  onClick={clearImages}
-                  className="text-xs text-slate-500 hover:text-red-400 transition-colors"
-                  title="清空列表"
-                >
-                  清空
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* 文件列表内容 */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {images.length === 0 ? (
-              <div className="text-slate-500 text-sm text-center py-8">
-                暂无图片
-              </div>
-            ) : (
-              images.map((img, index) => (
-                <button
-                  key={img.id}
-                  onClick={() => switchToPreview(index)}
-                  className={`w-full text-left p-3 rounded-lg border transition-all ${
-                    index === currentIndex
-                      ? 'border-amber-500 bg-amber-500/20'
-                      : 'border-slate-800 bg-black/50 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-slate-300 truncate flex-1 mr-2" title={img.name}>
-                      {index + 1}. {img.name}
-                    </span>
-                    {img.status === 'completed' && <span className="text-emerald-500 text-xs shrink-0">✓</span>}
-                    {img.status === 'processing' && <Loader2 className="w-3 h-3 animate-spin text-amber-500 shrink-0" />}
-                    {img.status === 'error' && <span className="text-red-500 text-xs shrink-0">✗</span>}
-                  </div>
-                  {index === currentIndex && (
-                    <div className="text-xs text-amber-400">当前预览</div>
-                  )}
-                </button>
-              ))
-            )}
+          <div className="p-4 border-t border-slate-800 bg-black/50">
+            <Button
+              onClick={processImages}
+              disabled={images.length === 0 || isProcessing || !outputDir || (!exportOptions.single && !exportOptions.grid)}
+              variant="primary"
+              size="md"
+              fullWidth
+              loading={isProcessing}
+              leftIcon={!isProcessing && <FolderOpen className="w-4 h-4" />}
+              themeColor="amber"
+            >
+              {isProcessing ? '处理中...' : '开始处理'}
+            </Button>
           </div>
         </div>
       </div>
