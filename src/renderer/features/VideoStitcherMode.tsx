@@ -435,7 +435,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
               onClick={() => setOrientation('landscape')}
               className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
                 orientation === 'landscape'
-                  ? 'bg-violet-600 text-white shadow-lg shadow-violet-900/20'
+                  ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20'
                   : 'text-gray-400 hover:text-white'
               }`}
               type="button"
@@ -447,7 +447,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
               onClick={() => setOrientation('portrait')}
               className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
                 orientation === 'portrait'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
+                  ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20'
                   : 'text-gray-400 hover:text-white'
               }`}
               type="button"
@@ -483,7 +483,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                   multiple
                   showList
                   maxHeight={200}
-                  themeColor="violet"
+                  themeColor="pink"
                   directoryCache
                   onChange={handleAFilesChange}
                   disabled={isProcessing}
@@ -497,7 +497,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                   multiple
                   showList
                   maxHeight={200}
-                  themeColor="indigo"
+                  themeColor="pink"
                   directoryCache
                   onChange={handleBFilesChange}
                   disabled={isProcessing}
