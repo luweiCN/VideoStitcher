@@ -167,7 +167,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
             '支持批量处理，自动添加尺寸后缀到文件名',
             '图片会被拉伸填充目标尺寸，可能导致轻微变形',
           ],
-          themeColor: 'rose', // fuchsia 不在主题列表中，使用 rose 作为近似色
+          themeColor: 'fuchsia',
         }}
         rightContent={
           /* 进度显示 */
@@ -276,7 +276,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
             scrollToBottom={scrollToBottom}
             scrollToTop={scrollToTop}
             onUserInteractStart={onUserInteractStart}
-            themeColor="cyan"
+            themeColor="fuchsia"
           />
         </div>
 
