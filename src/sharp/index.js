@@ -193,8 +193,9 @@ async function convertCoverFormat(inputPath, quality = 90, outputDir = null) {
  * @param {string} outputDir - 输出目录
  * @param {string} baseNameOverride - 可选的原始文件名覆盖（用于保持特殊的命名规则）
  * @param {number} targetTileSize - 目标格子尺寸 (默认 800)，如果原图格子小于此尺寸则放大
+ * @param {number} maxSizeKB - 目标单张图片最大大小 (KB)，如果 > 0 则会尝试压缩并输出为 jpg
  */
-async function createGridImage(inputPath, outputDir, baseNameOverride = null, targetTileSize = 800) {
+async function createGridImage(inputPath, outputDir, baseNameOverride = null, targetTileSize = 800, maxSizeKB = 0) {
   const metadata = await sharp(inputPath).metadata();
   let { width, height } = metadata;
 
@@ -247,19 +248,64 @@ async function createGridImage(inputPath, outputDir, baseNameOverride = null, ta
       
       // 使用辅助函数生成符合要求的名称
       const finalName = getModifiedName(inputBaseName, `九宫格${index}`);
-      const outputPath = path.join(outputDir, `${finalName}.png`);
+      
+      if (maxSizeKB > 0) {
+        // 如果有大小限制，强制使用 jpg 格式以便压缩
+        const outputPath = path.join(outputDir, `${finalName}.jpg`);
+        const targetSizeBytes = maxSizeKB * 1024;
+        let quality = 90;
+        let buffer;
+        let iteration = 0;
 
-      await sharp(processingInput)
-        .extract({ left, top, width: tileWidth, height: tileHeight })
-        .png()
-        .toFile(outputPath);
+        // 提取该区域
+        const tileSharp = sharp(processingInput)
+          .extract({ left, top, width: tileWidth, height: tileHeight });
 
-      results.push({
-        index,
-        outputPath,
-        position: { row: row + 1, col: col + 1 },
-        size: { width: tileWidth, height: tileHeight }
-      });
+        // 迭代压缩，确保不大于 maxSizeKB
+        while (iteration < 15) {
+          iteration++;
+          buffer = await tileSharp.clone()
+            .jpeg({ quality, progressive: true })
+            .toBuffer();
+
+          if (buffer.length <= targetSizeBytes || quality <= 20) {
+            break;
+          }
+          
+          // 根据当前大小调整质量减少的幅度
+          if (buffer.length > targetSizeBytes * 1.5) {
+            quality -= 15;
+          } else {
+            quality -= 5;
+          }
+          
+          if (quality < 10) quality = 10;
+        }
+
+        await fs.writeFile(outputPath, buffer);
+
+        results.push({
+          index,
+          outputPath,
+          position: { row: row + 1, col: col + 1 },
+          size: { width: tileWidth, height: tileHeight },
+          fileSize: buffer.length
+        });
+      } else {
+        const outputPath = path.join(outputDir, `${finalName}.png`);
+
+        await sharp(processingInput)
+          .extract({ left, top, width: tileWidth, height: tileHeight })
+          .png()
+          .toFile(outputPath);
+
+        results.push({
+          index,
+          outputPath,
+          position: { row: row + 1, col: col + 1 },
+          size: { width: tileWidth, height: tileHeight }
+        });
+      }
     }
   }
 
@@ -386,10 +432,32 @@ async function processImageMaterial(
     const singleOutputPath = path.join(outputDir, 'single', `${finalName}.jpg`);
     await fs.mkdir(path.dirname(singleOutputPath), { recursive: true });
 
-    await sharp(logoMasterPath)
-      .resize(SINGLE_SIZE, SINGLE_SIZE)
-      .jpeg({ quality: 95 })
-      .toFile(singleOutputPath);
+    const targetSizeBytes = 400 * 1024;
+    let quality = 90;
+    let buffer;
+    let iteration = 0;
+    
+    const singleSharp = sharp(logoMasterPath).resize(SINGLE_SIZE, SINGLE_SIZE);
+
+    while (iteration < 15) {
+      iteration++;
+      buffer = await singleSharp.clone()
+        .jpeg({ quality, progressive: true })
+        .toBuffer();
+
+      if (buffer.length <= targetSizeBytes || quality <= 20) {
+        break;
+      }
+      
+      if (buffer.length > targetSizeBytes * 1.5) {
+        quality -= 15;
+      } else {
+        quality -= 5;
+      }
+      if (quality < 10) quality = 10;
+    }
+
+    await fs.writeFile(singleOutputPath, buffer);
     
     results.logo = singleOutputPath; // single 导出的结果
   }
@@ -399,7 +467,9 @@ async function processImageMaterial(
     const gridResult = await createGridImage(
       logoMasterPath,
       path.join(outputDir, 'grid'),
-      inputBaseName
+      inputBaseName,
+      800, // targetTileSize
+      400  // maxSizeKB: 限制每张图不大于 400KB
     );
     results.grid = gridResult;
   }
