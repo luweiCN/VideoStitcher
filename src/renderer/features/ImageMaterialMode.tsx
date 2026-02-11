@@ -642,7 +642,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
               </div>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 min-h-[200px]">
             <div className="grid grid-cols-2 gap-3">
               {images.map((img, index) => (
                 <button
@@ -667,7 +667,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                 </button>
               ))}
               {images.length === 0 && (
-                <div className="col-span-2 text-center text-slate-500 py-12 min-h-[200px] flex items-center justify-center">
+                <div className="col-span-2 text-center text-slate-500 py-12 flex items-center justify-center">
                   <p className="text-sm">暂无任务</p>
                 </div>
               )}
