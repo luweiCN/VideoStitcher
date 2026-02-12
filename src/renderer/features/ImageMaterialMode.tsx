@@ -598,6 +598,11 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     }
   }, [images, currentIndex]);
 
+  // 删除单个图片
+  const removeImage = (id: string) => {
+    setImages(prev => prev.filter(img => img.id !== id));
+  };
+
   // 清空图片列表
   const clearImages = () => {
     setImages([]);
@@ -781,7 +786,13 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                       <ImageIcon className="w-6 h-6 text-slate-600" />
                     )}
                     {/* 悬浮眼睛图标 */}
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div
+                      className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenPreview(index);
+                      }}
+                    >
                       <Eye className="w-6 h-6 text-white" />
                     </div>
                     {/* 状态图标 */}
