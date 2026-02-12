@@ -5,6 +5,11 @@ node_modules/
 out/
 dist/
 
+# Generated icons (keep source files logo.png and dev-logo.png)
+build/icon.png
+build/icon@2x.png
+build/icon.iconset/
+
 # macOS
 .DS_Store
 

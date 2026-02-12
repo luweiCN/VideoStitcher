@@ -4,6 +4,11 @@ const path = require("path");
 const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
 
+// 设置应用名称（开发模式下 Dock 显示）
+if (process.defaultApp) {
+  app.setName('VideoStitcher');
+}
+
 const { runFfmpeg } = require("./ffmpeg/runFfmpeg");
 
 /**
@@ -28,9 +33,20 @@ const isDevelopment =
   !app.isPackaged;
 
 function createWindow() {
+  // 使用生成的圆角图标（由 scripts/generate-icons.js 生成）
+  // 开发模式：npm run dev 会先运行 build:icons:dev，生成带 DEV 标签的圆角图标
+  // 生产模式：打包时会运行 build:icons，生成正式版圆角图标
+  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
+
+  // macOS 设置 Dock 图标（BrowserWindow 的 icon 只影响窗口标题栏）
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(iconPath);
+  }
+
   win = new BrowserWindow({
     width: 1400,
     height: 900,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

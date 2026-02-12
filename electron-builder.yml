@@ -7,6 +7,9 @@ directories:
   buildResources: build
   output: dist
 
+# 应用图标配置（不带扩展名，electron-builder 会自动查找对应格式）
+icon: build/icon
+
 # 发布配置（用于自动更新）
 publish:
   provider: github
