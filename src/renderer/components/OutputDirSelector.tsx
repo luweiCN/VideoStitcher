@@ -109,40 +109,72 @@ const OutputDirSelector: React.FC<OutputDirSelectorProps> = ({
             </p>
           </div>
 
-          {/* 复制按钮 */}
+          {/* 操作按钮组 */}
           {value && (
-            <Tooltip.Provider delayDuration={200}>
-              <Tooltip.Root>
-                <Tooltip.Trigger asChild>
-                  <button
-                    onClick={handleCopy}
-                    className={`
-                      p-2 rounded-lg shrink-0
-                      transition-all duration-200
-                      ${copied
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-slate-900/50 text-slate-600 hover:text-slate-400 hover:bg-slate-800/50'
-                      }
-                    `}
-                    type="button"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
-                </Tooltip.Trigger>
-                <Tooltip.Portal>
-                  <Tooltip.Content
-                    side="top"
-                    sideOffset={4}
-                    className="z-50"
-                  >
-                    <div className="px-2 py-1 bg-black/95 border border-slate-700/50 rounded text-[10px] text-slate-400">
-                      {copied ? '已复制到剪贴板' : '复制路径'}
-                    </div>
-                    <Tooltip.Arrow className="fill-slate-950/95" />
-                  </Tooltip.Content>
-                </Tooltip.Portal>
-              </Tooltip.Root>
-            </Tooltip.Provider>
+            <div className="flex gap-1">
+              {/* 复制按钮 */}
+              <Tooltip.Provider delayDuration={200}>
+                <Tooltip.Root>
+                  <Tooltip.Trigger asChild>
+                    <button
+                      onClick={handleCopy}
+                      className={`
+                        p-2 rounded-lg shrink-0
+                        transition-all duration-200
+                        ${copied
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-slate-900/50 text-slate-600 hover:text-slate-400 hover:bg-slate-800/50'
+                        }
+                      `}
+                      type="button"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      side="top"
+                      sideOffset={4}
+                      className="z-50"
+                    >
+                      <div className="px-2 py-1 bg-black/95 border border-slate-700/50 rounded text-[10px] text-slate-400">
+                        {copied ? '已复制到剪贴板' : '复制路径'}
+                      </div>
+                      <Tooltip.Arrow className="fill-slate-950/95" />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+              </Tooltip.Provider>
+
+              {/* 打开按钮 */}
+              <Tooltip.Provider delayDuration={200}>
+                <Tooltip.Root>
+                  <Tooltip.Trigger asChild>
+                    <button
+                      onClick={() => {
+                        window.api.openPath(value);
+                      }}
+                      className="p-2 rounded-lg shrink-0 bg-slate-900/50 text-slate-600 hover:text-slate-400 hover:bg-slate-800/50 transition-all duration-200"
+                      type="button"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </button>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      side="top"
+                      sideOffset={4}
+                      className="z-50"
+                    >
+                      <div className="px-2 py-1 bg-black/95 border border-slate-700/50 rounded text-[10px] text-slate-400">
+                        在文件管理器中打开
+                      </div>
+                      <Tooltip.Arrow className="fill-slate-950/95" />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+              </Tooltip.Provider>
+            </div>
           )}
         </div>
 
