@@ -29,12 +29,13 @@ interface ImageFile {
   path: string;
   name: string;
   status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
-  originalSize?: number;     // 原始文件大小（字节）- 懒加载
+  originalSize?: number;     // 原始文件大小（字节）
   compressedSize?: number;   // 压缩后大小（字节）
   compressedPath?: string;   // 压缩后文件路径
-  previewUrl?: string;       // 图片预览 URL - 懒加载
-  _infoLoaded?: boolean;   // 文件信息是否已加载
-  error?: string;
+  previewUrl?: string;       // 图片预览 URL
+  width?: number;           // 图片宽度
+  height?: number;         // 图片高度
+  orientation?: string;    // 方向: portrait/landscape/square
 }
 
 const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
@@ -183,7 +184,7 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
   }, [addLog]);
 
   /**
-   * 懒加载单个文件的信息（预览和大小）
+   * 懒加载单个文件的信息（预览、大小和尺寸）
    */
   const loadFileInfo = useCallback(async (fileId: string) => {
     setFiles(prev => {
@@ -202,19 +203,31 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
         addLog(`加载预览失败: ${file.name} - ${err}`, 'error');
       });
 
+      // 获取文件大小
       window.api.getFileInfo(file.path).then(result => {
         if (result.success && result.info) {
-          addLog(`获取信息: ${file.name} (${formatFileSize(result.info.size)})`, 'info');
+          addLog(`获取大小: ${file.name} - ${formatFileSize(result.info.size)}`, 'info');
           setFiles(prev => prev.map(f =>
             f.id === fileId ? { ...f, originalSize: result.info.size, _infoLoaded: true } : f
           ));
         }
       }).catch((err) => {
-        addLog(`获取信息失败: ${file.name} - ${err}`, 'error');
-        // 获取大小失败，标记为已加载避免重试
+        addLog(`获取大小失败: ${file.name} - ${err}`, 'error');
         setFiles(prev => prev.map(f =>
           f.id === fileId ? { ...f, _infoLoaded: true } : f
         ));
+      });
+
+      // 获取图片尺寸和方向
+      window.api.getImageDimensions(file.path).then(result => {
+        if (result) {
+          addLog(`获取尺寸: ${file.name} - ${result.width}×${result.height} (${result.orientation})`, 'info');
+          setFiles(prev => prev.map(f =>
+            f.id === fileId ? { ...f, width: result.width, height: result.height, orientation: result.orientation } : f
+          ));
+        }
+      }).catch((err) => {
+        addLog(`获取尺寸失败: ${file.name} - ${err}`, 'error');
       });
 
       return prev;
@@ -461,8 +474,8 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
                   {/* File Info */}
                   <div className="flex-1 min-w-0">
                     <p className="font-bold truncate text-sm text-slate-100">{f.name}</p>
-                    <p className="text-xs text-slate-500">{f.path}</p>
-                    {/* Size Comparison */}
+                    <p className="text-xs text-slate-500 truncate">{f.path}</p>
+                    {/* 文件信息 */}
                     {f.status === 'completed' && f.compressedSize ? (
                       <p className="text-sm mt-1">
                         <span className="text-slate-400">{formatFileSize(f.originalSize)}</span>
@@ -473,7 +486,17 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
                         </span>
                       </p>
                     ) : f.originalSize !== undefined ? (
-                      <p className="text-sm mt-1 text-slate-400">{formatFileSize(f.originalSize)}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <p className="text-sm text-slate-400">{formatFileSize(f.originalSize)}</p>
+                        {f.width && f.height && (
+                          <p className="text-xs text-slate-500">{f.width}×{f.height}</p>
+                        )}
+                        {f.orientation && (
+                          <p className="text-xs text-slate-500 px-1.5 py-0.5 bg-slate-800 rounded">
+                            {f.orientation === 'portrait' ? '竖版' : f.orientation === 'landscape' ? '横版' : '方版'}
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <p className="text-sm mt-1 text-slate-500">加载中...</p>
                     )}
