@@ -22,7 +22,8 @@ interface ImageFile {
   path: string;
   name: string;
   status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
-  previewUrl?: string;      // 预览图片 URL
+  previewUrl?: string;      // 预览图片 URL (用于 Canvas)
+  thumbnailUrl?: string;     // 缩略图 URL (base64，用于任务列表)
   originalSize?: number;    // 原始文件大小（字节）
   width?: number;           // 图片宽度
   height?: number;          // 图片高度
@@ -30,7 +31,7 @@ interface ImageFile {
 }
 
 /**
- * 获取图片信息
+ * 获取图片信息（尺寸）
  */
 const getImageInfo = async (filePath: string): Promise<{ width?: number; height?: number; orientation?: string }> => {
   try {
@@ -43,7 +44,7 @@ const getImageInfo = async (filePath: string): Promise<{ width?: number; height?
       };
     }
   } catch (err) {
-    console.error('获取图片信息失败:', err);
+    addLog(`获取图片尺寸失败: ${err}`, 'error');
   }
   return {};
 };
@@ -58,7 +59,24 @@ const getFileInfo = async (filePath: string): Promise<number | undefined> => {
       return result.info.size;
     }
   } catch (err) {
-    console.error('获取文件信息失败:', err);
+    addLog(`获取文件信息失败: ${err}`, 'error');
+  }
+  return undefined;
+};
+
+/**
+ * 加载缩略图（200x200 base64）- 用于任务列表快速显示
+ */
+const loadThumbnail = async (filePath: string): Promise<string | undefined> => {
+  try {
+    const result = await window.api.getPreviewThumbnail(filePath);
+    if (result.success && result.thumbnail) {
+      addLog(`缩略图加载成功: ${filePath}`, 'info');
+      return result.thumbnail;
+    }
+    addLog(`缩略图加载失败: ${result.error || '未知错误'}`, 'error');
+  } catch (err) {
+    addLog(`加载缩略图异常: ${err}`, 'error');
   }
   return undefined;
 };
@@ -168,6 +186,8 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const previewImageRef = useRef<HTMLImageElement | null>(null);
   const fileSelectorRef = useRef<FileSelectorRef>(null);
+  // 追踪当前正在加载的图片路径，用于避免竞态条件
+  const loadingImagePathRef = useRef<string | null>(null);
 
   // 预览触发器 - 用于触发重绘
   const [previewTrigger, setPreviewTrigger] = useState(0);
@@ -181,6 +201,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
    */
   const loadPreviewImage = async (imagePath: string) => {
     try {
+      addLog(`正在加载预览图: ${imagePath}`, 'info');
       const result = await window.api.getPreviewUrl(imagePath);
       if (!result.success || !result.url) {
         addLog(`获取预览 URL 失败: ${result.error || '未知错误'}`, 'error');
@@ -189,6 +210,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
       const img = new Image();
       img.src = result.url;
       img.onload = () => {
+        addLog(`预览图加载成功: ${imagePath}`, 'info');
         previewImageRef.current = img;
         // 触发重绘
         setPreviewTrigger(prev => prev + 1);
@@ -202,16 +224,50 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   };
 
   /**
-   * 切换到指定索引的图片预览
+   * 加载图片详细信息（尺寸、文件大小）- 懒加载
    */
-  const switchToPreview = (index: number) => {
+  const loadImageDetails = useCallback(async (img: ImageFile) => {
+    if (img.originalSize && img.width && img.height) {
+      // 已加载过，不再重复加载
+      return img;
+    }
+
+    try {
+      addLog(`正在获取图片详情: ${img.path}`, 'info');
+      const [info, fileInfo] = await Promise.all([
+        getImageInfo(img.path),
+        getFileInfo(img.path)
+      ]);
+
+      // 更新图片信息到状态
+      setImages(prev => prev.map(item =>
+        item.id === img.id
+          ? {
+              ...item,
+              width: info.width,
+              height: info.height,
+              orientation: info.orientation,
+              originalSize: fileInfo
+            }
+          : item
+      ));
+
+      addLog(`图片详情获取成功: ${img.width}x${info.height}, ${(fileInfo / 1024).toFixed(1)}KB`, 'info');
+      return { ...img, ...info, originalSize: fileInfo };
+    } catch (err) {
+      addLog(`获取图片详情失败: ${err}`, 'error');
+      return img;
+    }
+  }, []);
+
+  /**
+   * 切换到指定索引的图片预览
+   * 只负责切换索引，实际的加载由 useEffect 处理
+   */
+  const switchToPreview = useCallback((index: number) => {
     if (index < 0 || index >= images.length) return;
     setCurrentIndex(index);
-    const imagePath = images[index]?.path;
-    if (imagePath) {
-      loadPreviewImage(imagePath);
-    }
-  };
+  }, [images.length]);
 
   // 上一张
   const goToPrevious = () => {
@@ -263,63 +319,67 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
       return;
     }
 
-    const newImages: ImageFile[] = files.map(path => ({
+    addLog(`正在添加 ${files.length} 张图片...`, 'info');
+
+    // 批量加载所有缩略图和第一张的预览图
+    const loadAllThumbnails = async () => {
+      try {
+        // 并行加载所有缩略图
+        const thumbnailResults = await Promise.all(
+          files.map(file => window.api.getPreviewThumbnail(file))
+        );
+
+        // 并行加载第一张的预览图
+        const previewResult = await window.api.getPreviewUrl(files[0]);
+
+        setImages(prev => {
+          const updated = [...prev];
+          const startIndex = prev.length - files.length;
+
+          // 更新每个图片的缩略图
+          files.forEach((file, idx) => {
+            const imageIndex = startIndex + idx;
+            if (updated[imageIndex]) {
+              const thumbnailUrl = thumbnailResults[idx]?.success ? thumbnailResults[idx].thumbnail : undefined;
+              updated[imageIndex] = {
+                ...updated[imageIndex],
+                thumbnailUrl,
+                // 第一张同时设置预览 URL
+                ...(idx === 0 && previewResult.success ? { previewUrl: previewResult.url } : {})
+              };
+            }
+          });
+
+          return updated;
+        });
+      } catch (err) {
+        console.error('加载缩略图失败:', err);
+      }
+    };
+
+    const newImages: ImageFile[] = files.map((path, idx) => ({
       id: Math.random().toString(36).substr(2, 9),
       path,
       name: path.split('/').pop() || path,
       status: 'pending' as const,
-      previewUrl: undefined
+      previewUrl: undefined,  // 预览图后面统一加载
+      thumbnailUrl: undefined  // 缩略图后面统一加载
     }));
 
-    addLog(`正在加载 ${newImages.length} 张图片信息...`, 'info');
-
-    // 为新图片加载预览 URL 和图片信息
-    const imagesWithInfo = await Promise.all(
-      newImages.map(async (img) => {
-        try {
-          addLog(`加载预览: ${img.name}`, 'info');
-          // 并行加载预览 URL、尺寸信息和文件大小
-          const [result, info, fileInfo] = await Promise.all([
-            window.api.getPreviewUrl(img.path),
-            getImageInfo(img.path),
-            getFileInfo(img.path)
-          ]);
-
-          if (info.width && info.height) {
-            addLog(`获取尺寸: ${img.name} - ${info.width}×${info.height} (${info.orientation || '未知'})`, 'info');
-          }
-          if (fileInfo) {
-            addLog(`获取大小: ${img.name} - ${formatFileSize(fileInfo)}`, 'info');
-          }
-
-          return {
-            ...img,
-            previewUrl: result.success && result.url ? result.url : undefined,
-            originalSize: fileInfo,
-            ...info
-          };
-        } catch (err) {
-          addLog(`加载失败: ${img.name} - ${err}`, 'error');
-          console.error('加载预览失败:', err);
-        }
-        return img;
-      })
-    );
-
     setImages(prev => {
-      const updated = [...prev, ...imagesWithInfo];
-      // 如果是第一批图片，加载第一张用于 Canvas 预览
-      if (prev.length === 0 && files.length > 0) {
-        setTimeout(() => {
+      const updated = [...prev, ...newImages];
+      // 批量加载所有缩略图和第一张预览
+      if (files.length > 0) {
+        loadAllThumbnails();
+        // 如果是第一批图片，同时加载第一张用于 Canvas 预览
+        if (prev.length === 0) {
           loadPreviewImage(files[0]);
-        }, 0);
+        }
       }
       return updated;
     });
 
-    if (newImages.length > 0) {
-      addLog(`已添加 ${newImages.length} 张素材图片`, 'info');
-    }
+    addLog(`已添加 ${files.length} 张素材图片`, 'info');
 
     // 延迟清空 FileSelector 内部列表，避免 onChange 触发死循环
     setTimeout(() => {
@@ -588,19 +648,90 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     }
   };
 
-  // 当视频列表或模式改变时，重新生成预览
+  // 当 currentIndex 或 images.length 改变时，自动加载预览图和图片详情
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (images.length > 0 && currentIndex < images.length) {
-      // 预览会在 switchToPreview 中加载
+    if (images.length > 0 && currentIndex >= 0 && currentIndex < images.length) {
+      const img = images[currentIndex];
+      if (!img) return;
+
+      // 记录当前正在加载的图片路径
+      loadingImagePathRef.current = img.path;
+
+      // 异步加载预览图和详情（不阻塞渲染）
+      requestAnimationFrame(() => {
+        loadPreviewImage(img.path);
+
+        // 懒加载图片详情（如果还没有）
+        if (!img.originalSize || !img.width) {
+          loadImageDetails(img);
+        }
+      });
     } else {
-      // 清空预览
+      // 没有图片了，清空预览
+      addLog('没有图片了，清空预览', 'info');
+      loadingImagePathRef.current = null;
       previewImageRef.current = null;
+      // 稍后重绘 Canvas，确保状态已更新
+      setTimeout(() => drawPreview(), 0);
     }
-  }, [images, currentIndex]);
+  }, [currentIndex, images.length]); // 监听索引变化和数组长度变化（初始添加图片时触发）
 
   // 删除单个图片
   const removeImage = (id: string) => {
-    setImages(prev => prev.filter(img => img.id !== id));
+    setImages(prev => {
+      const removedIndex = prev.findIndex(img => img.id === id);
+      const removedImg = prev[removedIndex];
+      const filtered = prev.filter(img => img.id !== id);
+
+      addLog(`正在删除任务: ${removedImg.name}`, 'info');
+
+      // 需要重新计算 currentIndex，因为数组索引可能变化
+      let newIndex = currentIndex;
+      let indexChanged = false; // 跟踪索引是否变化
+
+      if (removedIndex < currentIndex) {
+        // 删除的是当前任务前面的，索引需要 -1
+        newIndex = currentIndex - 1;
+        indexChanged = true;
+      } else if (removedIndex === currentIndex) {
+        // 删除的是当前任务，保持索引位置（指向下一个），但如果越界则调整
+        if (newIndex >= filtered.length) {
+          newIndex = filtered.length - 1; // 删除的是最后一张，指向前一个
+        }
+        // 删除当前任务时索引值不变但指向的图片变了
+        indexChanged = true;
+      }
+      // 如果 removedIndex > currentIndex，删除的是后面的任务，currentIndex 不需要变
+
+      // 确保 newIndex 有效
+      if (filtered.length === 0) {
+        newIndex = 0; // 没有图片了
+        indexChanged = true;
+      } else if (newIndex < 0) {
+        newIndex = 0;
+        indexChanged = true;
+      } else if (newIndex >= filtered.length) {
+        newIndex = filtered.length - 1;
+        indexChanged = true;
+      }
+
+      addLog(`删除任务完成，新索引: ${newIndex}`, 'info');
+      setCurrentIndex(newIndex);
+
+      // 删除后手动加载新任务的预览和详情（确保索引变化时也能正确更新）
+      if (filtered.length > 0 && newIndex < filtered.length) {
+        const newImg = filtered[newIndex];
+        setTimeout(() => {
+          loadPreviewImage(newImg.path);
+          if (!newImg.originalSize || !newImg.width) {
+            loadImageDetails(newImg);
+          }
+        }, 0);
+      }
+
+      return filtered;
+    });
   };
 
   // 清空图片列表
@@ -608,7 +739,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     setImages([]);
     setCurrentIndex(0);
     previewImageRef.current = null;
-    drawPreview();
+    setPreviewTrigger(prev => prev + 1); // 触发重绘
   };
 
   return (
@@ -748,117 +879,152 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
 
         {/* 中间：任务列表 + 预览 */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          {/* 任务列表 */}
-          <div className="flex-shrink-0 border-b border-slate-800 bg-black/50">
-            <div className="px-4 py-3 flex items-center justify-between">
-              <h2 className="font-bold text-sm text-slate-300 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-amber-400" />
+          {/* 任务列表 - 横向滚动 */}
+          <div className="flex-shrink-0 bg-black/50">
+            <div className="px-4 py-2 border-b border-slate-800 flex items-center justify-between">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Layers className="w-3.5 h-3.5 text-amber-400" />
                 任务列表
               </h2>
-              <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">{images.length}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500">{images.length}</span>
+                {images.length > 0 && (
+                  <button
+                    onClick={() => {
+                      // 清空所有任务
+                      setImages([]);
+                      fileSelectorRef.current?.clearFiles();
+                    }}
+                    className="text-xs text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-rose-500/50 hover:bg-rose-500/10 transition-all"
+                  >
+                    清除全部
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="grid grid-cols-1 gap-3">
-              {images.map((img, index) => (
-                <div
-                  key={img.id}
-                  className={`bg-black/50 border rounded-xl p-4 flex items-center gap-4 transition-all ${
-                    img.status === 'error'
-                      ? 'border-red-500/50'
-                      : img.status === 'completed'
-                      ? 'border-emerald-500/50'
-                      : img.status === 'waiting'
-                      ? 'border-amber-500/30'
-                      : img.status === 'processing'
-                      ? 'border-amber-500/50'
-                      : 'border-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  {/* 缩略图 */}
+            {/* 横向滚动任务栏 */}
+            <div className="h-20 overflow-x-auto overflow-y-hidden border-b border-slate-800">
+              <div className="flex items-center h-full px-4 gap-2">
+                {images.map((img, index) => (
                   <div
-                    className="relative w-16 h-16 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden group cursor-pointer"
+                    key={img.id}
+                    className={`relative shrink-0 w-14 h-14 rounded-lg border cursor-pointer ${
+                      index === currentIndex
+                        ? 'border-amber-500/60 ring-2 ring-amber-500/20 bg-amber-500/5'
+                        : img.status === 'error'
+                        ? 'border-red-500/50 bg-red-500/5'
+                        : img.status === 'completed'
+                        ? 'border-emerald-500/50 bg-emerald-500/5'
+                        : img.status === 'waiting'
+                        ? 'border-amber-500/30 bg-amber-500/5'
+                        : 'border-slate-700 bg-slate-800/50'
+                    }`}
                     onClick={() => switchToPreview(index)}
                   >
-                    {img.previewUrl ? (
-                      <img src={img.previewUrl} alt={img.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <ImageIcon className="w-6 h-6 text-slate-600" />
-                    )}
-                    {/* 悬浮眼睛图标 */}
-                    <div
-                      className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenPreview(index);
-                      }}
-                    >
-                      <Eye className="w-6 h-6 text-white" />
+                    {/* 缩略图 */}
+                    <div className="absolute inset-0 rounded-lg overflow-hidden">
+                      {img.thumbnailUrl ? (
+                        <img src={img.thumbnailUrl} alt={img.name} className="w-full h-full object-cover" />
+                      ) : img.previewUrl ? (
+                        <img src={img.previewUrl} alt={img.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ImageIcon className="w-5 h-5 text-slate-600" />
+                        </div>
+                      )}
                     </div>
-                    {/* 状态图标 */}
+
+                    {/* loading 状态 - 居中覆盖 */}
                     {img.status === 'processing' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                      <div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center pointer-events-none">
                         <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
                       </div>
                     )}
-                    {img.status === 'completed' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                        <Check className="w-5 h-5 text-emerald-500" />
-                      </div>
-                    )}
-                    {img.status === 'error' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                        <span className="text-red-500 text-sm">✗</span>
-                      </div>
-                    )}
+                    {/* waiting 状态 - 居中覆盖 */}
                     {img.status === 'waiting' && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                        <div className="w-4 h-4 rounded-full bg-amber-500/50" />
+                      <div className="absolute inset-0 rounded-lg bg-black/30 flex items-center justify-center pointer-events-none">
+                        <div className="w-4 h-4 rounded-full bg-amber-500/70" />
+                      </div>
+                    )}
+                    {/* completed 状态 - 居中角标放大 */}
+                    {img.status === 'completed' && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
+                        <Check className="w-2.5 h-2.5 text-black" />
+                      </div>
+                    )}
+                    {/* error 状态 - 居中角标 */}
+                    {img.status === 'error' && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
+                        <span className="text-black text-[8px] font-bold">!</span>
+                      </div>
+                    )}
+
+                    {/* 当前预览指示器 */}
+                    {index === currentIndex && (
+                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-amber-500 rounded text-[8px] font-medium text-black whitespace-nowrap z-10">
+                        预览
                       </div>
                     )}
                   </div>
-
-                  {/* 文件信息 */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold truncate text-sm text-slate-100">{img.name}</p>
-                    <p className="text-xs text-slate-500 truncate">{img.path}</p>
-                    {/* 文件大小和尺寸 */}
-                    <div className="flex items-center gap-3 mt-1">
-                      {img.originalSize && (
-                        <p className="text-sm text-slate-400">{formatFileSize(img.originalSize)}</p>
-                      )}
-                      {img.width && img.height && (
-                        <p className="text-xs text-slate-500">{img.width}×{img.height}</p>
-                      )}
-                      {img.orientation && (
-                        <p className="text-xs text-slate-500 px-1.5 py-0.5 bg-slate-800 rounded">
-                          {img.orientation === 'portrait' ? '竖版' : img.orientation === 'landscape' ? '横版' : '方版'}
-                        </p>
-                      )}
-                    </div>
+                ))}
+                {images.length === 0 && (
+                  <div className="flex items-center justify-center w-full h-full text-slate-500">
+                    <p className="text-xs">暂无任务</p>
                   </div>
-
-                  {/* 状态和操作 */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {index === currentIndex && (
-                      <span className="text-xs text-amber-400 px-2 py-1 bg-amber-500/10 rounded-lg">当前预览</span>
-                    )}
-                    <button
-                      onClick={() => removeImage(img.id)}
-                      className="p-2 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {images.length === 0 && (
-                <div className="text-center text-slate-500 py-12 flex items-center justify-center">
-                  <p className="text-sm">暂无任务</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
+
+          {/* 选中任务详情 */}
+          {images[currentIndex] && (
+            <div className="px-3 py-2 bg-black/30 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                {/* 缩略图 */}
+                <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden shrink-0">
+                  {images[currentIndex].thumbnailUrl ? (
+                    <img src={images[currentIndex].thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                  ) : images[currentIndex].previewUrl && (
+                    <img src={images[currentIndex].previewUrl} alt="" className="w-full h-full object-cover" />
+                  )}
+                </div>
+                {/* 文件信息 */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-200 truncate">{images[currentIndex].name}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {images[currentIndex].originalSize && (
+                      <span className="text-[10px] text-slate-500">{formatFileSize(images[currentIndex].originalSize)}</span>
+                    )}
+                    {images[currentIndex].width && images[currentIndex].height && (
+                      <span className="text-[10px] text-slate-500">{images[currentIndex].width}×{images[currentIndex].height}</span>
+                    )}
+                    {images[currentIndex].orientation && (
+                      <span className="text-[10px] text-slate-500 px-1 py-0.5 bg-slate-800 rounded">
+                        {images[currentIndex].orientation === 'portrait' ? '竖版' : images[currentIndex].orientation === 'landscape' ? '横版' : '方版'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {/* 操作按钮 */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => handleOpenPreview(currentIndex)}
+                    className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-400 rounded transition-colors"
+                    title="全屏预览"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => removeImage(images[currentIndex].id)}
+                    className="p-1.5 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded transition-colors"
+                    title="删除"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 预览画布 */}
           <div className="flex-1 flex flex-col flex-shrink-0 border-t border-slate-800 bg-black p-4 min-h-0">
@@ -878,12 +1044,6 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
                 />
-                {/* 预览标签 */}
-                {images.length > 0 && (
-                  <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white">
-                    预览: {images[currentIndex]?.name}
-                  </div>
-                )}
               </div>
             </div>
             {images.length > 0 && (

@@ -49,6 +49,8 @@ export interface VideoPlayerProps {
   onProgress?: (currentTime: number, duration: number) => void;
   /** 主题色 */
   themeColor?: ThemeColor;
+  /** 精简模式：只显示进度条和音量控制 */
+  minimal?: boolean;
 }
 
 // ============================================================================
@@ -107,6 +109,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onPlayStateChange,
   onProgress,
   themeColor = 'cyan',
+  minimal = false,
 }) => {
   const playerRef = useRef<Plyr | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -133,12 +136,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsLoadingUrl(true);
       setUrlError(null);
       try {
-        const result = await window.api.getPreviewUrl(src);
-        if (result.success && result.url) {
-          setPreviewUrl(result.url);
+        // 如果 src 已经是 preview:// 协议，直接使用
+        if (src.startsWith('preview://')) {
+          setPreviewUrl(src);
         } else {
-          setUrlError(result.error || '获取预览 URL 失败');
-          console.error('获取预览 URL 失败:', result.error);
+          // 否则调用 API 转换文件路径为 preview:// URL
+          const result = await window.api.getPreviewUrl(src);
+          if (result.success && result.url) {
+            setPreviewUrl(result.url);
+          } else {
+            setUrlError(result.error || '获取预览 URL 失败');
+            console.error('获取预览 URL 失败:', result.error);
+          }
         }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : '加载预览 URL 失败';
@@ -165,19 +174,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     const player = new Plyr(videoElement, {
-      controls: [
-        'play-large',
-        'play',
-        'progress',
-        'current-time',
-        'duration',
-        'mute',
-        'volume',
-        'settings',
-        'pip',
-        'airplay',
-        'fullscreen'
-      ],
+      controls: minimal
+        ? ['play', 'progress', 'current-time', 'duration', 'mute', 'volume']
+        : [
+            'play-large',
+            'play',
+            'progress',
+            'current-time',
+            'duration',
+            'mute',
+            'volume',
+            'settings',
+            'pip',
+            'airplay',
+            'fullscreen'
+          ],
       autoplay: autoPlay,
       loop: { active: loop },
       muted,
@@ -244,7 +255,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }
     };
-  }, [previewUrl, isLoadingUrl, autoPlay, loop, muted]);
+  }, [previewUrl, isLoadingUrl, autoPlay, loop, muted, minimal]);
 
   /**
    * 键盘快捷键处理

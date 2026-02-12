@@ -750,6 +750,54 @@ ipcMain.handle("get-preview-url", async (_event, filePath) => {
   }
 });
 
+/**
+ * 生成预览缩略图（等比缩放，最长边 200px，返回 base64）
+ *
+ * Sharp 的 fit: 'inside' 选项会保持宽高比：
+ * - 最长边缩放到 maxSize (200px)
+ * - 短边按比例缩放，实际尺寸可能小于 200px
+ * - 例如：1920×1080 → 200×112，1080×1920 → 112×200
+ */
+ipcMain.handle("get-preview-thumbnail", async (_event, filePath) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: false, error: "文件不存在" };
+    }
+
+    const sharp = require('sharp');
+    const maxSize = 200;
+
+    // 读取图片并获取元数据
+    const image = sharp(filePath);
+    const metadata = await image.metadata();
+
+    // 计算缩放比例（基于最长边，保持宽高比）
+    let scale = maxSize / Math.max(metadata.width, metadata.height);
+    if (scale > 1) scale = 1; // 图片比目标尺寸小，不放大
+
+    // 生成缩略图（fit: 'inside' 保持宽高比，最长边不超过 maxSize）
+    const resized = await image.resize(maxSize, maxSize, {
+      fit: 'inside',
+      kernel: 'lanczos3',
+      withoutEnlargement: true
+    });
+
+    // 转换为 PNG base64
+    const buffer = await resized.png().toBuffer();
+    const base64 = buffer.toString('base64');
+
+    return {
+      success: true,
+      thumbnail: `data:image/png;base64,${base64}`,
+      width: Math.round(metadata.width * scale),
+      height: Math.round(metadata.height * scale)
+    };
+  } catch (err) {
+    console.error('[缩略图生成] 失败:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 // 获取文件信息（用于判断文件类型）
 ipcMain.handle("get-file-info", async (_event, filePath) => {
   try {

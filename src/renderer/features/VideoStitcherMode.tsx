@@ -373,7 +373,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
 
   // 获取预览 URL
   const getPreviewUrl = (path: string) => {
-    return `preview://${encodeURIComponent(path)}`;
+    return `file://${encodeURIComponent(path)}`;
   };
 
   // 打开预览弹窗

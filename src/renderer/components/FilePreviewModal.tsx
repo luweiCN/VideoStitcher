@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ExternalLink, Video, Image as ImageIcon, FileText, Plus, Minus, RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
-import { VideoPlayer } from '../VideoPlayer';
-import { FileItem } from './FileSelector';
+import { VideoPlayer } from '@/components/VideoPlayer';
+import { FileItem } from '@/components/FileSelector/FileSelector';
 
 /**
  * 文件预览弹窗 - 支持视频和图片预览
@@ -87,7 +87,6 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ file, showPrevious, showNex
    * 鼠标滚轮缩放
    */
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     handleZoom(delta);
   }, [handleZoom]);
@@ -301,7 +300,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
   if (!file || !visible) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn">
       <div
         onClick={(e) => e.stopPropagation()}
         className="w-[90vw] h-[85vh] bg-black backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden flex flex-col animate-scaleIn"

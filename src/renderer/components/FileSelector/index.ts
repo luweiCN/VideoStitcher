@@ -13,14 +13,11 @@
 
 // 主组件
 export { FileSelector } from './FileSelector';
-export type { FileSelectorProps, FileItem, FileAcceptType } from './FileSelector';
+export type { FileSelectorProps, FileItem, FileAcceptType, FileSelectorRef } from './FileSelector';
 
 // 组件组
 export { FileSelectorGroup, useFileSelectorGroup } from './FileSelectorGroup';
 
-// 预览弹窗
-export { FilePreviewModal } from './FilePreviewModal';
-export type { FilePreviewModalProps } from './FilePreviewModal';
 
 // 文件处理 hook
 export { useFileProcessor } from './useFileProcessor';

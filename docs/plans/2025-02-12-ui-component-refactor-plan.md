@@ -52,9 +52,9 @@
 | 模块 | 文件路径 | 主题色 | 优先级 | 状态 |
 |------|----------|--------|--------|------|
 | 封面压缩 | `CoverCompressMode.tsx` | emerald | 1 | ✅ 已完成 |
-| 智能改尺寸 | `ResizeMode.tsx` | rose | 2 | 待改造 |
-| 图片素材处理 | `ImageMaterialMode.tsx` | amber | 3 | 待改造 |
-| 封面格式转换 | `CoverFormatMode.tsx` | fuchsia | 4 | 待改造 |
+| 图片素材处理 | `ImageMaterialMode.tsx` | amber | 2 | ✅ 已完成 |
+| 封面格式转换 | `CoverFormatMode.tsx` | fuchsia | 3 | 🔄 下一个 |
+| 智能改尺寸 | `ResizeMode.tsx` | rose | 4 | 待改造 |
 | 文件名提取 | `FileNameExtractorMode.tsx` | pink | 5 | 待改造(特殊布局) |
 
 ---
@@ -749,7 +749,50 @@ git commit -m "refactor: 统一文件名提取模块布局和配色
 - 待补充
 
 ### ImageMaterialMode (图片素材处理)
-- 待补充
+
+**已完成日期:** 2025-02-12
+
+**改造内容:**
+- 改为标准三栏布局（与 CoverCompressMode 一致）
+  - 左侧 (w-96): 文件选择 + Logo设置 + 预览模式 + 导出选项
+  - 中间: 任务列表 + 预览画布（上下布局）
+  - 右侧 (w-80): 输出目录 + 并发设置 + 日志 + 开始按钮
+- 主背景 `bg-slate-950` → `bg-black`
+- 侧边栏背景 `bg-slate-900` → `bg-black`
+- 设置卡片背景 `bg-slate-950` → `bg-black/50`
+- 按钮改用 Button 组件库（主题色 amber）
+- 统一间距 `p-6` → `p-4`, `gap-5` → `gap-4`
+- Canvas 占位背景改为 `#0f172a` (slate-900)
+- 所有 addLog 添加显式 type 参数
+- 添加并发线程数缓存 (`useConcurrencyCache`)
+- 添加任务状态 UI (`pending` → `waiting` → `processing` → `completed`/`error`)
+- 使用 Radix UI Slider 和 Checkbox 替代原生组件
+- FileSelector 添加 `ref`，选择后自动清空避免重复触发
+
+**遇到的问题及解决方案:**
+
+| 问题 | 解决方案 |
+|------|----------|
+| LogThemeColor 缺少 `amber` 类型 | 在 `types.ts` 和 `LogFooter.tsx` 中添加 `amber` 配置 |
+| FileSelectorGroup 使用两次导致 Context 冲突 | 合并为一个 FileSelectorGroup 包裹两个 FileSelector |
+| min-h-[200px] 位置错误 | 移到任务列表容器而非空状态 div |
+| 空状态文字不统一 | 改为"暂无任务" |
+| 并发线程数无法缓存 | 使用 `useConcurrencyCache` hook |
+| 任务列表固定高度不生效 | `flex-1` 与 `h-[240px]` 冲突，改用 `max-h-[240px]` |
+| 缩略图加载慢 | 使用 Sharp 后端生成 200x200 base64 缩略图，一次性全部加载 |
+| 切换任务日志重复 | `switchToPreview` 和 `useEffect` 都调用了加载函数，造成重复 |
+| 删除后面任务时预览不更新 | `currentIndex` 不变，useEffect 不会触发，需手动加载 |
+| 初始进入时没有加载图片信息 | `currentIndex` 默认 0 不变，useEffect 不会触发 |
+| Canvas 重绘不生效 | 需要在状态更新后用 `setTimeout` 延迟调用 `drawPreview()` |
+
+**经验教训:**
+1. **`flex-1` 与固定高度冲突**: 当元素同时有 `flex-1` 和固定 `h-` 时，flex 会忽略固定高度。解决方案：用 `max-h-` 或 `min-h-` 替代
+2. **缓存 Hook 复用**: 并发数、输出目录等缓存应使用已有的 Hook (`useConcurrencyCache`, `useOutputDirCache`)，而非手动 `useState` + `localStorage`
+3. **组件 Ref 要及时添加**: FileSelector 等需要手动清空的组件，必须添加 `ref` 并调用 `clearFiles()` 方法
+4. **Radix UI 组件的 data 属性**: 使用 `data-[state=checked]:` 选择器实现主题色切换，比手动判断类名更简洁
+5. **useEffect 依赖设计原则**: 只依赖真正需要响应变化的值。监听 `images` 数组会导致每次数组引用变化都触发，应该只监听 `currentIndex` 和 `images.length`
+6. **状态变化后操作要延迟**: 当需要在 `setState` 后执行操作时（如 Canvas 重绘），必须用 `setTimeout(..., 0)` 确保状态已更新
+7. **职责分离原则**: `switchToPreview` 只负责切换索引，实际的加载由 useEffect 统一处理。但如果索引不变内容变（如删除），需手动调用加载
 
 ### CoverFormatMode (封面格式转换)
 - 待补充

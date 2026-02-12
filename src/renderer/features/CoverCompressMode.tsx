@@ -32,7 +32,8 @@ interface ImageFile {
   originalSize?: number;     // 原始文件大小（字节）
   compressedSize?: number;   // 压缩后大小（字节）
   compressedPath?: string;   // 压缩后文件路径
-  previewUrl?: string;       // 图片预览 URL
+  previewUrl?: string;       // 图片预览 URL（用于弹窗预览）
+  thumbnailUrl?: string;      // 缩略图 URL（用于任务列表，200x200 base64）
   width?: number;           // 图片宽度
   height?: number;         // 图片高度
   orientation?: string;    // 方向: portrait/landscape/square
@@ -184,50 +185,62 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
   }, [addLog]);
 
   /**
-   * 懒加载单个文件的信息（预览、大小和尺寸）
+   * 懒加载单个文件的信息（缩略图、预览、大小和尺寸）
    */
   const loadFileInfo = useCallback(async (fileId: string) => {
     setFiles(prev => {
       const file = prev.find(f => f.id === fileId);
       if (!file || file._infoLoaded) return prev;
 
-      // 异步加载文件信息
-      window.api.getPreviewUrl(file.path).then(result => {
-        if (result.success && result.url) {
+      // 并行加载：缩略图（用于任务列表）、预览图、文件大小、图片尺寸
+      Promise.all([
+        // 1. 缩略图（200x200 base64，用于任务列表）
+        window.api.getPreviewThumbnail(file.path),
+        // 2. 预览图（用于弹窗预览）
+        window.api.getPreviewUrl(file.path),
+        // 3. 文件大小
+        window.api.getFileInfo(file.path),
+        // 4. 图片尺寸
+        window.api.getImageDimensions(file.path),
+      ]).then(([thumbnailResult, previewResult, fileInfoResult, dimensionsResult]) => {
+        // 缩略图
+        if (thumbnailResult.success && thumbnailResult.thumbnail) {
+          setFiles(prev => prev.map(f =>
+            f.id === fileId ? { ...f, thumbnailUrl: thumbnailResult.thumbnail } : f
+          ));
+        }
+
+        // 预览图
+        if (previewResult.success && previewResult.url) {
           addLog(`加载预览: ${file.name}`, 'info');
           setFiles(prev => prev.map(f =>
-            f.id === fileId ? { ...f, previewUrl: result.url } : f
+            f.id === fileId ? { ...f, previewUrl: previewResult.url } : f
           ));
         }
-      }).catch((err) => {
-        addLog(`加载预览失败: ${file.name} - ${err}`, 'error');
-      });
 
-      // 获取文件大小
-      window.api.getFileInfo(file.path).then(result => {
-        if (result.success && result.info) {
-          addLog(`获取大小: ${file.name} - ${formatFileSize(result.info.size)}`, 'info');
+        // 文件大小
+        if (fileInfoResult.success && fileInfoResult.info) {
+          addLog(`获取大小: ${file.name} - ${formatFileSize(fileInfoResult.info.size)}`, 'info');
           setFiles(prev => prev.map(f =>
-            f.id === fileId ? { ...f, originalSize: result.info.size, _infoLoaded: true } : f
+            f.id === fileId ? { ...f, originalSize: fileInfoResult.info.size } : f
+          ));
+        }
+
+        // 图片尺寸和方向
+        if (dimensionsResult) {
+          addLog(`获取尺寸: ${file.name} - ${dimensionsResult.width}×${dimensionsResult.height} (${dimensionsResult.orientation})`, 'info');
+          setFiles(prev => prev.map(f =>
+            f.id === fileId
+              ? { ...f, width: dimensionsResult.width, height: dimensionsResult.height, orientation: dimensionsResult.orientation, _infoLoaded: true }
+              : f
           ));
         }
       }).catch((err) => {
-        addLog(`获取大小失败: ${file.name} - ${err}`, 'error');
+        addLog(`加载文件信息失败: ${file.name} - ${err}`, 'error');
+        // 标记为已加载，避免重复尝试
         setFiles(prev => prev.map(f =>
           f.id === fileId ? { ...f, _infoLoaded: true } : f
         ));
-      });
-
-      // 获取图片尺寸和方向
-      window.api.getImageDimensions(file.path).then(result => {
-        if (result) {
-          addLog(`获取尺寸: ${file.name} - ${result.width}×${result.height} (${result.orientation})`, 'info');
-          setFiles(prev => prev.map(f =>
-            f.id === fileId ? { ...f, width: result.width, height: result.height, orientation: result.orientation } : f
-          ));
-        }
-      }).catch((err) => {
-        addLog(`获取尺寸失败: ${file.name} - ${err}`, 'error');
       });
 
       return prev;
@@ -455,12 +468,14 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
                     'border-slate-800'
                   }`}
                 >
-                  {/* Preview */}
+                  {/* Preview - 优先使用缩略图，fallback 到预览图 */}
                   <div
                     className="relative w-16 h-16 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 overflow-hidden group cursor-pointer"
                     onClick={() => handlePreview(f)}
                   >
-                    {f.previewUrl ? (
+                    {f.thumbnailUrl ? (
+                      <img src={f.thumbnailUrl} alt={f.name} className="w-full h-full object-cover" />
+                    ) : f.previewUrl ? (
                       <img src={f.previewUrl} alt={f.name} className="w-full h-full object-cover" />
                     ) : (
                       <ImageIcon className="w-6 h-6 text-slate-600" />
