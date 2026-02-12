@@ -53,13 +53,10 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
     copyLogs,
     downloadLogs,
     logsContainerRef,
-    logsEndRef,
     autoScrollEnabled,
     setAutoScrollEnabled,
     autoScrollPaused,
     resumeAutoScroll,
-    scrollToBottom,
-    scrollToTop,
     onUserInteractStart,
   } = useOperationLogs({
     moduleNameCN: '视频合成',
@@ -640,18 +637,14 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
             <div className="flex-1 min-h-[300px]">
               <OperationLogPanel
                 logs={logs}
-                addLog={addLog}
                 clearLogs={clearLogs}
                 copyLogs={copyLogs}
                 downloadLogs={downloadLogs}
                 logsContainerRef={logsContainerRef}
-                logsEndRef={logsEndRef}
                 autoScrollEnabled={autoScrollEnabled}
                 setAutoScrollEnabled={setAutoScrollEnabled}
                 autoScrollPaused={autoScrollPaused}
                 resumeAutoScroll={resumeAutoScroll}
-                scrollToBottom={scrollToBottom}
-                scrollToTop={scrollToTop}
                 onUserInteractStart={onUserInteractStart}
                 themeColor={primaryColor}
               />

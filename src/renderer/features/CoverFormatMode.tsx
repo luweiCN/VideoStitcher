@@ -65,13 +65,10 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
     copyLogs,
     downloadLogs,
     logsContainerRef,
-    logsEndRef,
     autoScrollEnabled,
     setAutoScrollEnabled,
     autoScrollPaused,
     resumeAutoScroll,
-    scrollToBottom,
-    scrollToTop,
     onUserInteractStart,
   } = useOperationLogs({
     moduleNameCN: '封面格式转换',
@@ -140,7 +137,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
 
     // 创建初始文件对象
     const newFiles: ImageFile[] = filePaths.map(path => ({
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).slice(2, 11),
       path,
       name: path.split('/').pop() || path,
       status: 'pending' as const,
@@ -672,18 +669,14 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
             <div className="flex-1 min-h-[300px]">
               <OperationLogPanel
                 logs={logs}
-                addLog={addLog}
                 clearLogs={clearLogs}
                 copyLogs={copyLogs}
                 downloadLogs={downloadLogs}
                 logsContainerRef={logsContainerRef}
-                logsEndRef={logsEndRef}
                 autoScrollEnabled={autoScrollEnabled}
                 setAutoScrollEnabled={setAutoScrollEnabled}
                 autoScrollPaused={autoScrollPaused}
                 resumeAutoScroll={resumeAutoScroll}
-                scrollToBottom={scrollToBottom}
-                scrollToTop={scrollToTop}
                 onUserInteractStart={onUserInteractStart}
                 themeColor="fuchsia"
               />

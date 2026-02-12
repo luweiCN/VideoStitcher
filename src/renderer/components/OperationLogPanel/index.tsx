@@ -18,20 +18,16 @@ import { LogFooter } from './LogFooter';
  */
 export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
   logs,
-  addLog,
   clearLogs,
   copyLogs,
   downloadLogs,
   logsContainerRef,
-  logsEndRef,
 
   // 自动滚动相关
   autoScrollEnabled,
   setAutoScrollEnabled,
   autoScrollPaused,
   resumeAutoScroll,
-  scrollToBottom: hookScrollToBottom,
-  scrollToTop: hookScrollToTop,
   onUserInteractStart,
 
   width,

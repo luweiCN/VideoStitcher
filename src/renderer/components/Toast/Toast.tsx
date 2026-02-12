@@ -54,7 +54,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [toasts, setToasts] = useState<Array<{ id: string; data: ToastData }>>([]);
 
   const showToast = useCallback((data: ToastData) => {
-    const id = Math.random().toString(36).substr(2, 9);
+    const id = Math.random().toString(36).slice(2, 11);
     const newToast = { id, data };
 
     setToasts(prev => {

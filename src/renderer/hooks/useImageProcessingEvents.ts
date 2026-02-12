@@ -93,40 +93,34 @@ export function useImageProcessingEvents(handlers: ImageProcessingHandlers) {
   const { onStart, onTaskStart, onProgress, onFailed, onFinish, onTaskFinish } = handlers;
 
   useEffect(() => {
-    // 注册所有监听器
+    // 注册所有监听器，收集清理函数
     const unsubscribers: (() => void)[] = [];
 
     if (onStart) {
-      window.api.onImageStart(onStart);
-      unsubscribers.push(() => window.api.removeAllListeners('image-start'));
+      unsubscribers.push(window.api.onImageStart(onStart));
     }
 
     if (onTaskStart) {
-      window.api.onImageTaskStart(onTaskStart);
-      unsubscribers.push(() => window.api.removeAllListeners('image-task-start'));
+      unsubscribers.push(window.api.onImageTaskStart(onTaskStart));
     }
 
     if (onProgress) {
-      window.api.onImageProgress(onProgress);
-      unsubscribers.push(() => window.api.removeAllListeners('image-progress'));
+      unsubscribers.push(window.api.onImageProgress(onProgress));
     }
 
     if (onFailed) {
-      window.api.onImageFailed(onFailed);
-      unsubscribers.push(() => window.api.removeAllListeners('image-failed'));
+      unsubscribers.push(window.api.onImageFailed(onFailed));
     }
 
     if (onFinish) {
-      window.api.onImageFinish(onFinish);
-      unsubscribers.push(() => window.api.removeAllListeners('image-finish'));
+      unsubscribers.push(window.api.onImageFinish(onFinish));
     }
 
     if (onTaskFinish) {
-      window.api.onImageTaskFinish(onTaskFinish);
-      unsubscribers.push(() => window.api.removeAllListeners('image-task-finish'));
+      unsubscribers.push(window.api.onImageTaskFinish(onTaskFinish));
     }
 
-    // 清理函数：移除所有监听器
+    // 清理函数：移除当前实例注册的监听器
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };

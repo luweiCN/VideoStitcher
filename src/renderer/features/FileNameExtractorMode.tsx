@@ -107,13 +107,10 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     copyLogs,
     downloadLogs,
     logsContainerRef,
-    logsEndRef,
     autoScrollEnabled,
     setAutoScrollEnabled,
     autoScrollPaused,
     resumeAutoScroll,
-    scrollToBottom,
-    scrollToTop,
     onUserInteractStart,
   } = useOperationLogs({
     moduleNameCN: '文件名提取',
@@ -215,7 +212,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
       const fileType = detectFileType(path);
 
       return {
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).slice(2, 11),
         name: nameWithoutExt,
         originalName: fileName,
         path: path,
@@ -1127,18 +1124,14 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4">
             <OperationLogPanel
               logs={logs}
-              addLog={addLog}
               clearLogs={clearLogs}
               copyLogs={copyLogs}
               downloadLogs={downloadLogs}
               logsContainerRef={logsContainerRef}
-              logsEndRef={logsEndRef}
               autoScrollEnabled={autoScrollEnabled}
               setAutoScrollEnabled={setAutoScrollEnabled}
               autoScrollPaused={autoScrollPaused}
               resumeAutoScroll={resumeAutoScroll}
-              scrollToBottom={scrollToBottom}
-              scrollToTop={scrollToTop}
               onUserInteractStart={onUserInteractStart}
               themeColor="pink"
             />

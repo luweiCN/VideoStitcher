@@ -116,8 +116,6 @@ export interface LogEntryProps {
 export interface OperationLogPanelProps {
   /** 日志列表 */
   logs: LogEntry[];
-  /** 添加日志回调 */
-  addLog: (message: string, type?: LogEntry['type']) => void;
   /** 清空日志回调 */
   clearLogs: () => void;
   /** 复制日志回调 */
@@ -126,8 +124,6 @@ export interface OperationLogPanelProps {
   downloadLogs: () => void;
   /** 日志容器 ref */
   logsContainerRef: React.RefObject<HTMLDivElement | null>;
-  /** 日志结束标记 ref */
-  logsEndRef: React.RefObject<HTMLDivElement | null>;
 
   // 自动滚动相关
   /** 是否启用自动滚动 */
@@ -138,10 +134,6 @@ export interface OperationLogPanelProps {
   autoScrollPaused: boolean;
   /** 恢复自动滚动 */
   resumeAutoScroll: () => void;
-  /** 滚动到底部 */
-  scrollToBottom: () => void;
-  /** 滚动到顶部 */
-  scrollToTop: () => void;
   /** 用户开始交互（暂停自动滚动） */
   onUserInteractStart: () => void;
 

@@ -69,13 +69,10 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
     copyLogs,
     downloadLogs,
     logsContainerRef,
-    logsEndRef,
     autoScrollEnabled,
     setAutoScrollEnabled,
     autoScrollPaused,
     resumeAutoScroll,
-    scrollToBottom,
-    scrollToTop,
     onUserInteractStart,
   } = useOperationLogs({
     moduleNameCN: '封面压缩',
@@ -167,7 +164,7 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
     const newFiles: ImageFile[] = filePaths.map(path => {
       const name = path.split('/').pop() || path.split('\\').pop() || path;
       return {
-        id: Math.random().toString(36).substr(2, 9),
+        id: Math.random().toString(36).slice(2, 11),
         path,
         name,
         status: 'pending' as const,
@@ -622,18 +619,14 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
             <div className="flex-1 min-h-[300px]">
               <OperationLogPanel
                 logs={logs}
-                addLog={addLog}
                 clearLogs={clearLogs}
                 copyLogs={copyLogs}
                 downloadLogs={downloadLogs}
                 logsContainerRef={logsContainerRef}
-                logsEndRef={logsEndRef}
                 autoScrollEnabled={autoScrollEnabled}
                 setAutoScrollEnabled={setAutoScrollEnabled}
                 autoScrollPaused={autoScrollPaused}
                 resumeAutoScroll={resumeAutoScroll}
-                scrollToBottom={scrollToBottom}
-                scrollToTop={scrollToTop}
                 onUserInteractStart={onUserInteractStart}
                 themeColor="emerald"
               />
