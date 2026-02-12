@@ -767,6 +767,23 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
             </div>
           )}
 
+          {/* 提示信息 - 固定在滚动容器外部 */}
+          {files.length > 0 && !isRenaming && (
+            <div className="px-4 py-3 border-b border-slate-800/50 bg-black/50 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-pink-500/20 rounded-lg text-pink-400">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="text-xs">
+                  <span className="font-semibold text-pink-300">批量重命名：</span>
+                  <span className="text-slate-400 ml-1">
+                    点击「编辑」「替换」或「序号」修改文件名，确认后执行重命名
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 文件列表内容 */}
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {/* 进度显示 */}
@@ -781,22 +798,6 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                     className="bg-gradient-to-r from-pink-500 to-rose-500 h-full transition-all duration-300"
                     style={{ width: `${(renameProgress.current / renameProgress.total) * 100}%` }}
                   />
-                </div>
-              </div>
-            )}
-
-            {/* 提示信息 */}
-            {files.length > 0 && !isRenaming && (
-              <div className="mx-4 my-3 p-4 bg-pink-500/5 border border-pink-500/10 rounded-xl flex items-start gap-3 shrink-0">
-                <div className="p-1.5 bg-pink-500/20 rounded-lg text-pink-400">
-                  <FileText className="w-3.5 h-3.5" />
-                </div>
-                <div className="text-[10px]">
-                  <p className="font-bold text-pink-300 mb-1">批量重命名文件：</p>
-                  <p className="text-slate-400 leading-relaxed">
-                    1. 点击上方「编辑」「替换」或「序号」修改文件名<br/>
-                    2. 确认无误后点击「执行重命名」按钮
-                  </p>
                 </div>
               </div>
             )}
