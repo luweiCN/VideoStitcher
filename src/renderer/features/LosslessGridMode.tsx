@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import {
-  Grid3X3, Upload, Loader2, CheckCircle, XCircle, ArrowLeft,
+  Grid3X3, Loader2, CheckCircle, XCircle, ArrowLeft,
   Image as ImageIcon, Layers, Settings, Eye, FolderOpen, Trash2
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
@@ -343,7 +343,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar - File Selection + Settings */}
+        {/* Left Sidebar - File Selection */}
         <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="p-4 space-y-4">
             {/* 图片文件选择器 */}
@@ -361,23 +361,6 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
                 disabled={isProcessing}
               />
             </FileSelectorGroup>
-
-            {/* 输出目录 */}
-            <OutputDirSelector
-              value={outputDir}
-              onChange={setOutputDir}
-              disabled={isProcessing}
-              themeColor="cyan"
-            />
-
-            {/* 并发线程数 */}
-            <ConcurrencySelector
-              value={concurrency}
-              onChange={setConcurrency}
-              disabled={isProcessing}
-              themeColor="cyan"
-              compact
-            />
           </div>
         </div>
 
