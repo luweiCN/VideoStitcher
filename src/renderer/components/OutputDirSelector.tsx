@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Folder, FolderOpen, ExternalLink, HardDrive } from 'lucide-react';
+import { Copy, Folder, FolderOpen, ExternalLink, HardDrive, ClipboardCopy } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Button } from './Button/Button';
 
@@ -128,7 +128,7 @@ const OutputDirSelector: React.FC<OutputDirSelectorProps> = ({
                       `}
                       type="button"
                     >
-                      <Copy className="w-4 h-4" />
+                      <ClipboardCopy className="w-4 h-4" />
                     </button>
                   </Tooltip.Trigger>
                   <Tooltip.Portal>
