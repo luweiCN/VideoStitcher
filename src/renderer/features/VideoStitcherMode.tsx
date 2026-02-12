@@ -727,149 +727,167 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
             {/* 合成详情区域 */}
             {currentTask && (
               <div className="bg-black/30 border-b border-slate-800 shrink-0">
-                {/* 头部：标题居左 + 导航/删除居右 */}
-                <div className="px-3 py-2 flex items-center justify-between border-b border-slate-800/50">
-                  {/* 左侧：上一个按钮 + 标题 + 分辨率/帧率 */}
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={goToPrevious}
-                      disabled={currentIndex === 0}
-                      className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                    </button>
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">合成详情</h3>
-                    <div className="flex items-center gap-3 text-[10px]">
-                      <div className="flex items-center gap-1">
-                        <span className="text-gray-500">分辨率</span>
-                        <span className="text-pink-400 font-medium">{canvasConfig.label}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-gray-500">帧率</span>
-                        <span className="text-white">30fps</span>
-                      </div>
-                    </div>
+                {/* 第一行：合成配置 + 导航/操作 */}
+                <div className="px-3 py-2 flex items-center gap-2 border-b border-slate-800/50">
+                  {/* 左侧导航 */}
+                  <button
+                    onClick={goToPrevious}
+                    disabled={currentIndex === 0}
+                    className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+
+                  {/* 合成配置信息 */}
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <span className="text-slate-500">输出</span>
+                    <span className="text-pink-400 font-medium">{canvasConfig.label}</span>
+                    <span className="text-slate-600">·</span>
+                    <span className="text-slate-500">帧率</span>
+                    <span className="text-slate-200">30fps</span>
                   </div>
 
-                  {/* 右侧：删除按钮 + 下一个按钮 */}
-                  <div className="flex items-center gap-1">
-                    {currentTask.status === 'pending' && !isProcessing && (
-                      <button
-                        onClick={removeCurrentTask}
-                        className="p-1.5 hover:bg-pink-500/10 text-slate-500 hover:text-pink-400 rounded transition-colors"
-                        title="删除"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                    {currentTask.status === 'processing' && (
-                      <Loader2 className="w-4 h-4 text-pink-500 animate-spin" />
-                    )}
-                    {currentTask.status === 'completed' && (
-                      <CheckCircle className="w-4 h-4 text-emerald-500" />
-                    )}
-                    {currentTask.status === 'error' && (
-                      <XCircle className="w-4 h-4 text-red-400" />
-                    )}
+                  {/* 弹性空间 */}
+                  <div className="flex-1" />
+
+                  {/* 状态指示 */}
+                  {currentTask.status === 'processing' && (
+                    <Loader2 className="w-4 h-4 text-pink-500 animate-spin" />
+                  )}
+                  {currentTask.status === 'completed' && (
+                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  )}
+                  {currentTask.status === 'error' && (
+                    <XCircle className="w-4 h-4 text-red-400" />
+                  )}
+
+                  {/* 删除按钮 */}
+                  {currentTask.status === 'pending' && !isProcessing && (
                     <button
-                      onClick={goToNext}
-                      disabled={currentIndex >= tasks.length - 1}
-                      className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      onClick={removeCurrentTask}
+                      className="p-1.5 hover:bg-pink-500/10 text-slate-500 hover:text-pink-400 rounded transition-colors"
+                      title="删除"
                     >
-                      <ArrowLeft className="w-4 h-4 rotate-180" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
-                  </div>
+                  )}
+
+                  {/* 右侧导航 */}
+                  <button
+                    onClick={goToNext}
+                    disabled={currentIndex >= tasks.length - 1}
+                    className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4 rotate-180" />
+                  </button>
                 </div>
 
-                {/* 下方：A面和 B面视频 - 上下布局 */}
-                <div className="px-3 py-2 space-y-2">
-                  {/* A 面视频 */}
-                  <div className="flex items-center gap-2">
-                    {/* 标题 */}
-                    <div className="flex items-center gap-2 shrink-0 w-20">
-                      <div className="w-5 h-5 rounded bg-violet-500/20 flex items-center justify-center">
-                        <Monitor className="w-3 h-3 text-violet-400" />
-                      </div>
-                      <span className="text-[10px] font-medium text-violet-400 uppercase">A 面</span>
+                {/* 第二行：A 面视频 */}
+                <div className="px-3 py-2 flex items-center gap-2 border-b border-slate-800/30">
+                  {/* A 面标签 */}
+                  <div className="flex items-center gap-1.5 shrink-0 w-12">
+                    <div className="w-5 h-5 rounded bg-violet-500/20 flex items-center justify-center">
+                      <Monitor className="w-3 h-3 text-violet-400" />
                     </div>
-                    {/* 缩略图 */}
-                    <div className="w-10 h-10 rounded bg-violet-500/10 border border-violet-500/20 overflow-hidden shrink-0">
-                      {currentTask.aVideo.thumbnailUrl ? (
-                        <img src={currentTask.aVideo.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <FileVideo className="w-4 h-4 text-violet-400/50" />
-                        </div>
+                    <span className="text-[10px] font-medium text-violet-400">A</span>
+                  </div>
+                  {/* A 面缩略图 */}
+                  <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden shrink-0">
+                    {currentTask.aVideo.thumbnailUrl ? (
+                      <img src={currentTask.aVideo.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <FileVideo className="w-5 h-5 text-slate-600" />
+                      </div>
+                    )}
+                  </div>
+                  {/* A 面文件信息 */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-200 truncate">{currentTask.aVideo.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {currentTask.aVideo.fileSize && (
+                        <span className="text-[10px] text-slate-500">{formatFileSize(currentTask.aVideo.fileSize)}</span>
+                      )}
+                      {currentTask.aVideo.width && currentTask.aVideo.height && (
+                        <>
+                          <span className="text-[10px] text-slate-500">{currentTask.aVideo.width}×{currentTask.aVideo.height}</span>
+                          <span className="text-[10px] text-slate-500">
+                            ({(currentTask.aVideo.width / currentTask.aVideo.height).toFixed(2)})
+                          </span>
+                        </>
+                      )}
+                      {currentTask.aVideo.duration && (
+                        <span className="text-[10px] text-slate-500">{formatDuration(currentTask.aVideo.duration)}</span>
+                      )}
+                      {currentTask.aVideo.orientation && (
+                        <span className="text-[10px] text-slate-500 px-1.5 py-0.5 bg-slate-800 rounded">
+                          {currentTask.aVideo.orientation === 'landscape' ? '横版' : currentTask.aVideo.orientation === 'portrait' ? '竖版' : '方形'}
+                        </span>
                       )}
                     </div>
-                    {/* 文件名 + 信息 */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-200 truncate">{currentTask.aVideo.name}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {currentTask.aVideo.fileSize && (
-                          <span className="text-[9px] text-slate-500">{formatFileSize(currentTask.aVideo.fileSize)}</span>
-                        )}
-                        {currentTask.aVideo.width && currentTask.aVideo.height && (
-                          <span className="text-[9px] text-slate-500">{currentTask.aVideo.width}×{currentTask.aVideo.height}</span>
-                        )}
-                        {currentTask.aVideo.duration && (
-                          <span className="text-[9px] text-slate-500">{formatDuration(currentTask.aVideo.duration)}</span>
-                        )}
-                      </div>
-                    </div>
-                    {/* 预览按钮 */}
-                    <button
-                      onClick={handleOpenAPreview}
-                      className="p-1.5 hover:bg-violet-500/10 text-slate-500 hover:text-violet-400 rounded transition-colors shrink-0"
-                      title="预览 A 面"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
                   </div>
+                  {/* A 面预览按钮 */}
+                  <button
+                    onClick={handleOpenAPreview}
+                    className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-slate-300 rounded transition-colors shrink-0"
+                    title="预览 A 面"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
 
-                  {/* B 面视频 */}
-                  <div className="flex items-center gap-2">
-                    {/* 标题 */}
-                    <div className="flex items-center gap-2 shrink-0 w-20">
-                      <div className="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center">
-                        <Smartphone className="w-3 h-3 text-indigo-400" />
-                      </div>
-                      <span className="text-[10px] font-medium text-indigo-400 uppercase">B 面</span>
+                {/* 第三行：B 面视频 */}
+                <div className="px-3 py-2 flex items-center gap-2">
+                  {/* B 面标签 */}
+                  <div className="flex items-center gap-1.5 shrink-0 w-12">
+                    <div className="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center">
+                      <Smartphone className="w-3 h-3 text-indigo-400" />
                     </div>
-                    {/* 缩略图 */}
-                    <div className="w-10 h-10 rounded bg-indigo-500/10 border border-indigo-500/20 overflow-hidden shrink-0">
-                      {currentTask.bVideo.thumbnailUrl ? (
-                        <img src={currentTask.bVideo.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <FileVideo className="w-4 h-4 text-indigo-400/50" />
-                        </div>
+                    <span className="text-[10px] font-medium text-indigo-400">B</span>
+                  </div>
+                  {/* B 面缩略图 */}
+                  <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden shrink-0">
+                    {currentTask.bVideo.thumbnailUrl ? (
+                      <img src={currentTask.bVideo.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <FileVideo className="w-5 h-5 text-slate-600" />
+                      </div>
+                    )}
+                  </div>
+                  {/* B 面文件信息 */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-200 truncate">{currentTask.bVideo.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {currentTask.bVideo.fileSize && (
+                        <span className="text-[10px] text-slate-500">{formatFileSize(currentTask.bVideo.fileSize)}</span>
+                      )}
+                      {currentTask.bVideo.width && currentTask.bVideo.height && (
+                        <>
+                          <span className="text-[10px] text-slate-500">{currentTask.bVideo.width}×{currentTask.bVideo.height}</span>
+                          <span className="text-[10px] text-slate-500">
+                            ({(currentTask.bVideo.width / currentTask.bVideo.height).toFixed(2)})
+                          </span>
+                        </>
+                      )}
+                      {currentTask.bVideo.duration && (
+                        <span className="text-[10px] text-slate-500">{formatDuration(currentTask.bVideo.duration)}</span>
+                      )}
+                      {currentTask.bVideo.orientation && (
+                        <span className="text-[10px] text-slate-500 px-1.5 py-0.5 bg-slate-800 rounded">
+                          {currentTask.bVideo.orientation === 'landscape' ? '横版' : currentTask.bVideo.orientation === 'portrait' ? '竖版' : '方形'}
+                        </span>
                       )}
                     </div>
-                    {/* 文件名 + 信息 */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-200 truncate">{currentTask.bVideo.name}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {currentTask.bVideo.fileSize && (
-                          <span className="text-[9px] text-slate-500">{formatFileSize(currentTask.bVideo.fileSize)}</span>
-                        )}
-                        {currentTask.bVideo.width && currentTask.bVideo.height && (
-                          <span className="text-[9px] text-slate-500">{currentTask.bVideo.width}×{currentTask.bVideo.height}</span>
-                        )}
-                        {currentTask.bVideo.duration && (
-                          <span className="text-[9px] text-slate-500">{formatDuration(currentTask.bVideo.duration)}</span>
-                        )}
-                      </div>
-                    </div>
-                    {/* 预览按钮 */}
-                    <button
-                      onClick={handleOpenBPreview}
-                      className="p-1.5 hover:bg-indigo-500/10 text-slate-500 hover:text-indigo-400 rounded transition-colors shrink-0"
-                      title="预览 B 面"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
                   </div>
+                  {/* B 面预览按钮 */}
+                  <button
+                    onClick={handleOpenBPreview}
+                    className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-slate-300 rounded transition-colors shrink-0"
+                    title="预览 B 面"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             )}
