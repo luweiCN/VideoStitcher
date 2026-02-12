@@ -441,6 +441,13 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
                         <span className="text-black text-[8px] font-bold">!</span>
                       </div>
                     )}
+
+                    {/* 当前预览指示器 */}
+                    {index === currentIndex && (
+                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-cyan-500 rounded text-[8px] font-medium text-black whitespace-nowrap z-10">
+                        预览
+                      </div>
+                    )}
                   </div>
                 ))}
                 {files.length === 0 && (
