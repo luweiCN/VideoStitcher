@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Grid3X3, Loader2, CheckCircle, XCircle, ArrowLeft,
   Image as ImageIcon, Layers, Settings, Eye, FolderOpen, Trash2
@@ -37,6 +37,15 @@ interface ImageFile {
   error?: string;             // 错误信息
 }
 
+/**
+ * 九宫格切割配置
+ */
+const GRID_CONFIG = {
+  cols: 3,        // 列数
+  rows: 3,        // 行数
+  targetTileSize: 800,  // 目标切片尺寸
+};
+
 const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0); // 当前选中的任务索引
@@ -53,6 +62,11 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   // 预览弹窗状态
   const [showPreview, setShowPreview] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+
+  // Canvas 预览相关
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewImageRef = useRef<HTMLImageElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // 当前选中的文件（用于预览）
   const currentFile = files[currentIndex];
@@ -77,6 +91,133 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
     moduleNameCN: '专业无损九宫格',
     moduleNameEN: 'LosslessGrid',
   });
+
+  /**
+   * 绘制九宫格预览
+   */
+  const drawGridPreview = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = previewImageRef.current;
+    if (!img) {
+      // 空状态
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+
+    // 清空画布
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 计算画布尺寸（正方形 800x800）
+    const canvasSize = canvas.width;
+
+    // 计算缩放：保持比例，居中显示
+    const scale = Math.min(canvasSize / img.naturalWidth, canvasSize / img.naturalHeight);
+    const scaledWidth = img.naturalWidth * scale;
+    const scaledHeight = img.naturalHeight * scale;
+    const x = (canvasSize - scaledWidth) / 2;
+    const y = (canvasSize - scaledHeight) / 2;
+
+    // 绘制图片
+    ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+
+    // 绘制九宫格网格线（白色半透明）
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]); // 虚线
+
+    // 计算网格位置（基于原始图片尺寸）
+    const gridWidth = scaledWidth / GRID_CONFIG.cols;
+    const gridHeight = scaledHeight / GRID_CONFIG.rows;
+
+    ctx.beginPath();
+    // 垂直线
+    for (let col = 1; col < GRID_CONFIG.cols; col++) {
+      const lineX = x + gridWidth * col;
+      ctx.moveTo(lineX, y);
+      ctx.lineTo(lineX, y + scaledHeight);
+    }
+    // 水平线
+    for (let row = 1; row < GRID_CONFIG.rows; row++) {
+      const lineY = y + gridHeight * row;
+      ctx.moveTo(x, lineY);
+      ctx.lineTo(x + scaledWidth, lineY);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]); // 重置虚线
+
+    // 绘制切片尺寸标注
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 计算实际切片尺寸（基于原始图片）
+    const originalTileWidth = Math.floor(img.naturalWidth / GRID_CONFIG.cols);
+    const originalTileHeight = Math.floor(img.naturalHeight / GRID_CONFIG.rows);
+
+    for (let row = 0; row < GRID_CONFIG.rows; row++) {
+      for (let col = 0; col < GRID_CONFIG.cols; col++) {
+        const cellX = x + gridWidth * col;
+        const cellY = y + gridHeight * row;
+        const cellCenterX = cellX + gridWidth / 2;
+        const cellCenterY = cellY + gridHeight / 2;
+
+        // 绘制半透明背景
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(cellX + 2, cellY + 2, gridWidth - 4, gridHeight - 4);
+
+        // 绘制尺寸文字
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(
+          `${originalTileWidth}×${originalTileHeight}`,
+          cellCenterX,
+          cellCenterY - 8
+        );
+        ctx.font = '10px sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(
+          `第 ${row * 3 + col + 1} 张`,
+          cellCenterX,
+          cellCenterY + 10
+        );
+      }
+    }
+  }, []);
+
+  /**
+   * 加载预览图
+   */
+  const loadPreviewImage = useCallback(async (imagePath: string) => {
+    try {
+      addLog(`正在加载预览图: ${imagePath}`, 'info');
+      const result = await window.api.getPreviewUrl(imagePath);
+      if (!result.success || !result.url) {
+        addLog(`获取预览 URL 失败: ${result.error || '未知错误'}`, 'error');
+        return;
+      }
+
+      const img = new Image();
+      img.src = result.url;
+      img.onload = () => {
+        addLog(`预览图加载成功: ${imagePath}`, 'info');
+        previewImageRef.current = img;
+        // 触发重绘
+        requestAnimationFrame(() => drawGridPreview());
+      };
+      img.onerror = () => {
+        addLog(`加载图片失败: ${imagePath}`, 'error');
+      };
+    } catch (err) {
+      addLog(`加载预览失败: ${err}`, 'error');
+    }
+  }, [addLog, drawGridPreview]);
 
   // 使用图片处理事件 Hook
   useImageProcessingEvents({
@@ -131,6 +272,23 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
       setIsProcessing(false);
     },
   });
+
+  // 当 currentIndex 或 images.length 改变时，自动加载预览图
+  useEffect(() => {
+    if (files.length > 0 && currentIndex >= 0 && currentIndex < files.length) {
+      const file = files[currentIndex];
+      if (!file) return;
+
+      // 如果还没有预览图，加载它
+      if (!previewImageRef.current || previewImageRef.current.src !== file.previewUrl) {
+        loadPreviewImage(file.path);
+      }
+    } else {
+      // 没有图片了，清空预览
+      previewImageRef.current = null;
+      requestAnimationFrame(() => drawGridPreview());
+    }
+  }, [currentIndex, files, loadPreviewImage, drawGridPreview]);
 
   // 格式化文件大小
   const formatSize = (bytes: number) => {
@@ -231,13 +389,24 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
 
   // 移除文件
   const removeFile = (id: string) => {
-    setFiles(prev => prev.filter(f => f.id !== id));
+    setFiles(prev => {
+      const filtered = prev.filter(f => f.id !== id);
+      // 如果删除的是当前选中或之前的项目，调整索引
+      const currentId = prev[currentIndex]?.id;
+      if (currentId && !filtered.find(f => f.id === currentId)) {
+        const newIndex = Math.min(currentIndex, filtered.length - 1);
+        setCurrentIndex(newIndex >= 0 ? newIndex : 0);
+      }
+      return filtered;
+    });
   };
 
   // 清空文件列表
   const clearFiles = () => {
     setFiles([]);
     setCurrentIndex(0);
+    previewImageRef.current = null;
+    drawGridPreview();
     fileSelectorRef.current?.clearFiles();
   };
 
@@ -549,38 +718,39 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
             )}
           </div>
 
-          {/* Bottom: Preview Area */}
-          {currentFile && currentFile.thumbnailUrl && (
-            <div className="flex-1 border-t border-slate-800 bg-black/30 shrink-0 flex flex-col items-center justify-center">
-              {/* 预览图 */}
+          {/* Bottom: Canvas Preview Area */}
+          <div className="flex-1 border-t border-slate-800 bg-black/30 shrink-0 flex flex-col items-center justify-center p-4">
+            {files.length > 0 ? (
               <div className="flex flex-col items-center">
-                <span className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">
-                  原图预览
-                </span>
-                <img
-                  src={currentFile.thumbnailUrl}
-                  alt={currentFile.name}
-                  className="h-64 w-auto object-contain rounded-lg border border-slate-700"
-                />
-                <span className="text-[10px] text-slate-500 mt-2">
-                  {currentFile.width}×{currentFile.height}
-                </span>
-                <span className="text-[10px] text-cyan-400 mt-1">
-                  将被切割为 9 张 {Math.ceil((currentFile.width || 0) / 3)}×{Math.ceil((currentFile.height || 0) / 3)} 的切片
-                </span>
-              </div>
-            </div>
-          )}
+                {/* Canvas 画布 */}
+                <div
+                  ref={containerRef}
+                  className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
+                  style={{ width: 400, height: 400 }}
+                >
+                  <canvas
+                    ref={canvasRef}
+                    width={800}
+                    height={800}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                </div>
 
-          {/* 空状态 */}
-          {files.length === 0 && (
-            <div className="flex-1 flex items-center justify-center text-slate-500">
-              <div className="flex flex-col items-center">
+                {/* 预览说明 */}
+                <div className="mt-3 text-center">
+                  <p className="text-xs text-cyan-400 font-medium">九宫格切割预览</p>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    图片将被切成 9 张，每张约 {currentFile?.width ? Math.floor(currentFile.width / 3) : '?'}×{currentFile?.height ? Math.floor(currentFile.height / 3) : '?'} 像素
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center text-slate-500">
                 <Grid3X3 className="w-16 h-16 opacity-20 mb-4" />
                 <p className="text-xs">暂无任务</p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Right Sidebar - Settings + Logs + Button */}
