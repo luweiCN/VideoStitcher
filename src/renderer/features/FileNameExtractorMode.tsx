@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Copy, FileText, List, Table, Code, Edit2, Save, X, Download,
   ArrowRightLeft, File as FileIcon, Loader2, Check, Trash2, Hash, CopyCheck
@@ -6,7 +6,7 @@ import {
 import PageHeader from '../components/PageHeader';
 import OperationLogPanel from '../components/OperationLogPanel';
 import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
-import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
+import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useToastMessages } from '../components/Toast/Toast';
@@ -48,6 +48,9 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameProgress, setRenameProgress] = useState({ current: 0, total: 0 });
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+
+  // FileSelector ref - 用于清除选择器状态
+  const fileSelectorRef = useRef<FileSelectorRef>(null);
 
   // 使用日志 Hook
   const {
@@ -142,7 +145,17 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
    * 处理文件选择
    */
   const handleFilesChange = useCallback((filePaths: string[]) => {
+    // 如果是空数组（来自 clearFiles 触发的 onChange），不处理
+    if (filePaths.length === 0) {
+      return;
+    }
+
     addFilesByPaths(filePaths);
+
+    // 延迟清空 FileSelector 内部列表，避免 onChange 触发死循环
+    setTimeout(() => {
+      fileSelectorRef.current?.clearFiles();
+    }, 0);
   }, []);
 
   /**
@@ -514,6 +527,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
             {/* 文件选择 */}
             <FileSelectorGroup>
               <FileSelector
+                ref={fileSelectorRef}
                 id="fileNameExtractorFiles"
                 name="选择文件"
                 accept="all"
