@@ -53,7 +53,7 @@
 |------|----------|--------|--------|------|
 | 封面压缩 | `CoverCompressMode.tsx` | emerald | 1 | ✅ 已完成 |
 | 图片素材处理 | `ImageMaterialMode.tsx` | amber | 2 | ✅ 已完成 |
-| 封面格式转换 | `CoverFormatMode.tsx` | fuchsia | 3 | 🔄 下一个 |
+| 封面格式转换 | `CoverFormatMode.tsx` | fuchsia | 3 | ✅ 已完成 |
 | 智能改尺寸 | `ResizeMode.tsx` | rose | 4 | 待改造 |
 | 文件名提取 | `FileNameExtractorMode.tsx` | pink | 5 | 待改造(特殊布局) |
 
@@ -795,7 +795,36 @@ git commit -m "refactor: 统一文件名提取模块布局和配色
 7. **职责分离原则**: `switchToPreview` 只负责切换索引，实际的加载由 useEffect 统一处理。但如果索引不变内容变（如删除），需手动调用加载
 
 ### CoverFormatMode (封面格式转换)
-- 待补充
+
+**已完成日期:** 2025-02-12
+
+**改造内容:**
+- 改为标准三栏布局（与 CoverCompressMode 一致）
+  - 左侧 (w-80): 文件选择 + 输出目录 + 质量设置 + 并发线程数
+  - 中间: 任务列表
+  - 右侧 (w-80): 设置 + 进度条 + 日志 + 开始按钮
+- 主背景 `bg-slate-950` → `bg-black`
+- 侧边栏背景 `bg-slate-900` → `bg-black`
+- 设置卡片背景 `bg-slate-950` → `bg-black/50`
+- 按钮改用 Button 组件库（主题色 fuchsia）
+- 统一间距 `p-6` → `p-4`, `gap-6` → `gap-4`
+- 添加缩略图显示（200x200 base64）
+- 任务列表显示：缩略图 + 文件名 + 大小 + 尺寸 + 方向
+- 添加并发线程数缓存 (`useConcurrencyCache`)
+- FileSelector 添加 `ref`，选择后自动清空避免重复触发
+- 任务状态 UI: `pending` → `waiting` → `processing` → `completed`/`error`
+
+**遇到的问题及解决方案:**
+
+| 问题 | 解决方案 |
+|------|----------|
+| OperationLogPanel 缺少 fuchsia 主题色 | 在 types.ts 和 LogFooter.tsx 中添加 fuchsia 配置 |
+| setLogs 未定义错误 | 改用 clearLogs() 函数 |
+
+**经验教训:**
+1. **主题色统一**: 每个功能模块使用独立主题色，需要在多个组件中添加配置
+2. **布局一致性**: 三栏布局已成为标准模式，便于用户快速上手
+3. **缓存 Hook 复用**: 并发数、输出目录等使用缓存 Hook，保持跨会话的设置
 
 ### FileNameExtractorMode (文件名提取)
 - 待补充
