@@ -48,6 +48,9 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
   // 进度状态
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
 
+  // 预览弹窗状态
+  const [previewFile, setPreviewFile] = useState<ImageFile | null>(null);
+
   // 使用日志 Hook
   const {
     logs,
@@ -211,6 +214,16 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
     if (currentIndex < files.length - 1) {
       switchToTask(currentIndex + 1);
     }
+  };
+
+  // 打开预览
+  const openPreview = (file: ImageFile) => {
+    setPreviewFile(file);
+  };
+
+  // 关闭预览
+  const closePreview = () => {
+    setPreviewFile(null);
   };
 
   // 开始处理
@@ -444,7 +457,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
                   {/* 预览按钮 */}
                   {files[currentIndex].thumbnailUrl && files[currentIndex].status === 'pending' && !isProcessing && (
                     <button
-                      onClick={() => window.api.openPath(files[currentIndex].path)}
+                      onClick={() => openPreview(files[currentIndex])}
                       className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-slate-300 rounded transition-colors"
                       title="打开预览"
                     >
@@ -575,8 +588,101 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
           </div>
         </div>
       </div>
+
+      {/* 预览弹窗 */}
+      {previewFile && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-8">
+          {/* 关闭按钮 */}
+          <button
+            onClick={closePreview}
+            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white transition-colors"
+          >
+            <XCircle className="w-6 h-6" />
+          </button>
+
+          {/* 预览内容 */}
+          <div className="flex items-center gap-8">
+            {/* 左边：原图 */}
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-xs text-slate-400 uppercase tracking-wider">原图</span>
+              <div className="relative bg-black/50 rounded-lg overflow-hidden border border-slate-800">
+                <img
+                  src={previewFile.thumbnailUrl}
+                  alt={previewFile.name}
+                  className="max-w-[400px] max-h-[70vh] object-contain"
+                />
+                {previewFile.width && previewFile.height && (
+                  <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/70 rounded text-xs text-slate-300">
+                    {previewFile.width}×{previewFile.height}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 中间箭头 */}
+            <div className="flex flex-col items-center gap-2">
+              <ArrowLeft className="w-8 h-8 text-fuchsia-400" />
+            </div>
+
+            {/* 右边：目标尺寸 */}
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-xs text-slate-400 uppercase tracking-wider">目标 ({getTargetSize(previewFile).width}×{getTargetSize(previewFile).height})</span>
+              <div
+                className="relative bg-black/50 rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center"
+                style={{
+                  width: getPreviewSize(previewFile).width,
+                  height: getPreviewSize(previewFile).height,
+                }}
+              >
+                {/* 目标尺寸占位框 */}
+                <div
+                  className="border-2 border-dashed border-slate-600 rounded flex items-center justify-center"
+                  style={{
+                    width: getTargetSize(previewFile).width,
+                    height: getTargetSize(previewFile).height,
+                  }}
+                >
+                  <span className="text-slate-600 text-sm">
+                    {getTargetSize(previewFile).width}×{getTargetSize(previewFile).height}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+/**
+ * 获取目标尺寸
+ */
+function getTargetSize(file: ImageFile): { width: number; height: number } {
+  const orientation = file.orientation;
+  if (orientation === 'landscape') {
+    return { width: 1920, height: 1080 };
+  } else if (orientation === 'portrait') {
+    return { width: 1080, height: 1920 };
+  } else {
+    return { width: 800, height: 800 };
+  }
+}
+
+/**
+ * 获取预览尺寸（按比例缩放）
+ */
+function getPreviewSize(file: ImageFile): { width: number; height: number } {
+  const target = getTargetSize(file);
+  const maxWidth = 400;
+  const maxHeight = 400;
+
+  // 保持目标比例，但在 max 范围内
+  const ratio = Math.min(maxWidth / target.width, maxHeight / target.height);
+  return {
+    width: target.width * ratio,
+    height: target.height * ratio,
+  };
+}
 
 export default CoverFormatMode;
