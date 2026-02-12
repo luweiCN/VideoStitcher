@@ -256,7 +256,7 @@ export function useOperationLogs(options: UseOperationLogsOptions): UseOperation
   const addLog = useCallback((message: string, type?: LogEntry['type']) => {
     const logType = type ?? inferLogType(message);
     const newLog: LogEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       timestamp: formatTimestamp(),
       message: message,
       type: logType,

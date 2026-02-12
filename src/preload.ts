@@ -279,17 +279,17 @@ export interface ElectronAPI {
     callback: (data: { done: number; failed: number; total: number }) => void,
   ) => void;
 
-  // 新的视频处理事件
+  // 新的视频处理事件 - 返回清理函数
   onVideoStart: (
     callback: (data: {
       total: number;
       mode: string;
       concurrency: number;
     }) => void,
-  ) => void;
+  ) => () => void;
   onVideoTaskStart: (
     callback: (data: { index: number; taskId?: string }) => void,
-  ) => void;
+  ) => () => void;
   onVideoProgress: (
     callback: (data: {
       done: number;
@@ -298,7 +298,7 @@ export interface ElectronAPI {
       index: number;
       outputPath: string;
     }) => void,
-  ) => void;
+  ) => () => void;
   onVideoFailed: (
     callback: (data: {
       done: number;
@@ -307,21 +307,21 @@ export interface ElectronAPI {
       index: number;
       error: string;
     }) => void,
-  ) => void;
+  ) => () => void;
   onVideoFinish: (
     callback: (data: { done: number; failed: number; total: number }) => void,
-  ) => void;
+  ) => () => void;
   onVideoLog: (
     callback: (data: { index: number; message: string }) => void,
-  ) => void;
+  ) => () => void;
 
-  // 图片处理事件
+  // 图片处理事件 - 返回清理函数
   onImageStart: (
     callback: (data: { total: number; mode: string }) => void,
-  ) => void;
+  ) => () => void;
   onImageTaskStart: (
     callback: (data: { index: number; taskId?: string }) => void,
-  ) => void;
+  ) => () => void;
   onImageProgress: (
     callback: (data: {
       done: number;
@@ -330,7 +330,7 @@ export interface ElectronAPI {
       current: string;
       result?: any;
     }) => void,
-  ) => void;
+  ) => () => void;
   onImageFailed: (
     callback: (data: {
       done: number;
@@ -339,11 +339,11 @@ export interface ElectronAPI {
       current: string;
       error: string;
     }) => void,
-  ) => void;
+  ) => () => void;
   onImageFinish: (
     callback: (data: { done: number; failed: number; total: number }) => void,
-  ) => void;
-  onImageTaskFinish: (callback: (data: { index: number }) => void) => void;
+  ) => () => void;
+  onImageTaskFinish: (callback: (data: { index: number }) => void) => () => void;
 
   // 预览事件
   onPreviewStart: (callback: (data: { mode: string }) => void) => void;
@@ -599,26 +599,69 @@ const api: ElectronAPI = {
   onJobFailed: (cb) => ipcRenderer.on("job-failed", (_e, data) => cb(data)),
   onJobFinish: (cb) => ipcRenderer.on("job-finish", (_e, data) => cb(data)),
 
-  // 新的视频处理事件
-  onVideoStart: (cb) => ipcRenderer.on("video-start", (_e, data) => cb(data)),
-  onVideoTaskStart: (cb) =>
-    ipcRenderer.on("video-task-start", (_e, data) => cb(data)),
-  onVideoProgress: (cb) =>
-    ipcRenderer.on("video-progress", (_e, data) => cb(data)),
-  onVideoFailed: (cb) => ipcRenderer.on("video-failed", (_e, data) => cb(data)),
-  onVideoFinish: (cb) => ipcRenderer.on("video-finish", (_e, data) => cb(data)),
-  onVideoLog: (cb) => ipcRenderer.on("video-log", (_e, data) => cb(data)),
+  // 新的视频处理事件 - 返回清理函数
+  onVideoStart: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("video-start", listener);
+    return () => ipcRenderer.removeListener("video-start", listener);
+  },
+  onVideoTaskStart: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("video-task-start", listener);
+    return () => ipcRenderer.removeListener("video-task-start", listener);
+  },
+  onVideoProgress: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("video-progress", listener);
+    return () => ipcRenderer.removeListener("video-progress", listener);
+  },
+  onVideoFailed: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("video-failed", listener);
+    return () => ipcRenderer.removeListener("video-failed", listener);
+  },
+  onVideoFinish: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("video-finish", listener);
+    return () => ipcRenderer.removeListener("video-finish", listener);
+  },
+  onVideoLog: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("video-log", listener);
+    return () => ipcRenderer.removeListener("video-log", listener);
+  },
 
-  // 图片处理事件
-  onImageStart: (cb) => ipcRenderer.on("image-start", (_e, data) => cb(data)),
-  onImageTaskStart: (cb) =>
-    ipcRenderer.on("image-task-start", (_e, data) => cb(data)),
-  onImageProgress: (cb) =>
-    ipcRenderer.on("image-progress", (_e, data) => cb(data)),
-  onImageFailed: (cb) => ipcRenderer.on("image-failed", (_e, data) => cb(data)),
-  onImageFinish: (cb) => ipcRenderer.on("image-finish", (_e, data) => cb(data)),
-  onImageTaskFinish: (cb) =>
-    ipcRenderer.on("image-task-finish", (_e, data) => cb(data)),
+  // 图片处理事件 - 返回清理函数
+  onImageStart: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("image-start", listener);
+    return () => ipcRenderer.removeListener("image-start", listener);
+  },
+  onImageTaskStart: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("image-task-start", listener);
+    return () => ipcRenderer.removeListener("image-task-start", listener);
+  },
+  onImageProgress: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("image-progress", listener);
+    return () => ipcRenderer.removeListener("image-progress", listener);
+  },
+  onImageFailed: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("image-failed", listener);
+    return () => ipcRenderer.removeListener("image-failed", listener);
+  },
+  onImageFinish: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("image-finish", listener);
+    return () => ipcRenderer.removeListener("image-finish", listener);
+  },
+  onImageTaskFinish: (cb) => {
+    const listener = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("image-task-finish", listener);
+    return () => ipcRenderer.removeListener("image-task-finish", listener);
+  },
 
   // 移除监听器
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),

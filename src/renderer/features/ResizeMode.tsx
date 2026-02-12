@@ -81,13 +81,10 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     copyLogs,
     downloadLogs,
     logsContainerRef,
-    logsEndRef,
     autoScrollEnabled,
     setAutoScrollEnabled,
     autoScrollPaused,
     resumeAutoScroll,
-    scrollToBottom,
-    scrollToTop,
     onUserInteractStart,
   } = useOperationLogs({
     moduleNameCN: '智能改尺寸',
@@ -193,7 +190,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
     // 创建初始视频对象
     const newVideos: VideoFile[] = filePaths.map(path => ({
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).slice(2, 11),
       path,
       name: path.split('/').pop() || path,
       status: 'pending' as const,
@@ -856,18 +853,14 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
             <div className="flex-1 min-h-[300px]">
               <OperationLogPanel
                 logs={logs}
-                addLog={addLog}
                 clearLogs={clearLogs}
                 copyLogs={copyLogs}
                 downloadLogs={downloadLogs}
                 logsContainerRef={logsContainerRef}
-                logsEndRef={logsEndRef}
                 autoScrollEnabled={autoScrollEnabled}
                 setAutoScrollEnabled={setAutoScrollEnabled}
                 autoScrollPaused={autoScrollPaused}
                 resumeAutoScroll={resumeAutoScroll}
-                scrollToBottom={scrollToBottom}
-                scrollToTop={scrollToTop}
                 onUserInteractStart={onUserInteractStart}
                 themeColor="rose"
               />

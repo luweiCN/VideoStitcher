@@ -26,11 +26,8 @@
 ## 安装
 
 ```bash
-# 当前项目本地导入
+# 项目内部组件，直接导入使用
 import { TextCollapse } from './components/TextCollapse';
-
-# 如果独立发布到 npm
-npm install @your-scope/text-collapse
 ```
 
 ## 快速开始
@@ -38,7 +35,7 @@ npm install @your-scope/text-collapse
 ### 基础用法
 
 ```tsx
-import { TextCollapse } from '@your-scope/text-collapse';
+import { TextCollapse } from './components/TextCollapse';
 
 function App() {
   return (
@@ -136,7 +133,7 @@ interface ExpandButtonProps {
 用于需要完全自定义渲染的场景。
 
 ```tsx
-import { useTextCollapse } from '@your-scope/text-collapse';
+import { useTextCollapse } from './components/TextCollapse';
 
 function CustomComponent() {
   const textRef = useRef<HTMLSpanElement>(null);
@@ -175,7 +172,7 @@ function CustomComponent() {
 简化版 Hook，专门配合 CSS `line-clamp` 使用。
 
 ```tsx
-import { useNeedsCollapse } from '@your-scope/text-collapse';
+import { useNeedsCollapse } from './components/TextCollapse';
 
 function LogEntry({ message }) {
   const textRef = useRef<HTMLSpanElement>(null);
@@ -208,7 +205,7 @@ function LogEntry({ message }) {
 封装的 ResizeObserver Hook，用于监听元素尺寸变化。
 
 ```tsx
-import { useResizeObserver } from '@your-scope/text-collapse';
+import { useResizeObserver } from './components/TextCollapse';
 
 function Component() {
   const { ref, trigger } = useResizeObserver((entries) => {
@@ -280,7 +277,7 @@ function ResponsiveCollapse() {
 ### 清空测量缓存
 
 ```tsx
-import { clearMeasureCache } from '@your-scope/text-collapse';
+import { clearMeasureCache } from './components/TextCollapse';
 
 // 在大量内容更新后清空缓存
 clearMeasureCache();

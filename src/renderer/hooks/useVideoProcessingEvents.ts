@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 
 /**
  * 视频处理事件数据类型定义（与 preload.ts 保持一致）
@@ -94,40 +94,34 @@ export function useVideoProcessingEvents(handlers: VideoProcessingHandlers) {
   const { onStart, onTaskStart, onProgress, onFailed, onFinish, onLog } = handlers;
 
   useEffect(() => {
-    // 注册所有监听器
+    // 注册所有监听器，收集清理函数
     const unsubscribers: (() => void)[] = [];
 
     if (onStart) {
-      window.api.onVideoStart(onStart);
-      unsubscribers.push(() => window.api.removeAllListeners('video-start'));
+      unsubscribers.push(window.api.onVideoStart(onStart));
     }
 
     if (onTaskStart) {
-      window.api.onVideoTaskStart(onTaskStart);
-      unsubscribers.push(() => window.api.removeAllListeners('video-task-start'));
+      unsubscribers.push(window.api.onVideoTaskStart(onTaskStart));
     }
 
     if (onProgress) {
-      window.api.onVideoProgress(onProgress);
-      unsubscribers.push(() => window.api.removeAllListeners('video-progress'));
+      unsubscribers.push(window.api.onVideoProgress(onProgress));
     }
 
     if (onFailed) {
-      window.api.onVideoFailed(onFailed);
-      unsubscribers.push(() => window.api.removeAllListeners('video-failed'));
+      unsubscribers.push(window.api.onVideoFailed(onFailed));
     }
 
     if (onFinish) {
-      window.api.onVideoFinish(onFinish);
-      unsubscribers.push(() => window.api.removeAllListeners('video-finish'));
+      unsubscribers.push(window.api.onVideoFinish(onFinish));
     }
 
     if (onLog) {
-      window.api.onVideoLog(onLog);
-      unsubscribers.push(() => window.api.removeAllListeners('video-log'));
+      unsubscribers.push(window.api.onVideoLog(onLog));
     }
 
-    // 清理函数：移除所有监听器
+    // 清理函数：移除当前实例注册的监听器
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };

@@ -83,14 +83,11 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     clearLogs,
     copyLogs,
     downloadLogs,
-    logsEndRef,
     logsContainerRef,
     autoScrollEnabled,
     setAutoScrollEnabled,
     autoScrollPaused,
     resumeAutoScroll,
-    scrollToBottom,
-    scrollToTop,
     onUserInteractStart,
   } = useOperationLogs({
     moduleNameCN: 'A+B前后拼接',
@@ -985,18 +982,14 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
             <div className="flex-1 min-h-[300px]">
               <OperationLogPanel
                 logs={logs}
-                addLog={addLog}
                 clearLogs={clearLogs}
                 copyLogs={copyLogs}
                 downloadLogs={downloadLogs}
                 logsContainerRef={logsContainerRef}
-                logsEndRef={logsEndRef}
                 autoScrollEnabled={autoScrollEnabled}
                 setAutoScrollEnabled={setAutoScrollEnabled}
                 autoScrollPaused={autoScrollPaused}
                 resumeAutoScroll={resumeAutoScroll}
-                scrollToBottom={scrollToBottom}
-                scrollToTop={scrollToTop}
                 onUserInteractStart={onUserInteractStart}
                 themeColor="pink"
               />
