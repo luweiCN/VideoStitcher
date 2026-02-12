@@ -46,6 +46,10 @@ const GRID_CONFIG = {
   targetTileSize: 800,  // 目标切片尺寸
 };
 
+// 预览画布尺寸常量
+const PREVIEW_SIZE = 400; // 显示大小 (像素)
+const BASE_SIZE = 800;    // 逻辑尺寸 (Canvas 实际尺寸)
+
 const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0); // 当前选中的任务索引
@@ -718,36 +722,27 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
             )}
           </div>
 
-          {/* Bottom: Canvas Preview Area */}
-          <div className="flex-1 border-t border-slate-800 bg-black/30 shrink-0 flex flex-col items-center justify-center p-4">
-            {files.length > 0 ? (
-              <div className="flex flex-col items-center">
-                {/* Canvas 画布 */}
-                <div
-                  ref={containerRef}
-                  className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
-                  style={{ width: 400, height: 400 }}
-                >
-                  <canvas
-                    ref={canvasRef}
-                    width={800}
-                    height={800}
-                    style={{ width: '100%', height: '100%' }}
-                  />
-                </div>
-
-                {/* 预览说明 */}
-                <div className="mt-3 text-center">
-                  <p className="text-xs text-cyan-400 font-medium">九宫格切割预览</p>
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    图片将被切成 9 张，每张约 {currentFile?.width ? Math.floor(currentFile.width / 3) : '?'}×{currentFile?.height ? Math.floor(currentFile.height / 3) : '?'} 像素
-                  </p>
-                </div>
+          {/* 预览画布 */}
+          <div className="flex-1 flex flex-col flex-shrink-0 border-t border-slate-800 bg-black p-4 min-h-0">
+            <div className="flex-1 flex items-center justify-center">
+              <div
+                ref={containerRef}
+                className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
+                style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
+              >
+                <canvas
+                  ref={canvasRef}
+                  width={BASE_SIZE}
+                  height={BASE_SIZE}
+                  style={{ width: '100%', height: '100%' }}
+                />
               </div>
-            ) : (
-              <div className="flex flex-col items-center text-slate-500">
-                <Grid3X3 className="w-16 h-16 opacity-20 mb-4" />
-                <p className="text-xs">暂无任务</p>
+            </div>
+            {files.length > 0 && (
+              <div className="text-center mt-3 text-xs text-slate-500">
+                <span className="text-cyan-400 font-medium">九宫格切割预览</span>
+                <span className="mx-2">|</span>
+                <span>每张约 {currentFile?.width ? Math.floor(currentFile.width / 3) : '?'}×{currentFile?.height ? Math.floor(currentFile.height / 3) : '?'} 像素</span>
               </div>
             )}
           </div>
