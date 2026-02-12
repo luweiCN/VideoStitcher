@@ -127,7 +127,7 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
     if (isProcessing) return;
 
     setIsProcessing(true);
-    setLogs([]);
+    clearLogs();
     setProgress({ done: 0, failed: 0, total: files.length });
 
     // 重置所有文件状态为 pending
