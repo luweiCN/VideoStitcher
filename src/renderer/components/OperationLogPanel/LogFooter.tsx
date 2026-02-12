@@ -64,6 +64,12 @@ const SWITCH_THEME_MAP: Record<LogThemeColor, SwitchThemeConfig> = {
     checkedBorder: 'border-rose-500',
     shadow: 'shadow-[0_0_8px_rgba(244,63,94,0.5)]'
   },
+  fuchsia: {
+    focusRing: 'focus:ring-fuchsia-500/50',
+    checkedBg: 'bg-fuchsia-500',
+    checkedBorder: 'border-fuchsia-500',
+    shadow: 'shadow-[0_0_8px_rgba(192,38,211,0.5)]'
+  },
   gray: {
     focusRing: 'focus:ring-gray-500/50',
     checkedBg: 'bg-gray-500',
