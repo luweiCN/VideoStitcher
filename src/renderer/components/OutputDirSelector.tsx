@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Folder, FolderOpen, ExternalLink, HardDrive, ClipboardCopy, Inbox } from 'lucide-react';
+import { Copy, Folder, FolderOpen, ExternalLink, HardDrive, ClipboardCopy } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Button } from './Button/Button';
 
@@ -47,11 +47,11 @@ const OutputDirSelector: React.FC<OutputDirSelectorProps> = ({
 
   // 获取路径图标
   const getPathIcon = () => {
-    if (!value) return FolderOpen;
+    if (!value) return Folder;
     const normalized = value.toLowerCase();
     if (normalized.includes('/users/') || normalized.includes('\\users\\')) return ExternalLink;
     if (normalized.includes('/volume/') || normalized.includes(':\\')) return HardDrive;
-    return FolderOpen;
+    return Folder;
   };
 
   // 获取最后一层文件夹名称
