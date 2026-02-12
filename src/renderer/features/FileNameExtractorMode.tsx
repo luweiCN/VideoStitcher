@@ -1,7 +1,9 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle, Hash, CopyCheck } from 'lucide-react';
+import { ArrowLeft, Upload, Copy, FileVideo, Check, Trash2, FileText, List, Table, Code, Edit2, Save, X, Download, ArrowRightLeft, File as FileIcon, FolderOpen, Loader2, AlertCircle, Hash, CopyCheck, Eye } from 'lucide-react';
 import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
 import PageHeader from '../components/PageHeader';
+import InlineMediaPreview from '../components/InlineMediaPreview';
+import MediaPreviewModal from '../components/MediaPreviewModal';
 
 interface FileNameExtractorModeProps {
   onBack: () => void;
@@ -44,6 +46,9 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   const [renameProgress, setRenameProgress] = useState({ current: 0, total: 0 });
   const [renameResults, setRenameResults] = useState<{ success: number; failed: number } | null>(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+
+  // 预览相关状态
+  const [previewFile, setPreviewFile] = useState<VideoFile | null>(null);
 
   // 获取系统平台信息
   useEffect(() => {
@@ -824,6 +829,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                 <thead className="sticky top-0 bg-slate-900 z-10 shadow-sm">
                   <tr className="border-b border-slate-800 text-slate-400 text-sm">
                     <th className="p-4 font-medium w-16">#</th>
+                    <th className="p-4 font-medium w-24">预览</th>
                     <th className="p-4 font-medium">文件名</th>
                     <th className="p-4 font-medium text-right">操作</th>
                   </tr>
@@ -832,6 +838,12 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                   {files.map((file, index) => (
                     <tr key={file.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors group">
                       <td className="p-4 text-slate-500 font-mono text-sm">{index + 1}</td>
+                      <td className="p-4">
+                        <InlineMediaPreview 
+                          filePath={file.path} 
+                          onClick={() => setPreviewFile(file)} 
+                        />
+                      </td>
                       <td className="p-4 font-medium text-slate-200">
                         <div className="flex items-center gap-3">
                           <div className="flex-1">
@@ -916,6 +928,14 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
         })}
         onClose={() => setShowPreviewDialog(false)}
         onConfirm={handleConfirmRename}
+      />
+
+      {/* 媒体预览弹窗 */}
+      <MediaPreviewModal
+        isOpen={!!previewFile}
+        onClose={() => setPreviewFile(null)}
+        filePath={previewFile?.path || ''}
+        fileName={previewFile?.name || ''}
       />
     </div>
   );
