@@ -25,7 +25,7 @@ export type LogVariant = 'default' | 'compact' | 'detailed';
 /**
  * 日志面板主题颜色
  */
-export type LogThemeColor = 'pink' | 'violet' | 'indigo' | 'cyan' | 'emerald' | 'amber' | 'gray';
+export type LogThemeColor = 'pink' | 'violet' | 'indigo' | 'cyan' | 'emerald' | 'amber' | 'rose' | 'gray';
 
 /**
  * 日志面板样式配置
@@ -72,6 +72,11 @@ export const THEME_COLOR_MAP: Record<LogThemeColor, LogStyleConfig> = {
     primaryColor: 'text-amber-400',
     primaryBg: 'bg-amber-500/10',
     primaryBorder: 'border-amber-500/20',
+  },
+  rose: {
+    primaryColor: 'text-rose-400',
+    primaryBg: 'bg-rose-500/10',
+    primaryBorder: 'border-rose-500/20',
   },
   gray: {
     primaryColor: 'text-gray-400',
