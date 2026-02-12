@@ -751,32 +751,33 @@ ipcMain.handle("get-preview-url", async (_event, filePath) => {
 });
 
 /**
- * 生成预览缩略图（等比缩放，最长边 200px，返回 base64）
+ * 生成预览缩略图（等比缩放，可指定最长边，返回 base64）
  *
  * Sharp 的 fit: 'inside' 选项会保持宽高比：
- * - 最长边缩放到 maxSize (200px)
- * - 短边按比例缩放，实际尺寸可能小于 200px
- * - 例如：1920×1080 → 200×112，1080×1920 → 112×200
+ * - 最长边缩放到 maxSize
+ * - 短边按比例缩放
+ * - 例如：1920×1080 + maxSize:200 → 200×112
  */
-ipcMain.handle("get-preview-thumbnail", async (_event, filePath) => {
+ipcMain.handle("get-preview-thumbnail", async (_event, filePath, maxSize = 200) => {
   try {
     if (!filePath || !fs.existsSync(filePath)) {
       return { success: false, error: "文件不存在" };
     }
 
     const sharp = require('sharp');
-    const maxSize = 200;
+    // 确保 maxSize 是有效数字
+    const size = typeof maxSize === 'number' && maxSize > 0 ? maxSize : 200;
 
     // 读取图片并获取元数据
     const image = sharp(filePath);
     const metadata = await image.metadata();
 
-    // 计算缩放比例（基于最长边，保持宽高比）
-    let scale = maxSize / Math.max(metadata.width, metadata.height);
-    if (scale > 1) scale = 1; // 图片比目标尺寸小，不放大
+    // 计算缩放后的尺寸
+    const sourceMax = Math.max(metadata.width, metadata.height);
+    const scale = sourceMax > size ? size / sourceMax : 1;
 
     // 生成缩略图（fit: 'inside' 保持宽高比，最长边不超过 maxSize）
-    const resized = await image.resize(maxSize, maxSize, {
+    const resized = await image.resize(size, size, {
       fit: 'inside',
       kernel: 'lanczos3',
       withoutEnlargement: true

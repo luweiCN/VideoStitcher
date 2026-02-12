@@ -195,55 +195,85 @@ async function handleCoverFormat(event, { images, quality, outputDir, concurrenc
 }
 
 /**
- * 九宫格切割处理
+ * 九宫格切割处理（支持多进程并行）
  */
-async function handleGridImage(event, { images, outputDir }) {
+async function handleGridImage(event, { images, outputDir, concurrency }) {
   const results = [];
   const total = images.length;
+
+  // 默认并发数：CPU 核心数 - 1，至少为 1
+  const os = require('os');
+  const cpuCount = os.cpus().length;
+  const defaultConcurrency = Math.max(1, cpuCount - 1);
+  const actualConcurrency = concurrency || defaultConcurrency;
+
+  event.sender.send('image-start', { total, mode: 'grid', concurrency: actualConcurrency });
+
+  // 创建处理任务
+  const tasks = images.map((imagePath, index) => {
+    return async () => {
+      // 发送任务开始事件（任务真正开始处理时才发送）
+      event.sender.send('image-task-start', { index });
+
+      try {
+        // 检查文件扩展名
+        const ext = path.extname(imagePath).toLowerCase();
+        const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
+
+        if (!validExtensions.includes(ext)) {
+          throw new Error(`不支持的文件格式: ${ext}。请选择图片文件 (jpg, png, webp 等)`);
+        }
+
+        const result = await createGridImage(imagePath, outputDir);
+        return { success: true, imagePath, result, index };
+      } catch (err) {
+        return {
+          success: false,
+          error: err.message,
+          imagePath,
+          index
+        };
+      }
+    };
+  });
+
+  // 并行执行所有任务
   let done = 0;
   let failed = 0;
 
-  event.sender.send('image-start', { total, mode: 'grid' });
+  for (let i = 0; i < tasks.length; i += actualConcurrency) {
+    const batch = tasks.slice(i, i + actualConcurrency);
+    // 执行批次中的任务函数（每个函数会发送 image-task-start 事件）
+    const batchResults = await Promise.all(batch.map(task => task()));
 
-  for (let index = 0; index < images.length; index++) {
-    const imagePath = images[index];
-
-    // 发送任务开始事件
-    event.sender.send('image-task-start', { index });
-
-    try {
-      // 检查文件扩展名
-      const ext = path.extname(imagePath).toLowerCase();
-      const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
-
-      if (!validExtensions.includes(ext)) {
-        throw new Error(`不支持的文件格式: ${ext}。请选择图片文件 (jpg, png, webp 等)`);
+    for (const item of batchResults) {
+      if (item.success) {
+        done++;
+        results.push(item.result);
+        event.sender.send('image-progress', {
+          done,
+          failed,
+          total,
+          current: item.imagePath,
+          result: item.result
+        });
+        // 发送单个任务完成事件（带索引）
+        event.sender.send('image-task-finish', { index: item.index });
+      } else {
+        failed++;
+        results.push({
+          success: false,
+          error: item.error,
+          imagePath: item.imagePath
+        });
+        event.sender.send('image-failed', {
+          done,
+          failed,
+          total,
+          current: item.imagePath,
+          error: item.error
+        });
       }
-
-      const result = await createGridImage(imagePath, outputDir);
-      results.push(result);
-      done++;
-      event.sender.send('image-progress', {
-        done,
-        failed,
-        total,
-        current: imagePath,
-        result
-      });
-    } catch (err) {
-      failed++;
-      results.push({
-        success: false,
-        error: err.message,
-        imagePath
-      });
-      event.sender.send('image-failed', {
-        done,
-        failed,
-        total,
-        current: imagePath,
-        error: err.message
-      });
     }
   }
 

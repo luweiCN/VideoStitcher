@@ -103,7 +103,7 @@ export interface ElectronAPI {
   }>;
 
   // 九宫格切割
-  imageGrid: (config: { images: string[]; outputDir: string }) => Promise<{
+  imageGrid: (config: { images: string[]; outputDir: string; concurrency?: number }) => Promise<{
     done: number;
     failed: number;
     total: number;
@@ -222,8 +222,8 @@ export interface ElectronAPI {
     aspectRatio: string;
   } | null>;
 
-  // 获取预览缩略图（200x200 base64）
-  getPreviewThumbnail: (filePath: string) => Promise<{
+  // 获取预览缩略图（可指定最长边，默认200）
+  getPreviewThumbnail: (filePath: string, maxSize?: number) => Promise<{
     success: boolean;
     thumbnail?: string;
     width?: number;

@@ -54,8 +54,9 @@
 | 封面压缩 | `CoverCompressMode.tsx` | emerald | 1 | ✅ 已完成 |
 | 图片素材处理 | `ImageMaterialMode.tsx` | amber | 2 | ✅ 已完成 |
 | 封面格式转换 | `CoverFormatMode.tsx` | fuchsia | 3 | ✅ 已完成 |
-| 智能改尺寸 | `ResizeMode.tsx` | rose | 4 | 待改造 |
-| 文件名提取 | `FileNameExtractorMode.tsx` | pink | 5 | 待改造(特殊布局) |
+| 专业无损九宫格 | `LosslessGridMode.tsx` | cyan | 4 | ✅ 已完成 |
+| 智能改尺寸 | `ResizeMode.tsx` | rose | 5 | 待改造 |
+| 文件名提取 | `FileNameExtractorMode.tsx` | pink | 6 | 待改造(特殊布局) |
 
 ---
 
@@ -847,6 +848,58 @@ git commit -m "refactor: 统一文件名提取模块布局和配色
 4. **并发任务模式**: 使用"任务函数包装 + 分批 Promise.all"模式实现可控并发
 5. **事件驱动状态**: 任务状态通过 IPC 事件驱动，确保前后端状态同步
 6. **细粒度日志**: 对于批量操作，添加步骤级日志让用户了解实时进度
+
+### LosslessGridMode (专业无损九宫格)
+
+**已完成日期:** 2025-02-12
+
+**改造内容:**
+- 改为标准三栏布局（与 CoverFormatMode 一致）
+  - 左侧 (w-80): 文件选择 + 输出目录 + 并发线程数
+  - 中间: 任务列表 + 选中任务详情 + 原图预览
+  - 右侧 (w-80): 设置 + 进度条 + 日志 + 开始按钮
+- 主背景 `bg-slate-950` → `bg-black`
+- 侧边栏背景 `bg-slate-900` → `bg-black`
+- 设置卡片背景 `bg-slate-950` → `bg-black/50`
+- 按钮改用 Button 组件库（主题色 cyan）
+- 统一间距 `p-6` → `p-4`, `gap-6` → `gap-4`
+- 添加缩略图显示（200x200 base64）
+- 任务列表：缩略图 + 选中高亮 + 状态图标（loading/waiting/completed/error）
+- 添加选中任务详情：缩略图 + 文件名 + 大小 + 尺寸 + 方向
+- 添加原图预览区域：显示选中图片 + 切割尺寸提示
+- 添加全屏预览弹窗（FilePreviewModal）
+- 添加并发线程数缓存 (`useConcurrencyCache`)
+- FileSelector 添加 `ref`，选择后自动清空避免重复触发
+- 任务状态 UI: `pending` → `waiting` → `processing` → `completed`/`error`
+
+**IPC 增强:**
+- `handleGridImage` 重构为并发模式，支持 CPU 多核并行处理
+- 默认并发数: `CPU 核心数 - 1`（至少为 1）
+- 支持用户自定义并发数，通过 `concurrency` 参数传递
+- 添加 `image-task-finish` 事件（带索引），用于前端更新任务完成状态
+- `image-start` 事件添加 `concurrency` 字段
+
+**日志增强:**
+- `loadAllImages` 函数中添加详细的图片加载日志
+- 记录每个步骤: 开始加载、获取尺寸、获取大小、获取缩略图、加载完成
+- 格式: `[N/M] 操作描述: filename.ext`
+
+**遇到的问题及解决方案:**
+
+| 问题 | 解决方案 |
+|------|----------|
+| 原使用自定义按钮样式 | 改用 Button 组件库，主题色 cyan |
+| 顺序处理效率低 | 重构为任务数组 + 分批并行执行模式 |
+| 前端任务列表无法区分 waiting 和 processing | 添加 `image-task-finish` 事件，补充 `index` 参数 |
+| 图片加载过程无日志 | 在 `loadAllImages` 中添加逐步骤日志 |
+| 缺少任务预览功能 | 添加 FilePreviewModal 全屏预览弹窗 |
+| 缺少任务详情展示 | 添加选中任务详情区域：缩略图+信息+操作按钮 |
+| 缺少切割效果提示 | 预览区域显示"将被切割为 9 张 xxx×xxx 的切片" |
+
+**经验教训:**
+1. **预览区域增强**: 在原图预览下方添加切割尺寸提示，帮助用户了解输出效果
+2. **状态流转**: 使用 `waiting` 状态表示已加入队列等待并发处理，`processing` 表示正在处理
+3. **任务详情复用**: 任务列表缩略图与详情区域缩略图保持一致的设计
 
 ### FileNameExtractorMode (文件名提取)
 - 待补充
