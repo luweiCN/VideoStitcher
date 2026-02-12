@@ -231,6 +231,21 @@ export interface ElectronAPI {
     error?: string;
   }>;
 
+  // 获取视频缩略图
+  getVideoThumbnail: (
+    filePath: string,
+    options?: {
+      timeOffset?: number;  // 截取时间点（秒），默认 0
+      maxSize?: number;     // 缩略图最大尺寸，默认 200
+    }
+  ) => Promise<{
+    success: boolean;
+    thumbnail?: string;
+    duration?: number;       // 视频总时长
+    actualTimeOffset?: number; // 实际截取的时间点
+    error?: string;
+  }>;
+
   // === 事件监听 ===
   // 原有任务事件
   onJobStart: (
@@ -557,6 +572,8 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("video:get-dimensions", filePath),
   getPreviewThumbnail: (filePath) =>
     ipcRenderer.invoke("get-preview-thumbnail", filePath),
+  getVideoThumbnail: (filePath, options) =>
+    ipcRenderer.invoke("get-video-thumbnail", filePath, options),
 
   // 智能改尺寸预览
   generateResizePreviews: (config) =>

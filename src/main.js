@@ -799,6 +799,95 @@ ipcMain.handle("get-preview-thumbnail", async (_event, filePath, maxSize = 200) 
   }
 });
 
+/**
+ * 获取视频缩略图
+ * @param {string} filePath - 视频文件路径
+ * @param {object} options - 配置选项
+ * @param {number} options.timeOffset - 截取的时间点（秒），默认 0
+ * @param {number} options.maxSize - 缩略图最大尺寸，默认 200
+ */
+ipcMain.handle("get-video-thumbnail", async (_event, filePath, options = {}) => {
+  const { execFile } = require('child_process');
+
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: false, error: "文件不存在" };
+    }
+
+    const ffmpeg = require('ffmpeg-static');
+    const { timeOffset = 0, maxSize = 200 } = options;
+
+    // 1. 先获取视频时长
+    const duration = await new Promise((resolve) => {
+      const args = ['-i', filePath, '-hide_banner'];
+      execFile(ffmpeg, args, { timeout: 5000 }, (err, stdout, stderr) => {
+        // FFmpeg 在仅获取信息时会返回非零退出码，但 stderr 包含信息
+        const match = stderr.match(/Duration: (\d{2}):(\d{2}):(\d{2})\.(\d{2})/);
+        if (match) {
+          const hours = parseInt(match[1]);
+          const mins = parseInt(match[2]);
+          const secs = parseInt(match[3]);
+          const centisecs = parseInt(match[4]);
+          resolve(hours * 3600 + mins * 60 + secs + centisecs / 100);
+        } else {
+          resolve(0);
+        }
+      });
+    });
+
+    // 2. 计算实际截取时间点（容错：不超过视频时长的 90%）
+    const actualTimeOffset = duration > 0
+      ? Math.min(timeOffset, duration * 0.9)
+      : timeOffset;
+
+    // 3. 创建临时文件路径
+    const tmpDir = path.join(os.tmpdir(), 'videostitcher-temp');
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    const outputPath = path.join(tmpDir, `thumb_${Date.now()}.png`);
+
+    // 4. 使用 FFmpeg 截取帧
+    await new Promise((resolve, reject) => {
+      const args = [
+        '-ss', String(actualTimeOffset),  // 时间点
+        '-i', filePath,
+        '-vframes', '1',                  // 截取 1 帧
+        '-vf', `scale=${maxSize}:-1`,     // 缩放
+        '-y',                             // 覆盖输出
+        outputPath
+      ];
+
+      execFile(ffmpeg, args, { timeout: 10000 }, (err) => {
+        if (err) reject(err);
+        else resolve(undefined);
+      });
+    });
+
+    // 5. 检查输出文件是否存在
+    if (!fs.existsSync(outputPath)) {
+      return { success: false, error: "截取失败，输出文件不存在" };
+    }
+
+    // 6. 读取并转 base64
+    const buffer = fs.readFileSync(outputPath);
+    const base64 = buffer.toString('base64');
+
+    // 7. 删除临时文件
+    fs.unlinkSync(outputPath);
+
+    return {
+      success: true,
+      thumbnail: `data:image/png;base64,${base64}`,
+      duration,
+      actualTimeOffset
+    };
+  } catch (err) {
+    console.error('[视频缩略图] 失败:', err);
+    return { success: false, error: err.message };
+  }
+});
+
 // 获取文件信息（用于判断文件类型）
 ipcMain.handle("get-file-info", async (_event, filePath) => {
   try {

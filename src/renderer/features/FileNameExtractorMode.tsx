@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Copy, FileText, List, Table, Code, Edit2, Save, X, Download,
-  ArrowRightLeft, File as FileIcon, Loader2, Check, Trash2, Hash, CopyCheck
+  ArrowRightLeft, File as FileIcon, Loader2, Check, Trash2, Hash, CopyCheck,
+  Video, Image as ImageIcon, Eye
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OperationLogPanel from '../components/OperationLogPanel';
 import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
-import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '../components/FileSelector';
+import { FileSelector, FileSelectorGroup, type FileSelectorRef, type FileItem } from '../components/FileSelector';
+import { FilePreviewModal } from '../components/FilePreviewModal';
 import { Button } from '../components/Button/Button';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useToastMessages } from '../components/Toast/Toast';
@@ -23,6 +25,13 @@ interface VideoFile {
   name: string;            // 文件名（不含扩展名）
   originalName: string;    // 原始完整文件名
   path: string;            // 文件完整路径
+  type: 'image' | 'video' | 'unknown';  // 文件类型
+  thumbnailUrl?: string;   // 缩略图 URL (base64)
+  size?: number;           // 文件大小（字节）
+  dimensions?: string;     // 尺寸，如 "1920x1080"
+  orientation?: 'landscape' | 'portrait' | 'square'; // 横版/竖版/方形
+  aspectRatio?: string;    // 长宽比，如 "16:9"
+  _infoLoaded?: boolean;   // 内部标记：信息是否已加载
 }
 
 /**
@@ -49,8 +58,46 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   const [renameProgress, setRenameProgress] = useState({ current: 0, total: 0 });
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
 
+  // 预览弹窗状态
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(-1);
+
   // FileSelector ref - 用于清除选择器状态
   const fileSelectorRef = useRef<FileSelectorRef>(null);
+
+  // ==================== 工具函数 ====================
+  /**
+   * 根据扩展名检测文件类型
+   */
+  const detectFileType = (filePath: string): 'image' | 'video' | 'unknown' => {
+    const ext = filePath.split('.').pop()?.toLowerCase() || '';
+    const imageExts = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'svg'];
+    const videoExts = ['mp4', 'mov', 'mkv', 'm4v', 'avi', 'wmv', 'flv', 'webm'];
+
+    if (imageExts.includes(ext)) return 'image';
+    if (videoExts.includes(ext)) return 'video';
+    return 'unknown';
+  };
+
+  /**
+   * 格式化文件大小
+   */
+  const formatFileSize = (bytes: number): string => {
+    if (!bytes) return '-';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  /**
+   * 将 VideoFile 转换为 FileItem（用于预览弹窗）
+   */
+  const convertToFileItem = (file: VideoFile): FileItem => ({
+    path: file.path,
+    name: file.originalName,
+    type: file.type,
+  });
 
   // 使用日志 Hook
   const {
@@ -161,22 +208,136 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   /**
    * 根据文件路径数组添加文件
    */
-  const addFilesByPaths = (filePaths: string[]) => {
+  const addFilesByPaths = async (filePaths: string[]) => {
     const newVideoFiles: VideoFile[] = filePaths.map(path => {
       const fileName = path.split(/[\/\\]/).pop() || path;
       const nameWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+      const fileType = detectFileType(path);
 
       return {
         id: Math.random().toString(36).substr(2, 9),
         name: nameWithoutExt,
         originalName: fileName,
-        path: path
+        path: path,
+        type: fileType,
       };
     });
 
+    // 统计文件类型
+    const videoCount = newVideoFiles.filter(f => f.type === 'video').length;
+    const imageCount = newVideoFiles.filter(f => f.type === 'image').length;
+    const otherCount = newVideoFiles.filter(f => f.type === 'unknown').length;
+
+    // 先添加文件（无缩略图和信息）
     setFiles(prev => [...prev, ...newVideoFiles]);
-    addLog(`添加 ${newVideoFiles.length} 个文件`, 'info');
+
+    // 日志：显示添加的文件类型分布
+    const typeParts: string[] = [];
+    if (videoCount > 0) typeParts.push(`${videoCount} 个视频`);
+    if (imageCount > 0) typeParts.push(`${imageCount} 个图片`);
+    if (otherCount > 0) typeParts.push(`${otherCount} 个其他文件`);
+    addLog(`添加 ${newVideoFiles.length} 个文件（${typeParts.join('、')}）`, 'info');
+
+    // 异步加载缩略图和文件信息
+    for (const file of newVideoFiles) {
+      try {
+        // 并行获取缩略图和文件信息
+        const [thumbnailResult, sizeResult, dimsResult] = await Promise.allSettled([
+          // 获取缩略图
+          file.type === 'image'
+            ? window.api.getPreviewThumbnail(file.path, 100)
+            : file.type === 'video'
+              ? window.api.getVideoThumbnail(file.path, { maxSize: 100 })
+              : Promise.resolve({ success: false }),
+          // 获取文件大小
+          window.api.getFileInfo(file.path),
+          // 获取文件尺寸
+          file.type === 'video'
+            ? window.api.getVideoDimensions(file.path)
+            : file.type === 'image'
+              ? window.api.getImageDimensions(file.path)
+              : Promise.resolve(null)
+        ]);
+
+        // 更新文件信息
+        setFiles(prev => prev.map(f => {
+          if (f.id !== file.id) return f;
+
+          const updatedFile: VideoFile = { ...f, _infoLoaded: true };
+
+          // 处理缩略图
+          if (thumbnailResult.status === 'fulfilled' && thumbnailResult.value.success && (thumbnailResult.value as any).thumbnail) {
+            updatedFile.thumbnailUrl = (thumbnailResult.value as any).thumbnail;
+          }
+
+          // 处理文件大小
+          if (sizeResult.status === 'fulfilled' && (sizeResult.value as any).success && (sizeResult.value as any).info) {
+            updatedFile.size = (sizeResult.value as any).info.size;
+          }
+
+          // 处理文件尺寸
+          if (dimsResult.status === 'fulfilled' && dimsResult.value) {
+            const dims = dimsResult.value;
+            updatedFile.dimensions = `${dims.width}x${dims.height}`;
+            updatedFile.orientation = dims.orientation;
+            updatedFile.aspectRatio = dims.aspectRatio;
+          }
+
+          return updatedFile;
+        }));
+
+      } catch (err) {
+        // 缩略图/信息加载失败时记录警告
+        addLog(`读取 "${file.originalName}" 信息失败`, 'warning');
+      }
+    }
   };
+
+  // ==================== 预览功能 ====================
+  /**
+   * 处理缩略图点击
+   */
+  const handleThumbnailClick = (file: VideoFile, index: number) => {
+    if (file.type === 'image' || file.type === 'video') {
+      // 打开预览弹窗
+      setPreviewIndex(index);
+      setPreviewFile(convertToFileItem(file));
+      setShowPreviewModal(true);
+    } else {
+      // 在文件管理器中定位
+      window.api.showItemInFolder(file.path);
+    }
+  };
+
+  /**
+   * 预览上一个文件
+   */
+  const handlePreviewPrevious = useCallback(() => {
+    if (previewIndex > 0) {
+      const newIndex = previewIndex - 1;
+      setPreviewIndex(newIndex);
+      setPreviewFile(convertToFileItem(files[newIndex]));
+    }
+  }, [previewIndex, files]);
+
+  /**
+   * 预览下一个文件
+   */
+  const handlePreviewNext = useCallback(() => {
+    if (previewIndex >= 0 && previewIndex < files.length - 1) {
+      const newIndex = previewIndex + 1;
+      setPreviewIndex(newIndex);
+      setPreviewFile(convertToFileItem(files[newIndex]));
+    }
+  }, [previewIndex, files]);
+
+  /**
+   * 关闭预览弹窗
+   */
+  const handleClosePreviewModal = useCallback(() => {
+    setShowPreviewModal(false);
+    setTimeout(() => setPreviewFile(null), 300);
+  }, []);
 
   /**
    * 移除单个文件
@@ -814,6 +975,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 bg-black z-10">
                   <tr className="border-b border-slate-800 text-slate-500 text-xs">
+                    <th className="p-3 font-medium w-16">预览</th>
                     <th className="p-3 font-medium w-12">#</th>
                     <th className="p-3 font-medium">文件名</th>
                     <th className="p-3 font-medium w-16 text-right">操作</th>
@@ -822,10 +984,43 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                 <tbody>
                   {files.map((file, index) => (
                     <tr key={file.id} className="border-b border-slate-800/50 hover:bg-slate-900/50 transition-colors group">
-                      <td className="p-3 text-slate-600 font-mono text-xs">{index + 1}</td>
                       <td className="p-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1">
+                        <div
+                          className="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-800/50 flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-pink-500/50 transition-all group/thumbnail"
+                          onClick={() => handleThumbnailClick(file, index)}
+                          title={file.type === 'image' || file.type === 'video' ? '点击预览' : '在文件管理器中显示'}
+                        >
+                          {file.thumbnailUrl ? (
+                            <>
+                              <img src={file.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                              {/* 悬浮时显示眼睛图标 */}
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity">
+                                <Eye className="w-5 h-5 text-white" />
+                              </div>
+                            </>
+                          ) : file.type === 'video' ? (
+                            <div className="relative">
+                              <Video className="w-6 h-6 text-slate-500" />
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity rounded">
+                                <Eye className="w-4 h-4 text-white" />
+                              </div>
+                            </div>
+                          ) : file.type === 'image' ? (
+                            <div className="relative">
+                              <ImageIcon className="w-6 h-6 text-slate-500" />
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity rounded">
+                                <Eye className="w-4 h-4 text-white" />
+                              </div>
+                            </div>
+                          ) : (
+                            <FileIcon className="w-6 h-6 text-slate-500" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 text-slate-600 font-mono text-xs align-top pt-4">{index + 1}</td>
+                      <td className="p-3 py-2">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
                             {isEditing ? (
                               <input
                                 type="text"
@@ -837,11 +1032,48 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                             ) : (
                               <span className="text-sm text-slate-200 select-all">{file.name}</span>
                             )}
+                            {/* 文件信息 */}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[10px] text-slate-500">
+                              {/* 文件类型 */}
+                              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${
+                                file.type === 'video' ? 'bg-rose-500/10 text-rose-400' :
+                                file.type === 'image' ? 'bg-emerald-500/10 text-emerald-400' :
+                                'bg-slate-700/50 text-slate-400'
+                              }`}>
+                                {file.type === 'video' ? '视频' : file.type === 'image' ? '图片' : '文件'}
+                              </span>
+                              {/* 文件大小 */}
+                              {file.size !== undefined && (
+                                <span className="text-slate-500">{formatFileSize(file.size)}</span>
+                              )}
+                              {/* 尺寸 */}
+                              {file.dimensions && (
+                                <span className="text-slate-500 font-mono">{file.dimensions}</span>
+                              )}
+                              {/* 方向 */}
+                              {file.orientation && (
+                                <span className={`${
+                                  file.orientation === 'landscape' ? 'text-cyan-400' :
+                                  file.orientation === 'portrait' ? 'text-violet-400' :
+                                  'text-slate-400'
+                                }`}>
+                                  {file.orientation === 'landscape' ? '横版' : file.orientation === 'portrait' ? '竖版' : '方形'}
+                                </span>
+                              )}
+                              {/* 长宽比 */}
+                              {file.aspectRatio && (
+                                <span className="text-slate-500">{file.aspectRatio}</span>
+                              )}
+                              {/* 加载中提示 */}
+                              {!file._infoLoaded && (file.type === 'video' || file.type === 'image') && (
+                                <span className="text-slate-600 animate-pulse">加载中...</span>
+                              )}
+                            </div>
                           </div>
                           {index === 0 && files.length > 1 && !isEditing && (
                             <button
                               onClick={applyFirstNameToAll}
-                              className="flex items-center gap-1 px-2 py-1 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded text-[10px] font-medium border border-pink-500/20 transition-all whitespace-nowrap"
+                              className="flex items-center gap-1 px-2 py-1 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded text-[10px] font-medium border border-pink-500/20 transition-all whitespace-nowrap shrink-0 mt-0.5"
                               title="将此名称应用到后续所有文件"
                             >
                               <CopyCheck className="w-3 h-3" />
@@ -850,7 +1082,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
                           )}
                         </div>
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right align-top pt-3">
                         {!isEditing && (
                           <button
                             onClick={() => removeFile(file.id)}
@@ -932,6 +1164,18 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
         })}
         onClose={() => setShowPreviewDialog(false)}
         onConfirm={handleConfirmRename}
+      />
+
+      {/* 文件预览弹窗 */}
+      <FilePreviewModal
+        file={previewFile}
+        visible={showPreviewModal}
+        onClose={handleClosePreviewModal}
+        allFiles={files.map(convertToFileItem)}
+        currentIndex={previewIndex}
+        onPrevious={handlePreviewPrevious}
+        onNext={handlePreviewNext}
+        themeColor="fuchsia"
       />
     </div>
   );

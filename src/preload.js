@@ -33,6 +33,7 @@ const api = {
     getImageDimensions: (filePath) => electron_1.ipcRenderer.invoke("image:get-dimensions", filePath),
     getVideoDimensions: (filePath) => electron_1.ipcRenderer.invoke("video:get-dimensions", filePath),
     getPreviewThumbnail: (filePath) => electron_1.ipcRenderer.invoke("get-preview-thumbnail", filePath),
+    getVideoThumbnail: (filePath, options) => electron_1.ipcRenderer.invoke("get-video-thumbnail", filePath, options),
     // 智能改尺寸预览
     generateResizePreviews: (config) => electron_1.ipcRenderer.invoke("generate-resize-previews", config),
     clearResizePreviews: (previewPaths) => electron_1.ipcRenderer.invoke("clear-resize-previews", previewPaths),
