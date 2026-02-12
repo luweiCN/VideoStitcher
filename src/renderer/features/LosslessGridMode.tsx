@@ -47,8 +47,9 @@ const GRID_CONFIG = {
 };
 
 // 预览画布尺寸常量
-const PREVIEW_SIZE = 400; // 显示大小 (像素)
 const BASE_SIZE = 800;    // 逻辑尺寸 (Canvas 实际尺寸)
+const MIN_PREVIEW_SIZE = 200;  // 最小预览尺寸
+const MAX_PREVIEW_SIZE = 800;  // 最大预览尺寸
 
 const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   const [files, setFiles] = useState<ImageFile[]>([]);
@@ -71,6 +72,10 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewImageRef = useRef<HTMLImageElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const previewAreaRef = useRef<HTMLDivElement>(null);
+
+  // 动态预览尺寸
+  const [previewSize, setPreviewSize] = useState(400);
 
   // 当前选中的文件（用于预览）
   const currentFile = files[currentIndex];
@@ -276,6 +281,43 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
       setIsProcessing(false);
     },
   });
+
+  // 自适应计算预览画布大小
+  useEffect(() => {
+    const calculatePreviewSize = () => {
+      if (!previewAreaRef.current) return;
+
+      const container = previewAreaRef.current;
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+
+      // 减去预留边距和底部说明文字区域
+      const padding = 20;
+      const infoHeight = 40; // 底部说明区域高度
+      const availableWidth = containerWidth - padding * 2;
+      const availableHeight = containerHeight - padding * 2 - infoHeight;
+
+      // 正方形画布，取宽高中较小的值
+      const maxSize = Math.min(availableWidth, availableHeight);
+
+      // 限制在最小和最大范围内
+      const size = Math.max(MIN_PREVIEW_SIZE, Math.min(MAX_PREVIEW_SIZE, maxSize));
+
+      setPreviewSize(size);
+      console.log(`[自适应预览] 容器: ${containerWidth}x${containerHeight}, 可用: ${availableWidth}x${availableHeight}, 画布尺寸: ${size}`);
+    };
+
+    // 延迟计算以确保容器已渲染
+    const timer = setTimeout(calculatePreviewSize, 100);
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', calculatePreviewSize);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', calculatePreviewSize);
+    };
+  }, []);
 
   // 当 currentIndex 或 images.length 改变时，自动加载预览图
   useEffect(() => {
@@ -723,12 +765,15 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
           </div>
 
           {/* 预览画布 */}
-          <div className="flex-1 flex flex-col flex-shrink-0 border-t border-slate-800 bg-black p-4 min-h-0">
+          <div
+            ref={previewAreaRef}
+            className="flex-1 flex flex-col flex-shrink-0 border-t border-slate-800 bg-black p-4 min-h-0"
+          >
             <div className="flex-1 flex items-center justify-center">
               <div
                 ref={containerRef}
                 className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
-                style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
+                style={{ width: previewSize, height: previewSize }}
               >
                 <canvas
                   ref={canvasRef}
