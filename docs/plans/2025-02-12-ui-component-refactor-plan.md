@@ -814,17 +814,39 @@ git commit -m "refactor: 统一文件名提取模块布局和配色
 - FileSelector 添加 `ref`，选择后自动清空避免重复触发
 - 任务状态 UI: `pending` → `waiting` → `processing` → `completed`/`error`
 
+**2025-02-12 追加改造 - IPC 线程支持和事件完善:**
+
+1. **IPC 并发处理**
+   - `ipcHandlers/image.js` 中 `handleCoverFormat` 函数重构为并发模式
+   - 默认并发数: `CPU核心数 - 1`（至少为 1）
+   - 支持用户自定义并发数，通过 `concurrency` 参数传递
+
+2. **事件补充**
+   - 添加 `image-task-finish` 事件（带索引），用于前端更新任务完成状态
+   - `image-start` 事件添加 `concurrency` 字段
+
+3. **日志增强**
+   - `loadAllImages` 函数中添加详细的图片加载日志
+   - 记录每个步骤: 开始加载、获取尺寸、获取大小、获取缩略图、加载完成
+   - 格式: `[N/M] 操作描述: filename.ext`
+
 **遇到的问题及解决方案:**
 
 | 问题 | 解决方案 |
 |------|----------|
 | OperationLogPanel 缺少 fuchsia 主题色 | 在 types.ts 和 LogFooter.tsx 中添加 fuchsia 配置 |
 | setLogs 未定义错误 | 改用 clearLogs() 函数 |
+| `handleCoverFormat` 顺序处理，性能差 | 重构为任务数组 + 分批并行执行模式 |
+| 前端任务列表无法区分 waiting 和 processing | 添加 `image-task-finish` 事件，补充 `index` 参数 |
+| 图片加载过程无日志，用户不知道进度 | 在 `loadAllImages` 中添加逐步骤日志 |
 
 **经验教训:**
 1. **主题色统一**: 每个功能模块使用独立主题色，需要在多个组件中添加配置
 2. **布局一致性**: 三栏布局已成为标准模式，便于用户快速上手
 3. **缓存 Hook 复用**: 并发数、输出目录等使用缓存 Hook，保持跨会话的设置
+4. **并发任务模式**: 使用"任务函数包装 + 分批 Promise.all"模式实现可控并发
+5. **事件驱动状态**: 任务状态通过 IPC 事件驱动，确保前后端状态同步
+6. **细粒度日志**: 对于批量操作，添加步骤级日志让用户了解实时进度
 
 ### FileNameExtractorMode (文件名提取)
 - 待补充
