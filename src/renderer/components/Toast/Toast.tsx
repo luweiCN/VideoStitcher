@@ -188,17 +188,17 @@ export const useToastMessages = () => {
   const { showToast } = useToast();
 
   return {
-    success: (message: string, title?: string) => {
-      showToast({ title, message, variant: 'success' });
+    success: (message: string, title?: string, duration?: number) => {
+      showToast({ title, message, variant: 'success', duration: duration ?? 3000 });
     },
-    error: (message: string, title?: string) => {
-      showToast({ title, message, variant: 'error', duration: 5000 });
+    error: (message: string, title?: string, duration?: number) => {
+      showToast({ title, message, variant: 'error', duration: duration ?? 5000 });
     },
-    info: (message: string, title?: string) => {
-      showToast({ title, message, variant: 'info' });
+    info: (message: string, title?: string, duration?: number) => {
+      showToast({ title, message, variant: 'info', duration: duration ?? 3000 });
     },
-    warning: (message: string, title?: string) => {
-      showToast({ title, message, variant: 'warning', duration: 4000 });
+    warning: (message: string, title?: string, duration?: number) => {
+      showToast({ title, message, variant: 'warning', duration: duration ?? 4000 });
     }
   };
 };

@@ -9,6 +9,7 @@ import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
 import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
 import { useOperationLogs } from '../hooks/useOperationLogs';
+import { useToastMessages } from '../components/Toast/Toast';
 
 interface FileNameExtractorModeProps {
   onBack: () => void;
@@ -46,7 +47,6 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
   // 重命名相关状态
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameProgress, setRenameProgress] = useState({ current: 0, total: 0 });
-  const [renameResults, setRenameResults] = useState<{ success: number; failed: number } | null>(null);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
 
   // 使用日志 Hook
@@ -70,24 +70,51 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     moduleNameEN: 'FileNameExtractor',
   });
 
+  // 使用 Toast Hook
+  const toast = useToastMessages();
+
   // 监听文件重命名进度事件
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cleanupProgress = (window as any).api.onFileProgress((data: { index: number; total: number }) => {
+    const cleanupProgress = (window as any).api.onFileProgress((data: {
+      index: number;
+      total: number;
+      sourcePath?: string;
+      targetPath?: string;
+      success?: boolean;
+      error?: string;
+    }) => {
       setRenameProgress({ current: data.index + 1, total: data.total });
-      addLog(`重命名进度: ${data.index + 1}/${data.total}`, 'info');
+
+      // 每条记录输出详细日志
+      if (data.sourcePath && data.targetPath) {
+        const sourceName = data.sourcePath.split(/[\/\\]/).pop() || data.sourcePath;
+        const targetName = data.targetPath.split(/[\/\\]/).pop() || data.targetPath;
+
+        if (data.success) {
+          addLog(`将 "${sourceName}" 重命名为 "${targetName}"`, 'success');
+        } else {
+          addLog(`重命名失败 "${sourceName}": ${data.error || '未知错误'}`, 'error');
+        }
+      }
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cleanupComplete = (window as any).api.onFileComplete((results: { success: number; failed: number }) => {
-      setRenameResults({ success: results.success, failed: results.failed });
       setIsRenaming(false);
 
       addLog(`重命名完成: 成功 ${results.success}, 失败 ${results.failed}`,
         results.failed === 0 ? 'success' : 'warning');
 
+      // 使用 Toast 提示，时长 10 秒
+      if (results.failed === 0) {
+        toast.success(`成功重命名 ${results.success} 个文件`, '重命名完成', 10000);
+      } else {
+        toast.warning(`成功 ${results.success} 个，失败 ${results.failed} 个`, '重命名部分完成', 10000);
+      }
+
       // 重命名成功后更新文件路径
-      if (results.success > 0 && results.failed === 0) {
+      if (results.success > 0) {
         setFiles(prevFiles => {
           const updatedFiles = prevFiles.map(f => {
             const dir = f.path.split(/[\/\\]/).slice(0, -1).join('/');
@@ -108,7 +135,7 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
       cleanupProgress();
       cleanupComplete();
     };
-  }, [addLog]);
+  }, [addLog, toast]);
 
   // ==================== 文件选择处理 ====================
   /**
@@ -391,7 +418,6 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
 
     setIsRenaming(true);
     setRenameProgress({ current: 0, total: operations.length });
-    setRenameResults(null);
     addLog(`开始执行重命名, 共 ${operations.length} 个文件`, 'info');
 
     try {
@@ -745,38 +771,8 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
               </div>
             )}
 
-            {/* 完成结果显示 */}
-            {renameResults && !isRenaming && (
-              <div className={`mx-4 my-3 p-4 border rounded-xl flex items-start gap-3 shrink-0 ${
-                renameResults.failed === 0
-                  ? 'bg-emerald-500/10 border-emerald-500/20'
-                  : 'bg-amber-500/10 border-amber-500/20'
-              }`}>
-                <div className={`p-1.5 rounded-lg ${
-                  renameResults.failed === 0
-                    ? 'bg-emerald-500/20 text-emerald-500'
-                    : 'bg-amber-500/20 text-amber-500'
-                }`}>
-                  {renameResults.failed === 0 ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                </div>
-                <div className="text-xs flex-1">
-                  <p className={`font-bold mb-1 ${
-                    renameResults.failed === 0 ? 'text-emerald-400' : 'text-amber-400'
-                  }`}>
-                    {renameResults.failed === 0 ? '重命名完成！' : '重命名部分完成'}
-                  </p>
-                  <p className="text-slate-300">
-                    成功: <span className="text-emerald-400 font-bold">{renameResults.success}</span>
-                    {renameResults.failed > 0 && (
-                      <> 失败: <span className="text-rose-400 font-bold">{renameResults.failed}</span></>
-                    )}
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* 提示信息 */}
-            {files.length > 0 && !renameResults && !isRenaming && (
+            {files.length > 0 && !isRenaming && (
               <div className="mx-4 my-3 p-4 bg-pink-500/5 border border-pink-500/10 rounded-xl flex items-start gap-3 shrink-0">
                 <div className="p-1.5 bg-pink-500/20 rounded-lg text-pink-400">
                   <FileText className="w-3.5 h-3.5" />
