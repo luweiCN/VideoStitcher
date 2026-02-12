@@ -1,11 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useTransition } from 'react';
 
 /**
- * 滚动行为类型
- */
-type ScrollBehavior = 'auto' | 'smooth';
-
-/**
  * 操作日志 Hook
  * 提供日志状态管理和相关功能
  */
@@ -54,7 +49,7 @@ export interface UseOperationLogsReturn {
   scrollToTop: () => void;
 
   // 用户交互相关
-  /** 用户开始交互（暂停自动滚动） */
+  /** 用户开始交互（选择日志时暂停自动滚动） */
   onUserInteractStart: () => void;
   /** 用户结束交互 */
   onUserInteractEnd: () => void;
@@ -88,12 +83,9 @@ function inferLogType(message: string): LogEntry['type'] {
 }
 
 /**
- * 检测容器是否在底部附近
+ * 自动恢复自动滚动的延迟时间（毫秒）
  */
-function isNearBottom(container: HTMLElement, threshold: number = 100): boolean {
-  const { scrollTop, scrollHeight, clientHeight } = container;
-  return scrollHeight - scrollTop - clientHeight < threshold;
-}
+const AUTO_RESUME_DELAY = 30000; // 30 秒
 
 /**
  * 操作日志 Hook
@@ -139,14 +131,40 @@ export function useOperationLogs(options: UseOperationLogsOptions): UseOperation
     return () => clearInterval(timer);
   }, [flushPendingLogs]);
 
-  // 设置自动滚动开关时同步恢复状态
-  // 注意：依赖数组为空是安全的，因为 ref 的 .current 属性会在运行时获取最新值
+  const [autoScrollPaused, setAutoScrollPaused] = useState(false);
+
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
+
+  // 自动恢复定时器
+  const autoResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 清除自动恢复定时器
+  const clearAutoResumeTimer = useCallback(() => {
+    if (autoResumeTimerRef.current) {
+      clearTimeout(autoResumeTimerRef.current);
+      autoResumeTimerRef.current = null;
+    }
+  }, []);
+
+  // 启动自动恢复定时器（30秒后自动恢复）
+  const startAutoResumeTimer = useCallback(() => {
+    clearAutoResumeTimer();
+    autoResumeTimerRef.current = setTimeout(() => {
+      // 只有在开关打开且暂停状态时才自动恢复
+      if (autoScrollEnabled && autoScrollPaused) {
+        setAutoScrollPaused(false);
+      }
+    }, AUTO_RESUME_DELAY);
+  }, [autoScrollEnabled, autoScrollPaused, clearAutoResumeTimer]);
+
+  // 设置自动滚动开关
   const handleSetAutoScrollEnabled = useCallback((enabled: boolean) => {
     setAutoScrollEnabled(enabled);
     if (enabled) {
-      // 打开开关时：恢复自动滚动状态（取消暂停 + 滚动到底部）
+      // 打开开关时：恢复自动滚动状态
       setAutoScrollPaused(false);
-      setUserScrolling(false);
+      clearAutoResumeTimer();
       // 延迟滚动确保 DOM 更新
       setTimeout(() => {
         const container = logsContainerRef.current;
@@ -157,76 +175,59 @@ export function useOperationLogs(options: UseOperationLogsOptions): UseOperation
         });
       }, 0);
     } else {
-      // 关闭开关时：清除暂停状态
+      // 关闭开关时：清除暂停状态和定时器
       setAutoScrollPaused(false);
-      setUserScrolling(false);
+      clearAutoResumeTimer();
     }
-  }, []);
+  }, [clearAutoResumeTimer]);
 
-  const [autoScrollPaused, setAutoScrollPaused] = useState(false);
-  const [userScrolling, setUserScrolling] = useState(false);
-
-  const logsEndRef = useRef<HTMLDivElement>(null);
-  const logsContainerRef = useRef<HTMLDivElement>(null);
-  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isAutoScrollRef = useRef(false); // 标记是否是自动滚动
-
-  // 滚动到底部
+  // 滚动到底部（平滑滚动）
   const scrollToBottom = useCallback(() => {
     const container = logsContainerRef.current;
     if (!container) return;
 
-    isAutoScrollRef.current = true;
     container.scrollTo({
       top: container.scrollHeight,
-      behavior: 'auto', // 使用 auto 避免误判
-    });
-
-    // 立即重置标记
-    requestAnimationFrame(() => {
-      isAutoScrollRef.current = false;
+      behavior: 'smooth',
     });
   }, []);
 
-  // 滚动到顶部
+  // 滚动到顶部（平滑滚动）
   const scrollToTop = useCallback(() => {
     const container = logsContainerRef.current;
     if (!container) return;
 
-    isAutoScrollRef.current = true;
     container.scrollTo({
       top: 0,
-      behavior: 'auto',
-    });
-
-    requestAnimationFrame(() => {
-      isAutoScrollRef.current = false;
+      behavior: 'smooth',
     });
   }, []);
 
   // 恢复自动滚动
   const resumeAutoScroll = useCallback(() => {
     setAutoScrollPaused(false);
-    setUserScrolling(false);
+    clearAutoResumeTimer();
     // 立即滚动到底部
     scrollToBottom();
-  }, [scrollToBottom]);
+  }, [scrollToBottom, clearAutoResumeTimer]);
 
-  // 用户开始交互（只在开关打开时才暂停）
+  // 用户开始交互（选择日志时暂停自动滚动，启动 30 秒恢复定时器）
   const onUserInteractStart = useCallback(() => {
     if (autoScrollEnabled) {
       setAutoScrollPaused(true);
+      // 启动 30 秒后自动恢复的定时器
+      startAutoResumeTimer();
     }
-  }, [autoScrollEnabled]);
+  }, [autoScrollEnabled, startAutoResumeTimer]);
 
   // 用户结束交互
   const onUserInteractEnd = useCallback(() => {
-    // 暂时不自动恢复，让用户手动点击恢复按钮
+    // 不做任何操作，让 30 秒定时器自动恢复
   }, []);
 
   // 自动滚动到底部（当有新日志且启用自动滚动且未暂停时）
   useEffect(() => {
-    if (!autoScrollEnabled || autoScrollPaused || userScrolling) {
+    if (!autoScrollEnabled || autoScrollPaused) {
       return;
     }
 
@@ -235,65 +236,21 @@ export function useOperationLogs(options: UseOperationLogsOptions): UseOperation
       const container = logsContainerRef.current;
       if (!container) return;
 
-      isAutoScrollRef.current = true;
       container.scrollTo({
         top: container.scrollHeight,
-        behavior: 'auto', // 使用 auto 避免误判
-      });
-
-      // 滚动完成后立即重置标记
-      requestAnimationFrame(() => {
-        isAutoScrollRef.current = false;
+        behavior: 'smooth', // 平滑滚动
       });
     });
 
     return () => cancelAnimationFrame(rafId);
-  }, [logs, autoScrollEnabled, autoScrollPaused, userScrolling]);
+  }, [logs, autoScrollEnabled, autoScrollPaused]);
 
-  // 监听用户滚动（只在开关打开时才监听）
+  // 组件卸载时清理定时器
   useEffect(() => {
-    // 开关关闭时不监听滚动
-    if (!autoScrollEnabled) {
-      return;
-    }
-
-    const container = logsContainerRef.current;
-    if (!container) return;
-
-    let scrollTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const handleScroll = () => {
-      // 如果标记仍在，说明是程序滚动，不处理
-      if (isAutoScrollRef.current) {
-        return;
-      }
-
-      // 用户手动滚动时暂停自动滚动
-      setAutoScrollPaused(true);
-
-      // 清除之前的定时器
-      if (scrollTimer) {
-        clearTimeout(scrollTimer);
-      }
-
-      // 停止滚动 500ms 后可以考虑自动恢复（可选）
-      // scrollTimer = setTimeout(() => {
-      //   // 如果用户滚动到底部附近，自动恢复自动滚动
-      //   if (isNearBottom(container, 50)) {
-      //     setAutoScrollPaused(false);
-      //   }
-      // }, 500);
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-
     return () => {
-      container.removeEventListener('scroll', handleScroll);
-      if (scrollTimer) {
-        clearTimeout(scrollTimer);
-      }
+      clearAutoResumeTimer();
     };
-  }, [autoScrollEnabled]);
+  }, [clearAutoResumeTimer]);
 
   // 添加日志（使用批量优化）
   const addLog = useCallback((message: string, type?: LogEntry['type']) => {
@@ -313,14 +270,16 @@ export function useOperationLogs(options: UseOperationLogsOptions): UseOperation
   const clearLogs = useCallback(() => {
     setLogs([]);
     setAutoScrollPaused(false); // 清空日志后恢复自动滚动
-  }, []);
+    clearAutoResumeTimer();
+  }, [clearAutoResumeTimer]);
 
   // 复制日志到剪贴板
   const copyLogs = useCallback(async (startIdx?: number, endIdx?: number) => {
     try {
-      // 复制前先暂停自动滚动
+      // 复制前先暂停自动滚动，并启动 30 秒恢复定时器
       if (autoScrollEnabled) {
         setAutoScrollPaused(true);
+        startAutoResumeTimer();
       }
 
       const start = startIdx ?? 0;
@@ -338,7 +297,7 @@ export function useOperationLogs(options: UseOperationLogsOptions): UseOperation
       addLog('复制失败: ' + (err as Error).message, 'error');
       return false;
     }
-  }, [logs, addLog, autoScrollEnabled]);
+  }, [logs, addLog, autoScrollEnabled, startAutoResumeTimer]);
 
   // 下载日志为 txt 文件
   const downloadLogs = useCallback(() => {

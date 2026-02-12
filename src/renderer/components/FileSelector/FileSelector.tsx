@@ -614,6 +614,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
         if (result.filesToAdd.length > 0) {
           if (multiple) {
             setFiles((prev) => [...prev, ...result.filesToAdd]);
+            onChange?.(result.filesToAdd.map((f) => f.path));
           } else {
             setFiles(result.filesToAdd);
             onChange?.(result.filesToAdd.map((f) => f.path));

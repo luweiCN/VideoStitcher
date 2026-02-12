@@ -12,6 +12,7 @@ const { generatePreviews, cleanupPreviews } = require('../ffmpeg/videoResize');
 const os = require('os');
 const { spawn } = require('child_process');
 const app = require('electron').app ?? require('@electron/remote');
+const { generateCombinedFilename, generateSafeFilename } = require('../utils/fileNameHelper');
 
 // ffprobe 路径（ffprobe-static 导出 .path 属性）
 const ffprobePath = require('ffprobe-static').path;
@@ -27,7 +28,7 @@ const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 function getSmartMergedName(bName, index, suffix, aName) {
   const separator = '-';
   const parts = bName.split(separator);
-  
+
   // parts.length > 7 表示至少有 7 个分隔符，即至少有 8 个部分
   if (parts.length > 7) {
     const newParts = [...parts];
@@ -38,14 +39,24 @@ function getSmartMergedName(bName, index, suffix, aName) {
     // 3. 倒数第二个部分（横竖标识）修正
     newParts[newParts.length - 2] = (suffix === 'vertical') ? '竖' : '横';
     // 修复：必须加上序号，否则导出倍数 > 1 时会文件名冲突导致花屏/覆盖
-    return newParts.join(separator) + `_${String(index + 1).padStart(4, '0')}.mp4`;
+    const rawName = newParts.join(separator) + `_${String(index + 1).padStart(4, '0')}`;
+    // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+    return generateSafeFilename(rawName, { extension: '.mp4' });
   }
-  
+
   // 默认命名规则
   if (aName) {
-    return `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_${suffix}.mp4`;
+    // 使用组合文件名处理，避免两个长文件名拼接后超过限制
+    return generateCombinedFilename(aName, bName, {
+      separator: '__',
+      suffix: `__${String(index + 1).padStart(4, '0')}_${suffix}`,
+      extension: '.mp4'
+    });
   } else {
-    return `${bName}__${String(index + 1).padStart(4, '0')}_${suffix}.mp4`;
+    return generateSafeFilename(bName, {
+      suffix: `__${String(index + 1).padStart(4, '0')}_${suffix}`,
+      extension: '.mp4'
+    });
   }
 }
 
@@ -544,7 +555,11 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
     for (let j = 0; j < configs.length; j++) {
       const config = configs[j];
       const suffix = config.suffix;
-      const outName = `${fileName}${suffix}.mp4`;
+      // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+      const outName = generateSafeFilename(fileName, {
+        suffix: suffix,
+        extension: '.mp4'
+      });
       const outPath = path.join(outputDir, outName);
 
       tasks.push(queue.push(async () => {
@@ -823,7 +838,12 @@ async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, c
     return queue.push(async () => {
       const aName = path.parse(a).name;
       const bName = path.parse(b).name;
-      const outName = `${aName}__${bName}__${String(index).padStart(4, '0')}.mp4`;
+      // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+      const outName = generateCombinedFilename(aName, bName, {
+        separator: '__',
+        suffix: `__${String(index).padStart(4, '0')}`,
+        extension: '.mp4'
+      });
       const outPath = path.join(outputDir, outName);
 
       // 发送任务开始处理事件

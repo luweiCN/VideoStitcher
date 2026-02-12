@@ -621,7 +621,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     if (isProcessing) return;
 
     setIsProcessing(true);
-    clearLogs();
+    // 不再自动清空日志，保留历史记录
     addLog('开始图片素材处理...', 'info');
     addLog(`素材: ${images.length} 张`, 'info');
     addLog(`Logo: ${logoPath ? '已设置' : '无'}`, 'info');
@@ -887,15 +887,17 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                 任务列表
               </h2>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500">{images.length}</span>
-                {images.length > 0 && (
+                <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
+                  {images.length > 0 ? `${currentIndex + 1} / ${images.length}` : images.length}
+                </span>
+                {images.length > 0 && !isProcessing && (
                   <button
                     onClick={() => {
                       // 清空所有任务
                       setImages([]);
                       fileSelectorRef.current?.clearFiles();
                     }}
-                    className="text-xs text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-rose-500/50 hover:bg-rose-500/10 transition-all"
+                    className="text-xs text-slate-400 hover:text-amber-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 transition-all"
                   >
                     清除全部
                   </button>
@@ -1014,13 +1016,15 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
                   >
                     <Eye className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => removeImage(images[currentIndex].id)}
-                    className="p-1.5 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded transition-colors"
-                    title="删除"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {!isProcessing && (
+                    <button
+                      onClick={() => removeImage(images[currentIndex].id)}
+                      className="p-1.5 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded transition-colors"
+                      title="删除"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

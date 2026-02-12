@@ -514,7 +514,7 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
     if (isProcessing) return;
 
     setIsProcessing(true);
-    clearLogs();
+    // 不再自动清空日志，保留历史记录
     setProgress({ done: 0, failed: 0, total: files.length });
 
     // 所有任务设为等待状态
@@ -590,11 +590,13 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
                 任务列表
               </h2>
               <div className="flex items-center gap-3">
-                <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">{files.length}</span>
-                {files.length > 0 && (
+                <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
+                  {files.length > 0 ? `${currentIndex + 1} / ${files.length}` : files.length}
+                </span>
+                {files.length > 0 && !isProcessing && (
                   <button
                     onClick={clearFiles}
-                    className="text-xs text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-rose-500/50 hover:bg-rose-500/10 transition-all"
+                    className="text-xs text-slate-400 hover:text-cyan-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-cyan-500/50 hover:bg-cyan-500/10 transition-all"
                   >
                     清除全部
                   </button>
