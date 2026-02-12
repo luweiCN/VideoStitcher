@@ -770,15 +770,16 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
           {/* 提示信息 - 固定在滚动容器外部 */}
           {files.length > 0 && !isRenaming && (
             <div className="px-4 py-3 border-b border-slate-800/50 bg-black/50 shrink-0">
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3">
                 <div className="p-1.5 bg-pink-500/20 rounded-lg text-pink-400">
                   <FileText className="w-4 h-4" />
                 </div>
-                <div className="text-xs">
-                  <span className="font-semibold text-pink-300">批量重命名：</span>
-                  <span className="text-slate-400 ml-1">
-                    点击「编辑」「替换」或「序号」修改文件名，确认后执行重命名
-                  </span>
+                <div className="text-sm">
+                  <p className="font-semibold text-pink-300 mb-1">批量重命名文件：</p>
+                  <p className="text-slate-400 leading-relaxed">
+                    1. 点击上方「编辑」「替换」或「序号」修改文件名<br/>
+                    2. 确认无误后点击「执行重命名」按钮
+                  </p>
                 </div>
               </div>
             </div>
