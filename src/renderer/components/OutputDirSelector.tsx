@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Folder, FolderOpen, ExternalLink, HardDrive, ClipboardCopy, Inbox } from 'lucide-react';
+import { Copy, Folder, FolderOpen, ExternalLink, HardDrive, ClipboardCopy, Inbox, ArrowUpRight } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Button } from './Button/Button';
 
@@ -157,7 +157,7 @@ const OutputDirSelector: React.FC<OutputDirSelectorProps> = ({
                       className="p-2 rounded-lg shrink-0 bg-slate-900/50 text-slate-600 hover:text-slate-400 hover:bg-slate-800/50 transition-all duration-200"
                       type="button"
                     >
-                      <ExternalLink className="w-4 h-4" />
+                      <ArrowUpRight className="w-4 h-4" />
                     </button>
                   </Tooltip.Trigger>
                   <Tooltip.Portal>
