@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { Zap, Cpu, Check, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Zap, Cpu, Check, AlertTriangle, Lightbulb, Info } from 'lucide-react';
 
 interface ConcurrencySelectorProps {
+  /** 组件 ID */
+  id?: string;
   /** 当前并发数 */
   value: number;
   /** 并发数变化回调 */
@@ -64,7 +66,7 @@ const themeColors = {
   },
   slate: {
     primary: 'slate',
-    gradient: 'from-slate-500 to-gray-500',
+    gradient: 'from-slate-500 to-slate-500',
     shadow: 'shadow-slate-500/30',
     track: 'bg-slate-500',
   },
@@ -79,6 +81,7 @@ const themeColors = {
  * - 智能推荐值和性能提示
  */
 const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
+  id,
   value,
   onChange,
   max: propMax,
@@ -152,7 +155,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
   };
 
   return (
-    <div className={className}>
+    <div id={id} className={className}>
       {/* 标签栏 */}
       <div className="flex items-center justify-between mb-2">
         <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -168,7 +171,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
       </div>
 
       {/* 滑轨容器 */}
-      <div className="bg-slate-900/50 rounded-xl px-3 pt-3 pb-5 border border-slate-800">
+      <div className="bg-black/50 rounded-xl px-3 pt-3 pb-5 border border-slate-800">
         {/* 值显示 */}
         <div className="flex items-center justify-between mb-3">
           <div className={`
@@ -198,12 +201,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
                       cursor-pointer
                     `}
                   >
-                    {/* 信息图标 */}
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 16v-4" />
-                      <path d="M12 8h.01" />
-                    </svg>
+                    <Info className="w-4 h-4" />
                   </button>
                 </Tooltip.Trigger>
                 <Tooltip.Portal>
@@ -213,7 +211,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
                     sideOffset={8}
                     className="z-50"
                   >
-                    <div className="px-4 py-3.5 bg-slate-950/95 backdrop-blur-xl rounded-xl border border-slate-700/50 shadow-2xl max-w-[360px]">
+                    <div className="px-4 py-3.5 bg-black/95 backdrop-blur-xl rounded-xl border border-slate-700/50 shadow-2xl max-w-[360px]">
                       {/* 标题 */}
                       <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-800">
                         <div className={`
@@ -292,7 +290,7 @@ const ConcurrencySelector: React.FC<ConcurrencySelectorProps> = ({
           step={1}
           disabled={disabled}
         >
-          <Slider.Track className="bg-slate-800 relative grow rounded-full h-2 shadow-inner">
+          <Slider.Track className="bg-neutral-900 relative grow rounded-full h-2 shadow-inner">
             <Slider.Range className={`
               absolute h-full rounded-full
               bg-gradient-to-r ${theme.gradient}

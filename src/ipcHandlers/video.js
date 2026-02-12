@@ -12,6 +12,10 @@ const { generatePreviews, cleanupPreviews } = require('../ffmpeg/videoResize');
 const os = require('os');
 const { spawn } = require('child_process');
 const app = require('electron').app ?? require('@electron/remote');
+const { generateCombinedFilename, generateSafeFilename } = require('../utils/fileNameHelper');
+
+// ffprobe 路径（@ffprobe-installer/ffprobe 按平台安装，体积更小）
+const ffprobePath = require('@ffprobe-installer/ffprobe').path;
 
 // 创建任务队列 (复用现有逻辑)
 const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
@@ -24,7 +28,7 @@ const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 function getSmartMergedName(bName, index, suffix, aName) {
   const separator = '-';
   const parts = bName.split(separator);
-  
+
   // parts.length > 7 表示至少有 7 个分隔符，即至少有 8 个部分
   if (parts.length > 7) {
     const newParts = [...parts];
@@ -35,14 +39,24 @@ function getSmartMergedName(bName, index, suffix, aName) {
     // 3. 倒数第二个部分（横竖标识）修正
     newParts[newParts.length - 2] = (suffix === 'vertical') ? '竖' : '横';
     // 修复：必须加上序号，否则导出倍数 > 1 时会文件名冲突导致花屏/覆盖
-    return newParts.join(separator) + `_${String(index + 1).padStart(4, '0')}.mp4`;
+    const rawName = newParts.join(separator) + `_${String(index + 1).padStart(4, '0')}`;
+    // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+    return generateSafeFilename(rawName, { extension: '.mp4' });
   }
-  
+
   // 默认命名规则
   if (aName) {
-    return `${aName}__${bName}__${String(index + 1).padStart(4, '0')}_${suffix}.mp4`;
+    // 使用组合文件名处理，避免两个长文件名拼接后超过限制
+    return generateCombinedFilename(aName, bName, {
+      separator: '__',
+      suffix: `__${String(index + 1).padStart(4, '0')}_${suffix}`,
+      extension: '.mp4'
+    });
   } else {
-    return `${bName}__${String(index + 1).padStart(4, '0')}_${suffix}.mp4`;
+    return generateSafeFilename(bName, {
+      suffix: `__${String(index + 1).padStart(4, '0')}_${suffix}`,
+      extension: '.mp4'
+    });
   }
 }
 
@@ -52,8 +66,127 @@ function getSmartMergedName(bName, index, suffix, aName) {
  */
 async function getVideoMetadata(filePath) {
   return new Promise((resolve, reject) => {
-    const ffprobePath = require('ffmpeg-static').replace('ffmpeg', 'ffprobe');
+    const args = [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height,duration',
+      '-of', 'json',
+      filePath
+    ];
 
+    const process = spawn(ffprobePath, args);
+    let stdout = '';
+    let stderr = '';
+
+    process.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    process.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    process.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(`ffprobe exit code=${code}: ${stderr}`));
+      }
+
+      try {
+        const output = JSON.parse(stdout);
+        if (output.streams && output.streams.length > 0) {
+          const stream = output.streams[0];
+          resolve({
+            width: stream.width,
+            height: stream.height,
+            duration: stream.duration ? parseFloat(stream.duration) : 0
+          });
+        } else {
+          reject(new Error('无法解析视频元数据'));
+        }
+      } catch (err) {
+        reject(new Error(`解析 ffprobe 输出失败: ${err.message}`));
+      }
+    });
+
+    process.on('error', (err) => {
+      reject(new Error(`ffprobe 执行失败: ${err.message}`));
+    });
+  });
+}
+
+/**
+ * 获取视频尺寸信息（宽度、高度、方向、长宽比）
+ * 用于文件选择器显示
+ *
+ * @param {string} filePath - 视频文件路径
+ * @returns {Promise<Object|null>} 尺寸信息 { width, height, orientation, aspectRatio } 或 null
+ */
+async function getVideoDimensions(filePath) {
+  try {
+    const ext = path.extname(filePath).toLowerCase();
+    const validExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.m4v'];
+
+    if (!validExtensions.includes(ext)) {
+      return null;
+    }
+
+    const metadata = await getVideoMetadata(filePath);
+    const width = metadata.width;
+    const height = metadata.height;
+
+    if (!width || !height) {
+      return null;
+    }
+
+    // 计算方向
+    let orientation = 'landscape';
+    if (width === height) {
+      orientation = 'square';
+    } else if (height > width) {
+      orientation = 'portrait';
+    }
+
+    // 计算长宽比，简化为常用比例
+    const ratio = width / height;
+    let aspectRatio = '16:9';
+    if (Math.abs(ratio - 16/9) < 0.1) aspectRatio = '16:9';
+    else if (Math.abs(ratio - 9/16) < 0.1) aspectRatio = '9:16';
+    else if (Math.abs(ratio - 4/3) < 0.1) aspectRatio = '4:3';
+    else if (Math.abs(ratio - 3/4) < 0.1) aspectRatio = '3:4';
+    else if (Math.abs(ratio - 1) < 0.05) aspectRatio = '1:1';
+    else aspectRatio = `${Math.round(ratio * 10) / 10}:1`;
+
+    return {
+      width,
+      height,
+      orientation,
+      aspectRatio
+    };
+  } catch (error) {
+    console.error(`[获取视频尺寸] 失败: ${filePath} - ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * 横屏合成处理
+ * 使用现有的 A+B 拼接逻辑
+ *
+ * @param {Object} params - 参数对象
+ * @param {string[]} params.aVideos - A面视频列表
+ * @param {string[]} params.bVideos - B面视频列表（主视频）
+ * @param {string} [params.bgImage] - 背景图路径
+ * @param {string[]} [params.coverImages] - 封面图列表（支持批量，每个任务随机选择）
+ * @param {string} params.outputDir - 输出目录
+ * @param {number} [params.concurrency] - 并发数
+ * @param {Object} [params.aPosition] - A面视频位置 {x, y, width, height}
+ * @param {Object} [params.bPosition] - B面视频位置 {x, y, width, height}（默认位置，用于所有视频）
+ * @param {Object[]} [params.bPositions] - 每个B面视频的独立位置数组（可选，优先级高于 bPosition）
+ * @param {Object} [params.bgPosition] - 背景图位置 {x, y, width, height}
+ * @param {Object} [params.coverPosition] - 封面图位置 {x, y, width, height}
+ */
+async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverImages, outputDir, concurrency, aPosition, bPosition, bPositions, bgPosition, coverPosition }) {
+  return new Promise((resolve, reject) => {
     const args = [
       '-v', 'error',
       '-select_streams', 'v:0',
@@ -180,6 +313,9 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
 
   const tasks = bVideos.map((b, index) => {
     return queue.push(async () => {
+      // 发送任务开始事件
+      event.sender.send('video-task-start', { index });
+
       // 使用预分配的 A 面视频和封面图
       const selectedAVideo = globalASideAssignments[index];
       const selectedCoverImage = globalCoverAssignments[index];
@@ -332,6 +468,9 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverI
 
   const tasks = mainVideos.map((mainVideo, index) => {
     return queue.push(async () => {
+      // 发送任务开始事件
+      event.sender.send('video-task-start', { index });
+
       // 使用预分配的 A 面视频和封面图
       const selectedAVideo = globalASideAssignments[index];
       const selectedCoverImage = globalCoverAssignments[index];
@@ -416,11 +555,18 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
     for (let j = 0; j < configs.length; j++) {
       const config = configs[j];
       const suffix = config.suffix;
-      const outName = `${fileName}${suffix}.mp4`;
+      // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+      const outName = generateSafeFilename(fileName, {
+        suffix: suffix,
+        extension: '.mp4'
+      });
       const outPath = path.join(outputDir, outName);
 
       tasks.push(queue.push(async () => {
         const index = i * configs.length + j;
+
+        // 发送任务开始事件
+        event.sender.send('video-task-start', { index });
 
         try {
           console.log(`[handleResize] 处理任务 ${index}: ${videoPath}, 目标: ${config.width}x${config.height}, 模糊: ${blurAmount}`);
@@ -653,9 +799,122 @@ async function handleClearResizePreviews(event, { previewPaths }) {
 }
 
 /**
+ * A+B 前后拼接处理
+ * 用于 VideoStitcherMode 的 A+B 前后拼接功能
+ *
+ * @param {Object} event - IPC 事件对象
+ * @param {Object} params - 参数对象
+ * @param {string[]} params.aFiles - A面视频列表（前段）
+ * @param {string[]} params.bFiles - B面视频列表（后段）
+ * @param {string} params.outputDir - 输出目录
+ * @param {string} params.orientation - 拼接方向 (landscape | portrait)
+ * @param {number} [params.concurrency] - 并发数
+ */
+async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, concurrency }) {
+  if (!aFiles.length || !bFiles.length) {
+    throw new Error('A库或B库为空');
+  }
+  if (!outputDir) {
+    throw new Error('未选择输出目录');
+  }
+
+  const { buildPairs } = require('../ffmpeg/pair');
+  const pairs = buildPairs(aFiles, bFiles);
+  const total = pairs.length;
+
+  // 设置并发数
+  queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
+
+  let done = 0;
+  let failed = 0;
+
+  event.sender.send('video-start', {
+    total,
+    mode: orientation,
+    concurrency: queue.concurrency,
+  });
+
+  const tasks = pairs.map(({ a, b, index }) => {
+    return queue.push(async () => {
+      const aName = path.parse(a).name;
+      const bName = path.parse(b).name;
+      // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+      const outName = generateCombinedFilename(aName, bName, {
+        separator: '__',
+        suffix: `__${String(index).padStart(4, '0')}`,
+        extension: '.mp4'
+      });
+      const outPath = path.join(outputDir, outName);
+
+      // 发送任务开始处理事件
+      event.sender.send('video-task-start', { index });
+
+      const payload = { aPath: a, bPath: b, outPath, orientation };
+
+      const tryRun = async (attempt) => {
+        event.sender.send('video-log', {
+          index,
+          message: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n`,
+        });
+        return runFfmpeg(payload, (s) => {
+          event.sender.send('video-log', { index, message: s });
+        });
+      };
+
+      try {
+        await tryRun(1);
+        done++;
+        event.sender.send('video-progress', {
+          done,
+          failed,
+          total,
+          index,
+          outputPath: outPath,
+        });
+      } catch (err) {
+        event.sender.send('video-log', {
+          index,
+          message: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n`,
+        });
+        try {
+          await tryRun(2);
+          done++;
+          event.sender.send('video-progress', {
+            done,
+            failed,
+            total,
+            index,
+            outputPath: outPath,
+          });
+        } catch (err2) {
+          failed++;
+          event.sender.send('video-failed', {
+            done,
+            failed,
+            total,
+            index,
+            error: err2.message,
+          });
+        }
+      }
+    });
+  });
+
+  await Promise.allSettled(tasks);
+  event.sender.send('video-finish', { done, failed, total });
+
+  return { done, failed, total };
+}
+
+/**
  * 注册所有视频处理 IPC 处理器
  */
 function registerVideoHandlers() {
+  // A+B 前后拼接
+  ipcMain.handle('video-stitch-ab', async (event, config) => {
+    return handleStitchAB(event, config);
+  });
+
   // 横屏合成
   ipcMain.handle('video-horizontal-merge', async (event, config) => {
     return handleHorizontalMerge(event, config);
@@ -700,10 +959,17 @@ function registerVideoHandlers() {
   ipcMain.handle('video-get-metadata', async (event, filePath) => {
     return getVideoMetadata(filePath);
   });
+
+  // 获取视频尺寸
+  ipcMain.handle('video:get-dimensions', async (event, filePath) => {
+    return getVideoDimensions(filePath);
+  });
 }
 
 module.exports = {
   registerVideoHandlers,
+  getVideoDimensions,
+  handleStitchAB,
   handleHorizontalMerge,
   handleVerticalMerge,
   handleResize,

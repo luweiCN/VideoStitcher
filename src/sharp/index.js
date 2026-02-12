@@ -6,6 +6,7 @@
 const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs').promises;
+const { generateSafeFilename, sanitizeFilename, truncateFilename } = require('../utils/fileNameHelper');
 
 /**
  * 辅助函数：在第 N 个分隔符左侧插入文本
@@ -67,10 +68,15 @@ async function compressImage(inputPath, targetSizeKB = 380, outputDir = null) {
   }
 
   const inputBaseName = path.parse(inputPath).name;
+  // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+  const safeFileName = generateSafeFilename(inputBaseName, {
+    suffix: '_compressed',
+    extension: '.jpg'
+  });
   // 使用指定的输出目录，如果没有指定则使用输入文件所在目录
   const outputPath = path.join(
     outputDir || path.dirname(inputPath),
-    `${inputBaseName}_compressed.jpg`
+    safeFileName
   );
 
   let quality = 90;
@@ -159,10 +165,15 @@ async function convertCoverFormat(inputPath, quality = 90, outputDir = null) {
 
   const inputBaseName = path.parse(inputPath).name;
   const inputExt = path.parse(inputPath).ext;
+  // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+  const safeFileName = generateSafeFilename(inputBaseName, {
+    suffix: suffix,
+    extension: inputExt
+  });
   // 使用指定的输出目录，如果没有指定则使用输入文件所在目录
   const outputPath = path.join(
     outputDir || path.dirname(inputPath),
-    `${inputBaseName}${suffix}${inputExt}`
+    safeFileName
   );
 
   await sharp(inputPath)
@@ -245,13 +256,17 @@ async function createGridImage(inputPath, outputDir, baseNameOverride = null, ta
       const left = col * tileWidth;
       const top = row * tileHeight;
       const index = row * 3 + col + 1;
-      
+
       // 使用辅助函数生成符合要求的名称
-      const finalName = getModifiedName(inputBaseName, `九宫格${index}`);
-      
+      const rawName = getModifiedName(inputBaseName, `九宫格${index}`);
+      // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+      const finalName = sanitizeFilename(rawName, { preserveExtension: false });
+      // 检查并截断过长的文件名
+      const truncatedName = truncateFilename(finalName, { maxLength: 180 });
+
       if (maxSizeKB > 0) {
         // 如果有大小限制，强制使用 jpg 格式以便压缩
-        const outputPath = path.join(outputDir, `${finalName}.jpg`);
+        const outputPath = path.join(outputDir, `${truncatedName}.jpg`);
         const targetSizeBytes = maxSizeKB * 1024;
         let quality = 90;
         let buffer;
@@ -428,8 +443,11 @@ async function processImageMaterial(
 
   // ========== 步骤 3: 导出单张 800x800 图片 ==========
   if (exportOptions.single) {
-    const finalName = getModifiedName(inputBaseName, '800尺寸单图');
-    const singleOutputPath = path.join(outputDir, 'single', `${finalName}.jpg`);
+    const rawName = getModifiedName(inputBaseName, '800尺寸单图');
+    // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+    const finalName = sanitizeFilename(rawName, { preserveExtension: false });
+    const truncatedName = truncateFilename(finalName, { maxBytes: 180 });
+    const singleOutputPath = path.join(outputDir, 'single', `${truncatedName}.jpg`);
     await fs.mkdir(path.dirname(singleOutputPath), { recursive: true });
 
     const targetSizeBytes = 400 * 1024;

@@ -4,8 +4,11 @@ const path = require("path");
 const fs = require("fs");
 const { autoUpdater } = require("electron-updater");
 
-const { buildPairs } = require("./ffmpeg/pair");
-const { TaskQueue } = require("./ffmpeg/queue");
+// 设置应用名称（开发模式下 Dock 显示）
+if (process.defaultApp) {
+  app.setName('VideoStitcher');
+}
+
 const { runFfmpeg } = require("./ffmpeg/runFfmpeg");
 
 /**
@@ -22,11 +25,6 @@ const { registerAuthHandlers } = require("./ipcHandlers/auth");
 const { registerFileHandlers } = require("./ipcHandlers/file");
 
 let win;
-let A = [];
-let B = [];
-let outDir = "";
-
-const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 
 // 检测开发环境
 const isDevelopment =
@@ -35,15 +33,77 @@ const isDevelopment =
   !app.isPackaged;
 
 function createWindow() {
+  // 使用生成的圆角图标（由 scripts/generate-icons.js 生成）
+  // 开发模式：npm run dev 会先运行 build:icons:dev，生成带 DEV 标签的圆角图标
+  // 生产模式：打包时会运行 build:icons，生成正式版圆角图标
+  const iconPath = path.join(__dirname, '..', 'build', 'icon.png');
+
+  // macOS 设置 Dock 图标（BrowserWindow 的 icon 只影响窗口标题栏）
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(iconPath);
+  }
+
   win = new BrowserWindow({
     width: 1400,
     height: 900,
+    show: false, // 先隐藏，等内容加载后再显示
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: true, // 保持 webSecurity 启用
     },
+  });
+
+  // 窗口准备好后显示
+  win.once('ready-to-show', () => {
+    console.log('[主进程] 窗口 ready-to-show，即将显示');
+    win.show();
+    win.focus();
+    console.log('[主进程] 窗口已调用 show() 和 focus()');
+  });
+
+  // 监听窗口关闭
+  win.on('closed', () => {
+    console.log('[主进程] 窗口已关闭');
+    win = null;
+  });
+
+  // 阻止默认的拖放行为（打开文件）
+  // 这样可以让拖放事件在渲染进程中正常触发
+  win.webContents.on('will-navigate', (event, url) => {
+    // 如果是 file:// 协议，阻止默认行为
+    if (url.startsWith('file://')) {
+      event.preventDefault();
+    }
+  });
+
+  // 在页面加载完成后注入 JavaScript 阻止默认拖放行为
+  win.webContents.on('dom-ready', () => {
+    win.webContents.executeJavaScript(`
+      // 阻止默认的拖放行为
+      document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
+
+      document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
+
+      // 阻止链接的默认行为
+      document.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (link && link.href.startsWith('file://')) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, false);
+
+      console.log('[Main] 已注入拖放事件阻止代码');
+    `).catch(err => console.error('注入拖放阻止代码失败:', err));
   });
 
   // 开发模式下加载 Vite 服务器，生产模式加载构建文件
@@ -138,28 +198,86 @@ function registerPreviewProtocol() {
 }
 
 app.whenReady().then(() => {
-  // 注册预览协议
-  registerPreviewProtocol();
+  console.log('[主进程] app.whenReady 触发，开始初始化...');
 
-  createWindow();
-  // 注册视频处理 IPC 处理器
-  registerVideoHandlers();
-  // 注册图片处理 IPC 处理器
-  registerImageHandlers();
-  // 注册授权处理 IPC
-  registerAuthHandlers();
-  // 注册文件操作 IPC 处理器
-  registerFileHandlers();
+  try {
+    // 注册预览协议
+    console.log('[主进程] 注册预览协议...');
+    registerPreviewProtocol();
+    console.log('[主进程] 预览协议注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册预览协议失败:', err);
+  }
+
+  try {
+    console.log('[主进程] 创建窗口...');
+    createWindow();
+    console.log('[主进程] 窗口创建完成');
+  } catch (err) {
+    console.error('[主进程] 创建窗口失败:', err);
+    return;
+  }
+
+  try {
+    // 注册视频处理 IPC 处理器
+    console.log('[主进程] 注册视频处理器...');
+    registerVideoHandlers();
+    console.log('[主进程] 视频处理器注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册视频处理器失败:', err);
+  }
+
+  try {
+    // 注册图片处理 IPC 处理器
+    console.log('[主进程] 注册图片处理器...');
+    registerImageHandlers();
+    console.log('[主进程] 图片处理器注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册图片处理器失败:', err);
+  }
+
+  try {
+    // 注册授权处理 IPC
+    console.log('[主进程] 注册授权处理器...');
+    registerAuthHandlers();
+    console.log('[主进程] 授权处理器注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册授权处理器失败:', err);
+  }
+
+  try {
+    // 注册文件操作 IPC 处理器
+    console.log('[主进程] 注册文件处理器...');
+    registerFileHandlers();
+    console.log('[主进程] 文件处理器注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册文件处理器失败:', err);
+  }
 
   // macOS 应用内更新处理器（需要在 setupAutoUpdater 之前）
   if (process.platform === 'darwin') {
-    const { setupUpdateHandlers } = require('./main/ipc-handlers');
-    win.macUpdater = setupUpdateHandlers(win);
-    console.log('[主进程] macOS 更新处理器已启用');
+    try {
+      console.log('[主进程] 加载 macOS 更新处理器...');
+      const { setupUpdateHandlers } = require('./main/ipc-handlers');
+      win.macUpdater = setupUpdateHandlers(win);
+      console.log('[主进程] macOS 更新处理器已启用');
+    } catch (err) {
+      console.error('[主进程] macOS 更新处理器加载失败:', err);
+    }
   }
 
-  // 配置自动更新（需要 MacUpdater 实例）
-  setupAutoUpdater();
+  try {
+    // 配置自动更新（需要 MacUpdater 实例）
+    console.log('[主进程] 配置自动更新...');
+    setupAutoUpdater();
+    console.log('[主进程] 自动更新配置完成');
+  } catch (err) {
+    console.error('[主进程] 配置自动更新失败:', err);
+  }
+
+  console.log('[主进程] 初始化完成！');
+}).catch((err) => {
+  console.error('[主进程] app.whenReady 发生错误:', err);
 });
 
 // 自动更新配置和事件处理
@@ -581,98 +699,6 @@ ipcMain.handle("pick-outdir", async (_e, { defaultPath } = {}) => {
   return res.filePaths[0];
 });
 
-ipcMain.handle("set-libs", async (_e, { aFiles, bFiles, outputDir }) => {
-  A = aFiles || [];
-  B = bFiles || [];
-  outDir = outputDir || "";
-  return { aCount: A.length, bCount: B.length, outDir };
-});
-
-ipcMain.handle("set-concurrency", async (_e, { concurrency }) => {
-  queue.setConcurrency(Number(concurrency) || 1);
-  return { concurrency: queue.concurrency };
-});
-
-ipcMain.handle("start-merge", async (_e, { orientation }) => {
-  if (!A.length || !B.length) throw new Error("A库或B库为空");
-  if (!outDir) throw new Error("未选择输出目录");
-
-  const pairs = buildPairs(A, B);
-  const total = pairs.length;
-
-  let done = 0;
-  let failed = 0;
-
-  win.webContents.send("job-start", {
-    total,
-    orientation,
-    concurrency: queue.concurrency,
-  });
-
-  const tasks = pairs.map(({ a, b, index }) => {
-    return queue.push(async () => {
-      const aName = path.parse(a).name;
-      const bName = path.parse(b).name;
-      const outName = `${aName}__${bName}__${String(index).padStart(4, "0")}.mp4`;
-      const outPath = path.join(outDir, outName);
-
-      // 发送任务开始处理事件
-      win.webContents.send("job-task-start", { index });
-
-      const payload = { aPath: a, bPath: b, outPath, orientation };
-
-      const tryRun = async (attempt) => {
-        win.webContents.send("job-log", {
-          msg: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n`,
-        });
-        return runFfmpeg(payload, (s) => {
-          win.webContents.send("job-log", { msg: s });
-        });
-      };
-
-      try {
-        await tryRun(1);
-        done++;
-        win.webContents.send("job-progress", {
-          done,
-          failed,
-          total,
-          index,
-          outPath,
-        });
-      } catch (err) {
-        win.webContents.send("job-log", {
-          msg: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n`,
-        });
-        try {
-          await tryRun(2);
-          done++;
-          win.webContents.send("job-progress", {
-            done,
-            failed,
-            total,
-            index,
-            outPath,
-          });
-        } catch (err2) {
-          failed++;
-          win.webContents.send("job-failed", {
-            done,
-            failed,
-            total,
-            index,
-            error: err2.message,
-          });
-        }
-      }
-    });
-  });
-
-  await Promise.allSettled(tasks);
-  win.webContents.send("job-finish", { done, failed, total });
-  return { done, failed, total };
-});
-
 // 自动更新相关的 IPC 处理器
 ipcMain.handle("check-for-updates", async () => {
   try {
@@ -809,6 +835,144 @@ ipcMain.handle("get-preview-url", async (_event, filePath) => {
     const previewUrl = `preview://${encodeURIComponent(filePath)}`;
     return { success: true, url: previewUrl };
   } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+/**
+ * 生成预览缩略图（等比缩放，可指定最长边，返回 base64）
+ *
+ * Sharp 的 fit: 'inside' 选项会保持宽高比：
+ * - 最长边缩放到 maxSize
+ * - 短边按比例缩放
+ * - 例如：1920×1080 + maxSize:200 → 200×112
+ */
+ipcMain.handle("get-preview-thumbnail", async (_event, filePath, maxSize = 200) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: false, error: "文件不存在" };
+    }
+
+    const sharp = require('sharp');
+    // 确保 maxSize 是有效数字
+    const size = typeof maxSize === 'number' && maxSize > 0 ? maxSize : 200;
+
+    // 读取图片并获取元数据
+    const image = sharp(filePath);
+    const metadata = await image.metadata();
+
+    // 计算缩放后的尺寸
+    const sourceMax = Math.max(metadata.width, metadata.height);
+    const scale = sourceMax > size ? size / sourceMax : 1;
+
+    // 生成缩略图（fit: 'inside' 保持宽高比，最长边不超过 maxSize）
+    const resized = await image.resize(size, size, {
+      fit: 'inside',
+      kernel: 'lanczos3',
+      withoutEnlargement: true
+    });
+
+    // 转换为 PNG base64
+    const buffer = await resized.png().toBuffer();
+    const base64 = buffer.toString('base64');
+
+    return {
+      success: true,
+      thumbnail: `data:image/png;base64,${base64}`,
+      width: Math.round(metadata.width * scale),
+      height: Math.round(metadata.height * scale)
+    };
+  } catch (err) {
+    console.error('[缩略图生成] 失败:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+/**
+ * 获取视频缩略图
+ * @param {string} filePath - 视频文件路径
+ * @param {object} options - 配置选项
+ * @param {number} options.timeOffset - 截取的时间点（秒），默认 0
+ * @param {number} options.maxSize - 缩略图最大尺寸，默认 200
+ */
+ipcMain.handle("get-video-thumbnail", async (_event, filePath, options = {}) => {
+  const { execFile } = require('child_process');
+
+  try {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return { success: false, error: "文件不存在" };
+    }
+
+    const ffmpeg = require('ffmpeg-static');
+    const { timeOffset = 0, maxSize = 200 } = options;
+
+    // 1. 先获取视频时长
+    const duration = await new Promise((resolve) => {
+      const args = ['-i', filePath, '-hide_banner'];
+      execFile(ffmpeg, args, { timeout: 5000 }, (err, stdout, stderr) => {
+        // FFmpeg 在仅获取信息时会返回非零退出码，但 stderr 包含信息
+        const match = stderr.match(/Duration: (\d{2}):(\d{2}):(\d{2})\.(\d{2})/);
+        if (match) {
+          const hours = parseInt(match[1]);
+          const mins = parseInt(match[2]);
+          const secs = parseInt(match[3]);
+          const centisecs = parseInt(match[4]);
+          resolve(hours * 3600 + mins * 60 + secs + centisecs / 100);
+        } else {
+          resolve(0);
+        }
+      });
+    });
+
+    // 2. 计算实际截取时间点（容错：不超过视频时长的 90%）
+    const actualTimeOffset = duration > 0
+      ? Math.min(timeOffset, duration * 0.9)
+      : timeOffset;
+
+    // 3. 创建临时文件路径
+    const tmpDir = path.join(os.tmpdir(), 'videostitcher-temp');
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    const outputPath = path.join(tmpDir, `thumb_${Date.now()}.png`);
+
+    // 4. 使用 FFmpeg 截取帧
+    await new Promise((resolve, reject) => {
+      const args = [
+        '-ss', String(actualTimeOffset),  // 时间点
+        '-i', filePath,
+        '-vframes', '1',                  // 截取 1 帧
+        '-vf', `scale=${maxSize}:-1`,     // 缩放
+        '-y',                             // 覆盖输出
+        outputPath
+      ];
+
+      execFile(ffmpeg, args, { timeout: 10000 }, (err) => {
+        if (err) reject(err);
+        else resolve(undefined);
+      });
+    });
+
+    // 5. 检查输出文件是否存在
+    if (!fs.existsSync(outputPath)) {
+      return { success: false, error: "截取失败，输出文件不存在" };
+    }
+
+    // 6. 读取并转 base64
+    const buffer = fs.readFileSync(outputPath);
+    const base64 = buffer.toString('base64');
+
+    // 7. 删除临时文件
+    fs.unlinkSync(outputPath);
+
+    return {
+      success: true,
+      thumbnail: `data:image/png;base64,${base64}`,
+      duration,
+      actualTimeOffset
+    };
+  } catch (err) {
+    console.error('[视频缩略图] 失败:', err);
     return { success: false, error: err.message };
   }
 });
