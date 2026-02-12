@@ -85,17 +85,14 @@ const PreviewConfirmDialog: React.FC<PreviewConfirmDialogProps> = ({
                   key={index}
                   className="bg-black/50 border border-slate-800/50 rounded-xl p-3 hover:border-slate-700 transition-colors"
                 >
-                  {/* 序号 */}
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-6 h-6 flex items-center justify-center bg-slate-800 rounded-lg text-[10px] font-mono text-slate-500 flex-shrink-0">
-                      {index + 1}
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-pink-500 flex-shrink-0" />
-                  </div>
-
                   {/* 原文件名 */}
                   <div className="mb-2">
-                    <div className="text-[10px] text-slate-600 mb-0.5">原文件名</div>
+                    <div className="text-[10px] text-slate-600 mb-0.5 flex items-center gap-2">
+                      <span className="w-5 h-5 flex items-center justify-center bg-slate-800 rounded text-[10px] font-mono text-slate-500">
+                        {index + 1}
+                      </span>
+                      原文件名
+                    </div>
                     <div className="text-rose-400/80 font-mono text-xs break-all leading-relaxed bg-slate-900/30 rounded-lg px-2.5 py-1.5">
                       {sourceFileName}
                     </div>
@@ -103,7 +100,10 @@ const PreviewConfirmDialog: React.FC<PreviewConfirmDialogProps> = ({
 
                   {/* 新文件名 */}
                   <div>
-                    <div className="text-[10px] text-emerald-500/60 mb-0.5">新文件名</div>
+                    <div className="text-[10px] text-emerald-500/60 mb-0.5 flex items-center gap-2">
+                      <ArrowRight className="w-3.5 h-3.5 text-pink-500" />
+                      新文件名
+                    </div>
                     <div className="text-emerald-400 font-mono text-xs break-all leading-relaxed bg-emerald-500/5 rounded-lg px-2.5 py-1.5 border border-emerald-500/10">
                       {targetFileName}
                     </div>
