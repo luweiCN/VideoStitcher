@@ -292,8 +292,8 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
       const containerHeight = container.clientHeight;
 
       // 减去预留边距和底部说明文字区域
-      const padding = 20;
-      const infoHeight = 40; // 底部说明区域高度
+      const padding = 32; // 上下左右边距
+      const infoHeight = 28; // 底部说明区域高度（mt-2 + 文字高度）
       const availableWidth = containerWidth - padding * 2;
       const availableHeight = containerHeight - padding * 2 - infoHeight;
 
@@ -767,24 +767,22 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
           {/* 预览画布 */}
           <div
             ref={previewAreaRef}
-            className="flex-1 flex flex-col flex-shrink-0 border-t border-slate-800 bg-black p-4 min-h-0"
+            className="flex-1 flex flex-col items-center justify-center flex-shrink-0 border-t border-slate-800 bg-black p-4 min-h-0"
           >
-            <div className="flex-1 flex items-center justify-center">
-              <div
-                ref={containerRef}
-                className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
-                style={{ width: previewSize, height: previewSize }}
-              >
-                <canvas
-                  ref={canvasRef}
-                  width={BASE_SIZE}
-                  height={BASE_SIZE}
-                  style={{ width: '100%', height: '100%' }}
-                />
-              </div>
+            <div
+              ref={containerRef}
+              className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
+              style={{ width: previewSize, height: previewSize }}
+            >
+              <canvas
+                ref={canvasRef}
+                width={BASE_SIZE}
+                height={BASE_SIZE}
+                style={{ width: '100%', height: '100%' }}
+              />
             </div>
             {files.length > 0 && (
-              <div className="text-center mt-3 text-xs text-slate-500">
+              <div className="text-center mt-2 text-xs text-slate-500 whitespace-nowrap">
                 <span className="text-cyan-400 font-medium">九宫格切割预览</span>
                 <span className="mx-2">|</span>
                 <span>每张约 {currentFile?.width ? Math.floor(currentFile.width / 3) : '?'}×{currentFile?.height ? Math.floor(currentFile.height / 3) : '?'} 像素</span>
