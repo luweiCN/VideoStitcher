@@ -271,16 +271,27 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
       previewUrl: undefined
     }));
 
+    addLog(`正在加载 ${newImages.length} 张图片信息...`, 'info');
+
     // 为新图片加载预览 URL 和图片信息
     const imagesWithInfo = await Promise.all(
       newImages.map(async (img) => {
         try {
+          addLog(`加载预览: ${img.name}`, 'info');
           // 并行加载预览 URL、尺寸信息和文件大小
           const [result, info, fileInfo] = await Promise.all([
             window.api.getPreviewUrl(img.path),
             getImageInfo(img.path),
             getFileInfo(img.path)
           ]);
+
+          if (info.width && info.height) {
+            addLog(`获取尺寸: ${img.name} - ${info.width}×${info.height} (${info.orientation || '未知'})`, 'info');
+          }
+          if (fileInfo) {
+            addLog(`获取大小: ${img.name} - ${formatFileSize(fileInfo)}`, 'info');
+          }
+
           return {
             ...img,
             previewUrl: result.success && result.url ? result.url : undefined,
@@ -288,6 +299,7 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             ...info
           };
         } catch (err) {
+          addLog(`加载失败: ${img.name} - ${err}`, 'error');
           console.error('加载预览失败:', err);
         }
         return img;
