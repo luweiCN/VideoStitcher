@@ -130,5 +130,5 @@ export function useImageProcessingEvents(handlers: ImageProcessingHandlers) {
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
-  }, [onStart, onTaskStart, onProgress, onFailed, onFinish]);
+  }, [onStart, onTaskStart, onProgress, onFailed, onFinish, onTaskFinish]);
 }
