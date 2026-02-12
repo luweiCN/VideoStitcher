@@ -322,7 +322,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
     }
     if (isProcessing) return;
     setIsProcessing(true);
-    clearLogs();
+    // 不再自动清空日志，保留历史记录
     const modeText = orientation === 'horizontal' ? '横屏' : '竖屏';
     addLog(`开始${modeText}合成处理...`, 'info');
     const totalTasks = bVideos.length * exportMultiplier;
