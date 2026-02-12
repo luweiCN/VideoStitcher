@@ -37,6 +37,7 @@ asarUnpack:
   - node_modules/ffmpeg-static/**/*
   - node_modules/sharp/**/*
   - node_modules/@img/**/*
+  - node_modules/@ffprobe-installer/**/*
 
 # macOS 配置 - DMG 用于手动安装，ZIP 用于自动更新
 mac:

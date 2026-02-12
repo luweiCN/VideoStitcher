@@ -14,8 +14,8 @@ const { spawn } = require('child_process');
 const app = require('electron').app ?? require('@electron/remote');
 const { generateCombinedFilename, generateSafeFilename } = require('../utils/fileNameHelper');
 
-// ffprobe 路径（ffprobe-static 导出 .path 属性）
-const ffprobePath = require('ffprobe-static').path;
+// ffprobe 路径（@ffprobe-installer/ffprobe 按平台安装，体积更小）
+const ffprobePath = require('@ffprobe-installer/ffprobe').path;
 
 // 创建任务队列 (复用现有逻辑)
 const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
