@@ -79,15 +79,16 @@ async function generatePng(size, filename) {
 /**
  * 生成 ICO 图标（Windows）
  * electron-builder 会自动将 PNG 转换为 ICO
+ * 注意：electron-builder 要求 icon.png 至少 512x512
  */
 async function generateIco() {
   const sourceFile = IS_DEV ? DEV_SOURCE_FILE : SOURCE_FILE;
   const outputPath = path.join(BUILD_DIR, 'icon.png');
 
-  const buffer = await addRoundedCorners(sourceFile, 256);
+  const buffer = await addRoundedCorners(sourceFile, 512);
   await sharp(buffer).toFile(outputPath);
 
-  console.log(`✅ 生成 ICO 源文件: icon.png (256x256)`);
+  console.log(`✅ 生成 ICO 源文件: icon.png (512x512)`);
 }
 
 /**
@@ -145,9 +146,9 @@ async function main() {
     process.exit(1);
   }
 
-  // 生成各类图标
-  await generatePng(256, 'icon.png');
-  await generatePng(512, 'icon@2x.png');
+  // 生成各类图标（electron-builder 要求 icon.png 至少 512x512）
+  await generatePng(512, 'icon.png');
+  await generatePng(1024, 'icon@2x.png');
 
   // 生成平台特定图标
   await generateIco();
