@@ -125,9 +125,9 @@ export interface OperationLogPanelProps {
   /** 下载日志回调 */
   downloadLogs: () => void;
   /** 日志容器 ref */
-  logsContainerRef: React.RefObject<HTMLDivElement>;
+  logsContainerRef: React.RefObject<HTMLDivElement | null>;
   /** 日志结束标记 ref */
-  logsEndRef: React.RefObject<HTMLDivElement>;
+  logsEndRef: React.RefObject<HTMLDivElement | null>;
 
   // 自动滚动相关
   /** 是否启用自动滚动 */
