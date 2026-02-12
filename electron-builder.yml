@@ -21,6 +21,7 @@ publish:
 files:
   - src/**/*
   - dist/renderer/**/*
+  - build/icon.png
   - package.json
   - node_modules/**/*
   - "!**/.vscode/*"

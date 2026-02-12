@@ -46,6 +46,7 @@ function createWindow() {
   win = new BrowserWindow({
     width: 1400,
     height: 900,
+    show: false, // 先隐藏，等内容加载后再显示
     icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -53,6 +54,20 @@ function createWindow() {
       nodeIntegration: false,
       webSecurity: true, // 保持 webSecurity 启用
     },
+  });
+
+  // 窗口准备好后显示
+  win.once('ready-to-show', () => {
+    console.log('[主进程] 窗口 ready-to-show，即将显示');
+    win.show();
+    win.focus();
+    console.log('[主进程] 窗口已调用 show() 和 focus()');
+  });
+
+  // 监听窗口关闭
+  win.on('closed', () => {
+    console.log('[主进程] 窗口已关闭');
+    win = null;
   });
 
   // 阻止默认的拖放行为（打开文件）
@@ -183,28 +198,86 @@ function registerPreviewProtocol() {
 }
 
 app.whenReady().then(() => {
-  // 注册预览协议
-  registerPreviewProtocol();
+  console.log('[主进程] app.whenReady 触发，开始初始化...');
 
-  createWindow();
-  // 注册视频处理 IPC 处理器
-  registerVideoHandlers();
-  // 注册图片处理 IPC 处理器
-  registerImageHandlers();
-  // 注册授权处理 IPC
-  registerAuthHandlers();
-  // 注册文件操作 IPC 处理器
-  registerFileHandlers();
+  try {
+    // 注册预览协议
+    console.log('[主进程] 注册预览协议...');
+    registerPreviewProtocol();
+    console.log('[主进程] 预览协议注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册预览协议失败:', err);
+  }
+
+  try {
+    console.log('[主进程] 创建窗口...');
+    createWindow();
+    console.log('[主进程] 窗口创建完成');
+  } catch (err) {
+    console.error('[主进程] 创建窗口失败:', err);
+    return;
+  }
+
+  try {
+    // 注册视频处理 IPC 处理器
+    console.log('[主进程] 注册视频处理器...');
+    registerVideoHandlers();
+    console.log('[主进程] 视频处理器注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册视频处理器失败:', err);
+  }
+
+  try {
+    // 注册图片处理 IPC 处理器
+    console.log('[主进程] 注册图片处理器...');
+    registerImageHandlers();
+    console.log('[主进程] 图片处理器注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册图片处理器失败:', err);
+  }
+
+  try {
+    // 注册授权处理 IPC
+    console.log('[主进程] 注册授权处理器...');
+    registerAuthHandlers();
+    console.log('[主进程] 授权处理器注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册授权处理器失败:', err);
+  }
+
+  try {
+    // 注册文件操作 IPC 处理器
+    console.log('[主进程] 注册文件处理器...');
+    registerFileHandlers();
+    console.log('[主进程] 文件处理器注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册文件处理器失败:', err);
+  }
 
   // macOS 应用内更新处理器（需要在 setupAutoUpdater 之前）
   if (process.platform === 'darwin') {
-    const { setupUpdateHandlers } = require('./main/ipc-handlers');
-    win.macUpdater = setupUpdateHandlers(win);
-    console.log('[主进程] macOS 更新处理器已启用');
+    try {
+      console.log('[主进程] 加载 macOS 更新处理器...');
+      const { setupUpdateHandlers } = require('./main/ipc-handlers');
+      win.macUpdater = setupUpdateHandlers(win);
+      console.log('[主进程] macOS 更新处理器已启用');
+    } catch (err) {
+      console.error('[主进程] macOS 更新处理器加载失败:', err);
+    }
   }
 
-  // 配置自动更新（需要 MacUpdater 实例）
-  setupAutoUpdater();
+  try {
+    // 配置自动更新（需要 MacUpdater 实例）
+    console.log('[主进程] 配置自动更新...');
+    setupAutoUpdater();
+    console.log('[主进程] 自动更新配置完成');
+  } catch (err) {
+    console.error('[主进程] 配置自动更新失败:', err);
+  }
+
+  console.log('[主进程] 初始化完成！');
+}).catch((err) => {
+  console.error('[主进程] app.whenReady 发生错误:', err);
 });
 
 // 自动更新配置和事件处理
