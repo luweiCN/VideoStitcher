@@ -33,6 +33,8 @@ export interface VideoPlayerProps {
   loop?: boolean;
   /** 静音 */
   muted?: boolean;
+  /** 是否暂停（外部控制） */
+  paused?: boolean;
   /** 自定义类名 */
   className?: string;
   /** 是否显示上一个按钮 */
@@ -101,6 +103,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   autoPlay = false,
   loop = false,
   muted = false,
+  paused = false,
   className = '',
   showPrevious = false,
   showNext = false,
@@ -114,6 +117,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const playerRef = useRef<Plyr | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const callbacksRef = useRef({ onPlayStateChange, onProgress });
+  // 记录上一次的 paused 状态，避免重复调用 play/pause
+  const lastPausedRef = useRef(paused);
 
   // 预览 URL 状态
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -256,6 +261,27 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     };
   }, [previewUrl, isLoadingUrl, autoPlay, loop, muted, minimal]);
+
+  /**
+   * 监听外部 paused 状态变化
+   */
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    // 只在 paused 状态变化时才执行
+    if (lastPausedRef.current !== paused) {
+      lastPausedRef.current = paused;
+
+      if (paused && player.playing) {
+        player.pause();
+      } else if (!paused && !player.playing) {
+        player.play().catch(() => {
+          // 自动播放可能被浏览器阻止，忽略错误
+        });
+      }
+    }
+  }, [paused]);
 
   /**
    * 键盘快捷键处理

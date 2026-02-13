@@ -23,6 +23,7 @@ const api = {
     previewImageMaterial: (config) => electron_1.ipcRenderer.invoke("preview-image-material", config),
     // 预览功能 API
     generateStitchPreview: (config) => electron_1.ipcRenderer.invoke("generate-stitch-preview", config),
+    generateStitchPreviewFast: (config) => electron_1.ipcRenderer.invoke("generate-stitch-preview-fast", config),
     deleteTempPreview: (tempPath) => electron_1.ipcRenderer.invoke("delete-temp-preview", tempPath),
     previewHorizontal: (config) => electron_1.ipcRenderer.invoke("preview-horizontal", config),
     previewVertical: (config) => electron_1.ipcRenderer.invoke("preview-vertical", config),
@@ -34,6 +35,7 @@ const api = {
     getVideoDimensions: (filePath) => electron_1.ipcRenderer.invoke("video:get-dimensions", filePath),
     getPreviewThumbnail: (filePath) => electron_1.ipcRenderer.invoke("get-preview-thumbnail", filePath),
     getVideoThumbnail: (filePath, options) => electron_1.ipcRenderer.invoke("get-video-thumbnail", filePath, options),
+    getVideoFullInfo: (filePath, options) => electron_1.ipcRenderer.invoke("video:get-full-info", filePath, options),
     // 智能改尺寸预览
     generateResizePreviews: (config) => electron_1.ipcRenderer.invoke("generate-resize-previews", config),
     clearResizePreviews: (previewPaths) => electron_1.ipcRenderer.invoke("clear-resize-previews", previewPaths),

@@ -514,10 +514,11 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
      * 处理拖放事件
      *
      * 处理流程：
-     * 1. 收集阶段 - 把拖拽内容（文件/文件夹）转换成原始文件路径列表
-     * 2. 调用 processFiles 处理（格式校验、数量限制、去重）
-     * 3. 更新状态
-     * 4. 显示通知
+     * 1. 同步收集阶段 - 在 dataTransfer 被清空之前，先收集所有文件路径
+     * 2. 异步处理阶段 - 检测文件/文件夹类型，读取文件夹内容
+     * 3. 调用 processFiles 处理（格式校验、数量限制、去重）
+     * 4. 更新状态
+     * 5. 显示通知
      */
     const handleDrop = useCallback(
       async (e: React.DragEvent) => {
@@ -534,35 +535,44 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
         }
 
         // ============================================================================
-        // 第一步：收集阶段 - 把所有拖拽内容转换成原始文件路径列表
+        // 第一步：同步收集阶段 - 在 dataTransfer 被清空之前，先收集所有文件路径
+        // 重要：必须同步收集，因为 dataTransfer.files 在异步操作期间会被清空
         // ============================================================================
-        const rawPaths: { path: string; name: string }[] = [];
+        const itemsToProcess: { path: string; name: string }[] = [];
 
         for (let i = 0; i < dataTransfer.files.length; i++) {
           const file = dataTransfer.files[i];
           const path = (file as any).path;
+          if (path) {
+            itemsToProcess.push({ path, name: file.name });
+          }
+        }
 
-          if (!path) continue; // 跳过没有路径的项目
+        console.log("[FileSelector] 同步收集完成，项目数:", itemsToProcess.length);
 
+        // ============================================================================
+        // 第二步：异步处理阶段 - 检测文件/文件夹类型，读取文件夹内容
+        // ============================================================================
+        const rawPaths: { path: string; name: string }[] = [];
+
+        for (const item of itemsToProcess) {
           // 检测是否是文件夹
           let isDirectory = false;
           try {
-            const typeResult = await window.api.checkPathType(path);
+            const typeResult = await window.api.checkPathType(item.path);
             if (typeResult.success) {
               isDirectory = typeResult.isDirectory || false;
             }
           } catch (err) {
-            // 检测失败时的回退逻辑
-            isDirectory =
-              (file as any).isDirectory ||
-              (!file.name.includes(".") && file.size === 0 && file.type === "");
+            // 检测失败时的回退逻辑：根据文件名判断
+            isDirectory = !item.name.includes(".");
           }
 
           if (isDirectory) {
             // 文件夹：读取第一层内容
             try {
               const result = await window.api.readDirectory({
-                dirPath: path,
+                dirPath: item.path,
                 includeHidden: false,
                 recursive: false,
                 maxDepth: 1,
@@ -576,13 +586,15 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
                 }
               }
             } catch (err) {
-              console.error("[FileSelector] 读取文件夹失败:", path, err);
+              console.error("[FileSelector] 读取文件夹失败:", item.path, err);
             }
           } else {
             // 文件：直接添加
-            rawPaths.push({ path, name: file.name });
+            rawPaths.push({ path: item.path, name: item.name });
           }
         }
+
+        console.log("[FileSelector] 异步处理完成，有效文件数:", rawPaths.length);
 
         if (rawPaths.length === 0) {
           error("没有找到有效的文件");
@@ -780,6 +792,11 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
               <Tooltip.Root key={`${file.path}-${index}`}>
                 <Tooltip.Trigger asChild>
                   <div className={`group ${getListStyle().item}`}>
+                    {/* 序号 */}
+                    <div className="w-6 text-center shrink-0">
+                      <span className="text-xs text-slate-600 font-mono">{index + 1}</span>
+                    </div>
+
                     {/* 文件图标 */}
                     <div className={getListStyle().icon}>
                       {renderFileIcon(file)}

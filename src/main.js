@@ -197,8 +197,39 @@ function registerPreviewProtocol() {
   });
 }
 
+/**
+ * 清理残留的预览临时文件（处理上次异常退出的情况）
+ */
+function cleanupResidualPreviews() {
+  try {
+    const tempDir = os.tmpdir();
+    const files = fs.readdirSync(tempDir);
+    const previewPattern = /^preview_fast_[a-f0-9]+\.mp4$/;
+    let cleanedCount = 0;
+
+    for (const file of files) {
+      if (previewPattern.test(file)) {
+        const filePath = path.join(tempDir, file);
+        try {
+          fs.unlinkSync(filePath);
+          cleanedCount++;
+        } catch (e) {
+          // 忽略单个文件删除失败
+        }
+      }
+    }
+
+    console.log(`[主进程] 残留预览文件检查完成，已清理 ${cleanedCount} 个文件`);
+  } catch (err) {
+    console.error('[主进程] 清理残留预览文件失败:', err);
+  }
+}
+
 app.whenReady().then(() => {
   console.log('[主进程] app.whenReady 触发，开始初始化...');
+
+  // 清理上次异常退出残留的预览文件
+  cleanupResidualPreviews();
 
   try {
     // 注册预览协议
@@ -1051,6 +1082,87 @@ ipcMain.handle("generate-stitch-preview", async (_event, { aPath, bPath, orienta
     };
   } catch (err) {
     console.error('[预览生成] 失败:', err);
+    return { success: false, error: err.message };
+  }
+});
+
+// 快速生成 A+B 拼接预览视频（只截取 A 最后 5 秒 + B 前 5 秒）
+ipcMain.handle("generate-stitch-preview-fast", async (_event, { aPath, bPath, orientation, aDuration, bDuration }) => {
+  try {
+    const os = require("os");
+    const crypto = require("crypto");
+
+    // 生成临时文件路径
+    const tempDir = os.tmpdir();
+    const tempId = crypto.randomBytes(8).toString("hex");
+    const tempPath = path.join(tempDir, `preview_fast_${tempId}.mp4`);
+
+    // 截取时间配置
+    const CLIP_DURATION = 5; // 每个视频截取 5 秒
+
+    // 计算截取时间点
+    // A 视频：最后 5 秒（如果时长不足 5 秒，从头开始）
+    const aClipDuration = aDuration ? Math.min(CLIP_DURATION, aDuration) : CLIP_DURATION;
+    const aStartTime = aDuration ? Math.max(0, aDuration - CLIP_DURATION) : 0;
+
+    // B 视频：前 5 秒
+    const bClipDuration = bDuration ? Math.min(CLIP_DURATION, bDuration) : CLIP_DURATION;
+
+    // 分辨率配置
+    const isLandscape = orientation === 'landscape';
+    const width = isLandscape ? 1920 : 1080;
+    const height = isLandscape ? 1080 : 1920;
+
+    console.log(`[快速预览] A: 截取 ${aStartTime.toFixed(1)}s 开始的 ${aClipDuration}s`);
+    console.log(`[快速预览] B: 截取前 ${bClipDuration}s`);
+
+    // 构建 FFmpeg 命令
+    // 关键：scale 使用 force_original_aspect_ratio=decrease 确保不超过目标尺寸
+    // 然后 pad 填充到精确尺寸
+    const args = [
+      '-ss', String(aStartTime),
+      '-i', aPath,
+      '-t', String(bClipDuration),
+      '-i', bPath,
+      '-filter_complex',
+      [
+        // A 视频处理：先缩放（不超过目标尺寸），再填充到精确尺寸，最后截取时长
+        `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30,trim=0:${aClipDuration},setpts=PTS-STARTPTS[v0]`,
+        // B 视频处理：先缩放（不超过目标尺寸），再填充到精确尺寸
+        `[1:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30,setpts=PTS-STARTPTS[v1]`,
+        // 音频处理
+        `[0:a]atrim=0:${aClipDuration},asetpts=PTS-STARTPTS[a0]`,
+        `[1:a]asetpts=PTS-STARTPTS[a1]`,
+        // 拼接视频和音频
+        `[v0][a0][v1][a1]concat=n=2:v=1:a=1[outv][outa]`
+      ].join(';'),
+      '-map', '[outv]',
+      '-map', '[outa]',
+      // 快速编码参数
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-crf', '35',
+      '-c:a', 'aac',
+      '-b:a', '64k',
+      '-movflags', '+faststart',
+      '-y',
+      tempPath
+    ];
+
+    console.log('[快速预览] 开始生成...');
+
+    await runFfmpeg(args, (log) => {
+      console.log('[快速预览]', log);
+    });
+
+    console.log('[快速预览] 完成，临时文件:', tempPath);
+
+    return {
+      success: true,
+      tempPath
+    };
+  } catch (err) {
+    console.error('[快速预览] 失败:', err);
     return { success: false, error: err.message };
   }
 });

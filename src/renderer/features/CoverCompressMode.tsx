@@ -178,10 +178,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
 
     setFiles(prev => [...prev, ...newFiles]);
     addLog(`已添加 ${filePaths.length} 张图片`, 'info');
-    // 延迟清空 FileSelector 内部列表，避免 onChange 触发死循环
-    setTimeout(() => {
-      fileSelectorRef.current?.clearFiles();
-    }, 0);
   }, [addLog]);
 
   /**
@@ -405,7 +401,7 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
                 name="选择图片"
                 accept="image"
                 multiple
-                showList={false}
+                showList
                 themeColor="emerald"
                 directoryCache
                 onChange={handleImagesChange}

@@ -143,11 +143,20 @@ export interface ElectronAPI {
   }>;
 
   // === 预览功能 API ===
-  // 快速生成 A+B 拼接预览视频
+  // 快速生成 A+B 拼接预览视频（完整视频）
   generateStitchPreview: (config: {
     aPath: string;
     bPath: string;
     orientation: "landscape" | "portrait";
+  }) => Promise<{ success: boolean; tempPath?: string; error?: string }>;
+
+  // 快速生成 A+B 拼接预览视频（只截取 A 最后 5 秒 + B 前 5 秒）
+  generateStitchPreviewFast: (config: {
+    aPath: string;
+    bPath: string;
+    orientation: "landscape" | "portrait";
+    aDuration?: number;
+    bDuration?: number;
   }) => Promise<{ success: boolean; tempPath?: string; error?: string }>;
 
   // 删除临时预览文件
@@ -220,6 +229,7 @@ export interface ElectronAPI {
     height: number;
     orientation: "landscape" | "portrait" | "square";
     aspectRatio: string;
+    duration: number;
   } | null>;
 
   // 获取预览缩略图（可指定最长边，默认200）
@@ -243,6 +253,26 @@ export interface ElectronAPI {
     thumbnail?: string;
     duration?: number;       // 视频总时长
     actualTimeOffset?: number; // 实际截取的时间点
+    error?: string;
+  }>;
+
+  // 获取视频完整信息（一次调用获取缩略图、大小、尺寸、时长）
+  getVideoFullInfo: (
+    filePath: string,
+    options?: {
+      thumbnailMaxSize?: number;  // 缩略图最大尺寸，默认 64
+    }
+  ) => Promise<{
+    success: boolean;
+    path: string;
+    name: string;
+    thumbnail?: string | null;      // base64 缩略图
+    fileSize?: number | null;       // 文件大小（字节）
+    width?: number | null;          // 视频宽度
+    height?: number | null;         // 视频高度
+    duration?: number | null;       // 时长（秒）
+    orientation?: 'landscape' | 'portrait' | 'square' | null;
+    aspectRatio?: string | null;    // 长宽比字符串
     error?: string;
   }>;
 
@@ -556,6 +586,8 @@ const api: ElectronAPI = {
   // 预览功能 API
   generateStitchPreview: (config) =>
     ipcRenderer.invoke("generate-stitch-preview", config),
+  generateStitchPreviewFast: (config) =>
+    ipcRenderer.invoke("generate-stitch-preview-fast", config),
   deleteTempPreview: (tempPath) =>
     ipcRenderer.invoke("delete-temp-preview", tempPath),
   previewHorizontal: (config) =>
@@ -574,6 +606,8 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("get-preview-thumbnail", filePath),
   getVideoThumbnail: (filePath, options) =>
     ipcRenderer.invoke("get-video-thumbnail", filePath, options),
+  getVideoFullInfo: (filePath, options) =>
+    ipcRenderer.invoke("video:get-full-info", filePath, options),
 
   // 智能改尺寸预览
   generateResizePreviews: (config) =>

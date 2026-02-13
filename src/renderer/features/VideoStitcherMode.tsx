@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Loader2, Settings, Link2,
-  Eye, Play, Monitor, Smartphone, Trash2, Layers, ArrowLeft, CheckCircle, XCircle, FileVideo
+  Eye, Play, Monitor, Smartphone, Layers, ArrowLeft, CheckCircle, XCircle, FileVideo
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
@@ -10,31 +10,21 @@ import OperationLogPanel from '../components/OperationLogPanel';
 import FilePreviewModal from '../components/FilePreviewModal';
 import { FileSelector, FileSelectorGroup, type FileSelectorRef, formatFileSize } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
+import TaskCountSlider, { type TaskSource } from '../components/TaskCountSlider';
+import VideoPlayer from '../components/VideoPlayer/VideoPlayer';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useVideoProcessingEvents } from '../hooks/useVideoProcessingEvents';
+import useVideoMaterials, { type VideoMaterial } from '../hooks/useVideoMaterials';
+import useStitchPreview from '../hooks/useStitchPreview';
+import { generateTasks as generateBalancedTasks } from '../utils/balancedCombinations';
 
 interface VideoStitcherModeProps {
   onBack: () => void;
 }
 
 type Orientation = 'landscape' | 'portrait';
-
-/**
- * 视频素材信息
- */
-interface VideoMaterial {
-  path: string;
-  name: string;
-  thumbnailUrl?: string;
-  previewUrl?: string;
-  width?: number;
-  height?: number;
-  duration?: number;
-  fileSize?: number;
-  orientation?: 'landscape' | 'portrait' | 'square';
-}
 
 /**
  * 合成任务数据结构
@@ -44,6 +34,8 @@ interface StitchTask {
   status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
   aVideo: VideoMaterial;
   bVideo: VideoMaterial;
+  aIndex: number;  // A 面视频序号（1开始）
+  bIndex: number;  // B 面视频序号（1开始）
   outputFileName: string;
   error?: string;
 }
@@ -62,6 +54,29 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   // 原始素材池（用于任务生成）
   const [aFiles, setAFiles] = useState<string[]>([]);
   const [bFiles, setBFiles] = useState<string[]>([]);
+
+  // 使用 hook 加载视频素材（带全局缓存）
+  const { materials: aMaterials, isLoading: isLoadingA } = useVideoMaterials(aFiles);
+  const { materials: bMaterials, isLoading: isLoadingB } = useVideoMaterials(bFiles);
+  const isLoadingMaterials = isLoadingA || isLoadingB;
+
+  // 稳定的路径字符串，用于依赖检查（避免数组引用变化导致无限循环）
+  const aPathsKey = useMemo(() => aFiles.join(','), [aFiles]);
+  const bPathsKey = useMemo(() => bFiles.join(','), [bFiles]);
+
+  // 任务数量控制
+  const [taskCount, setTaskCount] = useState(1);
+
+  // 计算最大组合数
+  const maxCombinations = useMemo(() => {
+    return aFiles.length * bFiles.length;
+  }, [aFiles.length, bFiles.length]);
+
+  // 任务数量源配置（用于 TaskCountSlider）
+  const taskSources: TaskSource[] = useMemo(() => [
+    { name: 'A', count: aFiles.length, color: 'violet', required: true },
+    { name: 'B', count: bFiles.length, color: 'indigo', required: true },
+  ], [aFiles.length, bFiles.length]);
 
   // FileSelector ref
   const fileSelectorRef = useRef<FileSelectorRef>(null);
@@ -104,14 +119,26 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewType, setPreviewType] = useState<'a' | 'b'>('a');
 
-  // 拼接预览相关状态
-  const [previewVideoPath, setPreviewVideoPath] = useState<string | null>(null);
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
-  const previewVideoRef = useRef<HTMLVideoElement>(null);
+  // 使用 hook 管理预览视频（只截取 A 最后 5 秒 + B 前 5 秒）
+  const previewConfig = currentTask ? {
+    aPath: currentTask.aVideo.path,
+    bPath: currentTask.bVideo.path,
+    orientation,
+    aDuration: currentTask.aVideo.duration,
+    bDuration: currentTask.bVideo.duration,
+  } : null;
 
-  // 记录当前正在生成的预览标识
-  const currentPreviewKeyRef = useRef<string>('');
-  const isPreviewCancelledRef = useRef(false);
+  const {
+    previewPath,
+    isGenerating,
+    error: previewError,
+    volume,
+    setVolume,
+    muted,
+    setMuted,
+    isPlaying,
+    setIsPlaying,
+  } = useStitchPreview(previewConfig, !!currentTask);
 
   // 加载全局默认配置
   useEffect(() => {
@@ -129,153 +156,94 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   }, [setConcurrency]);
 
   /**
-   * 加载视频素材信息
-   */
-  const loadVideoMaterialInfo = useCallback(async (filePath: string): Promise<VideoMaterial> => {
-    const fileName = filePath.split(/[/\\]/).pop() || filePath;
-
-    const material: VideoMaterial = {
-      path: filePath,
-      name: fileName,
-    };
-
-    try {
-      // 获取预览 URL
-      const previewResult = await window.api.getPreviewUrl(filePath);
-      if (previewResult.success && previewResult.url) {
-        material.previewUrl = previewResult.url;
-
-        // 获取缩略图
-        const thumbnailResult = await window.api.getVideoThumbnail(filePath, { maxSize: 64, timeOffset: 0 });
-        if (thumbnailResult.success) {
-          material.thumbnailUrl = thumbnailResult.thumbnail;
-        }
-
-        // 获取文件信息
-        const fileInfoResult = await window.api.getFileInfo(filePath);
-        if (fileInfoResult?.info?.size) {
-          material.fileSize = fileInfoResult.info.size;
-        }
-
-        // 使用 video 元素获取视频元数据
-        const tempVideo = document.createElement('video');
-        tempVideo.src = previewResult.url;
-        tempVideo.muted = true;
-        tempVideo.playsInline = true;
-
-        const videoMeta = await new Promise<{ width: number; height: number; duration: number }>((resolve, reject) => {
-          tempVideo.onloadedmetadata = () => {
-            resolve({
-              width: tempVideo.videoWidth,
-              height: tempVideo.videoHeight,
-              duration: tempVideo.duration || 0,
-            });
-          };
-          tempVideo.onerror = () => reject(new Error('视频元数据加载失败'));
-          tempVideo.load();
-        });
-
-        material.width = videoMeta.width;
-        material.height = videoMeta.height;
-        material.duration = videoMeta.duration;
-
-        // 判断方向
-        if (videoMeta.width > videoMeta.height) {
-          material.orientation = 'landscape';
-        } else if (videoMeta.height > videoMeta.width) {
-          material.orientation = 'portrait';
-        } else {
-          material.orientation = 'square';
-        }
-      }
-    } catch (err) {
-      addLog(`加载视频信息失败: ${fileName}`, 'error');
-    }
-
-    return material;
-  }, [addLog]);
-
-  /**
    * 生成任务列表
+   * 使用均匀组合算法，确保每个素材尽量被均匀使用
+   * 排序优先级：A > B（先按A索引排序，再按B索引排序）
    */
-  const generateTasks = useCallback(async (aPaths: string[], bPaths: string[]) => {
-    if (aPaths.length === 0 || bPaths.length === 0) {
+  const generateTasks = useCallback((
+    aMatList: VideoMaterial[],
+    bMatList: VideoMaterial[],
+    count: number
+  ) => {
+    if (aMatList.length === 0 || bMatList.length === 0 || count <= 0) {
       setTasks([]);
       setCurrentIndex(0);
       return;
     }
 
-    const totalCount = Math.max(aPaths.length, bPaths.length);
-    addLog(`正在生成 ${totalCount} 个合成任务...`, 'info');
+    // 使用均匀组合算法生成任务，排序优先级 A > B
+    const newTasks = generateBalancedTasks(
+      [aMatList, bMatList],
+      count,
+      (elements, indices, taskIndex) => {
+        const aMaterial = elements[0] as VideoMaterial;
+        const bMaterial = elements[1] as VideoMaterial;
+        const outputFileName = `${aMaterial.name.split('.')[0]}_${bMaterial.name.split('.')[0]}.mp4`;
 
-    // 创建初始任务
-    const newTasks: StitchTask[] = [];
-    for (let i = 0; i < totalCount; i++) {
-      const aPath = aPaths[i % aPaths.length];
-      const bPath = bPaths[i % bPaths.length];
-      const aName = aPath.split(/[/\\]/).pop() || aPath;
-      const bName = bPath.split(/[/\\]/).pop() || bPath;
-      const outputFileName = `${aName.split('.')[0]}_${bName.split('.')[0]}.mp4`;
-
-      newTasks.push({
-        id: `stitch-${Date.now()}-${i}`,
-        status: 'pending' as const,
-        aVideo: {
-          path: aPath,
-          name: aName,
-        },
-        bVideo: {
-          path: bPath,
-          name: bName,
-        },
-        outputFileName,
-      });
-    }
+        return {
+          id: `stitch-${Date.now()}-${taskIndex}`,
+          status: 'pending' as const,
+          aVideo: aMaterial,
+          bVideo: bMaterial,
+          aIndex: indices[0] + 1,  // 1 开始
+          bIndex: indices[1] + 1,
+          outputFileName,
+        };
+      },
+      { priority: [0, 1] }  // 优先按A(0)排序，其次按B(1)排序
+    );
 
     setTasks(newTasks);
     setCurrentIndex(0);
-
-    // 异步加载任务详情
-    for (let i = 0; i < newTasks.length; i++) {
-      const task = newTasks[i];
-
-      // 加载 A 面视频信息
-      const aMaterial = await loadVideoMaterialInfo(task.aVideo.path);
-
-      // 加载 B 面视频信息
-      const bMaterial = await loadVideoMaterialInfo(task.bVideo.path);
-
-      setTasks(prev => prev.map((t, idx) =>
-        idx === i ? { ...t, aVideo: aMaterial, bVideo: bMaterial } : t
-      ));
-
-      addLog(`[${i + 1}/${totalCount}] 任务信息加载完成`, 'success');
-    }
-
-    addLog(`已生成 ${totalCount} 个合成任务`, 'success');
-  }, [addLog, loadVideoMaterialInfo]);
+  }, []);
 
   /**
    * A 面文件变化处理
    */
-  const handleAFilesChange = useCallback(async (files: string[]) => {
+  const handleAFilesChange = useCallback((files: string[]) => {
     setAFiles(files);
     if (files.length > 0) {
       addLog(`已选择 ${files.length} 个 A 面视频`, 'info');
     }
-    await generateTasks(files, bFiles);
-  }, [addLog, bFiles, generateTasks]);
+    // 文件变化时重置 taskCount 为最大值
+    const newMax = files.length * bFiles.length;
+    if (newMax > 0) {
+      setTaskCount(newMax);
+    }
+  }, [addLog, bFiles.length]);
 
   /**
    * B 面文件变化处理
    */
-  const handleBFilesChange = useCallback(async (files: string[]) => {
+  const handleBFilesChange = useCallback((files: string[]) => {
     setBFiles(files);
     if (files.length > 0) {
       addLog(`已选择 ${files.length} 个 B 面视频`, 'info');
     }
-    await generateTasks(aFiles, files);
-  }, [addLog, aFiles, generateTasks]);
+    // 文件变化时重置 taskCount 为最大值
+    const newMax = aFiles.length * files.length;
+    if (newMax > 0) {
+      setTaskCount(newMax);
+    }
+  }, [addLog, aFiles.length]);
+
+  /**
+   * 处理任务数量变化
+   */
+  const handleTaskCountChange = useCallback((count: number) => {
+    setTaskCount(count);
+  }, []);
+
+  // 当素材数据或 taskCount 变化时，重新生成任务
+  useEffect(() => {
+    // 只有当素材已加载完成时才生成任务
+    if (aMaterials.length > 0 && bMaterials.length > 0 && taskCount > 0 && !isLoadingMaterials) {
+      generateTasks(aMaterials, bMaterials, taskCount);
+    } else if (aMaterials.length === 0 || bMaterials.length === 0) {
+      setTasks([]);
+      setCurrentIndex(0);
+    }
+  }, [aPathsKey, bPathsKey, aMaterials.length, bMaterials.length, taskCount, isLoadingMaterials, generateTasks]);
 
   // 监听 A+B 前后拼接任务事件
   useVideoProcessingEvents({
@@ -319,81 +287,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     }
   }, [tasks, currentIndex]);
 
-  // 自动生成预览视频
-  useEffect(() => {
-    if (!currentTask) return;
-
-    const previewKey = `${currentTask.aVideo.path}-${currentTask.bVideo.path}-${orientation}`;
-
-    if (currentPreviewKeyRef.current === previewKey) {
-      return;
-    }
-
-    currentPreviewKeyRef.current = previewKey;
-    isPreviewCancelledRef.current = false;
-
-    setPreviewVideoPath(null);
-    setIsGeneratingPreview(true);
-
-    const debounceTimer = setTimeout(async () => {
-      addLog(`[预览] 正在生成 ${currentTask.outputFileName} 的预览视频 (${orientation === 'landscape' ? '横屏' : '竖屏'})`, 'info');
-
-      try {
-        const result = await window.api.generateStitchPreview({
-          aPath: currentTask.aVideo.path,
-          bPath: currentTask.bVideo.path,
-          orientation
-        });
-
-        if (isPreviewCancelledRef.current || currentPreviewKeyRef.current !== previewKey) {
-          if (result.tempPath) {
-            window.api.deleteTempPreview(result.tempPath);
-          }
-          return;
-        }
-
-        if (result.success && result.tempPath) {
-          setPreviewVideoPath(result.tempPath);
-          addLog(`[预览] ${currentTask.outputFileName} 预览视频生成完成`, 'success');
-        } else {
-          addLog(`[错误] 预览生成失败: ${result.error}`, 'error');
-        }
-      } catch (err: any) {
-        addLog(`[错误] 预览生成异常: ${err.message}`, 'error');
-      } finally {
-        if (!isPreviewCancelledRef.current) {
-          setIsGeneratingPreview(false);
-        }
-      }
-    }, 300);
-
-    return () => {
-      clearTimeout(debounceTimer);
-      isPreviewCancelledRef.current = true;
-    };
-  }, [currentTask, orientation, addLog]);
-
-  // 预览视频加载完成后自动播放
-  useEffect(() => {
-    const video = previewVideoRef.current;
-    if (video && previewVideoPath) {
-      video.volume = 0.1;
-      video.play().catch(() => {
-        video.muted = true;
-        video.play().catch(() => {});
-      });
-    }
-  }, [previewVideoPath]);
-
-  // 清理预览视频
-  useEffect(() => {
-    return () => {
-      if (previewVideoPath) {
-        window.api.deleteTempPreview(previewVideoPath);
-      }
-    };
-  }, [previewVideoPath]);
-
   /**
    * 格式化时长显示
    */
@@ -428,32 +321,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     if (currentIndex < tasks.length - 1) {
       switchToTask(currentIndex + 1);
     }
-  };
-
-  /**
-   * 删除当前任务
-   */
-  const removeCurrentTask = () => {
-    if (!currentTask) return;
-    setTasks(prev => {
-      const filtered = prev.filter(t => t.id !== currentTask.id);
-      const newIndex = Math.min(currentIndex, filtered.length - 1);
-      setCurrentIndex(newIndex >= 0 ? newIndex : 0);
-      return filtered;
-    });
-    addLog(`已删除任务: ${currentTask.outputFileName}`, 'info');
-  };
-
-  /**
-   * 清空所有任务
-   */
-  const clearAllTasks = () => {
-    setTasks([]);
-    setCurrentIndex(0);
-    setAFiles([]);
-    setBFiles([]);
-    fileSelectorRef.current?.clearFiles();
-    addLog('已清空所有任务', 'info');
   };
 
   /**
@@ -540,8 +407,8 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
           description: '将两个视频素材库按顺序前后拼接，A 面在前、B 面在后，自动生成完整的拼接视频。',
           details: [
             '分别上传 A 面和 B 面视频作为素材库',
-            '系统自动将两个库的视频按顺序组合',
-            '较大的库会循环使用，确保每个素材都被处理',
+            '智能任务分配：贪心算法优先选择使用次数最少的素材',
+            '确保每个素材均匀使用，避免重复和遗漏',
             'A 面在前，B 面在后，顺序拼接成一个完整视频',
             '自动调整帧率为 30fps，统一输出分辨率',
           ],
@@ -582,13 +449,15 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         {/* Left Sidebar - File Selectors */}
         <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0">
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-            {/* Stats Card */}
-            {tasks.length > 0 && (
-              <div className="bg-gradient-to-br from-pink-500/10 to-violet-500/10 border border-pink-500/20 rounded-xl p-4">
-                <div className="text-2xl font-bold text-pink-400">{tasks.length}</div>
-                <div className="text-xs text-slate-400">个合成视频</div>
-              </div>
-            )}
+            {/* 任务数量选择器 */}
+            <TaskCountSlider
+              value={taskCount}
+              max={maxCombinations}
+              onChange={handleTaskCountChange}
+              sources={taskSources}
+              themeColor="pink"
+              disabled={isProcessing}
+            />
 
             {/* 文件选择器组 */}
             <FileSelectorGroup>
@@ -640,14 +509,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                 <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
                   {tasks.length > 0 ? `${currentIndex + 1} / ${tasks.length}` : tasks.length}
                 </span>
-                {tasks.length > 0 && !isProcessing && (
-                  <button
-                    onClick={clearAllTasks}
-                    className="text-xs text-slate-400 hover:text-pink-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-pink-500/50 hover:bg-pink-500/10 transition-all"
-                  >
-                    清除全部
-                  </button>
-                )}
               </div>
             </div>
 
@@ -761,17 +622,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                     <XCircle className="w-4 h-4 text-red-400" />
                   )}
 
-                  {/* 删除按钮 */}
-                  {currentTask.status === 'pending' && !isProcessing && (
-                    <button
-                      onClick={removeCurrentTask}
-                      className="p-1.5 hover:bg-pink-500/10 text-slate-500 hover:text-pink-400 rounded transition-colors"
-                      title="删除"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-
                   {/* 右侧导航 */}
                   <button
                     onClick={goToNext}
@@ -785,11 +635,11 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                 {/* 第二行：A 面视频 */}
                 <div className="px-3 py-2 flex items-center gap-2 border-b border-slate-800/30">
                   {/* A 面标签 */}
-                  <div className="flex items-center gap-1.5 shrink-0 w-12">
+                  <div className="flex items-center gap-1.5 shrink-0 w-14">
                     <div className="w-5 h-5 rounded bg-violet-500/20 flex items-center justify-center">
                       <Monitor className="w-3 h-3 text-violet-400" />
                     </div>
-                    <span className="text-[10px] font-medium text-violet-400">A</span>
+                    <span className="text-[10px] font-medium text-violet-400">A{currentTask.aIndex}</span>
                   </div>
                   {/* A 面缩略图 */}
                   <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden shrink-0">
@@ -839,11 +689,11 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                 {/* 第三行：B 面视频 */}
                 <div className="px-3 py-2 flex items-center gap-2">
                   {/* B 面标签 */}
-                  <div className="flex items-center gap-1.5 shrink-0 w-12">
+                  <div className="flex items-center gap-1.5 shrink-0 w-14">
                     <div className="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center">
                       <Smartphone className="w-3 h-3 text-indigo-400" />
                     </div>
-                    <span className="text-[10px] font-medium text-indigo-400">B</span>
+                    <span className="text-[10px] font-medium text-indigo-400">B{currentTask.bIndex}</span>
                   </div>
                   {/* B 面缩略图 */}
                   <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden shrink-0">
@@ -904,15 +754,24 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                     <p className="text-sm">选择视频后显示预览</p>
                   </div>
                 </div>
-              ) : !previewVideoPath ? (
+              ) : isGenerating ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
                     <Loader2 className="w-8 h-8 mx-auto mb-3 text-pink-400 animate-spin" />
-                    <p className="text-sm text-slate-400">{isGeneratingPreview ? '正在生成预览视频...' : '准备生成预览...'}</p>
+                    <p className="text-sm text-slate-400">正在生成预览视频...</p>
                   </div>
                 </div>
-              ) : (
-                <div className="relative w-full h-full flex items-center justify-center">
+              ) : previewError ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <XCircle className="w-8 h-8 mx-auto mb-3 text-red-400" />
+                    <p className="text-sm text-slate-400">预览生成失败</p>
+                    <p className="text-xs text-slate-500 mt-1">{previewError}</p>
+                  </div>
+                </div>
+              ) : previewPath ? (
+                <div className="relative w-full h-full flex flex-col items-center justify-center">
+                  <p className="text-xs text-slate-500 mb-2">截取 A 最后 5 秒 + B 前 5 秒</p>
                   <div
                     className="bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800"
                     style={orientation === 'landscape'
@@ -920,15 +779,25 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                       : { height: '640px', maxWidth: '100%', aspectRatio: '9/16' }
                     }
                   >
-                    <video
-                      ref={previewVideoRef}
-                      src={`preview://${encodeURIComponent(previewVideoPath)}`}
-                      className="w-full h-full object-cover"
-                      controls
+                    <VideoPlayer
+                      src={`preview://${encodeURIComponent(previewPath)}`}
                       autoPlay
                       loop
-                      playsInline
+                      muted={muted}
+                      paused={!isPlaying}
+                      themeColor="rose"
+                      minimal
+                      onPlayStateChange={(playing) => {
+                        setIsPlaying(playing);
+                      }}
                     />
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <Eye className="w-8 h-8 mx-auto mb-3 text-slate-500" />
+                    <p className="text-sm text-slate-400">准备生成预览...</p>
                   </div>
                 </div>
               )}

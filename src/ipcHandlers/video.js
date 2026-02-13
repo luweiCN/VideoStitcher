@@ -5,17 +5,37 @@
 
 const { ipcMain, BrowserWindow } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const { execFile, spawn } = require('child_process');
 const { runFfmpeg } = require('../ffmpeg/runFfmpeg');
 const { buildArgs } = require('../ffmpeg/videoMerge');
 const { TaskQueue } = require('../ffmpeg/queue');
 const { generatePreviews, cleanupPreviews } = require('../ffmpeg/videoResize');
-const os = require('os');
-const { spawn } = require('child_process');
 const app = require('electron').app ?? require('@electron/remote');
 const { generateCombinedFilename, generateSafeFilename } = require('../utils/fileNameHelper');
 
-// ffprobe 路径（@ffprobe-installer/ffprobe 按平台安装，体积更小）
-const ffprobePath = require('@ffprobe-installer/ffprobe').path;
+/**
+ * 获取 FFprobe 可执行文件路径
+ * 打包后需要特殊处理路径
+ */
+function getFfprobePath() {
+  if (app.isPackaged) {
+    // 打包后：ffprobe 在 app.asar.unpacked/node_modules/@ffprobe-installer/
+    const resourcesPath = process.resourcesPath;
+    const unpackedPath = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules', '@ffprobe-installer', 'ffprobe');
+
+    // 根据 platform 选择正确的可执行文件名
+    const ffprobeBin = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
+    return path.join(unpackedPath, ffprobeBin);
+  }
+
+  // 开发环境：使用 @ffprobe-installer/ffprobe 提供的路径
+  return require('@ffprobe-installer/ffprobe').path;
+}
+
+// 缓存 ffprobe 路径
+const ffprobePath = getFfprobePath();
 
 // 创建任务队列 (复用现有逻辑)
 const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
@@ -74,7 +94,7 @@ async function getVideoMetadata(filePath) {
       filePath
     ];
 
-    const process = spawn(ffprobePath, args);
+    const process = spawn(ffprobePath, args, { windowsHide: true });
     let stdout = '';
     let stderr = '';
 
@@ -156,11 +176,15 @@ async function getVideoDimensions(filePath) {
     else if (Math.abs(ratio - 1) < 0.05) aspectRatio = '1:1';
     else aspectRatio = `${Math.round(ratio * 10) / 10}:1`;
 
+    // 从 metadata 获取时长
+    const duration = metadata.duration || 0;
+
     return {
       width,
       height,
       orientation,
-      aspectRatio
+      aspectRatio,
+      duration
     };
   } catch (error) {
     console.error(`[获取视频尺寸] 失败: ${filePath} - ${error.message}`);
@@ -169,70 +193,126 @@ async function getVideoDimensions(filePath) {
 }
 
 /**
- * 横屏合成处理
- * 使用现有的 A+B 拼接逻辑
+ * 获取视频完整信息（一次性获取缩略图、文件大小、尺寸、时长）
+ * 合并多次 IPC 调用为一次，提升性能
  *
- * @param {Object} params - 参数对象
- * @param {string[]} params.aVideos - A面视频列表
- * @param {string[]} params.bVideos - B面视频列表（主视频）
- * @param {string} [params.bgImage] - 背景图路径
- * @param {string[]} [params.coverImages] - 封面图列表（支持批量，每个任务随机选择）
- * @param {string} params.outputDir - 输出目录
- * @param {number} [params.concurrency] - 并发数
- * @param {Object} [params.aPosition] - A面视频位置 {x, y, width, height}
- * @param {Object} [params.bPosition] - B面视频位置 {x, y, width, height}（默认位置，用于所有视频）
- * @param {Object[]} [params.bPositions] - 每个B面视频的独立位置数组（可选，优先级高于 bPosition）
- * @param {Object} [params.bgPosition] - 背景图位置 {x, y, width, height}
- * @param {Object} [params.coverPosition] - 封面图位置 {x, y, width, height}
+ * @param {string} filePath - 视频文件路径
+ * @param {Object} options - 可选配置
+ * @param {number} options.thumbnailMaxSize - 缩略图最大尺寸，默认 64
+ * @returns {Promise<Object>} 视频完整信息
  */
-async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverImages, outputDir, concurrency, aPosition, bPosition, bPositions, bgPosition, coverPosition }) {
-  return new Promise((resolve, reject) => {
-    const args = [
-      '-v', 'error',
-      '-select_streams', 'v:0',
-      '-show_entries', 'stream=width,height,duration',
-      '-of', 'json',
-      filePath
-    ];
+async function getVideoFullInfo(filePath, options = {}) {
+  const { thumbnailMaxSize = 64 } = options;
+  const fileName = filePath.split(/[/\\]/).pop() || filePath;
 
-    const process = spawn(ffprobePath, args);
-    let stdout = '';
-    let stderr = '';
+  const result = {
+    success: true,
+    path: filePath,
+    name: fileName,
+    thumbnail: null,
+    fileSize: null,
+    width: null,
+    height: null,
+    duration: null,
+    orientation: null,
+    aspectRatio: null,
+  };
 
-    process.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { ...result, success: false, error: '文件不存在' };
+    }
 
-    process.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
+    // 获取 ffmpeg 路径
+    const ffmpeg = require('ffmpeg-static');
 
-    process.on('close', (code) => {
-      if (code !== 0) {
-        return reject(new Error(`ffprobe exit code=${code}: ${stderr}`));
-      }
-
-      try {
-        const output = JSON.parse(stdout);
-        if (output.streams && output.streams.length > 0) {
-          const stream = output.streams[0];
-          resolve({
-            width: stream.width,
-            height: stream.height,
-            duration: stream.duration ? parseFloat(stream.duration) : 0
-          });
-        } else {
-          reject(new Error('无法解析视频元数据'));
+    // 并行执行所有操作
+    const [thumbnailResult, statsResult, metadataResult] = await Promise.allSettled([
+      // 1. 生成缩略图
+      new Promise((resolve, reject) => {
+        const tmpDir = path.join(os.tmpdir(), 'videostitcher-temp');
+        if (!fs.existsSync(tmpDir)) {
+          fs.mkdirSync(tmpDir, { recursive: true });
         }
-      } catch (err) {
-        reject(new Error(`解析 ffprobe 输出失败: ${err.message}`));
-      }
-    });
+        const outputPath = path.join(tmpDir, `thumb_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
 
-    process.on('error', (err) => {
-      reject(new Error(`ffprobe 执行失败: ${err.message}`));
-    });
-  });
+        const args = [
+          '-ss', '0',
+          '-i', filePath,
+          '-vframes', '1',
+          '-vf', `scale=${thumbnailMaxSize}:-1`,
+          '-y',
+          outputPath
+        ];
+
+        execFile(ffmpeg, args, { timeout: 10000 }, (err) => {
+          if (err) {
+            reject(err);
+          } else if (fs.existsSync(outputPath)) {
+            const thumbnailBase64 = fs.readFileSync(outputPath, { encoding: 'base64' });
+            fs.unlinkSync(outputPath); // 读取后删除临时文件
+            resolve(`data:image/png;base64,${thumbnailBase64}`);
+          } else {
+            reject(new Error('缩略图生成失败'));
+          }
+        });
+      }),
+
+      // 2. 获取文件大小
+      new Promise((resolve, reject) => {
+        fs.stat(filePath, (err, stats) => {
+          if (err) reject(err);
+          else resolve(stats.size);
+        });
+      }),
+
+      // 3. 获取视频元数据（尺寸、时长）
+      getVideoMetadata(filePath).then(metadata => ({
+        width: metadata.width,
+        height: metadata.height,
+        duration: metadata.duration,
+        orientation: metadata.width > metadata.height ? 'landscape' : metadata.width < metadata.height ? 'portrait' : 'square',
+        aspectRatio: calculateAspectRatio(metadata.width, metadata.height)
+      }))
+    ]);
+
+    // 处理结果
+    if (thumbnailResult.status === 'fulfilled') {
+      result.thumbnail = thumbnailResult.value;
+    }
+    if (statsResult.status === 'fulfilled') {
+      result.fileSize = statsResult.value;
+    }
+    if (metadataResult.status === 'fulfilled') {
+      const meta = metadataResult.value;
+      result.width = meta.width;
+      result.height = meta.height;
+      result.duration = meta.duration;
+      result.orientation = meta.orientation;
+      result.aspectRatio = meta.aspectRatio;
+    }
+
+  } catch (error) {
+    console.error(`[获取视频完整信息] 失败: ${fileName} - ${error.message}`);
+    result.success = false;
+    result.error = error.message;
+  }
+
+  return result;
+}
+
+/**
+ * 计算长宽比字符串
+ */
+function calculateAspectRatio(width, height) {
+  if (!width || !height) return null;
+  const ratio = width / height;
+  if (Math.abs(ratio - 16/9) < 0.1) return '16:9';
+  if (Math.abs(ratio - 9/16) < 0.1) return '9:16';
+  if (Math.abs(ratio - 4/3) < 0.1) return '4:3';
+  if (Math.abs(ratio - 3/4) < 0.1) return '3:4';
+  if (Math.abs(ratio - 1) < 0.05) return '1:1';
+  return `${Math.round(ratio * 10) / 10}:1`;
 }
 
 /**
@@ -964,11 +1044,17 @@ function registerVideoHandlers() {
   ipcMain.handle('video:get-dimensions', async (event, filePath) => {
     return getVideoDimensions(filePath);
   });
+
+  // 获取视频完整信息（缩略图、大小、尺寸、时长）- 一次调用获取所有信息
+  ipcMain.handle('video:get-full-info', async (event, filePath, options) => {
+    return getVideoFullInfo(filePath, options);
+  });
 }
 
 module.exports = {
   registerVideoHandlers,
   getVideoDimensions,
+  getVideoFullInfo,
   handleStitchAB,
   handleHorizontalMerge,
   handleVerticalMerge,
