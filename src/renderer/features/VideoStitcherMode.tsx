@@ -56,8 +56,12 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   const [bFiles, setBFiles] = useState<string[]>([]);
 
   // 使用 hook 加载视频素材（带全局缓存）
-  const { materials: aMaterials, isLoading: isLoadingA } = useVideoMaterials(aFiles);
-  const { materials: bMaterials, isLoading: isLoadingB } = useVideoMaterials(bFiles);
+  const { materials: aMaterials, isLoading: isLoadingA } = useVideoMaterials(aFiles, true, {
+    onLog: (message, type) => addLog(`[A面] ${message}`, type),
+  });
+  const { materials: bMaterials, isLoading: isLoadingB } = useVideoMaterials(bFiles, true, {
+    onLog: (message, type) => addLog(`[B面] ${message}`, type),
+  });
   const isLoadingMaterials = isLoadingA || isLoadingB;
 
   // 稳定的路径字符串，用于依赖检查（避免数组引用变化导致无限循环）
@@ -138,7 +142,9 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     setMuted,
     isPlaying,
     setIsPlaying,
-  } = useStitchPreview(previewConfig, !!currentTask);
+  } = useStitchPreview(previewConfig, !!currentTask, {
+    onLog: (message, type) => addLog(message, type),
+  });
 
   // 加载全局默认配置
   useEffect(() => {

@@ -128,6 +128,14 @@ export interface StitchPreviewConfig {
 }
 
 /**
+ * useStitchPreview Hook 选项
+ */
+export interface UseStitchPreviewOptions {
+  /** 日志回调 */
+  onLog?: (message: string, type: 'info' | 'error' | 'success') => void;
+}
+
+/**
  * useStitchPreview Hook
  *
  * 用于生成 A+B 前后拼接的快速预览视频
@@ -136,14 +144,16 @@ export interface StitchPreviewConfig {
  * 特点：
  * 1. Hook 级别缓存，切换任务时可复用
  * 2. 组件卸载时自动清理所有缓存的临时文件
- * 3. 全局音量缓存
+ * 3. 全局音量和播放状态缓存
  *
  * @param config 预览配置
  * @param enabled 是否启用
+ * @param options 可选配置
  */
 export function useStitchPreview(
   config: StitchPreviewConfig | null,
-  enabled: boolean = true
+  enabled: boolean = true,
+  options?: UseStitchPreviewOptions
 ): {
   /** 预览视频路径 */
   previewPath: string | null;
@@ -228,6 +238,7 @@ export function useStitchPreview(
       setPreviewPath(cachedPath);
       setIsFromCache(true);
       setError(null);
+      options?.onLog?.('预览已从缓存加载', 'info');
       return;
     }
 
@@ -240,6 +251,8 @@ export function useStitchPreview(
     setError(null);
     setIsGenerating(true);
     setIsFromCache(false);
+
+    options?.onLog?.('正在生成预览视频...', 'info');
 
     try {
       const result = await window.api.generateStitchPreviewFast({
@@ -265,12 +278,17 @@ export function useStitchPreview(
         instancePreviewsRef.current.add(result.tempPath);
 
         setPreviewPath(result.tempPath);
+        options?.onLog?.('预览视频生成完成', 'success');
       } else {
         setError(result.error || '预览生成失败');
+        options?.onLog?.(`预览生成失败: ${result.error || '未知错误'}`, 'error');
       }
     } catch (err) {
       if (!cancelRef.current) {
-        setError(err instanceof Error ? err.message : '预览生成异常');
+        const errorMsg = err instanceof Error ? err.message : '预览生成异常';
+        setError(errorMsg);
+        options?.onLog?.(`预览生成异常: ${errorMsg}`, 'error');
+      }
       }
     } finally {
       if (!cancelRef.current) {

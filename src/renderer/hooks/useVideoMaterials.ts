@@ -55,6 +55,14 @@ async function fetchVideoMaterial(filePath: string): Promise<VideoMaterial> {
 }
 
 /**
+ * useVideoMaterials Hook 选项
+ */
+export interface UseVideoMaterialsOptions {
+  /** 日志回调 */
+  onLog?: (message: string, type: 'info' | 'error' | 'success') => void;
+}
+
+/**
  * 视频素材管理 Hook
  *
  * 特点：
@@ -66,13 +74,15 @@ async function fetchVideoMaterial(filePath: string): Promise<VideoMaterial> {
  *
  * @param paths 文件路径数组
  * @param enabled 是否启用加载
+ * @param options 可选配置
  * @returns materials 素材信息数组（与 paths 顺序一致）
  * @returns isLoading 是否正在加载
  * @returns getMaterial 根据路径获取单个素材（从缓存）
  */
 export function useVideoMaterials(
   paths: string[],
-  enabled: boolean = true
+  enabled: boolean = true,
+  options?: UseVideoMaterialsOptions
 ): {
   materials: VideoMaterial[];
   isLoading: boolean;
@@ -88,6 +98,9 @@ export function useVideoMaterials(
 
   // 记录已请求过的路径，避免重复请求
   const requestedPathsRef = useRef<Set<string>>(new Set());
+
+  // 记录正在加载的数量（用于批量日志）
+  const batchLoadingRef = useRef(0);
 
   // 加载单个素材
   const loadMaterial = useCallback(async (filePath: string) => {
@@ -107,6 +120,12 @@ export function useVideoMaterials(
       return;
     }
     requestedPathsRef.current.add(filePath);
+
+    // 批量加载开始时的日志（只记录一次）
+    if (batchLoadingRef.current === 0) {
+      options?.onLog?.('正在加载视频信息...', 'info');
+    }
+    batchLoadingRef.current++;
 
     // 设置加载状态
     setLoadingCount((prev) => prev + 1);
@@ -137,8 +156,14 @@ export function useVideoMaterials(
       });
     } finally {
       setLoadingCount((prev) => prev - 1);
+      batchLoadingRef.current--;
+
+      // 批量加载结束时的日志（只记录一次）
+      if (batchLoadingRef.current === 0) {
+        options?.onLog?.('视频信息加载完成', 'success');
+      }
     }
-  }, []);
+  }, [options]);
 
   // 当 paths 变化时，加载新的素材
   // 注意：不能依赖 materialsMap，否则会导致无限循环
