@@ -318,7 +318,7 @@ export interface ElectronAPI {
     }) => void,
   ) => void;
   onVideoTaskStart: (
-    callback: (data: { index: number; taskId?: string }) => void,
+    callback: (data: { index: number; videoIndex?: number; videoId?: string; taskId?: string }) => void,
   ) => void;
   onVideoProgress: (
     callback: (data: {
@@ -326,7 +326,8 @@ export interface ElectronAPI {
       failed: number;
       total: number;
       index: number;
-      outputPath: string;
+      videoId?: string;
+      outputs?: string[];
     }) => void,
   ) => void;
   onVideoFailed: (
@@ -335,6 +336,7 @@ export interface ElectronAPI {
       failed: number;
       total: number;
       index: number;
+      videoId?: string;
       error: string;
     }) => void,
   ) => void;
@@ -342,7 +344,7 @@ export interface ElectronAPI {
     callback: (data: { done: number; failed: number; total: number }) => void,
   ) => void;
   onVideoLog: (
-    callback: (data: { index: number; message: string }) => void,
+    callback: (data: { index: number; videoId?: string; message: string }) => void,
   ) => void;
 
   // 图片处理事件

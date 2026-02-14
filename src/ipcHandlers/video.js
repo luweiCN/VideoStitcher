@@ -3,17 +3,20 @@
  * 扩展现有的视频处理功能, 支持 VideoMaster 的所有视频模式
  */
 
-const { ipcMain, BrowserWindow } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const { execFile, spawn } = require('child_process');
-const { runFfmpeg } = require('../ffmpeg/runFfmpeg');
-const { buildArgs } = require('../ffmpeg/videoMerge');
-const { TaskQueue } = require('../ffmpeg/queue');
-const { generatePreviews, cleanupPreviews } = require('../ffmpeg/videoResize');
-const app = require('electron').app ?? require('@electron/remote');
-const { generateCombinedFilename, generateSafeFilename } = require('../utils/fileNameHelper');
+const { ipcMain, BrowserWindow } = require("electron");
+const path = require("path");
+const fs = require("fs");
+const os = require("os");
+const { execFile, spawn } = require("child_process");
+const { runFfmpeg } = require("../ffmpeg/runFfmpeg");
+const { buildArgs } = require("../ffmpeg/videoMerge");
+const { TaskQueue } = require("../ffmpeg/queue");
+const { generatePreviews, cleanupPreviews } = require("../ffmpeg/videoResize");
+const app = require("electron").app ?? require("@electron/remote");
+const {
+  generateCombinedFilename,
+  generateSafeFilename,
+} = require("../utils/fileNameHelper");
 
 /**
  * 获取 FFprobe 可执行文件路径
@@ -23,15 +26,21 @@ function getFfprobePath() {
   if (app.isPackaged) {
     // 打包后：ffprobe 在 app.asar.unpacked/node_modules/@ffprobe-installer/
     const resourcesPath = process.resourcesPath;
-    const unpackedPath = path.join(resourcesPath, 'app.asar.unpacked', 'node_modules', '@ffprobe-installer', 'ffprobe');
+    const unpackedPath = path.join(
+      resourcesPath,
+      "app.asar.unpacked",
+      "node_modules",
+      "@ffprobe-installer",
+      "ffprobe",
+    );
 
     // 根据 platform 选择正确的可执行文件名
-    const ffprobeBin = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
+    const ffprobeBin = process.platform === "win32" ? "ffprobe.exe" : "ffprobe";
     return path.join(unpackedPath, ffprobeBin);
   }
 
   // 开发环境：使用 @ffprobe-installer/ffprobe 提供的路径
-  return require('@ffprobe-installer/ffprobe').path;
+  return require("@ffprobe-installer/ffprobe").path;
 }
 
 // 缓存 ffprobe 路径
@@ -46,36 +55,37 @@ const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
  * 如果没有第七个分隔符，使用默认命名规则
  */
 function getSmartMergedName(bName, index, suffix, aName) {
-  const separator = '-';
+  const separator = "-";
   const parts = bName.split(separator);
 
   // parts.length > 7 表示至少有 7 个分隔符，即至少有 8 个部分
   if (parts.length > 7) {
     const newParts = [...parts];
     // 1. 第一个-符号后面固定是D (即索引为 1 的部分)
-    newParts[1] = 'D';
+    newParts[1] = "D";
     // 2. 在第 7 个分隔符后面加，即在第 8 个部分（索引为 7）前面加
-    newParts[7] = '软件合成' + newParts[7];
+    newParts[7] = "软件合成" + newParts[7];
     // 3. 倒数第二个部分（横竖标识）修正
-    newParts[newParts.length - 2] = (suffix === 'vertical') ? '竖' : '横';
+    newParts[newParts.length - 2] = suffix === "vertical" ? "竖" : "横";
     // 修复：必须加上序号，否则导出倍数 > 1 时会文件名冲突导致花屏/覆盖
-    const rawName = newParts.join(separator) + `_${String(index + 1).padStart(4, '0')}`;
+    const rawName =
+      newParts.join(separator) + `_${String(index + 1).padStart(4, "0")}`;
     // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
-    return generateSafeFilename(rawName, { extension: '.mp4' });
+    return generateSafeFilename(rawName, { extension: ".mp4" });
   }
 
   // 默认命名规则
   if (aName) {
     // 使用组合文件名处理，避免两个长文件名拼接后超过限制
     return generateCombinedFilename(aName, bName, {
-      separator: '__',
-      suffix: `__${String(index + 1).padStart(4, '0')}_${suffix}`,
-      extension: '.mp4'
+      separator: "__",
+      suffix: `__${String(index + 1).padStart(4, "0")}_${suffix}`,
+      extension: ".mp4",
     });
   } else {
     return generateSafeFilename(bName, {
-      suffix: `__${String(index + 1).padStart(4, '0')}_${suffix}`,
-      extension: '.mp4'
+      suffix: `__${String(index + 1).padStart(4, "0")}_${suffix}`,
+      extension: ".mp4",
     });
   }
 }
@@ -87,26 +97,30 @@ function getSmartMergedName(bName, index, suffix, aName) {
 async function getVideoMetadata(filePath) {
   return new Promise((resolve, reject) => {
     const args = [
-      '-v', 'error',
-      '-select_streams', 'v:0',
-      '-show_entries', 'stream=width,height,duration',
-      '-of', 'json',
-      filePath
+      "-v",
+      "error",
+      "-select_streams",
+      "v:0",
+      "-show_entries",
+      "stream=width,height,duration",
+      "-of",
+      "json",
+      filePath,
     ];
 
     const process = spawn(ffprobePath, args, { windowsHide: true });
-    let stdout = '';
-    let stderr = '';
+    let stdout = "";
+    let stderr = "";
 
-    process.stdout.on('data', (data) => {
+    process.stdout.on("data", (data) => {
       stdout += data.toString();
     });
 
-    process.stderr.on('data', (data) => {
+    process.stderr.on("data", (data) => {
       stderr += data.toString();
     });
 
-    process.on('close', (code) => {
+    process.on("close", (code) => {
       if (code !== 0) {
         return reject(new Error(`ffprobe exit code=${code}: ${stderr}`));
       }
@@ -118,17 +132,17 @@ async function getVideoMetadata(filePath) {
           resolve({
             width: stream.width,
             height: stream.height,
-            duration: stream.duration ? parseFloat(stream.duration) : 0
+            duration: stream.duration ? parseFloat(stream.duration) : 0,
           });
         } else {
-          reject(new Error('无法解析视频元数据'));
+          reject(new Error("无法解析视频元数据"));
         }
       } catch (err) {
         reject(new Error(`解析 ffprobe 输出失败: ${err.message}`));
       }
     });
 
-    process.on('error', (err) => {
+    process.on("error", (err) => {
       reject(new Error(`ffprobe 执行失败: ${err.message}`));
     });
   });
@@ -144,7 +158,15 @@ async function getVideoMetadata(filePath) {
 async function getVideoDimensions(filePath) {
   try {
     const ext = path.extname(filePath).toLowerCase();
-    const validExtensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.flv', '.m4v'];
+    const validExtensions = [
+      ".mp4",
+      ".mov",
+      ".avi",
+      ".mkv",
+      ".webm",
+      ".flv",
+      ".m4v",
+    ];
 
     if (!validExtensions.includes(ext)) {
       return null;
@@ -159,21 +181,21 @@ async function getVideoDimensions(filePath) {
     }
 
     // 计算方向
-    let orientation = 'landscape';
+    let orientation = "landscape";
     if (width === height) {
-      orientation = 'square';
+      orientation = "square";
     } else if (height > width) {
-      orientation = 'portrait';
+      orientation = "portrait";
     }
 
     // 计算长宽比，简化为常用比例
     const ratio = width / height;
-    let aspectRatio = '16:9';
-    if (Math.abs(ratio - 16/9) < 0.1) aspectRatio = '16:9';
-    else if (Math.abs(ratio - 9/16) < 0.1) aspectRatio = '9:16';
-    else if (Math.abs(ratio - 4/3) < 0.1) aspectRatio = '4:3';
-    else if (Math.abs(ratio - 3/4) < 0.1) aspectRatio = '3:4';
-    else if (Math.abs(ratio - 1) < 0.05) aspectRatio = '1:1';
+    let aspectRatio = "16:9";
+    if (Math.abs(ratio - 16 / 9) < 0.1) aspectRatio = "16:9";
+    else if (Math.abs(ratio - 9 / 16) < 0.1) aspectRatio = "9:16";
+    else if (Math.abs(ratio - 4 / 3) < 0.1) aspectRatio = "4:3";
+    else if (Math.abs(ratio - 3 / 4) < 0.1) aspectRatio = "3:4";
+    else if (Math.abs(ratio - 1) < 0.05) aspectRatio = "1:1";
     else aspectRatio = `${Math.round(ratio * 10) / 10}:1`;
 
     // 从 metadata 获取时长
@@ -184,7 +206,7 @@ async function getVideoDimensions(filePath) {
       height,
       orientation,
       aspectRatio,
-      duration
+      duration,
     };
   } catch (error) {
     console.error(`[获取视频尺寸] 失败: ${filePath} - ${error.message}`);
@@ -210,6 +232,7 @@ async function getVideoFullInfo(filePath, options = {}) {
     path: filePath,
     name: fileName,
     thumbnail: null,
+    previewUrl: `preview://${encodeURIComponent(filePath)}`,
     fileSize: null,
     width: null,
     height: null,
@@ -220,70 +243,85 @@ async function getVideoFullInfo(filePath, options = {}) {
 
   try {
     if (!fs.existsSync(filePath)) {
-      return { ...result, success: false, error: '文件不存在' };
+      return { ...result, success: false, error: "文件不存在" };
     }
 
     // 获取 ffmpeg 路径
-    const ffmpeg = require('ffmpeg-static');
+    const ffmpeg = require("ffmpeg-static");
 
     // 并行执行所有操作
-    const [thumbnailResult, statsResult, metadataResult] = await Promise.allSettled([
-      // 1. 生成缩略图
-      new Promise((resolve, reject) => {
-        const tmpDir = path.join(os.tmpdir(), 'videostitcher-temp');
-        if (!fs.existsSync(tmpDir)) {
-          fs.mkdirSync(tmpDir, { recursive: true });
-        }
-        const outputPath = path.join(tmpDir, `thumb_${Date.now()}_${Math.random().toString(36).slice(2)}.png`);
-
-        const args = [
-          '-ss', '0',
-          '-i', filePath,
-          '-vframes', '1',
-          '-vf', `scale=${thumbnailMaxSize}:-1`,
-          '-y',
-          outputPath
-        ];
-
-        execFile(ffmpeg, args, { timeout: 10000 }, (err) => {
-          if (err) {
-            reject(err);
-          } else if (fs.existsSync(outputPath)) {
-            const thumbnailBase64 = fs.readFileSync(outputPath, { encoding: 'base64' });
-            fs.unlinkSync(outputPath); // 读取后删除临时文件
-            resolve(`data:image/png;base64,${thumbnailBase64}`);
-          } else {
-            reject(new Error('缩略图生成失败'));
+    const [thumbnailResult, statsResult, metadataResult] =
+      await Promise.allSettled([
+        // 1. 生成缩略图
+        new Promise((resolve, reject) => {
+          const tmpDir = path.join(os.tmpdir(), "videostitcher-temp");
+          if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
           }
-        });
-      }),
+          const outputPath = path.join(
+            tmpDir,
+            `thumb_${Date.now()}_${Math.random().toString(36).slice(2)}.png`,
+          );
 
-      // 2. 获取文件大小
-      new Promise((resolve, reject) => {
-        fs.stat(filePath, (err, stats) => {
-          if (err) reject(err);
-          else resolve(stats.size);
-        });
-      }),
+          const args = [
+            "-ss",
+            "0",
+            "-i",
+            filePath,
+            "-vframes",
+            "1",
+            "-vf",
+            `scale=${thumbnailMaxSize}:-1`,
+            "-y",
+            outputPath,
+          ];
 
-      // 3. 获取视频元数据（尺寸、时长）
-      getVideoMetadata(filePath).then(metadata => ({
-        width: metadata.width,
-        height: metadata.height,
-        duration: metadata.duration,
-        orientation: metadata.width > metadata.height ? 'landscape' : metadata.width < metadata.height ? 'portrait' : 'square',
-        aspectRatio: calculateAspectRatio(metadata.width, metadata.height)
-      }))
-    ]);
+          execFile(ffmpeg, args, { timeout: 10000 }, (err) => {
+            if (err) {
+              reject(err);
+            } else if (fs.existsSync(outputPath)) {
+              const thumbnailBase64 = fs.readFileSync(outputPath, {
+                encoding: "base64",
+              });
+              fs.unlinkSync(outputPath); // 读取后删除临时文件
+              resolve(`data:image/png;base64,${thumbnailBase64}`);
+            } else {
+              reject(new Error("缩略图生成失败"));
+            }
+          });
+        }),
+
+        // 2. 获取文件大小
+        new Promise((resolve, reject) => {
+          fs.stat(filePath, (err, stats) => {
+            if (err) reject(err);
+            else resolve(stats.size);
+          });
+        }),
+
+        // 3. 获取视频元数据（尺寸、时长）
+        getVideoMetadata(filePath).then((metadata) => ({
+          width: metadata.width,
+          height: metadata.height,
+          duration: metadata.duration,
+          orientation:
+            metadata.width > metadata.height
+              ? "landscape"
+              : metadata.width < metadata.height
+                ? "portrait"
+                : "square",
+          aspectRatio: calculateAspectRatio(metadata.width, metadata.height),
+        })),
+      ]);
 
     // 处理结果
-    if (thumbnailResult.status === 'fulfilled') {
+    if (thumbnailResult.status === "fulfilled") {
       result.thumbnail = thumbnailResult.value;
     }
-    if (statsResult.status === 'fulfilled') {
+    if (statsResult.status === "fulfilled") {
       result.fileSize = statsResult.value;
     }
-    if (metadataResult.status === 'fulfilled') {
+    if (metadataResult.status === "fulfilled") {
       const meta = metadataResult.value;
       result.width = meta.width;
       result.height = meta.height;
@@ -291,7 +329,6 @@ async function getVideoFullInfo(filePath, options = {}) {
       result.orientation = meta.orientation;
       result.aspectRatio = meta.aspectRatio;
     }
-
   } catch (error) {
     console.error(`[获取视频完整信息] 失败: ${fileName} - ${error.message}`);
     result.success = false;
@@ -307,11 +344,11 @@ async function getVideoFullInfo(filePath, options = {}) {
 function calculateAspectRatio(width, height) {
   if (!width || !height) return null;
   const ratio = width / height;
-  if (Math.abs(ratio - 16/9) < 0.1) return '16:9';
-  if (Math.abs(ratio - 9/16) < 0.1) return '9:16';
-  if (Math.abs(ratio - 4/3) < 0.1) return '4:3';
-  if (Math.abs(ratio - 3/4) < 0.1) return '3:4';
-  if (Math.abs(ratio - 1) < 0.05) return '1:1';
+  if (Math.abs(ratio - 16 / 9) < 0.1) return "16:9";
+  if (Math.abs(ratio - 9 / 16) < 0.1) return "9:16";
+  if (Math.abs(ratio - 4 / 3) < 0.1) return "4:3";
+  if (Math.abs(ratio - 3 / 4) < 0.1) return "3:4";
+  if (Math.abs(ratio - 1) < 0.05) return "1:1";
   return `${Math.round(ratio * 10) / 10}:1`;
 }
 
@@ -332,12 +369,27 @@ function calculateAspectRatio(width, height) {
  * @param {Object} [params.bgPosition] - 背景图位置 {x, y, width, height}
  * @param {Object} [params.coverPosition] - 封面图位置 {x, y, width, height}
  */
-async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverImages, outputDir, concurrency, aPosition, bPosition, bPositions, bgPosition, coverPosition }) {
+async function handleHorizontalMerge(
+  event,
+  {
+    aVideos,
+    bVideos,
+    bgImage,
+    coverImages,
+    outputDir,
+    concurrency,
+    aPosition,
+    bPosition,
+    bPositions,
+    bgPosition,
+    coverPosition,
+  },
+) {
   if (!bVideos.length) {
-    throw new Error('主视频库为空');
+    throw new Error("主视频库为空");
   }
   if (!outputDir) {
-    throw new Error('未选择输出目录');
+    throw new Error("未选择输出目录");
   }
 
   // 如果没有 A 面视频，则不传 aPath，buildArgs 会处理
@@ -350,7 +402,11 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
   let done = 0;
   let failed = 0;
 
-  event.sender.send('video-start', { total, mode: 'horizontal', concurrency: queue.concurrency });
+  event.sender.send("video-start", {
+    total,
+    mode: "horizontal",
+    concurrency: queue.concurrency,
+  });
 
   // --- 全局 A 面视频分配策略 ---
   const globalASideAssignments = [];
@@ -394,15 +450,17 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
   const tasks = bVideos.map((b, index) => {
     return queue.push(async () => {
       // 发送任务开始事件
-      event.sender.send('video-task-start', { index });
+      event.sender.send("video-task-start", { index });
 
       // 使用预分配的 A 面视频和封面图
       const selectedAVideo = globalASideAssignments[index];
       const selectedCoverImage = globalCoverAssignments[index];
 
       const bName = path.parse(b).name;
-      const aName = selectedAVideo ? path.parse(selectedAVideo).name : undefined;
-      const outName = getSmartMergedName(bName, index, 'horizontal', aName);
+      const aName = selectedAVideo
+        ? path.parse(selectedAVideo).name
+        : undefined;
+      const outName = getSmartMergedName(bName, index, "horizontal", aName);
       const outPath = path.join(outputDir, outName);
 
       try {
@@ -420,25 +478,37 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
           bPosition: currentBPosition,
           bgPosition,
           coverPosition,
-          orientation: 'horizontal'
+          orientation: "horizontal",
         });
 
         // 执行 FFmpeg 命令
         await runFfmpeg(args, (log) => {
-          event.sender.send('video-log', { index, message: log });
+          event.sender.send("video-log", { index, message: log });
         });
 
         done++;
-        event.sender.send('video-progress', { done, failed, total, index, outputPath: outPath });
+        event.sender.send("video-progress", {
+          done,
+          failed,
+          total,
+          index,
+          outputPath: outPath,
+        });
       } catch (err) {
         failed++;
-        event.sender.send('video-failed', { done, failed, total, index, error: err.message });
+        event.sender.send("video-failed", {
+          done,
+          failed,
+          total,
+          index,
+          error: err.message,
+        });
       }
     });
   });
 
   await Promise.allSettled(tasks);
-  event.sender.send('video-finish', { done, failed, total });
+  event.sender.send("video-finish", { done, failed, total });
 
   return { done, failed, total };
 }
@@ -459,73 +529,70 @@ async function handleHorizontalMerge(event, { aVideos, bVideos, bgImage, coverIm
  * @param {Object} [params.bgPosition] - 背景图位置 {x, y, width, height}
  * @param {Object} [params.coverPosition] - 封面图位置 {x, y, width, height}
  */
-async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverImages, outputDir, concurrency, aPosition, bPosition, bPositions, bgPosition, coverPosition }) {
+async function handleVerticalMerge(
+  event,
+  {
+    mainVideos,
+    bgImage,
+    aVideos,
+    coverImages,
+    outputDir,
+    concurrency,
+    aPosition,
+    bPosition,
+    bPositions,
+    bgPosition,
+    coverPosition,
+  },
+) {
   if (!mainVideos.length) {
-    throw new Error('主视频库为空');
+    throw new Error("主视频库为空");
   }
   if (!outputDir) {
-    throw new Error('未选择输出目录');
+    throw new Error("未选择输出目录");
   }
 
-    // 如果没有 A 面视频，则不传 aPath，buildArgs 会处理
+  // 如果没有 A 面视频，则不传 aPath，buildArgs 会处理
 
-    const hasAVideos = aVideos && aVideos.length > 0;
+  const hasAVideos = aVideos && aVideos.length > 0;
 
-  
+  queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
 
-    queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
+  const total = mainVideos.length;
 
-  
+  let done = 0;
 
-    const total = mainVideos.length;
+  let failed = 0;
 
-    let done = 0;
+  event.sender.send("video-start", {
+    total,
+    mode: "vertical",
+    concurrency: queue.concurrency,
+  });
 
-    let failed = 0;
+  // --- 全局 A 面视频分配策略 ---
 
-  
+  const globalASideAssignments = [];
 
-    event.sender.send('video-start', { total, mode: 'vertical', concurrency: queue.concurrency });
+  if (hasAVideos) {
+    let pool = [...aVideos];
 
-  
+    pool.sort(() => 0.5 - Math.random());
 
-    // --- 全局 A 面视频分配策略 ---
+    for (let k = 0; k < total; k++) {
+      if (pool.length === 0) {
+        pool = [...aVideos];
 
-    const globalASideAssignments = [];
-
-    if (hasAVideos) {
-
-      let pool = [...aVideos];
-
-      pool.sort(() => 0.5 - Math.random());
-
-  
-
-      for (let k = 0; k < total; k++) {
-
-        if (pool.length === 0) {
-
-          pool = [...aVideos];
-
-          pool.sort(() => 0.5 - Math.random());
-
-        }
-
-        globalASideAssignments.push(pool.pop());
-
+        pool.sort(() => 0.5 - Math.random());
       }
 
-    } else {
-
-      for (let k = 0; k < total; k++) {
-
-        globalASideAssignments.push(undefined);
-
-      }
-
+      globalASideAssignments.push(pool.pop());
     }
-
-  
+  } else {
+    for (let k = 0; k < total; k++) {
+      globalASideAssignments.push(undefined);
+    }
+  }
 
   // --- 全局封面图分配策略 ---
   const globalCoverAssignments = [];
@@ -549,15 +616,17 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverI
   const tasks = mainVideos.map((mainVideo, index) => {
     return queue.push(async () => {
       // 发送任务开始事件
-      event.sender.send('video-task-start', { index });
+      event.sender.send("video-task-start", { index });
 
       // 使用预分配的 A 面视频和封面图
       const selectedAVideo = globalASideAssignments[index];
       const selectedCoverImage = globalCoverAssignments[index];
 
       const bName = path.parse(mainVideo).name;
-      const aName = selectedAVideo ? path.parse(selectedAVideo).name : undefined;
-      const outName = getSmartMergedName(bName, index, 'vertical', aName);
+      const aName = selectedAVideo
+        ? path.parse(selectedAVideo).name
+        : undefined;
+      const outName = getSmartMergedName(bName, index, "vertical", aName);
       const outPath = path.join(outputDir, outName);
 
       try {
@@ -575,25 +644,37 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverI
           bPosition: currentBPosition,
           bgPosition,
           coverPosition,
-          orientation: 'vertical'
+          orientation: "vertical",
         });
 
         // 执行 FFmpeg 命令
         await runFfmpeg(args, (log) => {
-          event.sender.send('video-log', { index, message: log });
+          event.sender.send("video-log", { index, message: log });
         });
 
         done++;
-        event.sender.send('video-progress', { done, failed, total, index, outputPath: outPath });
+        event.sender.send("video-progress", {
+          done,
+          failed,
+          total,
+          index,
+          outputPath: outPath,
+        });
       } catch (err) {
         failed++;
-        event.sender.send('video-failed', { done, failed, total, index, error: err.message });
+        event.sender.send("video-failed", {
+          done,
+          failed,
+          total,
+          index,
+          error: err.message,
+        });
       }
     });
   });
 
   await Promise.allSettled(tasks);
-  event.sender.send('video-finish', { done, failed, total });
+  event.sender.send("video-finish", { done, failed, total });
 
   return { done, failed, total };
 }
@@ -602,15 +683,21 @@ async function handleVerticalMerge(event, { mainVideos, bgImage, aVideos, coverI
  * 智能改尺寸处理
  * 为每个视频生成指定模式的输出视频
  */
-async function handleResize(event, { videos, mode, blurAmount, outputDir, concurrency }) {
+async function handleResize(
+  event,
+  { videos, mode, blurAmount, outputDir, concurrency },
+) {
   if (!videos.length) {
-    throw new Error('视频库为空');
+    throw new Error("视频库为空");
   }
   if (!outputDir) {
-    throw new Error('未选择输出目录');
+    throw new Error("未选择输出目录");
   }
 
-  const { buildArgs: buildResizeArgs, RESIZE_CONFIGS } = require('../ffmpeg/videoResize');
+  const {
+    buildArgs: buildResizeArgs,
+    RESIZE_CONFIGS,
+  } = require("../ffmpeg/videoResize");
   const configs = RESIZE_CONFIGS[mode];
   if (!configs) {
     throw new Error(`无效的模式: ${mode}`);
@@ -619,18 +706,30 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
   // 设置并发数
   queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
 
-  // 计算总任务数：每个视频可能生成多个输出
-  const total = videos.length * configs.length;
+  // 总任务数以原始视频数量为准（每个视频不管输出几个，都算一个任务）
+  const total = videos.length;
   let done = 0;
   let failed = 0;
 
-  event.sender.send('video-start', { total, mode: 'resize', concurrency: queue.concurrency });
+  event.sender.send("video-start", {
+    total,
+    mode: "resize",
+    concurrency: queue.concurrency,
+  });
 
   const tasks = [];
 
+  // 跟踪每个视频的完成计数，只有当一个视频的所有输出都完成时才发送 progress 事件
+  const videoCompletionCount = new Array(videos.length).fill(0);
+  const videoFailed = new Array(videos.length).fill(false); // 跟踪每个视频是否有失败
+  const videoOutputs = [];
+
   for (let i = 0; i < videos.length; i++) {
-    const videoPath = videos[i];
+    const video = videos[i];
+    const videoPath = video.path;
+    const videoId = video.id;
     const fileName = path.parse(videoPath).name;
+    videoOutputs[i] = [];
 
     for (let j = 0; j < configs.length; j++) {
       const config = configs[j];
@@ -638,47 +737,91 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
       // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
       const outName = generateSafeFilename(fileName, {
         suffix: suffix,
-        extension: '.mp4'
+        extension: ".mp4",
       });
       const outPath = path.join(outputDir, outName);
+      videoOutputs[i].push(outPath);
 
-      tasks.push(queue.push(async () => {
-        const index = i * configs.length + j;
+      tasks.push(
+        queue.push(async () => {
+          const index = i * configs.length + j;
 
-        // 发送任务开始事件
-        event.sender.send('video-task-start', { index });
+          // 发送任务开始事件，带上视频索引
+          event.sender.send("video-task-start", { index, videoIndex: i });
 
-        try {
-          console.log(`[handleResize] 处理任务 ${index}: ${videoPath}, 目标: ${config.width}x${config.height}, 模糊: ${blurAmount}`);
+          try {
+            console.log(
+              `[handleResize] 处理任务 ${index}: ${videoPath}, 目标: ${config.width}x${config.height}, 模糊: ${blurAmount}`,
+            );
 
-          const args = buildResizeArgs({
-            inputPath: videoPath,
-            outputPath: outPath,
-            width: config.width,
-            height: config.height,
-            blurAmount,
-            // 每个任务使用全部 CPU 核心数，提高单个任务速度
-            threads: os.cpus().length,
-          });
+            const args = buildResizeArgs({
+              inputPath: videoPath,
+              outputPath: outPath,
+              width: config.width,
+              height: config.height,
+              blurAmount,
+              // 每个任务使用全部 CPU 核心数，提高单个任务速度
+              threads: os.cpus().length,
+            });
 
-          console.log(`[handleResize] FFmpeg 命令:`, JSON.stringify(args.filter(a => a.startsWith('[') || a === '-filter_complex'), null, 2));
+            console.log(
+              `[handleResize] FFmpeg 命令:`,
+              JSON.stringify(
+                args.filter(
+                  (a) => a.startsWith("[") || a === "-filter_complex",
+                ),
+                null,
+                2,
+              ),
+            );
 
-          await runFfmpeg(args, (log) => {
-            event.sender.send('video-log', { index, message: log });
-          });
+            await runFfmpeg(args, (log) => {
+              event.sender.send("video-log", { index, message: log });
+            });
 
-          done++;
-          event.sender.send('video-progress', { done, failed, total, index, outputPath: outPath });
-        } catch (err) {
-          failed++;
-          event.sender.send('video-failed', { done, failed, total, index, error: err.message });
-        }
-      }));
+            // 任务成功，增加该视频的完成计数
+            videoCompletionCount[i]++;
+
+            // 检查该视频的所有输出是否都完成
+            if (videoCompletionCount[i] === configs.length) {
+              // 该视频的所有输出都完成了，发送 progress 事件
+              // 只有当该视频没有失败时才计为成功
+              if (!videoFailed[i]) {
+                done++;
+              }
+              event.sender.send("video-progress", {
+                done,
+                failed,
+                total,
+                index: i, // 视频在数组中的索引
+                outputs: videoOutputs[i],
+              });
+            }
+          } catch (err) {
+            // 标记该视频有失败
+            videoFailed[i] = true;
+            // 任务失败也视为该输出完成
+            videoCompletionCount[i]++;
+
+            // 检查该视频的所有输出是否都完成
+            if (videoCompletionCount[i] === configs.length) {
+              failed++;
+              event.sender.send("video-progress", {
+                done,
+                failed,
+                total,
+                index: i, // 视频在数组中的索引
+                outputs: videoOutputs[i],
+              });
+            }
+          }
+        }),
+      );
     }
   }
 
   await Promise.allSettled(tasks);
-  event.sender.send('video-finish', { done, failed, total });
+  event.sender.send("video-finish", { done, failed, total });
 
   return { done, failed, total };
 }
@@ -687,19 +830,22 @@ async function handleResize(event, { videos, mode, blurAmount, outputDir, concur
  * 横屏合成预览
  * 生成单个合成视频的预览，输出到临时目录
  */
-async function handleHorizontalPreview(event, { aVideo, bVideo, bgImage, coverImage }) {
-  const os = require('os');
-  const fs = require('fs');
+async function handleHorizontalPreview(
+  event,
+  { aVideo, bVideo, bgImage, coverImage },
+) {
+  const os = require("os");
+  const fs = require("fs");
 
   if (!bVideo) {
-    throw new Error('缺少主视频');
+    throw new Error("缺少主视频");
   }
 
   // 如果没有 A 面视频，则设为 undefined，buildArgs 会处理
   const finalAVideo = aVideo;
 
   // 创建临时预览目录
-  const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview');
+  const tmpDir = path.join(os.tmpdir(), "videostitcher-preview");
   if (!fs.existsSync(tmpDir)) {
     fs.mkdirSync(tmpDir, { recursive: true });
   }
@@ -710,7 +856,7 @@ async function handleHorizontalPreview(event, { aVideo, bVideo, bgImage, coverIm
   const previewPath = path.join(tmpDir, previewFileName);
 
   // 发送预览开始事件
-  event.sender.send('preview-start', { mode: 'horizontal' });
+  event.sender.send("preview-start", { mode: "horizontal" });
 
   try {
     // 使用统一拼接模块构建命令
@@ -720,23 +866,30 @@ async function handleHorizontalPreview(event, { aVideo, bVideo, bgImage, coverIm
       outPath: previewPath,
       bgImage,
       coverImage,
-      orientation: 'horizontal'
+      orientation: "horizontal",
     });
 
     // 调试：输出命令
-    console.log('[DEBUG 预览命令]', JSON.stringify(args.filter(a => a.startsWith('[') || a === '-filter_complex'), null, 2));
+    console.log(
+      "[DEBUG 预览命令]",
+      JSON.stringify(
+        args.filter((a) => a.startsWith("[") || a === "-filter_complex"),
+        null,
+        2,
+      ),
+    );
 
     // 执行 FFmpeg 命令
     await runFfmpeg(args, (log) => {
-      event.sender.send('preview-log', { message: log });
+      event.sender.send("preview-log", { message: log });
     });
 
     // 发送预览完成事件，返回预览文件路径
-    event.sender.send('preview-complete', { previewPath });
+    event.sender.send("preview-complete", { previewPath });
 
     return { success: true, previewPath };
   } catch (err) {
-    event.sender.send('preview-error', { error: err.message });
+    event.sender.send("preview-error", { error: err.message });
     return { success: false, error: err.message };
   }
 }
@@ -744,19 +897,22 @@ async function handleHorizontalPreview(event, { aVideo, bVideo, bgImage, coverIm
 /**
  * 竖屏合成预览
  */
-async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo, coverImage }) {
-  const os = require('os');
-  const fs = require('fs');
+async function handleVerticalPreview(
+  event,
+  { mainVideo, bgImage, aVideo, coverImage },
+) {
+  const os = require("os");
+  const fs = require("fs");
 
   if (!mainVideo) {
-    throw new Error('缺少主视频');
+    throw new Error("缺少主视频");
   }
 
   // 如果没有 A 面视频，则设为 undefined，buildArgs 会处理
   const finalAVideo = aVideo;
 
   // 创建临时预览目录
-  const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview');
+  const tmpDir = path.join(os.tmpdir(), "videostitcher-preview");
   if (!fs.existsSync(tmpDir)) {
     fs.mkdirSync(tmpDir, { recursive: true });
   }
@@ -767,7 +923,7 @@ async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo, coverI
   const previewPath = path.join(tmpDir, previewFileName);
 
   // 发送预览开始事件
-  event.sender.send('preview-start', { mode: 'vertical' });
+  event.sender.send("preview-start", { mode: "vertical" });
 
   try {
     // 使用统一拼接模块构建命令
@@ -777,20 +933,20 @@ async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo, coverI
       outPath: previewPath,
       bgImage,
       coverImage,
-      orientation: 'vertical'
+      orientation: "vertical",
     });
 
     // 执行 FFmpeg 命令
     await runFfmpeg(args, (log) => {
-      event.sender.send('preview-log', { message: log });
+      event.sender.send("preview-log", { message: log });
     });
 
     // 发送预览完成事件
-    event.sender.send('preview-complete', { previewPath });
+    event.sender.send("preview-complete", { previewPath });
 
     return { success: true, previewPath };
   } catch (err) {
-    event.sender.send('preview-error', { error: err.message });
+    event.sender.send("preview-error", { error: err.message });
     return { success: false, error: err.message };
   }
 }
@@ -799,10 +955,10 @@ async function handleVerticalPreview(event, { mainVideo, bgImage, aVideo, coverI
  * 清理预览临时文件
  */
 async function handleClearPreviews() {
-  const os = require('os');
-  const fs = require('fs');
+  const os = require("os");
+  const fs = require("fs");
 
-  const tmpDir = path.join(os.tmpdir(), 'videostitcher-preview');
+  const tmpDir = path.join(os.tmpdir(), "videostitcher-preview");
 
   try {
     if (fs.existsSync(tmpDir)) {
@@ -829,34 +985,41 @@ async function handleClearPreviews() {
  * @param {number} params.blurAmount - 模糊程度
  * @returns {Promise<Object>} 预览结果
  */
-async function handleGenerateResizePreviews(event, { videoPath, mode, blurAmount }) {
-  const os = require('os');
-  const path = require('path');
+async function handleGenerateResizePreviews(
+  event,
+  { videoPath, mode, blurAmount },
+) {
+  const os = require("os");
+  const path = require("path");
 
-  const tempDir = path.join(os.tmpdir(), 'videostitcher-preview');
+  const tempDir = path.join(os.tmpdir(), "videostitcher-preview");
 
   try {
-    event.sender.send('preview-start', { mode });
+    event.sender.send("preview-start", { mode });
 
     const previews = await generatePreviews({
       inputPath: videoPath,
       tempDir,
       mode,
       blurAmount,
-      threads: os.cpus().length,  // 预览也使用全部 CPU 核心
+      threads: os.cpus().length, // 预览也使用全部 CPU 核心
       onProgress: (progress) => {
-        event.sender.send('preview-log', { message: `处理进度: ${Math.floor(progress)}%` });
+        event.sender.send("preview-log", {
+          message: `处理进度: ${Math.floor(progress)}%`,
+        });
       },
       onLog: (log) => {
-        event.sender.send('preview-log', { message: log });
+        event.sender.send("preview-log", { message: log });
       },
     });
 
-    event.sender.send('preview-complete', { previewPaths: previews.map(p => p.path) });
+    event.sender.send("preview-complete", {
+      previewPaths: previews.map((p) => p.path),
+    });
 
     return { success: true, previews };
   } catch (err) {
-    event.sender.send('preview-error', { error: err.message });
+    event.sender.send("preview-error", { error: err.message });
     return { success: false, error: err.message };
   }
 }
@@ -890,15 +1053,18 @@ async function handleClearResizePreviews(event, { previewPaths }) {
  * @param {string} params.orientation - 拼接方向 (landscape | portrait)
  * @param {number} [params.concurrency] - 并发数
  */
-async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, concurrency }) {
+async function handleStitchAB(
+  event,
+  { aFiles, bFiles, outputDir, orientation, concurrency },
+) {
   if (!aFiles.length || !bFiles.length) {
-    throw new Error('A库或B库为空');
+    throw new Error("A库或B库为空");
   }
   if (!outputDir) {
-    throw new Error('未选择输出目录');
+    throw new Error("未选择输出目录");
   }
 
-  const { buildPairs } = require('../ffmpeg/pair');
+  const { buildPairs } = require("../ffmpeg/pair");
   const pairs = buildPairs(aFiles, bFiles);
   const total = pairs.length;
 
@@ -908,7 +1074,7 @@ async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, c
   let done = 0;
   let failed = 0;
 
-  event.sender.send('video-start', {
+  event.sender.send("video-start", {
     total,
     mode: orientation,
     concurrency: queue.concurrency,
@@ -920,31 +1086,31 @@ async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, c
       const bName = path.parse(b).name;
       // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
       const outName = generateCombinedFilename(aName, bName, {
-        separator: '__',
-        suffix: `__${String(index).padStart(4, '0')}`,
-        extension: '.mp4'
+        separator: "__",
+        suffix: `__${String(index).padStart(4, "0")}`,
+        extension: ".mp4",
       });
       const outPath = path.join(outputDir, outName);
 
       // 发送任务开始处理事件
-      event.sender.send('video-task-start', { index });
+      event.sender.send("video-task-start", { index });
 
       const payload = { aPath: a, bPath: b, outPath, orientation };
 
       const tryRun = async (attempt) => {
-        event.sender.send('video-log', {
+        event.sender.send("video-log", {
           index,
           message: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n`,
         });
         return runFfmpeg(payload, (s) => {
-          event.sender.send('video-log', { index, message: s });
+          event.sender.send("video-log", { index, message: s });
         });
       };
 
       try {
         await tryRun(1);
         done++;
-        event.sender.send('video-progress', {
+        event.sender.send("video-progress", {
           done,
           failed,
           total,
@@ -952,14 +1118,14 @@ async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, c
           outputPath: outPath,
         });
       } catch (err) {
-        event.sender.send('video-log', {
+        event.sender.send("video-log", {
           index,
           message: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n`,
         });
         try {
           await tryRun(2);
           done++;
-          event.sender.send('video-progress', {
+          event.sender.send("video-progress", {
             done,
             failed,
             total,
@@ -968,7 +1134,7 @@ async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, c
           });
         } catch (err2) {
           failed++;
-          event.sender.send('video-failed', {
+          event.sender.send("video-failed", {
             done,
             failed,
             total,
@@ -981,7 +1147,7 @@ async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, c
   });
 
   await Promise.allSettled(tasks);
-  event.sender.send('video-finish', { done, failed, total });
+  event.sender.send("video-finish", { done, failed, total });
 
   return { done, failed, total };
 }
@@ -991,62 +1157,62 @@ async function handleStitchAB(event, { aFiles, bFiles, outputDir, orientation, c
  */
 function registerVideoHandlers() {
   // A+B 前后拼接
-  ipcMain.handle('video-stitch-ab', async (event, config) => {
+  ipcMain.handle("video-stitch-ab", async (event, config) => {
     return handleStitchAB(event, config);
   });
 
   // 横屏合成
-  ipcMain.handle('video-horizontal-merge', async (event, config) => {
+  ipcMain.handle("video-horizontal-merge", async (event, config) => {
     return handleHorizontalMerge(event, config);
   });
 
   // 竖屏合成
-  ipcMain.handle('video-vertical-merge', async (event, config) => {
+  ipcMain.handle("video-vertical-merge", async (event, config) => {
     return handleVerticalMerge(event, config);
   });
 
   // 智能改尺寸
-  ipcMain.handle('video-resize', async (event, config) => {
+  ipcMain.handle("video-resize", async (event, config) => {
     return handleResize(event, config);
   });
 
   // 横屏合成预览
-  ipcMain.handle('preview-horizontal', async (event, config) => {
+  ipcMain.handle("preview-horizontal", async (event, config) => {
     return handleHorizontalPreview(event, config);
   });
 
   // 竖屏合成预览
-  ipcMain.handle('preview-vertical', async (event, config) => {
+  ipcMain.handle("preview-vertical", async (event, config) => {
     return handleVerticalPreview(event, config);
   });
 
   // 清理预览文件
-  ipcMain.handle('clear-previews', async () => {
+  ipcMain.handle("clear-previews", async () => {
     return handleClearPreviews();
   });
 
   // 智能改尺寸预览
-  ipcMain.handle('generate-resize-previews', async (event, config) => {
+  ipcMain.handle("generate-resize-previews", async (event, config) => {
     return handleGenerateResizePreviews(event, config);
   });
 
   // 清理智能改尺寸预览
-  ipcMain.handle('clear-resize-previews', async (event, config) => {
+  ipcMain.handle("clear-resize-previews", async (event, config) => {
     return handleClearResizePreviews(event, config);
   });
 
   // 获取视频元数据
-  ipcMain.handle('video-get-metadata', async (event, filePath) => {
+  ipcMain.handle("video-get-metadata", async (event, filePath) => {
     return getVideoMetadata(filePath);
   });
 
   // 获取视频尺寸
-  ipcMain.handle('video:get-dimensions', async (event, filePath) => {
+  ipcMain.handle("video:get-dimensions", async (event, filePath) => {
     return getVideoDimensions(filePath);
   });
 
   // 获取视频完整信息（缩略图、大小、尺寸、时长）- 一次调用获取所有信息
-  ipcMain.handle('video:get-full-info', async (event, filePath, options) => {
+  ipcMain.handle("video:get-full-info", async (event, filePath, options) => {
     return getVideoFullInfo(filePath, options);
   });
 }
@@ -1064,5 +1230,5 @@ module.exports = {
   handleClearPreviews,
   handleGenerateResizePreviews,
   handleClearResizePreviews,
-  getVideoMetadata
+  getVideoMetadata,
 };

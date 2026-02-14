@@ -15,6 +15,10 @@ export interface VideoStartData {
 export interface VideoTaskStartData {
   /** 任务索引 */
   index: number;
+  /** 视频索引（用于关联原始视频） */
+  videoIndex?: number;
+  /** 视频ID（用于关联原始视频） */
+  videoId?: string;
   /** 任务标识 */
   taskId?: string;
 }
@@ -24,7 +28,10 @@ export interface VideoProgressData {
   failed: number;
   total: number;
   index: number;
-  outputPath: string;
+  /** 视频ID（用于关联原始视频） */
+  videoId?: string;
+  /** 该视频的所有输出路径 */
+  outputs?: string[];
 }
 
 export interface VideoFailedData {
@@ -32,6 +39,8 @@ export interface VideoFailedData {
   failed: number;
   total: number;
   index: number;
+  /** 视频ID（用于关联原始视频） */
+  videoId?: string;
   error: string;
 }
 
@@ -43,6 +52,8 @@ export interface VideoFinishData {
 
 export interface VideoLogData {
   index: number;
+  /** 视频ID（用于关联原始视频） */
+  videoId?: string;
   message: string;
 }
 

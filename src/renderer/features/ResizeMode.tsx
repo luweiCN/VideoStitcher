@@ -130,30 +130,36 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       setVideos(prev => prev.map(v => ({ ...v, status: 'waiting' as const })));
     },
     onTaskStart: (data) => {
-      addLog(`开始处理第 ${data.index + 1} 个任务`, 'info');
-      setVideos(prev => prev.map((v, idx) =>
-        idx === data.index ? { ...v, status: 'processing' as const } : v
-      ));
+      // 直接使用后端传来的 videoIndex
+      if (data.videoIndex !== undefined) {
+        setVideos(prev => prev.map((v, idx) =>
+          idx === data.videoIndex ? { ...v, status: 'processing' as const } : v
+        ));
+      }
     },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
+
+      // 后端确保该视频的所有输出都完成时才发送 progress 事件
+      // 使用 index 直接匹配视频数组
       setVideos(prev => prev.map((v, idx) =>
         idx === data.index ? { ...v, status: 'completed' as const } : v
       ));
       addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
     },
     onFailed: (data) => {
+      // 任务失败时，标记对应视频为错误
       setVideos(prev => prev.map((v, idx) =>
         idx === data.index ? { ...v, status: 'error' as const, error: data.error } : v
       ));
-      addLog(`❌ 任务 ${data.index + 1} 失败: ${data.error}`, 'error');
+      addLog(`❌ 任务失败: ${data.error}`, 'error');
     },
     onFinish: (data) => {
       addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
       setIsProcessing(false);
     },
     onLog: (data) => {
-      addLog(`[任务 ${data.index + 1}] ${data.message}`, 'info');
+      addLog(`[${data.videoId || data.index + 1}] ${data.message}`, 'info');
     },
   });
 
@@ -271,7 +277,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
     try {
       await window.api.videoResize({
-        videos: videos.map(v => v.path),
+        videos: videos.map(v => ({ id: v.id, path: v.path })),
         mode,
         blurAmount,
         outputDir,
