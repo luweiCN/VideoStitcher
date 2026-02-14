@@ -55,9 +55,13 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({ file, showPrevious, showNex
     const loadPreview = async () => {
       setIsLoading(true);
       try {
-        const result = await window.api.getPreviewUrl(file.path);
-        if (result.success && result.url) {
-          setPreviewUrl(result.url);
+        // 使用 getImageFullInfo 获取图片信息（包含 previewUrl）
+        const result = await window.api.getImageFullInfo(file.path, { thumbnailMaxSize: 1200 });
+        console.log('[FilePreviewModal] getImageFullInfo result:', result);
+        if (result.success && result.previewUrl) {
+          setPreviewUrl(result.previewUrl);
+        } else {
+          console.error('获取预览失败:', result);
         }
       } catch (err) {
         console.error('加载图片预览失败:', err);

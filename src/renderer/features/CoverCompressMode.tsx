@@ -174,27 +174,45 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
 
   // 选择图片文件 - 使用 FileSelector
   const handleImagesChange = useCallback((filePaths: string[]) => {
-    // 空数组不处理
-    if (filePaths.length === 0) {
-      return;
+    // 获取当前文件列表中的路径
+    const currentPaths = new Set(files.map(f => f.path));
+    // 获取新传入的路径
+    const newPaths = new Set(filePaths);
+
+    // 找出新增的文件
+    const addedPaths = filePaths.filter(path => !currentPaths.has(path));
+    // 找出被删除的文件
+    const removedFiles = files.filter(f => !newPaths.has(f.path));
+
+    // 处理新增的文件
+    if (addedPaths.length > 0) {
+      const newFiles: ImageFile[] = addedPaths.map(path => {
+        const name = path.split('/').pop() || path.split('\\').pop() || path;
+        return {
+          id: Math.random().toString(36).substr(2, 9),
+          path,
+          name,
+          status: 'pending' as const,
+          _infoLoaded: false
+        };
+      });
+      setFiles(prev => [...prev, ...newFiles]);
+      addLog(`已添加 ${addedPaths.length} 张图片`, 'info');
     }
 
-    // 立即添加文件，不等待信息加载
-    const newFiles: ImageFile[] = filePaths.map(path => {
-      const name = path.split('/').pop() || path.split('\\').pop() || path;
-      return {
-        id: Math.random().toString(36).substr(2, 9),
-        path,
-        name,
-        status: 'pending' as const,
-        // 信息标记为未加载，稍后懒加载
-        _infoLoaded: false
-      };
-    });
+    // 处理被删除的文件
+    if (removedFiles.length > 0) {
+      // 从文件列表中移除
+      setFiles(prev => prev.filter(f => newPaths.has(f.path)));
+      addLog(`已移除 ${removedFiles.length} 张图片`, 'info');
+    }
 
-    setFiles(prev => [...prev, ...newFiles]);
-    addLog(`已添加 ${filePaths.length} 张图片`, 'info');
-  }, [addLog]);
+    // 如果全部清空
+    if (filePaths.length === 0 && files.length > 0) {
+      setFiles([]);
+      addLog(`已清空图片`, 'info');
+    }
+  }, [files, addLog]);
 
   // 使用图片素材 Hook 加载图片信息
   const filePaths = useMemo(() => files.map(f => f.path), [files]);

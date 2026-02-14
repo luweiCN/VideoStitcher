@@ -145,13 +145,19 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         if (src.startsWith('preview://')) {
           setPreviewUrl(src);
         } else {
-          // 否则调用 API 转换文件路径为 preview:// URL
-          const result = await window.api.getPreviewUrl(src);
-          if (result.success && result.url) {
-            setPreviewUrl(result.url);
+          // 使用 getVideoFullInfo 获取视频信息（包含 previewUrl）
+          const result = await window.api.getVideoFullInfo(src, { thumbnailMaxSize: 64 });
+          if (result.success && result.previewUrl) {
+            setPreviewUrl(result.previewUrl);
           } else {
-            setUrlError(result.error || '获取预览 URL 失败');
-            console.error('获取预览 URL 失败:', result.error);
+            // 如果失败，尝试使用原来的 getPreviewUrl
+            const fallbackResult = await window.api.getPreviewUrl(src);
+            if (fallbackResult.success && fallbackResult.url) {
+              setPreviewUrl(fallbackResult.url);
+            } else {
+              setUrlError(result.error || '获取预览 URL 失败');
+              console.error('获取预览 URL 失败:', result.error);
+            }
           }
         }
       } catch (err) {

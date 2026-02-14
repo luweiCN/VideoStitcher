@@ -46,32 +46,34 @@ export const ImageCompareModal: React.FC<ImageCompareModalProps> = ({
   const [afterUrl, setAfterUrl] = useState<string | null>(null);
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isPortrait, setIsPortrait] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // 加载图片预览 URL 和尺寸信息
   useEffect(() => {
     const loadImages = async () => {
+      setIsLoading(true);
       try {
-        const [[beforeResult, afterResult], dimensions] = await Promise.all([
-          Promise.all([
-            window.api.getPreviewUrl(beforePath),
-            window.api.getPreviewUrl(afterPath),
-          ]),
-          window.api.getImageDimensions(beforePath),
+        // 使用 getImageFullInfo 一次性获取预览 URL 和尺寸信息
+        const [beforeResult, afterResult] = await Promise.all([
+          window.api.getImageFullInfo(beforePath, { thumbnailMaxSize: 1200 }),
+          window.api.getImageFullInfo(afterPath, { thumbnailMaxSize: 1200 }),
         ]);
 
-        if (beforeResult.success && beforeResult.url) {
-          setBeforeUrl(beforeResult.url);
+        if (beforeResult.success && beforeResult.previewUrl) {
+          setBeforeUrl(beforeResult.previewUrl);
         }
-        if (afterResult.success && afterResult.url) {
-          setAfterUrl(afterResult.url);
+        if (afterResult.success && afterResult.previewUrl) {
+          setAfterUrl(afterResult.previewUrl);
         }
 
         // 根据图片尺寸判断是横版还是竖版
-        if (dimensions.success && dimensions.width && dimensions.height) {
-          setIsPortrait(dimensions.height > dimensions.width);
+        if (beforeResult.width && beforeResult.height) {
+          setIsPortrait(beforeResult.height > beforeResult.width);
         }
       } catch (err) {
         console.error("加载图片对比失败:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -127,7 +129,14 @@ export const ImageCompareModal: React.FC<ImageCompareModalProps> = ({
 
         {/* 内容区域 */}
         <div className="flex-1 flex flex-col min-h-0">
-          {beforeUrl && afterUrl ? (
+          {isLoading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-slate-500">加载中...</p>
+              </div>
+            </div>
+          ) : beforeUrl && afterUrl ? (
             <>
               {/* 对比滑杆 */}
               <div className="relative flex-1">
