@@ -115,9 +115,39 @@ export const InlineVideoControls: React.FC<InlineVideoControlsProps> = ({
   const [hoverPosition, setHoverPosition] = useState(0);
   const [showVolumePanel, setShowVolumePanel] = useState(false);
 
+  // 使用 state 追踪实际的 video 元素（解决 ref 时机问题）
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [bgVideoElement, setBgVideoElement] = useState<HTMLVideoElement | null>(null);
+
   const progressRef = useRef<HTMLDivElement>(null);
   const volumeSliderRef = useRef<HTMLDivElement>(null);
   const volumeHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 监听 videoRef 变化，更新内部 state
+  useEffect(() => {
+    setVideoElement(videoRef.current);
+    setBgVideoElement(backgroundVideoRef?.current || null);
+  }, [videoRef, backgroundVideoRef]);
+
+  // 使用 MutationObserver 或定时器检测 ref 变化（更可靠）
+  useEffect(() => {
+    const checkRef = () => {
+      if (videoRef.current !== videoElement) {
+        setVideoElement(videoRef.current);
+      }
+      if (backgroundVideoRef?.current !== bgVideoElement) {
+        setBgVideoElement(backgroundVideoRef?.current || null);
+      }
+    };
+
+    // 立即检查一次
+    checkRef();
+
+    // 短暂延迟后再检查（确保 React 已完成渲染）
+    const timer = setTimeout(checkRef, 50);
+
+    return () => clearTimeout(timer);
+  }, [videoRef, backgroundVideoRef, videoElement, bgVideoElement]);
 
   // 延迟隐藏音量面板
   const handleVolumeAreaEnter = useCallback(() => {
@@ -141,29 +171,26 @@ export const InlineVideoControls: React.FC<InlineVideoControlsProps> = ({
    * 同步播放状态到视频元素
    */
   const syncPlayState = useCallback((playing: boolean) => {
-    const video = videoRef.current;
-    const bgVideo = backgroundVideoRef?.current;
-
-    if (video) {
+    if (videoElement) {
       if (playing) {
-        video.play().catch(err => {
+        videoElement.play().catch(err => {
           console.warn('视频播放失败:', err);
           setIsPlaying(false);
         });
       } else {
-        video.pause();
+        videoElement.pause();
       }
     }
 
     // 同步背景视频
-    if (bgVideo) {
+    if (bgVideoElement) {
       if (playing) {
-        bgVideo.play().catch(() => {});
+        bgVideoElement.play().catch(() => {});
       } else {
-        bgVideo.pause();
+        bgVideoElement.pause();
       }
     }
-  }, [videoRef, backgroundVideoRef]);
+  }, [videoElement, bgVideoElement]);
 
   /**
    * 切换播放/暂停
@@ -187,16 +214,13 @@ export const InlineVideoControls: React.FC<InlineVideoControlsProps> = ({
 
     setCurrentTime(time);
 
-    const video = videoRef.current;
-    const bgVideo = backgroundVideoRef?.current;
-
-    if (video) {
-      video.currentTime = time;
+    if (videoElement) {
+      videoElement.currentTime = time;
     }
-    if (bgVideo) {
-      bgVideo.currentTime = time;
+    if (bgVideoElement) {
+      bgVideoElement.currentTime = time;
     }
-  }, [disabled, duration, videoRef, backgroundVideoRef]);
+  }, [disabled, duration, videoElement, bgVideoElement]);
 
   /**
    * 处理进度条拖拽
@@ -210,16 +234,13 @@ export const InlineVideoControls: React.FC<InlineVideoControlsProps> = ({
 
     setCurrentTime(time);
 
-    const video = videoRef.current;
-    const bgVideo = backgroundVideoRef?.current;
-
-    if (video) {
-      video.currentTime = time;
+    if (videoElement) {
+      videoElement.currentTime = time;
     }
-    if (bgVideo) {
-      bgVideo.currentTime = time;
+    if (bgVideoElement) {
+      bgVideoElement.currentTime = time;
     }
-  }, [isDragging, disabled, duration, videoRef, backgroundVideoRef]);
+  }, [isDragging, disabled, duration, videoElement, bgVideoElement]);
 
   /**
    * 处理进度条悬浮
@@ -244,12 +265,11 @@ export const InlineVideoControls: React.FC<InlineVideoControlsProps> = ({
     onMuteChange(newVolume === 0);
 
     // 直接应用到视频元素
-    const video = videoRef.current;
-    if (video) {
-      video.volume = newVolume / 100;
-      video.muted = newVolume === 0;
+    if (videoElement) {
+      videoElement.volume = newVolume / 100;
+      videoElement.muted = newVolume === 0;
     }
-  }, [disabled, onVolumeChange, onMuteChange, videoRef]);
+  }, [disabled, onVolumeChange, onMuteChange, videoElement]);
 
   /**
    * 切换静音
@@ -265,34 +285,32 @@ export const InlineVideoControls: React.FC<InlineVideoControlsProps> = ({
     }
 
     // 直接应用到视频元素
-    const video = videoRef.current;
-    if (video) {
-      video.muted = newMuted;
+    if (videoElement) {
+      videoElement.muted = newMuted;
       if (!newMuted && volume === 0) {
-        video.volume = 0.3;
+        videoElement.volume = 0.3;
       }
     }
-  }, [disabled, isMuted, volume, onMuteChange, onVolumeChange, videoRef]);
+  }, [disabled, isMuted, volume, onMuteChange, onVolumeChange, videoElement]);
 
   /**
    * 视频时间更新事件处理
    */
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    if (!videoElement) return;
 
     const handleTimeUpdate = () => {
       if (!isDragging) {
-        setCurrentTime(video.currentTime);
+        setCurrentTime(videoElement.currentTime);
       }
-      setDuration(video.duration || 0);
+      setDuration(videoElement.duration || 0);
     };
 
     const handleLoadedMetadata = () => {
-      setDuration(video.duration || 0);
+      setDuration(videoElement.duration || 0);
       // 应用当前音量设置
-      video.volume = volume / 100;
-      video.muted = isMuted;
+      videoElement.volume = volume / 100;
+      videoElement.muted = isMuted;
     };
 
     const handleEnded = () => {
@@ -300,30 +318,29 @@ export const InlineVideoControls: React.FC<InlineVideoControlsProps> = ({
       setCurrentTime(0);
 
       // 同步重置背景视频
-      const bgVideo = backgroundVideoRef?.current;
-      if (bgVideo) {
-        bgVideo.pause();
-        bgVideo.currentTime = 0;
+      if (bgVideoElement) {
+        bgVideoElement.pause();
+        bgVideoElement.currentTime = 0;
       }
     };
 
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('ended', handleEnded);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
+    videoElement.addEventListener('timeupdate', handleTimeUpdate);
+    videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+    videoElement.addEventListener('ended', handleEnded);
+    videoElement.addEventListener('play', handlePlay);
+    videoElement.addEventListener('pause', handlePause);
 
     return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('ended', handleEnded);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
+      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
+      videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      videoElement.removeEventListener('ended', handleEnded);
+      videoElement.removeEventListener('play', handlePlay);
+      videoElement.removeEventListener('pause', handlePause);
     };
-  }, [videoRef, backgroundVideoRef, volume, isMuted, isDragging]);
+  }, [videoElement, bgVideoElement, volume, isMuted, isDragging]);
 
   // 计算进度百分比
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;

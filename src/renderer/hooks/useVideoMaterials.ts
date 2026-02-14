@@ -37,6 +37,7 @@ async function fetchVideoMaterial(filePath: string): Promise<VideoMaterial> {
 
     if (result.success) {
       material.thumbnailUrl = result.thumbnail || undefined;
+      material.previewUrl = result.previewUrl || undefined;
       material.fileSize = result.fileSize || undefined;
       material.width = result.width || undefined;
       material.height = result.height || undefined;
