@@ -279,11 +279,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
     loadVideoInfo();
     addLog(`已添加 ${filePaths.length} 个视频`, 'info');
-
-    // 延迟清空选择器
-    setTimeout(() => {
-      fileSelectorRef.current?.clearFiles();
-    }, 0);
   }, [addLog]);
 
   /**
@@ -473,7 +468,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                 name="视频文件"
                 accept="video"
                 multiple
-                showList={false}
+                showList={true}
                 themeColor="rose"
                 directoryCache
                 onChange={handleVideosChange}
@@ -537,14 +532,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                 <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
                   {videos.length > 0 ? `${currentIndex + 1} / ${videos.length}` : videos.length}
                 </span>
-                {videos.length > 0 && !isProcessing && (
-                  <button
-                    onClick={clearVideos}
-                    className="text-xs text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-rose-500/50 hover:bg-rose-500/10 transition-all"
-                  >
-                    清除全部
-                  </button>
-                )}
               </div>
             </div>
 
@@ -676,15 +663,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                         title="预览"
                       >
                         <Eye className="w-4 h-4" />
-                      </button>
-                    )}
-                    {currentVideo.status === 'pending' && !isProcessing && (
-                      <button
-                        onClick={() => removeVideo(currentVideo.id)}
-                        className="p-1.5 hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 rounded transition-colors"
-                        title="删除"
-                      >
-                        <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                     {currentVideo.status === 'processing' && (
