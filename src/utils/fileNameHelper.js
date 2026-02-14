@@ -236,51 +236,6 @@ function truncateFilename(filename, options = {}) {
 }
 
 /**
- * 生成安全的输出文件名
- * 整合清理和截断功能
- *
- * @param {string} baseName - 基础文件名（不含扩展名）
- * @param {Object} options - 选项
- * @param {string} [options.suffix=''] - 要添加的后缀（如序号）
- * @param {string} [options.extension='.mp4'] - 文件扩展名
- * @param {number} [options.maxBytes=MAX_FILENAME_BYTES] - 最大字节数
- * @returns {string} 安全的完整文件名
- */
-function generateSafeFilename(baseName, options = {}) {
-  const {
-    suffix = '',
-    extension = '.mp4',
-    maxBytes = MAX_FILENAME_BYTES,
-  } = options;
-
-  // 1. 清理基础文件名中的非法字符
-  let safeName = sanitizeFilename(baseName, { preserveExtension: false });
-
-  // 2. 添加后缀
-  if (suffix) {
-    safeName = safeName + suffix;
-  }
-
-  // 3. 计算可用长度（减去扩展名长度）
-  const extBytes = getByteLength(extension);
-  const availableBytes = maxBytes - extBytes;
-
-  // 4. 截断过长的文件名
-  safeName = truncateFilename(safeName, {
-    maxBytes: Math.max(20, availableBytes + extBytes), // 至少保留 20 字节
-    suffixLength: 10, // 保留序号部分
-  });
-
-  // 5. 再次检查并截断（确保加上扩展名后不超限）
-  if (getByteLength(safeName) > availableBytes) {
-    safeName = truncateByBytes(safeName, availableBytes - 3) + '...';
-  }
-
-  // 6. 添加扩展名
-  return safeName + extension;
-}
-
-/**
  * 生成 A+B 拼接的安全文件名
  * 避免两个长文件名拼接后超过长度限制
  *
@@ -385,12 +340,188 @@ function validateFilename(filename) {
   };
 }
 
+/**
+ * 检测文件名冲突并生成唯一文件名（自动递增）
+ * 规则：
+ * - a.mp4 不存在 → a.mp4
+ * - a.mp4 已存在 → a_1.mp4
+ * - a_1.mp4 已存在 → a_2.mp4
+ * - 删除 a_2 后 → 复用 a_2
+ *
+ * @param {string} outputDir - 输出目录
+ * @param {string} safeFilename - 已经处理过的安全文件名（含扩展名）
+ * @returns {string} 不冲突的文件名
+ */
+function generateUniqueFilename(outputDir, safeFilename) {
+  const fs = require('fs');
+  const path = require('path');
+
+  // 分离基础名和扩展名
+  const lastDotIndex = safeFilename.lastIndexOf('.');
+  let baseName = safeFilename;
+  let extension = '';
+
+  if (lastDotIndex > 0) {
+    baseName = safeFilename.slice(0, lastDotIndex);
+    extension = safeFilename.slice(lastDotIndex);
+  }
+
+  // 检查原始文件名是否可用
+  let checkName = baseName + extension;
+  let checkPath = path.join(outputDir, checkName);
+
+  if (!fs.existsSync(checkPath)) {
+    // 文件不存在，原始文件名可用
+    return checkName;
+  }
+
+  // 从 _1 开始尝试，找到最小可用序号
+  let counter = 1;
+  while (true) {
+    const newName = `${baseName}_${counter}${extension}`;
+    const newPath = path.join(outputDir, newName);
+
+    if (!fs.existsSync(newPath)) {
+      // 找到可用序号
+      return newName;
+    }
+
+    counter++;
+
+    // 防止无限循环（上限 10000）
+    if (counter > 10000) {
+      console.warn('文件名序号达到上限，生成随机后缀');
+      const randomSuffix = Math.random().toString(36).substring(2, 8);
+      return `${baseName}_${randomSuffix}${extension}`;
+    }
+  }
+}
+
+/**
+ * 生成不冲突的输出文件名（同步版本）
+ *
+ * @param {string} outputDir - 输出目录
+ * @param {string} safeFilename - 已经过 generateSafeFilename 处理的文件名（含扩展名）
+ * @returns {string} 不冲突的文件名
+ */
+function generateUniqueFilenameSync(outputDir, safeFilename) {
+  const fs = require('fs');
+  const path = require('path');
+
+  // 分离基础名和扩展名
+  const lastDotIndex = safeFilename.lastIndexOf('.');
+  let baseName = safeFilename;
+  let extension = '';
+
+  if (lastDotIndex > 0) {
+    baseName = safeFilename.slice(0, lastDotIndex);
+    extension = safeFilename.slice(lastDotIndex);
+  }
+
+  // 检查原始文件名是否可用
+  let checkName = baseName + extension;
+  let checkPath = path.join(outputDir, checkName);
+
+  if (!fs.existsSync(checkPath)) {
+    return checkName;
+  }
+
+  // 从 _1 开始尝试，找到最小可用序号
+  let counter = 1;
+  while (true) {
+    const newName = `${baseName}_${counter}${extension}`;
+    const newPath = path.join(outputDir, newName);
+
+    if (!fs.existsSync(newPath)) {
+      return newName;
+    }
+
+    counter++;
+
+    // 防止无限循环
+    if (counter > 10000) {
+      console.warn('文件名序号达到上限，生成随机后缀');
+      const randomSuffix = Math.random().toString(36).substring(2, 8);
+      return `${baseName}_${randomSuffix}${extension}`;
+    }
+  }
+}
+
+/**
+ * 统一的文件名生成函数
+ * 按顺序执行所有文件名处理操作：
+ * 1. 清理非法字符
+ * 2. 截断过长文件名（预留序号空间）
+ * 3. 检测冲突并生成唯一文件名
+ *
+ * 使用方式：
+ * const outName = await generateFileName(outputDir, fileName, {
+ *   suffix: '_resized',      // 操作后缀
+ *   extension: '.mp4',       // 文件扩展名
+ * });
+ *
+ * @param {string} outputDir - 输出目录
+ * @param {string} baseName - 基础文件名（不含扩展名）
+ * @param {Object} options - 选项
+ * @param {string} [options.suffix=''] - 操作后缀（如 '_resized'）
+ * @param {string} [options.extension='.mp4'] - 文件扩展名
+ * @param {number} [options.reserveSuffixSpace=4] - 预留序号空间（默认预留 4 字节，如 _1, _10, _100）
+ * @returns {Promise<string>} 安全的唯一文件名
+ */
+/**
+ * 生成不冲突的输出文件名（自动递增）
+ * 统一入口，按顺序执行：
+ * 1. 清理非法字符
+ * 2. 截断过长文件名（预留序号空间）
+ * 3. 检测冲突并生成唯一文件名
+ *
+ * @param {string} outputDir - 输出目录
+ * @param {string} baseName - 基础文件名（不含扩展名）
+ * @param {Object} options - 选项
+ * @param {string} [options.suffix=''] - 操作后缀（如 '_resized'）
+ * @param {string} [options.extension='.mp4'] - 文件扩展名
+ * @param {number} [options.reserveSuffixSpace=4] - 预留序号空间（默认预留 4 字节，如 _1, _10, _100）
+ * @returns {string} 安全的唯一文件名
+ */
+function generateFileName(outputDir, baseName, options = {}) {
+  const {
+    suffix = '',
+    extension = '.mp4',
+    reserveSuffixSpace = 4, // 默认预留 4 字节：_ + 最多 3 位数字
+  } = options;
+
+  // 步骤 1：清理非法字符
+  let safeName = sanitizeFilename(baseName, { preserveExtension: false });
+
+  // 步骤 2：添加后缀
+  if (suffix) {
+    safeName = safeName + suffix;
+  }
+
+  // 步骤 3：截断过长文件名（预留序号空间）
+  // maxBytes 预留出序号空间，确保后续添加序号后不超限
+  const maxBytesWithReserve = MAX_FILENAME_BYTES - reserveSuffixSpace;
+  safeName = truncateFilename(safeName, {
+    maxBytes: maxBytesWithReserve,
+    suffixLength: 10,
+  });
+
+  // 步骤 4：添加扩展名
+  const fullName = safeName + extension;
+
+  // 步骤 5：检测冲突并生成唯一文件名
+  const uniqueName = generateUniqueFilename(outputDir, fullName);
+
+  return uniqueName;
+}
+
 module.exports = {
   sanitizeFilename,
   truncateFilename,
-  generateSafeFilename,
   generateCombinedFilename,
   validateFilename,
+  generateUniqueFilename,
+  generateFileName,
   getByteLength,
   truncateByBytes,
   MAX_FILENAME_BYTES,

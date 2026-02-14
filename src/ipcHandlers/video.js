@@ -14,8 +14,7 @@ const { TaskQueue } = require("../ffmpeg/queue");
 const { generatePreviews, cleanupPreviews } = require("../ffmpeg/videoResize");
 const app = require("electron").app ?? require("@electron/remote");
 const {
-  generateCombinedFilename,
-  generateSafeFilename,
+  generateFileName,
 } = require("../utils/fileNameHelper");
 
 /**
@@ -53,8 +52,9 @@ const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
  * 根据用户规则生成输出文件名
  * 规则：在原命名第七个分隔符(-)前面加【软件合成】
  * 如果没有第七个分隔符，使用默认命名规则
+ * 返回不带扩展名的基础文件名
  */
-function getSmartMergedName(bName, index, suffix, aName) {
+function getSmartMergedBaseName(bName, index, suffix, aName) {
   const separator = "-";
   const parts = bName.split(separator);
 
@@ -68,25 +68,15 @@ function getSmartMergedName(bName, index, suffix, aName) {
     // 3. 倒数第二个部分（横竖标识）修正
     newParts[newParts.length - 2] = suffix === "vertical" ? "竖" : "横";
     // 修复：必须加上序号，否则导出倍数 > 1 时会文件名冲突导致花屏/覆盖
-    const rawName =
-      newParts.join(separator) + `_${String(index + 1).padStart(4, "0")}`;
-    // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
-    return generateSafeFilename(rawName, { extension: ".mp4" });
+    return newParts.join(separator) + `_${String(index + 1).padStart(4, "0")}`;
   }
 
   // 默认命名规则
   if (aName) {
-    // 使用组合文件名处理，避免两个长文件名拼接后超过限制
-    return generateCombinedFilename(aName, bName, {
-      separator: "__",
-      suffix: `__${String(index + 1).padStart(4, "0")}_${suffix}`,
-      extension: ".mp4",
-    });
+    // 组合两个文件名
+    return `${aName}__${bName}__${String(index + 1).padStart(4, "0")}_${suffix}`;
   } else {
-    return generateSafeFilename(bName, {
-      suffix: `__${String(index + 1).padStart(4, "0")}_${suffix}`,
-      extension: ".mp4",
-    });
+    return `${bName}__${String(index + 1).padStart(4, "0")}_${suffix}`;
   }
 }
 
@@ -460,7 +450,12 @@ async function handleHorizontalMerge(
       const aName = selectedAVideo
         ? path.parse(selectedAVideo).name
         : undefined;
-      const outName = getSmartMergedName(bName, index, "horizontal", aName);
+      // 使用统一文件名处理：先拼接基础名，再检测冲突
+      const baseName = getSmartMergedBaseName(bName, index, "horizontal", aName);
+      const outName = generateFileName(outputDir, baseName, {
+        extension: ".mp4",
+        reserveSuffixSpace: 5,
+      });
       const outPath = path.join(outputDir, outName);
 
       try {
@@ -626,7 +621,12 @@ async function handleVerticalMerge(
       const aName = selectedAVideo
         ? path.parse(selectedAVideo).name
         : undefined;
-      const outName = getSmartMergedName(bName, index, "vertical", aName);
+      // 使用统一文件名处理：先拼接基础名，再检测冲突
+      const baseName = getSmartMergedBaseName(bName, index, "vertical", aName);
+      const outName = generateFileName(outputDir, baseName, {
+        extension: ".mp4",
+        reserveSuffixSpace: 5,
+      });
       const outPath = path.join(outputDir, outName);
 
       try {
@@ -734,17 +734,21 @@ async function handleResize(
     for (let j = 0; j < configs.length; j++) {
       const config = configs[j];
       const suffix = config.suffix;
-      // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
-      const outName = generateSafeFilename(fileName, {
-        suffix: suffix,
-        extension: ".mp4",
-      });
-      const outPath = path.join(outputDir, outName);
-      videoOutputs[i].push(outPath);
+      // 先占位，任务执行时会生成最终路径并更新
+      videoOutputs[i].push(null);
 
       tasks.push(
         queue.push(async () => {
           const index = i * configs.length + j;
+          // 使用 generateFileName 检测冲突并生成唯一文件名
+          const outName = generateFileName(outputDir, fileName, {
+            suffix: suffix,
+            extension: ".mp4",
+            reserveSuffixSpace: 5,
+          });
+          const outPath = path.join(outputDir, outName);
+          // 更新输出列表，供进度回调使用
+          videoOutputs[i][j] = outPath;
 
           // 发送任务开始事件，带上视频索引
           event.sender.send("video-task-start", { index, videoIndex: i });
@@ -1064,8 +1068,12 @@ async function handleStitchAB(
     throw new Error("未选择输出目录");
   }
 
-  const { buildPairs } = require("../ffmpeg/pair");
-  const pairs = buildPairs(aFiles, bFiles);
+  // 渲染进程已经完成配对，aFiles 和 bFiles 索引一一对应
+  const pairs = aFiles.map((a, index) => ({
+    a,
+    b: bFiles[index],
+    index,
+  }));
   const total = pairs.length;
 
   // 设置并发数
@@ -1084,11 +1092,11 @@ async function handleStitchAB(
     return queue.push(async () => {
       const aName = path.parse(a).name;
       const bName = path.parse(b).name;
-      // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
-      const outName = generateCombinedFilename(aName, bName, {
-        separator: "__",
-        suffix: `__${String(index).padStart(4, "0")}`,
+      // 使用统一文件名处理：先拼接基础名，generateFileName 会自动处理冲突
+      const baseName = `${aName}__${bName}`;
+      const outName = generateFileName(outputDir, baseName, {
         extension: ".mp4",
+        reserveSuffixSpace: 5,
       });
       const outPath = path.join(outputDir, outName);
 

@@ -6,7 +6,7 @@
 const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs').promises;
-const { generateSafeFilename, sanitizeFilename, truncateFilename } = require('../utils/fileNameHelper');
+const { generateFileName } = require('../utils/fileNameHelper');
 
 /**
  * 辅助函数：在第 N 个分隔符左侧插入文本
@@ -69,15 +69,14 @@ async function compressImage(inputPath, targetSizeKB = 380, outputDir = null) {
 
   const inputBaseName = path.parse(inputPath).name;
   // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
-  const safeFileName = generateSafeFilename(inputBaseName, {
+  // 预留 5 字节序号空间（_ + 最多 4 位数字）
+  const targetDir = outputDir || path.dirname(inputPath);
+  const uniqueFileName = generateFileName(targetDir, inputBaseName, {
     suffix: '_compressed',
-    extension: '.jpg'
+    extension: '.jpg',
+    reserveSuffixSpace: 5,
   });
-  // 使用指定的输出目录，如果没有指定则使用输入文件所在目录
-  const outputPath = path.join(
-    outputDir || path.dirname(inputPath),
-    safeFileName
-  );
+  const outputPath = path.join(targetDir, uniqueFileName);
 
   let quality = 90;
   let scale = 1.0;
@@ -166,15 +165,14 @@ async function convertCoverFormat(inputPath, quality = 90, outputDir = null) {
   const inputBaseName = path.parse(inputPath).name;
   const inputExt = path.parse(inputPath).ext;
   // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
-  const safeFileName = generateSafeFilename(inputBaseName, {
+  // 预留 5 字节序号空间（_ + 最多 4 位数字）
+  const targetDir = outputDir || path.dirname(inputPath);
+  const uniqueFileName = generateFileName(targetDir, inputBaseName, {
     suffix: suffix,
-    extension: inputExt
+    extension: inputExt,
+    reserveSuffixSpace: 5,
   });
-  // 使用指定的输出目录，如果没有指定则使用输入文件所在目录
-  const outputPath = path.join(
-    outputDir || path.dirname(inputPath),
-    safeFileName
-  );
+  const outputPath = path.join(targetDir, uniqueFileName);
 
   await sharp(inputPath)
     .resize(targetWidth, targetHeight, {
@@ -259,14 +257,14 @@ async function createGridImage(inputPath, outputDir, baseNameOverride = null, ta
 
       // 使用辅助函数生成符合要求的名称
       const rawName = getModifiedName(inputBaseName, `九宫格${index}`);
-      // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
-      const finalName = sanitizeFilename(rawName, { preserveExtension: false });
-      // 检查并截断过长的文件名
-      const truncatedName = truncateFilename(finalName, { maxLength: 180 });
+      // 使用统一文件名处理工具，自动处理非法字符、截断和冲突检测
+      const outName = generateFileName(outputDir, rawName, {
+        extension: maxSizeKB > 0 ? '.jpg' : '.png',
+        reserveSuffixSpace: 5,
+      });
+      const outputPath = path.join(outputDir, outName);
 
       if (maxSizeKB > 0) {
-        // 如果有大小限制，强制使用 jpg 格式以便压缩
-        const outputPath = path.join(outputDir, `${truncatedName}.jpg`);
         const targetSizeBytes = maxSizeKB * 1024;
         let quality = 90;
         let buffer;
@@ -307,7 +305,7 @@ async function createGridImage(inputPath, outputDir, baseNameOverride = null, ta
           fileSize: buffer.length
         });
       } else {
-        const outputPath = path.join(outputDir, `${finalName}.png`);
+        // 使用已有的 outputPath（已在循环开始时通过 generateFileName 生成）
 
         await sharp(processingInput)
           .extract({ left, top, width: tileWidth, height: tileHeight })
@@ -444,11 +442,15 @@ async function processImageMaterial(
   // ========== 步骤 3: 导出单张 800x800 图片 ==========
   if (exportOptions.single) {
     const rawName = getModifiedName(inputBaseName, '800尺寸单图');
-    // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
-    const finalName = sanitizeFilename(rawName, { preserveExtension: false });
-    const truncatedName = truncateFilename(finalName, { maxBytes: 180 });
-    const singleOutputPath = path.join(outputDir, 'single', `${truncatedName}.jpg`);
-    await fs.mkdir(path.dirname(singleOutputPath), { recursive: true });
+    // 使用统一文件名处理工具，自动处理非法字符、截断和冲突检测
+    // 注意：需要传入完整的 single 目录路径，否则无法正确检测冲突
+    const singleDir = path.join(outputDir, 'single');
+    await fs.mkdir(singleDir, { recursive: true });
+    const outName = generateFileName(singleDir, rawName, {
+      extension: '.jpg',
+      reserveSuffixSpace: 5,
+    });
+    const singleOutputPath = path.join(singleDir, outName);
 
     const targetSizeBytes = 400 * 1024;
     let quality = 90;
