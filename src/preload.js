@@ -32,6 +32,7 @@ const api = {
     getFileInfo: (filePath) => electron_1.ipcRenderer.invoke("get-file-info", filePath),
     getVideoMetadata: (filePath) => electron_1.ipcRenderer.invoke("video-get-metadata", filePath),
     getImageDimensions: (filePath) => electron_1.ipcRenderer.invoke("image:get-dimensions", filePath),
+    getImageFullInfo: (filePath, options) => electron_1.ipcRenderer.invoke("image:get-full-info", filePath, options),
     getVideoDimensions: (filePath) => electron_1.ipcRenderer.invoke("video:get-dimensions", filePath),
     getPreviewThumbnail: (filePath) => electron_1.ipcRenderer.invoke("get-preview-thumbnail", filePath),
     getVideoThumbnail: (filePath, options) => electron_1.ipcRenderer.invoke("get-video-thumbnail", filePath, options),

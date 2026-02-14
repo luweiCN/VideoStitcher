@@ -5,6 +5,7 @@
 
 const { ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const sharp = require('sharp');
 const {
   compressImage,
@@ -337,6 +338,87 @@ async function getImageDimensions(filePath) {
 }
 
 /**
+ * 获取图片完整信息（缩略图 + 尺寸 + 文件大小）
+ * 类似于视频的 getVideoFullInfo
+ *
+ * @param {string} filePath - 图片路径
+ * @param {Object} options - 选项
+ * @param {number} [options.thumbnailMaxSize=200] - 缩略图最大尺寸
+ * @returns {Promise<Object>} 完整信息对象
+ */
+async function getImageFullInfo(filePath, options = {}) {
+  const { thumbnailMaxSize = 200 } = options;
+
+  const result = {
+    success: true,
+    path: filePath,
+    name: path.basename(filePath),
+    thumbnail: null,
+    previewUrl: `preview://${encodeURIComponent(filePath)}`,
+    width: null,
+    height: null,
+    orientation: null,
+    aspectRatio: null,
+    fileSize: null,
+  };
+
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { ...result, success: false, error: '文件不存在' };
+    }
+
+    // 并行获取：文件大小、尺寸、缩略图
+    const [stats, dimensions, thumbnailResult] = await Promise.all([
+      // 文件大小
+      fs.promises.stat(filePath).then(s => s.size).catch(() => null),
+      // 尺寸信息
+      getImageDimensions(filePath),
+      // 缩略图
+      (async () => {
+        try {
+          const metadata = await sharp(filePath).metadata();
+          const size = typeof thumbnailMaxSize === 'number' && thumbnailMaxSize > 0 ? thumbnailMaxSize : 200;
+          const sourceMax = Math.max(metadata.width, metadata.height);
+          const scale = sourceMax > size ? size / sourceMax : 1;
+
+          const resized = await sharp(filePath)
+            .resize(size, size, { fit: 'inside', withoutEnlargement: true })
+            .png()
+            .toBuffer();
+
+          const base64 = resized.toString('base64');
+          return {
+            thumbnail: `data:image/png;base64,${base64}`,
+            width: Math.round(metadata.width * scale),
+            height: Math.round(metadata.height * scale),
+          };
+        } catch {
+          return null;
+        }
+      })(),
+    ]);
+
+    // 填充结果
+    result.fileSize = stats;
+    if (dimensions) {
+      result.width = dimensions.width;
+      result.height = dimensions.height;
+      result.orientation = dimensions.orientation;
+      result.aspectRatio = dimensions.aspectRatio;
+    }
+    if (thumbnailResult) {
+      result.thumbnail = thumbnailResult.thumbnail;
+    }
+  } catch (error) {
+    console.error(`[getImageFullInfo] 失败: ${filePath} - ${error.message}`);
+    result.success = false;
+    result.error = error.message;
+  }
+
+  return result;
+}
+
+/**
  * 图片素材处理预览
  * 生成预览效果（不保存到输出目录，而是保存到临时目录）
  */
@@ -499,6 +581,11 @@ function registerImageHandlers() {
     return getImageDimensions(filePath);
   });
 
+  // 获取图片完整信息（缩略图 + 尺寸 + 文件大小）
+  ipcMain.handle('image:get-full-info', async (event, filePath, options) => {
+    return getImageFullInfo(filePath, options);
+  });
+
   // 图片压缩
   ipcMain.handle('image-compress', async (event, config) => {
     return handleImageCompress(event, config);
@@ -528,6 +615,7 @@ function registerImageHandlers() {
 module.exports = {
   registerImageHandlers,
   getImageDimensions,
+  getImageFullInfo,
   handleImageCompress,
   handleCoverFormat,
   handleGridImage,

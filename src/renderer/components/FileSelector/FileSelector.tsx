@@ -16,6 +16,7 @@ import {
   Trash2,
   Info,
   Play,
+  Eye,
 } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { FilePreviewModal } from "../FilePreviewModal";
@@ -774,11 +775,14 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
         );
       }
 
-      // 图片：显示缩略图
+      // 图片：显示缩略图 + 预览图标
       if (file.type === "image" && file.thumbnail) {
         return (
-          <div className="w-8 h-8 rounded overflow-hidden bg-slate-800">
+          <div className="relative w-8 h-8 rounded overflow-hidden bg-slate-800">
             <img src={file.thumbnail} alt="" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+              <Eye className="w-3 h-3 text-white/70" />
+            </div>
           </div>
         );
       }
@@ -834,6 +838,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
                       <div className={getListStyle().name}>{file.name}</div>
                       <div className={getListStyle().meta}>
                         {file.duration && `${formatDuration(file.duration)} · `}
+                        {file.dimensions && `${file.dimensions} · `}
                         {file.size && formatFileSize(file.size)}
                       </div>
                     </div>

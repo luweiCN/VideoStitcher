@@ -223,6 +223,20 @@ export interface ElectronAPI {
     orientation: "landscape" | "portrait" | "square";
     aspectRatio: string;
   } | null>;
+  // 获取图片完整信息（缩略图 + 尺寸 + 文件大小）
+  getImageFullInfo: (filePath: string, options?: { thumbnailMaxSize?: number }) => Promise<{
+    success: boolean;
+    path: string;
+    name: string;
+    thumbnail: string | null;
+    previewUrl: string | null;
+    width: number | null;
+    height: number | null;
+    orientation: "landscape" | "portrait" | "square" | null;
+    aspectRatio: string | null;
+    fileSize: number | null;
+    error?: string;
+  }>;
   // 获取视频尺寸
   getVideoDimensions: (filePath: string) => Promise<{
     width: number;
@@ -602,6 +616,8 @@ const api: ElectronAPI = {
     ipcRenderer.invoke("video-get-metadata", filePath),
   getImageDimensions: (filePath) =>
     ipcRenderer.invoke("image:get-dimensions", filePath),
+  getImageFullInfo: (filePath, options) =>
+    ipcRenderer.invoke("image:get-full-info", filePath, options),
   getVideoDimensions: (filePath) =>
     ipcRenderer.invoke("video:get-dimensions", filePath),
   getPreviewThumbnail: (filePath) =>

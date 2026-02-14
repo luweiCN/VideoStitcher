@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  ArrowLeft, Upload, Loader2, Play, Trash2, CheckCircle,
-  FolderOpen, Image as ImageIcon, XCircle, Settings, Cpu, Shrink
+  Loader2, Play, CheckCircle,
+  Image as ImageIcon, XCircle, Settings, Shrink
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
 import OperationLogPanel from '../components/OperationLogPanel';
-import { FileSelector, FileSelectorGroup, FileItem, type FileSelectorRef, formatFileSize } from '../components/FileSelector';
+import { FileSelector, FileSelectorGroup, FileItem, formatFileSize } from '../components/FileSelector';
 import { FilePreviewModal } from '../components/FilePreviewModal';
 import { Button } from '../components/Button/Button';
 import { Eye } from 'lucide-react';
@@ -16,6 +16,7 @@ import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
+import { useImageMaterials } from '../hooks/useImageMaterials';
 
 interface CoverCompressModeProps {
   onBack: () => void;
@@ -37,6 +38,10 @@ interface ImageFile {
   width?: number;           // 图片宽度
   height?: number;         // 图片高度
   orientation?: string;    // 方向: portrait/landscape/square
+  aspectRatio?: string;    // 长宽比
+  format?: string;          // 图片格式
+  _infoLoaded?: boolean;    // 是否已加载信息（用于懒加载）
+  skipped?: boolean;        // 是否跳过压缩（文件已达标无需压缩）
 }
 
 const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
@@ -46,8 +51,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
   const { concurrency, setConcurrency } = useConcurrencyCache('CoverCompressMode');
   const [targetSizeKB, setTargetSizeKB] = useState(380);
 
-  // FileSelector ref，用于调用清空方法
-  const fileSelectorRef = useRef<FileSelectorRef>(null);
 
   // 预览状态
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
@@ -106,8 +109,14 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
       });
     },
     onTaskFinish: (data) => {
-      // 记录第几个任务完成，同时更新该任务为完成状态
-      addLog(`第 ${data.index + 1} 个任务完成`, 'success');
+      // 找到对应文件，检查是否跳过压缩
+      const file = files[data.index];
+      const skipped = file?.skipped;
+      if (skipped) {
+        addLog(`文件已达标无需压缩，直接复制: ${file.name}`, 'success');
+      } else {
+        addLog(`第 ${data.index + 1} 个任务完成`, 'success');
+      }
       setFiles(prev => {
         // 找到对应文件并更新为完成状态（保留 compressedSize 和 compressedPath）
         const fileIndex = data.index;
@@ -123,18 +132,25 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
     },
     onProgress: (data) => {
       setProgress({ done: data.done, failed: data.failed, total: data.total });
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
+      // 如果文件跳过压缩，记录日志
+      if (data.result?.skipped) {
+        addLog(`文件已达标无需压缩，直接复制: ${data.current}`, 'info');
+      } else {
+        addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
+      }
       // 更新对应文件的状态，从 result 中获取压缩后大小和路径
       if (data.current) {
         setFiles(prev => prev.map(f => {
           if (f.path === data.current) {
             const compressedSize = data.result?.compressedSize;
             const compressedPath = data.result?.outputPath;
+            const skipped = data.result?.skipped;
             return {
               ...f,
               status: 'processing' as const,  // 正在处理
               compressedSize: compressedSize !== undefined ? compressedSize : f.compressedSize,
-              compressedPath: compressedPath !== undefined ? compressedPath : f.compressedPath
+              compressedPath: compressedPath !== undefined ? compressedPath : f.compressedPath,
+              skipped: skipped !== undefined ? skipped : f.skipped
             };
           }
           return f;
@@ -158,7 +174,7 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
 
   // 选择图片文件 - 使用 FileSelector
   const handleImagesChange = useCallback((filePaths: string[]) => {
-    // 如果是空数组（来自 clearFiles 触发的 onChange），不处理
+    // 空数组不处理
     if (filePaths.length === 0) {
       return;
     }
@@ -180,68 +196,43 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
     addLog(`已添加 ${filePaths.length} 张图片`, 'info');
   }, [addLog]);
 
-  /**
-   * 懒加载单个文件的信息（缩略图、预览、大小和尺寸）
-   */
-  const loadFileInfo = useCallback(async (fileId: string) => {
+  // 使用图片素材 Hook 加载图片信息
+  const filePaths = useMemo(() => files.map(f => f.path), [files]);
+  const { materials } = useImageMaterials(filePaths, true, {
+    thumbnailMaxSize: 200,
+    onLog: (message) => addLog(message, 'info'),
+  });
+
+  // 当 materials 变化时，同步到 files 状态
+  useEffect(() => {
+    if (materials.length === 0) return;
+
     setFiles(prev => {
-      const file = prev.find(f => f.id === fileId);
-      if (!file || file._infoLoaded) return prev;
+      let hasUpdates = false;
+      const next = prev.map((file, index) => {
+        const material = materials[index];
+        if (!material || !material.isLoaded) return file;
+        if (file._infoLoaded) return file;  // 已加载过，跳过
 
-      // 并行加载：缩略图（用于任务列表）、预览图、文件大小、图片尺寸
-      Promise.all([
-        // 1. 缩略图（200x200 base64，用于任务列表）
-        window.api.getPreviewThumbnail(file.path),
-        // 2. 预览图（用于弹窗预览）
-        window.api.getPreviewUrl(file.path),
-        // 3. 文件大小
-        window.api.getFileInfo(file.path),
-        // 4. 图片尺寸
-        window.api.getImageDimensions(file.path),
-      ]).then(([thumbnailResult, previewResult, fileInfoResult, dimensionsResult]) => {
-        // 缩略图
-        if (thumbnailResult.success && thumbnailResult.thumbnail) {
-          setFiles(prev => prev.map(f =>
-            f.id === fileId ? { ...f, thumbnailUrl: thumbnailResult.thumbnail } : f
-          ));
-        }
-
-        // 预览图
-        if (previewResult.success && previewResult.url) {
-          addLog(`加载预览: ${file.name}`, 'info');
-          setFiles(prev => prev.map(f =>
-            f.id === fileId ? { ...f, previewUrl: previewResult.url } : f
-          ));
-        }
-
-        // 文件大小
-        if (fileInfoResult.success && fileInfoResult.info) {
-          addLog(`获取大小: ${file.name} - ${formatFileSize(fileInfoResult.info.size)}`, 'info');
-          setFiles(prev => prev.map(f =>
-            f.id === fileId ? { ...f, originalSize: fileInfoResult.info.size } : f
-          ));
-        }
-
-        // 图片尺寸和方向
-        if (dimensionsResult) {
-          addLog(`获取尺寸: ${file.name} - ${dimensionsResult.width}×${dimensionsResult.height} (${dimensionsResult.orientation})`, 'info');
-          setFiles(prev => prev.map(f =>
-            f.id === fileId
-              ? { ...f, width: dimensionsResult.width, height: dimensionsResult.height, orientation: dimensionsResult.orientation, _infoLoaded: true }
-              : f
-          ));
-        }
-      }).catch((err) => {
-        addLog(`加载文件信息失败: ${file.name} - ${err}`, 'error');
-        // 标记为已加载，避免重复尝试
-        setFiles(prev => prev.map(f =>
-          f.id === fileId ? { ...f, _infoLoaded: true } : f
-        ));
+        hasUpdates = true;
+        const ext = file.name.split('.').pop()?.toUpperCase() || '';
+        return {
+          ...file,
+          thumbnailUrl: material.thumbnailUrl,
+          previewUrl: material.previewUrl,
+          originalSize: material.fileSize,
+          width: material.width,
+          height: material.height,
+          orientation: material.orientation,
+          aspectRatio: material.aspectRatio,
+          format: ext,
+          _infoLoaded: true,
+        };
       });
 
-      return prev;
+      return hasUpdates ? next : prev;
     });
-  }, [addLog]);
+  }, [materials]);
 
   // 打开预览
   const handlePreview = useCallback((file: ImageFile) => {
@@ -294,40 +285,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
     setCompareFile(file);
     setShowCompare(true);
   }, []);
-
-  // 当文件列表变化时，懒加载未加载的文件信息
-  useEffect(() => {
-    files.forEach(file => {
-      if (!file._infoLoaded) {
-        loadFileInfo(file.id);
-      }
-    });
-  }, [files, loadFileInfo]);
-
-  // 移除文件
-  const removeFile = (id: string) => {
-    setFiles(prev => prev.filter(f => f.id !== id));
-  };
-
-  // 清空文件列表
-  const clearFiles = () => {
-    setFiles([]);
-    // 调用 FileSelector 的 clearFiles 方法
-    fileSelectorRef.current?.clearFiles();
-  };
-
-  // 选择输出目录
-  const handleSelectOutputDir = async () => {
-    try {
-      const dir = await window.api.pickOutDir();
-      if (dir) {
-        setOutputDir(dir);
-        addLog(`输出目录: ${dir}`, 'info');
-      }
-    } catch (err) {
-      addLog(`选择输出目录失败: ${err}`, 'error');
-    }
-  };
 
   // 开始处理
   const startProcessing = async () => {
@@ -396,7 +353,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
             {/* 文件选择器 */}
             <FileSelectorGroup>
               <FileSelector
-                ref={fileSelectorRef}
                 id="coverCompressImages"
                 name="选择图片"
                 accept="image"
@@ -443,14 +399,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
             </h2>
             <div className="flex items-center gap-3">
               <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">{files.length}</span>
-              {files.length > 0 && !isProcessing && (
-                <button
-                  onClick={clearFiles}
-                  className="text-xs text-slate-400 hover:text-rose-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-rose-500/50 hover:bg-rose-500/10 transition-all"
-                >
-                  清除全部
-                </button>
-              )}
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
@@ -487,7 +435,15 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
                     <p className="font-bold truncate text-sm text-slate-100">{f.name}</p>
                     <p className="text-xs text-slate-500 truncate">{f.path}</p>
                     {/* 文件信息 */}
-                    {f.status === 'completed' && f.compressedSize ? (
+                    {f.status === 'completed' && f.skipped ? (
+                      // 跳过压缩（文件已达标无需压缩），只显示原始大小
+                      <p className="text-sm mt-1 text-slate-400">
+                        <span className="text-emerald-400">已达标无需压缩</span>
+                        <span className="mx-1">·</span>
+                        <span>{f.originalSize !== undefined ? formatFileSize(f.originalSize) : ''}</span>
+                      </p>
+                    ) : f.status === 'completed' && f.compressedSize && f.originalSize !== undefined ? (
+                      // 正常压缩完成，显示压缩前后对比
                       <p className="text-sm mt-1">
                         <span className="text-slate-400">{formatFileSize(f.originalSize)}</span>
                         <span className="text-slate-600 mx-1">→</span>
@@ -497,13 +453,19 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
                         </span>
                       </p>
                     ) : f.originalSize !== undefined ? (
-                      <div className="flex items-center gap-3 mt-1">
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <p className="text-sm text-slate-400">{formatFileSize(f.originalSize)}</p>
                         {f.width && f.height && (
-                          <p className="text-xs text-slate-500">{f.width}×{f.height}</p>
+                          <p className="text-sm text-slate-500">{f.width}×{f.height}</p>
+                        )}
+                        {f.aspectRatio && (
+                          <p className="text-sm text-slate-500">{f.aspectRatio}</p>
+                        )}
+                        {f.format && (
+                          <p className="text-sm text-slate-400 px-1.5 py-0.5 bg-slate-800 rounded">{f.format}</p>
                         )}
                         {f.orientation && (
-                          <p className="text-xs text-slate-500 px-1.5 py-0.5 bg-slate-800 rounded">
+                          <p className="text-sm text-slate-400 px-1.5 py-0.5 bg-slate-800 rounded">
                             {f.orientation === 'portrait' ? '竖版' : f.orientation === 'landscape' ? '横版' : '方版'}
                           </p>
                         )}
@@ -515,14 +477,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
 
                   {/* Status */}
                   <div className="flex items-center gap-2 shrink-0">
-                    {f.status === 'pending' && !isProcessing && (
-                      <button
-                        onClick={() => removeFile(f.id)}
-                        className="p-2 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
                     {f.status === 'waiting' && (
                       <div className="w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center">
                         <div className="w-2.5 h-2.5 rounded-full border-2 border-yellow-400/50" />
@@ -533,8 +487,8 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
                     )}
                     {f.status === 'completed' && (
                       <>
-                        {/* 查看效果按钮 */}
-                        {f.compressedSize && (
+                        {/* 查看效果按钮 - 只有未跳过压缩时才显示 */}
+                        {f.compressedSize && !f.skipped && (
                           <Button
                             onClick={() => handleCompare(f)}
                             size="sm"
@@ -590,7 +544,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
                 onChange={setConcurrency}
                 disabled={isProcessing}
                 themeColor="emerald"
-                compact
               />
             </div>
 

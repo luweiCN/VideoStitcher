@@ -23,6 +23,12 @@ export interface ImageProgressData {
   failed: number;
   total: number;
   current: string;
+  /** 任务结果，包含压缩后大小和输出路径 */
+  result?: {
+    compressedSize?: number;
+    outputPath?: string;
+    skipped?: boolean;  // 是否跳过压缩（文件已达标）
+  };
 }
 
 export interface ImageFailedData {

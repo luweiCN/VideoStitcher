@@ -104,28 +104,27 @@ export const FileTooltipContent: React.FC<FileTooltipContentProps> = ({
           setLoading(false);
         });
     } else if (file.type === 'image') {
-      // 图片文件：获取文件大小和尺寸
-      Promise.allSettled([
-        window.api.getFileInfo(file.path),
-        window.api.getImageDimensions(file.path)
-      ]).then(([sizeResult, dimsResult]) => {
-        const updatedInfo: FileItem = { ...file, _infoLoaded: true };
-
-        if (sizeResult.status === 'fulfilled' && sizeResult.value.success && sizeResult.value.info) {
-          updatedInfo.size = sizeResult.value.info.size;
-        }
-
-        if (dimsResult.status === 'fulfilled' && dimsResult.value) {
-          const dims = dimsResult.value;
-          updatedInfo.dimensions = `${dims.width}x${dims.height}`;
-          updatedInfo.orientation = dims.orientation;
-          updatedInfo.aspectRatio = dims.aspectRatio;
-        }
-
-        setFileInfo(updatedInfo);
-        setLoading(false);
-        onInfoUpdate?.(updatedInfo);
-      });
+      // 图片文件：使用 getImageFullInfo 获取完整信息（缩略图 + 尺寸 + 文件大小）
+      window.api.getImageFullInfo(file.path, { thumbnailMaxSize: 300 })
+        .then((result) => {
+          if (result.success) {
+            const updatedInfo: FileItem = {
+              ...file,
+              _infoLoaded: true,
+              size: result.fileSize,
+              dimensions: result.width && result.height ? `${result.width}x${result.height}` : undefined,
+              orientation: result.orientation,
+              aspectRatio: result.aspectRatio,
+              thumbnail: result.thumbnail,
+            };
+            setFileInfo(updatedInfo);
+            onInfoUpdate?.(updatedInfo);
+          }
+          setLoading(false);
+        })
+        .catch(() => {
+          setLoading(false);
+        });
     } else {
       // 未知类型：只获取文件大小
       window.api.getFileInfo(file.path).then((result) => {

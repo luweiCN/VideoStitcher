@@ -56,21 +56,33 @@ async function compressImage(inputPath, targetSizeKB = 380, outputDir = null) {
   const targetSizeBytes = targetSizeKB * 1024;
   const stats = await fs.stat(inputPath);
 
-  // 如果文件已经小于目标大小, 直接返回
+  // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
+  // 预留 5 字节序号空间（_ + 最多 4 位数字）
+  const targetDir = outputDir || path.dirname(inputPath);
+
+  // 如果文件已经小于目标大小, 直接复制到输出目录
   if (stats.size <= targetSizeBytes) {
+    const inputBaseName = path.parse(inputPath).name;
+    const uniqueFileName = generateFileName(targetDir, inputBaseName, {
+      extension: '.jpg',
+      reserveSuffixSpace: 5,
+    });
+    const outputPath = path.join(targetDir, uniqueFileName);
+
+    // 复制文件到输出目录
+    await fs.copyFile(inputPath, outputPath);
+
     return {
       success: true,
-      outputPath: inputPath,
+      outputPath,
       originalSize: stats.size,
       compressedSize: stats.size,
-      compressed: false
+      compressed: false,
+      skipped: true  // 标记为跳过压缩（文件已达标）
     };
   }
 
   const inputBaseName = path.parse(inputPath).name;
-  // 使用统一的文件名处理工具，避免文件名过长和非法字符问题
-  // 预留 5 字节序号空间（_ + 最多 4 位数字）
-  const targetDir = outputDir || path.dirname(inputPath);
   const uniqueFileName = generateFileName(targetDir, inputBaseName, {
     suffix: '_compressed',
     extension: '.jpg',
