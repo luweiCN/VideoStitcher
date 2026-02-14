@@ -289,7 +289,6 @@ export function useStitchPreview(
         setError(errorMsg);
         options?.onLog?.(`预览生成异常: ${errorMsg}`, 'error');
       }
-      }
     } finally {
       if (!cancelRef.current) {
         setIsGenerating(false);
