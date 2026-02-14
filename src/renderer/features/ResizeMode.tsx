@@ -54,6 +54,9 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // 视频信息缓存（用于文件列表变化时复用已加载的信息）
+  const videoCacheRef = useRef<Map<string, VideoFile>>(new Map());
+
   // FileSelector ref，用于清空选择器
   const fileSelectorRef = useRef<FileSelectorRef>(null);
 
@@ -184,128 +187,126 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   };
 
   /**
-   * 处理视频选择
+   * 处理视频选择（完全同步文件列表）
    */
   const handleVideosChange = useCallback(async (filePaths: string[]) => {
-    if (filePaths.length === 0) return;
+    // 如果文件列表为空，清空任务列表
+    if (filePaths.length === 0) {
+      setVideos([]);
+      setCurrentIndex(0);
+      return;
+    }
 
-    addLog(`正在添加 ${filePaths.length} 个视频...`, 'info');
-
-    // 创建初始视频对象
-    const newVideos: VideoFile[] = filePaths.map(path => ({
-      id: Math.random().toString(36).substr(2, 9),
-      path,
-      name: path.split('/').pop() || path,
-      status: 'pending' as const,
-    }));
-
-    // 添加到列表
-    setVideos(prev => [...prev, ...newVideos]);
-
-    // 异步加载视频信息
-    const loadVideoInfo = async () => {
-      for (let idx = 0; idx < filePaths.length; idx++) {
-        const filePath = filePaths[idx];
-        const fileName = filePath.split('/').pop() || filePath;
-
-        try {
-          // 获取预览 URL
-          addLog(`[${idx + 1}/${filePaths.length}] 获取预览: ${fileName}`, 'info');
-          const previewResult = await window.api.getPreviewUrl(filePath);
-
-          if (previewResult.success && previewResult.url) {
-            // 获取缩略图
-            addLog(`[${idx + 1}/${filePaths.length}] 获取缩略图: ${fileName}`, 'info');
-            // 获取视频缩略图（使用 FFmpeg 截取第一帧）
-            const thumbnailResult = await window.api.getVideoThumbnail(filePath, { maxSize: 64, timeOffset: 0 });
-
-            // 获取文件信息（文件大小）
-            addLog(`[${idx + 1}/${filePaths.length}] 获取文件信息: ${fileName}`, 'info');
-            const fileInfoResult = await window.api.getFileInfo(filePath);
-
-            // 使用 video 元素获取视频元数据
-            const tempVideo = document.createElement('video');
-            tempVideo.src = previewResult.url;
-            tempVideo.muted = true;
-            tempVideo.playsInline = true;
-
-            const videoMeta = await new Promise<{ width: number; height: number; duration: number }>((resolve, reject) => {
-              tempVideo.onloadedmetadata = () => {
-                resolve({
-                  width: tempVideo.videoWidth,
-                  height: tempVideo.videoHeight,
-                  duration: tempVideo.duration || 0,
-                });
-              };
-              tempVideo.onerror = () => reject(new Error('视频元数据加载失败'));
-              tempVideo.load();
-            });
-
-            // 判断方向
-            let orientation: 'landscape' | 'portrait' | 'square' = 'square';
-            if (videoMeta.width > videoMeta.height) {
-              orientation = 'landscape';
-            } else if (videoMeta.height > videoMeta.width) {
-              orientation = 'portrait';
-            }
-
-            // 更新视频信息
-            setVideos(prev => {
-              const videoIndex = prev.findIndex(v => v.path === filePath);
-              if (videoIndex >= 0) {
-                const updated = [...prev];
-                updated[videoIndex] = {
-                  ...updated[videoIndex],
-                  previewUrl: previewResult.url,
-                  thumbnailUrl: thumbnailResult.success ? thumbnailResult.thumbnail : undefined,
-                  width: videoMeta.width,
-                  height: videoMeta.height,
-                  duration: videoMeta.duration,
-                  fileSize: fileInfoResult?.info?.size,
-                  orientation,
-                };
-                return updated;
-              }
-              return prev;
-            });
-
-            addLog(`[${idx + 1}/${filePaths.length}] 视频信息加载完成: ${fileName}`, 'success');
-          }
-        } catch (err) {
-          addLog(`[${idx + 1}/${filePaths.length}] 加载失败: ${fileName}`, 'error');
-        }
+    // 根据新的文件列表重建 videos 状态
+    // 使用缓存保留已加载的视频信息
+    const newVideos: VideoFile[] = filePaths.map(path => {
+      // 检查缓存中是否有已加载的信息
+      const cached = videoCacheRef.current.get(path);
+      if (cached) {
+        return { ...cached, status: 'pending' as const };
       }
-    };
-
-    loadVideoInfo();
-    addLog(`已添加 ${filePaths.length} 个视频`, 'info');
-  }, [addLog]);
-
-  /**
-   * 移除视频
-   */
-  const removeVideo = (id: string) => {
-    setVideos(prev => {
-      const filtered = prev.filter(v => v.id !== id);
-      const currentId = prev[currentIndex]?.id;
-      if (currentId && !filtered.find(v => v.id === currentId)) {
-        const newIndex = Math.min(currentIndex, filtered.length - 1);
-        setCurrentIndex(newIndex >= 0 ? newIndex : 0);
-      }
-      return filtered;
+      // 创建新的视频对象
+      return {
+        id: Math.random().toString(36).substr(2, 9),
+        path,
+        name: path.split('/').pop() || path,
+        status: 'pending' as const,
+      };
     });
-  };
 
-  /**
-   * 清空视频列表
-   */
-  const clearVideos = () => {
-    setVideos([]);
+    // 更新任务列表
+    setVideos(newVideos);
     setCurrentIndex(0);
-    setPreviewImages([]);
-    setPreviewError(null);
-    fileSelectorRef.current?.clearFiles();
-  };
+
+    // 找出需要加载信息的新文件
+    const newPaths = filePaths.filter(path => !videoCacheRef.current.has(path));
+
+    if (newPaths.length > 0) {
+      addLog(`正在加载 ${newPaths.length} 个新视频信息...`, 'info');
+
+      // 异步加载新视频信息
+      const loadVideoInfo = async () => {
+        for (let idx = 0; idx < newPaths.length; idx++) {
+          const filePath = newPaths[idx];
+          const fileName = filePath.split('/').pop() || filePath;
+
+          try {
+            // 获取预览 URL
+            addLog(`[${idx + 1}/${newPaths.length}] 获取预览: ${fileName}`, 'info');
+            const previewResult = await window.api.getPreviewUrl(filePath);
+
+            if (previewResult.success && previewResult.url) {
+              // 获取缩略图
+              addLog(`[${idx + 1}/${newPaths.length}] 获取缩略图: ${fileName}`, 'info');
+              const thumbnailResult = await window.api.getVideoThumbnail(filePath, { maxSize: 64, timeOffset: 0 });
+
+              // 获取文件信息（文件大小）
+              addLog(`[${idx + 1}/${newPaths.length}] 获取文件信息: ${fileName}`, 'info');
+              const fileInfoResult = await window.api.getFileInfo(filePath);
+
+              // 使用 video 元素获取视频元数据
+              const tempVideo = document.createElement('video');
+              tempVideo.src = previewResult.url;
+              tempVideo.muted = true;
+              tempVideo.playsInline = true;
+
+              const videoMeta = await new Promise<{ width: number; height: number; duration: number }>((resolve, reject) => {
+                tempVideo.onloadedmetadata = () => {
+                  resolve({
+                    width: tempVideo.videoWidth,
+                    height: tempVideo.videoHeight,
+                    duration: tempVideo.duration || 0,
+                  });
+                };
+                tempVideo.onerror = () => reject(new Error('视频元数据加载失败'));
+                tempVideo.load();
+              });
+
+              // 判断方向
+              let orientation: 'landscape' | 'portrait' | 'square' = 'square';
+              if (videoMeta.width > videoMeta.height) {
+                orientation = 'landscape';
+              } else if (videoMeta.height > videoMeta.width) {
+                orientation = 'portrait';
+              }
+
+              // 创建完整的视频信息对象
+              const videoInfo: VideoFile = {
+                id: Math.random().toString(36).substr(2, 9),
+                path: filePath,
+                name: fileName,
+                status: 'pending',
+                previewUrl: previewResult.url,
+                thumbnailUrl: thumbnailResult.success ? thumbnailResult.thumbnail : undefined,
+                width: videoMeta.width,
+                height: videoMeta.height,
+                duration: videoMeta.duration,
+                fileSize: fileInfoResult?.info?.size,
+                orientation,
+              };
+
+              // 更新缓存
+              videoCacheRef.current.set(filePath, videoInfo);
+
+              // 更新任务列表中的对应项
+              setVideos(prev => prev.map(v => {
+                if (v.path === filePath) {
+                  return videoInfo;
+                }
+                return v;
+              }));
+
+              addLog(`[${idx + 1}/${newPaths.length}] 视频信息加载完成: ${fileName}`, 'success');
+            }
+          } catch (err) {
+            addLog(`[${idx + 1}/${newPaths.length}] 加载失败: ${fileName}`, 'error');
+          }
+        }
+      };
+
+      loadVideoInfo();
+    }
+  }, [addLog]);
 
   /**
    * 切换任务
