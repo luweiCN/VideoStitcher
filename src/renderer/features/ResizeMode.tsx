@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 import {
-  FileVideo, Play, Trash2, ArrowLeft, Settings, CheckCircle, Maximize2, Eye,
-  ChevronLeft, ChevronRight, XCircle, Loader2, Image as ImageIcon, Layers, FolderOpen
+  FileVideo, ArrowLeft, Settings, CheckCircle, Maximize2, Eye,
+  XCircle, Loader2, Layers, FolderOpen
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
@@ -11,12 +11,13 @@ import OperationLogPanel from '../components/OperationLogPanel';
 import FilePreviewModal from '../components/FilePreviewModal';
 import { FileSelector, FileSelectorGroup, type FileSelectorRef, formatFileSize } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
-import { InlineVideoControls } from '../components/VideoPlayer';
+import { PreviewArea } from './ResizeMode/components/PreviewArea';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useVideoProcessingEvents } from '../hooks/useVideoProcessingEvents';
 import { useVideoVolumeCache } from '../hooks/useVideoVolumeCache';
+import useVideoMaterials from '../hooks/useVideoMaterials';
 
 interface ResizeModeProps {
   onBack: () => void;
@@ -50,24 +51,25 @@ const MODE_CONFIG = {
 };
 
 const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
+  // 视频文件路径列表
+  const [videoPaths, setVideoPaths] = useState<string[]>([]);
+
   // 视频列表状态
   const [videos, setVideos] = useState<VideoFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // 视频信息缓存（用于文件列表变化时复用已加载的信息）
-  const videoCacheRef = useRef<Map<string, VideoFile>>(new Map());
-
   // FileSelector ref，用于清空选择器
   const fileSelectorRef = useRef<FileSelectorRef>(null);
+
+  // 使用 hook 加载视频素材（带缓存）
+  const { materials } = useVideoMaterials(videoPaths, true, {
+    onLog: (message, type) => addLog(message, type),
+  });
 
   const { outputDir, setOutputDir } = useOutputDirCache('ResizeMode');
   const { concurrency, setConcurrency } = useConcurrencyCache('ResizeMode');
   const [mode, setMode] = useState<ResizeMode>('siya');
   const [blurAmount, setBlurAmount] = useState(20);
-
-  // 视频元素 refs
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
-  const backgroundVideoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   // 处理状态
   const [isProcessing, setIsProcessing] = useState(false);
@@ -155,27 +157,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     },
   });
 
-  // 视频切换时，重置视频元素
-  useEffect(() => {
-    // 停止所有视频
-    videoRefs.current.forEach(video => {
-      if (video) {
-        video.pause();
-        video.currentTime = 0;
-      }
-    });
-    backgroundVideoRefs.current.forEach(video => {
-      if (video) {
-        video.pause();
-        video.currentTime = 0;
-      }
-    });
-
-    // 清空 refs
-    videoRefs.current = [];
-    backgroundVideoRefs.current = [];
-  }, [currentIndex]);
-
   /**
    * 格式化时长显示
    */
@@ -187,25 +168,43 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   };
 
   /**
-   * 处理视频选择（完全同步文件列表）
+   * 处理视频选择
    */
-  const handleVideosChange = useCallback(async (filePaths: string[]) => {
-    // 如果文件列表为空，清空任务列表
+  const handleVideosChange = useCallback((filePaths: string[]) => {
+    setVideoPaths(filePaths);
     if (filePaths.length === 0) {
       setVideos([]);
       setCurrentIndex(0);
+    }
+  }, []);
+
+  // 当素材数据变化时，同步到 videos 状态
+  useEffect(() => {
+    if (materials.length === 0 && videoPaths.length === 0) {
       return;
     }
 
-    // 根据新的文件列表重建 videos 状态
-    // 使用缓存保留已加载的视频信息
-    const newVideos: VideoFile[] = filePaths.map(path => {
-      // 检查缓存中是否有已加载的信息
-      const cached = videoCacheRef.current.get(path);
-      if (cached) {
-        return { ...cached, status: 'pending' as const };
+    // 根据素材数据构建 videos 状态
+    const newVideos: VideoFile[] = videoPaths.map((path, index) => {
+      const material = materials[index];
+
+      if (material && material.isLoaded) {
+        return {
+          id: Math.random().toString(36).substr(2, 9),
+          path: material.path,
+          name: material.name,
+          status: 'pending' as const,
+          thumbnailUrl: material.thumbnailUrl,
+          previewUrl: material.previewUrl,
+          width: material.width,
+          height: material.height,
+          fileSize: material.fileSize,
+          duration: material.duration,
+          orientation: material.orientation,
+        };
       }
-      // 创建新的视频对象
+
+      // 未加载完成的占位
       return {
         id: Math.random().toString(36).substr(2, 9),
         path,
@@ -214,99 +213,8 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       };
     });
 
-    // 更新任务列表
     setVideos(newVideos);
-    setCurrentIndex(0);
-
-    // 找出需要加载信息的新文件
-    const newPaths = filePaths.filter(path => !videoCacheRef.current.has(path));
-
-    if (newPaths.length > 0) {
-      addLog(`正在加载 ${newPaths.length} 个新视频信息...`, 'info');
-
-      // 异步加载新视频信息
-      const loadVideoInfo = async () => {
-        for (let idx = 0; idx < newPaths.length; idx++) {
-          const filePath = newPaths[idx];
-          const fileName = filePath.split('/').pop() || filePath;
-
-          try {
-            // 获取预览 URL
-            addLog(`[${idx + 1}/${newPaths.length}] 获取预览: ${fileName}`, 'info');
-            const previewResult = await window.api.getPreviewUrl(filePath);
-
-            if (previewResult.success && previewResult.url) {
-              // 获取缩略图
-              addLog(`[${idx + 1}/${newPaths.length}] 获取缩略图: ${fileName}`, 'info');
-              const thumbnailResult = await window.api.getVideoThumbnail(filePath, { maxSize: 64, timeOffset: 0 });
-
-              // 获取文件信息（文件大小）
-              addLog(`[${idx + 1}/${newPaths.length}] 获取文件信息: ${fileName}`, 'info');
-              const fileInfoResult = await window.api.getFileInfo(filePath);
-
-              // 使用 video 元素获取视频元数据
-              const tempVideo = document.createElement('video');
-              tempVideo.src = previewResult.url;
-              tempVideo.muted = true;
-              tempVideo.playsInline = true;
-
-              const videoMeta = await new Promise<{ width: number; height: number; duration: number }>((resolve, reject) => {
-                tempVideo.onloadedmetadata = () => {
-                  resolve({
-                    width: tempVideo.videoWidth,
-                    height: tempVideo.videoHeight,
-                    duration: tempVideo.duration || 0,
-                  });
-                };
-                tempVideo.onerror = () => reject(new Error('视频元数据加载失败'));
-                tempVideo.load();
-              });
-
-              // 判断方向
-              let orientation: 'landscape' | 'portrait' | 'square' = 'square';
-              if (videoMeta.width > videoMeta.height) {
-                orientation = 'landscape';
-              } else if (videoMeta.height > videoMeta.width) {
-                orientation = 'portrait';
-              }
-
-              // 创建完整的视频信息对象
-              const videoInfo: VideoFile = {
-                id: Math.random().toString(36).substr(2, 9),
-                path: filePath,
-                name: fileName,
-                status: 'pending',
-                previewUrl: previewResult.url,
-                thumbnailUrl: thumbnailResult.success ? thumbnailResult.thumbnail : undefined,
-                width: videoMeta.width,
-                height: videoMeta.height,
-                duration: videoMeta.duration,
-                fileSize: fileInfoResult?.info?.size,
-                orientation,
-              };
-
-              // 更新缓存
-              videoCacheRef.current.set(filePath, videoInfo);
-
-              // 更新任务列表中的对应项
-              setVideos(prev => prev.map(v => {
-                if (v.path === filePath) {
-                  return videoInfo;
-                }
-                return v;
-              }));
-
-              addLog(`[${idx + 1}/${newPaths.length}] 视频信息加载完成: ${fileName}`, 'success');
-            }
-          } catch (err) {
-            addLog(`[${idx + 1}/${newPaths.length}] 加载失败: ${fileName}`, 'error');
-          }
-        }
-      };
-
-      loadVideoInfo();
-    }
-  }, [addLog]);
+  }, [materials, videoPaths]);
 
   /**
    * 切换任务
@@ -693,7 +601,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
           </div>
 
           {/* Bottom: Preview Area */}
-          <div className="flex-1 overflow-y-auto p-4 min-h-0">
+          <div className="flex-1 overflow-hidden p-4 min-h-0">
             {videos.length === 0 ? (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center text-slate-500">
@@ -716,73 +624,17 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
-                {MODE_CONFIG[mode].outputs.map((output, index) => {
-                  const style = getPreviewStyle(
-                    output.width,
-                    output.height,
-                    currentVideo.width!,
-                    currentVideo.height!
-                  );
-
-                  return (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-mono text-slate-400">{output.label}</span>
-                        <span className="text-[10px] text-slate-500">实时预览</span>
-                      </div>
-                      <div
-                        className="bg-black rounded-lg overflow-hidden border border-slate-800 relative"
-                        style={{
-                          aspectRatio: style.containerAspectRatio,
-                        }}
-                      >
-                        {/* 背景层（模糊视频） */}
-                        <video
-                          ref={el => backgroundVideoRefs.current[index] = el}
-                          src={currentVideo.previewUrl}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          style={{
-                            filter: `blur(${blurAmount}px)`,
-                            transform: 'scale(1.1)',
-                          }}
-                          muted={true}
-                          playsInline
-                        />
-                        {/* 遮罩层 */}
-                        <div className="absolute inset-0 bg-black/30" />
-                        {/* 前景层（清晰视频，可播放） */}
-                        <video
-                          ref={el => videoRefs.current[index] = el}
-                          src={currentVideo.previewUrl}
-                          className="absolute bg-transparent"
-                          style={{
-                            width: `${style.widthPercent}%`,
-                            height: `${style.heightPercent}%`,
-                            left: `${style.leftPercent}%`,
-                            top: `${style.topPercent}%`,
-                            objectFit: 'contain',
-                          }}
-                          muted={isMuted}
-                          playsInline
-                        />
-                      </div>
-
-                      {/* 独立播放控件 */}
-                      <InlineVideoControls
-                        videoRef={{ current: videoRefs.current[index] }}
-                        backgroundVideoRef={{ current: backgroundVideoRefs.current[index] }}
-                        themeColor="rose"
-                        volume={volume}
-                        isMuted={isMuted}
-                        onVolumeChange={setVolume}
-                        onMuteChange={setIsMuted}
-                        disabled={isProcessing}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+              <PreviewArea
+                mode={mode}
+                currentVideo={currentVideo}
+                blurAmount={blurAmount}
+                volume={volume}
+                isMuted={isMuted}
+                onVolumeChange={setVolume}
+                onMuteChange={setIsMuted}
+                isProcessing={isProcessing}
+                getPreviewStyle={getPreviewStyle}
+              />
             )}
           </div>
         </div>
