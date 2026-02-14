@@ -787,7 +787,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                   >
                     <VideoPlayer
                       src={`preview://${encodeURIComponent(previewPath)}`}
-                      autoPlay
                       loop
                       muted={muted}
                       paused={!isPlaying}

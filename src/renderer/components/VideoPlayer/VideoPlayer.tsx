@@ -250,6 +250,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     });
 
+    // 初始化后根据 paused 属性设置播放状态
+    // 如果 paused=false（应该播放），则尝试播放
+    if (!paused) {
+      // 使用 setTimeout 确保 Plyr 完全初始化
+      setTimeout(() => {
+        player.play().catch(() => {
+          // 自动播放可能被浏览器阻止，忽略错误
+        });
+      }, 100);
+    }
+
     return () => {
       if (playerRef.current) {
         try {

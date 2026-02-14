@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { usePreviewCache, clearNamespaceCache } from './usePreviewCache';
 
 /**
  * 全局音量缓存（应用级别共享）
@@ -52,66 +53,6 @@ export function setGlobalIsPlaying(isPlaying: boolean): void {
 }
 
 /**
- * 预览缓存（模块级别）
- * key: aPath-bPath-orientation
- * value: tempPath
- */
-const previewCache = new Map<string, string>();
-
-/**
- * 待清理的预览文件列表
- */
-const pendingCleanup = new Set<string>();
-
-/**
- * 清理单个预览文件
- */
-async function cleanupPreviewFile(tempPath: string): Promise<void> {
-  try {
-    await window.api.deleteTempPreview(tempPath);
-    previewCache.delete(getCacheKeyFromPath(tempPath));
-    pendingCleanup.delete(tempPath);
-  } catch (e) {
-    // 忽略清理错误
-  }
-}
-
-/**
- * 清理所有缓存的预览文件
- */
-async function cleanupAllCachedPreviews(): Promise<void> {
-  const paths = Array.from(pendingCleanup);
-  pendingCleanup.clear();
-  previewCache.clear();
-
-  for (const path of paths) {
-    try {
-      await window.api.deleteTempPreview(path);
-    } catch (e) {
-      // 忽略清理错误
-    }
-  }
-}
-
-/**
- * 从临时文件路径反推缓存 key（简化处理）
- */
-function getCacheKeyFromPath(tempPath: string): string {
-  // 简化处理，遍历查找
-  for (const [key, value] of previewCache.entries()) {
-    if (value === tempPath) return key;
-  }
-  return '';
-}
-
-/**
- * 生成缓存 key
- */
-function getCacheKey(aPath: string, bPath: string, orientation: string): string {
-  return `${aPath}-${bPath}-${orientation}`;
-}
-
-/**
  * 预览配置
  */
 export interface StitchPreviewConfig {
@@ -142,7 +83,7 @@ export interface UseStitchPreviewOptions {
  * 预览只截取 A 视频的最后 5 秒 + B 视频的前 5 秒
  *
  * 特点：
- * 1. Hook 级别缓存，切换任务时可复用
+ * 1. 使用通用预览缓存 hook，切换任务时可复用缓存
  * 2. 组件卸载时自动清理所有缓存的临时文件
  * 3. 全局音量和播放状态缓存
  *
@@ -178,22 +119,10 @@ export function useStitchPreview(
   /** 是否命中缓存 */
   isFromCache: boolean;
 } {
-  const [previewPath, setPreviewPath] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isFromCache, setIsFromCache] = useState(false);
-
   // 音量和播放状态（从全局缓存初始化）
   const [volume, setVolumeState] = useState(globalVolumeCache.volume);
   const [muted, setMutedState] = useState(globalVolumeCache.muted);
   const [isPlaying, setIsPlayingState] = useState(globalVolumeCache.isPlaying);
-
-  // 用于取消预览生成的 ref
-  const cancelRef = useRef(false);
-  // 当前配置的 key，用于判断是否需要重新生成
-  const currentKeyRef = useRef<string>('');
-  // 记录本次 hook 实例创建的预览文件（用于卸载时清理）
-  const instancePreviewsRef = useRef<Set<string>>(new Set());
 
   /**
    * 设置音量（同时更新全局缓存）
@@ -220,132 +149,38 @@ export function useStitchPreview(
     setGlobalIsPlaying(newIsPlaying);
   }, []);
 
-  /**
-   * 生成预览
-   */
-  const generatePreview = useCallback(async (forceRegenerate: boolean = false) => {
-    if (!config || !enabled) {
-      return;
-    }
-
-    const key = getCacheKey(config.aPath, config.bPath, config.orientation);
-    currentKeyRef.current = key;
-    cancelRef.current = false;
-
-    // 检查缓存
-    if (!forceRegenerate && previewCache.has(key)) {
-      const cachedPath = previewCache.get(key)!;
-      setPreviewPath(cachedPath);
-      setIsFromCache(true);
-      setError(null);
-      options?.onLog?.('预览已从缓存加载', 'info');
-      return;
-    }
-
-    // 清理当前实例的旧预览（如果有）
-    if (previewPath && !previewCache.has(getCacheKey(config.aPath, config.bPath, config.orientation))) {
-      // 当前预览不在缓存中，说明是旧的，可以清理
-    }
-
-    setPreviewPath(null);
-    setError(null);
-    setIsGenerating(true);
-    setIsFromCache(false);
-
-    options?.onLog?.('正在生成预览视频...', 'info');
-
-    try {
+  // 使用通用预览缓存 hook
+  const {
+    previewPath,
+    isGenerating,
+    error,
+    isFromCache,
+    regenerate,
+  } = usePreviewCache(config, enabled, {
+    namespace: 'stitch-preview',
+    generate: async (cfg, signal) => {
       const result = await window.api.generateStitchPreviewFast({
-        aPath: config.aPath,
-        bPath: config.bPath,
-        orientation: config.orientation,
-        aDuration: config.aDuration,
-        bDuration: config.bDuration,
+        aPath: cfg.aPath,
+        bPath: cfg.bPath,
+        orientation: cfg.orientation,
+        aDuration: cfg.aDuration,
+        bDuration: cfg.bDuration,
       });
 
-      // 检查是否已取消
-      if (cancelRef.current || currentKeyRef.current !== key) {
-        if (result.tempPath) {
-          await window.api.deleteTempPreview(result.tempPath);
-        }
-        return;
+      // 检查是否被取消
+      if (signal?.aborted) {
+        // 如果生成成功但被取消，仍然返回成功（会被缓存）
+        return result;
       }
 
-      if (result.success && result.tempPath) {
-        // 更新缓存
-        previewCache.set(key, result.tempPath);
-        pendingCleanup.add(result.tempPath);
-        instancePreviewsRef.current.add(result.tempPath);
-
-        setPreviewPath(result.tempPath);
-        options?.onLog?.('预览视频生成完成', 'success');
-      } else {
-        setError(result.error || '预览生成失败');
-        options?.onLog?.(`预览生成失败: ${result.error || '未知错误'}`, 'error');
-      }
-    } catch (err) {
-      if (!cancelRef.current) {
-        const errorMsg = err instanceof Error ? err.message : '预览生成异常';
-        setError(errorMsg);
-        options?.onLog?.(`预览生成异常: ${errorMsg}`, 'error');
-      }
-    } finally {
-      if (!cancelRef.current) {
-        setIsGenerating(false);
-      }
-    }
-  }, [config, enabled, previewPath]);
-
-  /**
-   * 手动重新生成（强制跳过缓存）
-   */
-  const regenerate = useCallback(() => {
-    generatePreview(true);
-  }, [generatePreview]);
-
-  /**
-   * 当配置变化时自动生成预览
-   */
-  useEffect(() => {
-    if (!config || !enabled) {
-      setPreviewPath(null);
-      setError(null);
-      setIsGenerating(false);
-      setIsFromCache(false);
-      return;
-    }
-
-    const key = getCacheKey(config.aPath, config.bPath, config.orientation);
-
-    // 如果配置没变且有预览，不重新生成
-    if (currentKeyRef.current === key && previewPath) {
-      return;
-    }
-
-    // 防抖：延迟 300ms 后生成
-    const timer = setTimeout(() => {
-      generatePreview();
-    }, 300);
-
-    return () => {
-      clearTimeout(timer);
-      cancelRef.current = true;
-    };
-  }, [config, enabled, generatePreview, previewPath]);
-
-  /**
-   * 组件卸载时清理预览文件
-   *
-   * 注意：这里清理的是缓存中的预览文件
-   * 这样即使切换到其他页面，预览文件也会被清理
-   */
-  useEffect(() => {
-    return () => {
-      cancelRef.current = true;
-      // 清理所有缓存的预览文件
-      cleanupAllCachedPreviews();
-    };
-  }, []);
+      return result;
+    },
+    deleteTemp: async (tempPath) => {
+      await window.api.deleteTempPreview(tempPath);
+    },
+    getCacheKey: (cfg) => `${cfg.aPath}-${cfg.bPath}-${cfg.orientation}`,
+    onLog: options?.onLog,
+  });
 
   return {
     previewPath,
@@ -360,6 +195,15 @@ export function useStitchPreview(
     setIsPlaying,
     isFromCache,
   };
+}
+
+/**
+ * 清理拼接预览的所有缓存
+ */
+export async function clearStitchPreviewCache(): Promise<void> {
+  await clearNamespaceCache('stitch-preview', async (path) => {
+    await window.api.deleteTempPreview(path);
+  });
 }
 
 export default useStitchPreview;
