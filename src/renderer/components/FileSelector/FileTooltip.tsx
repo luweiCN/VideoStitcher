@@ -1,21 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileVideo, Image as ImageIcon, File } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { FileItem } from './FileSelector';
+import { formatFileSize, formatDuration } from '../../utils/format';
 
 // ============================================================================
 // 工具函数
 // ============================================================================
-
-/**
- * 格式化文件大小
- */
-export const formatFileSize = (bytes: number): string => {
-  if (!bytes) return '-';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
 
 // ============================================================================
 // 类型定义
@@ -89,38 +80,65 @@ export const FileTooltipContent: React.FC<FileTooltipContentProps> = ({
 
     setLoading(true);
 
-    // 并行获取文件信息
-    Promise.allSettled([
-      // 获取文件大小
-      window.api.getFileInfo(file.path),
-      // 获取文件尺寸
-      file.type === 'video'
-        ? window.api.getVideoDimensions(file.path)
-        : file.type === 'image'
-        ? window.api.getImageDimensions(file.path)
-        : Promise.resolve(null)
-    ]).then(([sizeResult, dimsResult]) => {
-      const updatedInfo: FileItem = { ...file, _infoLoaded: true };
+    if (file.type === 'video') {
+      // 视频文件：使用 getVideoFullInfo 获取完整信息（缩略图 + 尺寸 + 时长）
+      window.api.getVideoFullInfo(file.path, { thumbnailMaxSize: 200 })
+        .then((result) => {
+          if (result.success) {
+            const updatedInfo: FileItem = {
+              ...file,
+              _infoLoaded: true,
+              size: result.fileSize,
+              dimensions: result.width && result.height ? `${result.width}x${result.height}` : undefined,
+              orientation: result.orientation,
+              aspectRatio: result.aspectRatio,
+              thumbnail: result.thumbnail,
+              duration: result.duration,
+            };
+            setFileInfo(updatedInfo);
+            onInfoUpdate?.(updatedInfo);
+          }
+          setLoading(false);
+        })
+        .catch(() => {
+          setLoading(false);
+        });
+    } else if (file.type === 'image') {
+      // 图片文件：获取文件大小和尺寸
+      Promise.allSettled([
+        window.api.getFileInfo(file.path),
+        window.api.getImageDimensions(file.path)
+      ]).then(([sizeResult, dimsResult]) => {
+        const updatedInfo: FileItem = { ...file, _infoLoaded: true };
 
-      // 处理文件大小
-      if (sizeResult.status === 'fulfilled' && sizeResult.value.success && sizeResult.value.info) {
-        updatedInfo.size = sizeResult.value.info.size;
-      }
+        if (sizeResult.status === 'fulfilled' && sizeResult.value.success && sizeResult.value.info) {
+          updatedInfo.size = sizeResult.value.info.size;
+        }
 
-      // 处理文件尺寸
-      if (dimsResult.status === 'fulfilled' && dimsResult.value) {
-        const dims = dimsResult.value;
-        updatedInfo.dimensions = `${dims.width}x${dims.height}`;
-        updatedInfo.orientation = dims.orientation;
-        updatedInfo.aspectRatio = dims.aspectRatio;
-      }
+        if (dimsResult.status === 'fulfilled' && dimsResult.value) {
+          const dims = dimsResult.value;
+          updatedInfo.dimensions = `${dims.width}x${dims.height}`;
+          updatedInfo.orientation = dims.orientation;
+          updatedInfo.aspectRatio = dims.aspectRatio;
+        }
 
-      setFileInfo(updatedInfo);
-      setLoading(false);
-
-      // 通知父组件更新缓存
-      onInfoUpdate?.(updatedInfo);
-    });
+        setFileInfo(updatedInfo);
+        setLoading(false);
+        onInfoUpdate?.(updatedInfo);
+      });
+    } else {
+      // 未知类型：只获取文件大小
+      window.api.getFileInfo(file.path).then((result) => {
+        const updatedInfo: FileItem = {
+          ...file,
+          _infoLoaded: true,
+          size: result.success && result.info ? result.info.size : undefined
+        };
+        setFileInfo(updatedInfo);
+        setLoading(false);
+        onInfoUpdate?.(updatedInfo);
+      });
+    }
   }, [file.path, file.type, file._infoLoaded, onInfoUpdate]);
 
   const typeColor = getFileTypeColor(fileInfo.type);

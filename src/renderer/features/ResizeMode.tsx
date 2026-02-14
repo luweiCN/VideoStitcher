@@ -10,6 +10,7 @@ import ConcurrencySelector from '../components/ConcurrencySelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import FilePreviewModal from '../components/FilePreviewModal';
 import { FileSelector, FileSelectorGroup, type FileSelectorRef, formatFileSize } from '../components/FileSelector';
+import { formatDuration } from '../utils/format';
 import { Button } from '../components/Button/Button';
 import { PreviewArea } from './ResizeMode/components/PreviewArea';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
@@ -162,16 +163,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       addLog(`[${data.videoId || data.index + 1}] ${data.message}`, 'info');
     },
   });
-
-  /**
-   * 格式化时长显示
-   */
-  const formatDuration = (seconds: number): string => {
-    if (!isFinite(seconds) || seconds < 0) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   /**
    * 处理视频选择

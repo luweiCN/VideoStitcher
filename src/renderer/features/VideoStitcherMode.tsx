@@ -9,6 +9,7 @@ import ConcurrencySelector from '../components/ConcurrencySelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import FilePreviewModal from '../components/FilePreviewModal';
 import { FileSelector, FileSelectorGroup, type FileSelectorRef, formatFileSize } from '../components/FileSelector';
+import { formatDuration } from '../utils/format';
 import { Button } from '../components/Button/Button';
 import TaskCountSlider, { type TaskSource } from '../components/TaskCountSlider';
 import VideoPlayer from '../components/VideoPlayer/VideoPlayer';
@@ -292,16 +293,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
       setCurrentIndex(0);
     }
   }, [tasks, currentIndex]);
-
-  /**
-   * 格式化时长显示
-   */
-  const formatDuration = (seconds: number): string => {
-    if (!isFinite(seconds) || seconds < 0) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   /**
    * 切换任务

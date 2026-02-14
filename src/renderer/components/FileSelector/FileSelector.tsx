@@ -13,9 +13,9 @@ import {
   Image as ImageIcon,
   File,
   X,
-  Eye,
   Trash2,
   Info,
+  Play,
 } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { FilePreviewModal } from "../FilePreviewModal";
@@ -29,7 +29,8 @@ import {
 import { useToastMessages } from "../Toast";
 import { useFileProcessor } from "./useFileProcessor";
 import { getThemeConfig } from "./themeConfig";
-import { FileTooltipContent, formatFileSize } from "./FileTooltip";
+import { FileTooltipContent } from "./FileTooltip";
+import { formatFileSize, formatDuration } from "../../utils/format";
 
 /**
  * 文件选择器组件 - 现代专业风格设计
@@ -55,6 +56,8 @@ export interface FileItem {
   dimensions?: string; // 尺寸，如 "1920x1080"
   orientation?: "landscape" | "portrait" | "square"; // 横版/竖版/方形
   aspectRatio?: string; // 长宽比，如 "16:9"
+  thumbnail?: string; // 缩略图 base64
+  duration?: number; // 视频时长（秒）
   _infoLoaded?: boolean; // 内部标记：信息是否已加载
 }
 
@@ -343,7 +346,6 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
       flex
       items-center
       gap-0
-      px-5
       py-2
       border-b
       border-slate-800/50
@@ -760,6 +762,28 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
             ? "text-emerald-400"
             : "text-slate-500";
 
+      // 视频：显示缩略图 + 播放图标
+      if (file.type === "video" && file.thumbnail) {
+        return (
+          <div className="relative w-8 h-8 rounded overflow-hidden bg-slate-800">
+            <img src={file.thumbnail} alt="" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+              <Play className="w-3 h-3 text-white/70 fill-white/70" />
+            </div>
+          </div>
+        );
+      }
+
+      // 图片：显示缩略图
+      if (file.type === "image" && file.thumbnail) {
+        return (
+          <div className="w-8 h-8 rounded overflow-hidden bg-slate-800">
+            <img src={file.thumbnail} alt="" className="w-full h-full object-cover" />
+          </div>
+        );
+      }
+
+      // 无缩略图时显示图标
       if (file.type === "video")
         return <FileVideo className={`w-4 h-4 ${iconColorClass}`} />;
       if (file.type === "image")
@@ -797,28 +821,25 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
                       <span className="text-xs text-slate-600 font-mono">{index + 1}</span>
                     </div>
 
-                    {/* 文件图标 */}
-                    <div className={getListStyle().icon}>
+                    {/* 文件图标 - 可点击预览 */}
+                    <button
+                      onClick={() => handlePreview(file)}
+                      className={`${getListStyle().icon} mr-3 hover:opacity-80 transition-opacity cursor-pointer`}
+                    >
                       {renderFileIcon(file)}
-                    </div>
+                    </button>
 
                     {/* 文件信息 */}
                     <div className={getListStyle().info}>
                       <div className={getListStyle().name}>{file.name}</div>
                       <div className={getListStyle().meta}>
+                        {file.duration && `${formatDuration(file.duration)} · `}
                         {file.size && formatFileSize(file.size)}
                       </div>
                     </div>
 
                     {/* 操作按钮 */}
                     <div className={getListStyle().actions}>
-                      <button
-                        onClick={() => handlePreview(file)}
-                        className={getListStyle().button}
-                        title="预览"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
                       <button
                         onClick={() => handleRemoveFile(index)}
                         className={getListStyle().deleteButton}
