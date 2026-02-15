@@ -1,48 +1,28 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import * as Slider from '@radix-ui/react-slider';
 import {
-  FileVideo, ArrowLeft, Settings, CheckCircle, Maximize2, Eye,
-  XCircle, Loader2, Layers, FolderOpen
+  Settings, Loader2, Eye, Maximize2
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
 import OperationLogPanel from '../components/OperationLogPanel';
-import FilePreviewModal from '../components/FilePreviewModal';
-import { FileSelector, FileSelectorGroup, type FileSelectorRef, formatFileSize } from '../components/FileSelector';
-import { formatDuration } from '../utils/format';
+import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
-import { PreviewArea } from './ResizeMode/components/PreviewArea';
+import TaskList, { type Task, type OutputConfig } from '../components/TaskList';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useVideoProcessingEvents } from '../hooks/useVideoProcessingEvents';
 import { useVideoVolumeCache } from '../hooks/useVideoVolumeCache';
 import useVideoMaterials from '../hooks/useVideoMaterials';
+import { PreviewArea } from './ResizeMode/components/PreviewArea';
 
 interface ResizeModeProps {
   onBack: () => void;
 }
 
 type ResizeMode = 'siya' | 'fishing' | 'unify_h' | 'unify_v';
-
-/**
- * 视频文件数据结构
- */
-interface VideoFile {
-  id: string;
-  path: string;
-  name: string;
-  status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
-  thumbnailUrl?: string;      // 缩略图 URL（用于任务列表）
-  previewUrl?: string;        // 预览 URL（用于视频播放）
-  width?: number;             // 视频宽度
-  height?: number;            // 视频高度
-  fileSize?: number;          // 文件大小（字节）
-  duration?: number;          // 时长（秒）
-  orientation?: 'landscape' | 'portrait' | 'square';  // 方向
-  error?: string;
-}
 
 const MODE_CONFIG = {
   siya: { name: 'Siya模式', desc: '竖屏转横屏/方形', outputs: [{ width: 1920, height: 1080, label: '1920x1080' }, { width: 1920, height: 1920, label: '1920x1920' }] },
@@ -52,21 +32,11 @@ const MODE_CONFIG = {
 };
 
 const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
-  // 视频文件路径列表
-  const [videoPaths, setVideoPaths] = useState<string[]>([]);
-
-  // 视频列表状态
-  const [videos, setVideos] = useState<VideoFile[]>([]);
+  // 任务列表状态（使用 TaskList 组件的格式）
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // FileSelector ref，用于清空选择器
-  const fileSelectorRef = useRef<FileSelectorRef>(null);
-
   // 使用 hook 加载视频素材（带缓存）
-  const { materials } = useVideoMaterials(videoPaths, true, {
-    onLog: (message, type) => addLog(message, type),
-  });
-
   const { outputDir, setOutputDir } = useOutputDirCache('ResizeMode');
   const { concurrency, setConcurrency } = useConcurrencyCache('ResizeMode');
   const [mode, setMode] = useState<ResizeMode>('siya');
@@ -100,27 +70,14 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
     moduleNameEN: 'Resize',
   });
 
-  // 当前选中的视频
-  const currentVideo = videos[currentIndex];
-
-  // 预览弹窗状态
-  const [showPreview, setShowPreview] = useState(false);
-
-  /**
-   * 打开预览弹窗
-   */
-  const handleOpenPreview = useCallback(() => {
-    if (currentVideo) {
-      setShowPreview(true);
-    }
-  }, [currentVideo]);
-
-  /**
-   * 关闭预览弹窗
-   */
-  const handleClosePreview = useCallback(() => {
-    setShowPreview(false);
-  }, []);
+  // 输出配置
+  const outputConfig = useMemo((): OutputConfig => ({
+    fps: '30fps',
+    resolution: MODE_CONFIG[mode].outputs.map(o => o.label).join(' / '),
+    codec: 'H.264',
+    format: 'mp4',
+    nums: MODE_CONFIG[mode].outputs.length,
+  }), [mode]);
 
   // 使用视频处理事件 Hook
   useVideoProcessingEvents({
@@ -128,13 +85,13 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       addLog(`开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`, 'info');
       setProgress({ done: 0, failed: 0, total: data.total });
       // 所有任务设为等待状态
-      setVideos(prev => prev.map(v => ({ ...v, status: 'waiting' as const })));
+      setTasks(prev => prev.map(t => ({ ...t, status: 'waiting' as const })));
     },
     onTaskStart: (data) => {
       // 直接使用后端传来的 videoIndex
       if (data.videoIndex !== undefined) {
-        setVideos(prev => prev.map((v, idx) =>
-          idx === data.videoIndex ? { ...v, status: 'processing' as const } : v
+        setTasks(prev => prev.map((t, idx) =>
+          idx === data.videoIndex ? { ...t, status: 'processing' as const } : t
         ));
       }
     },
@@ -143,15 +100,15 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
       // 后端确保该视频的所有输出都完成时才发送 progress 事件
       // 使用 index 直接匹配视频数组
-      setVideos(prev => prev.map((v, idx) =>
-        idx === data.index ? { ...v, status: 'completed' as const } : v
+      setTasks(prev => prev.map((t, idx) =>
+        idx === data.index ? { ...t, status: 'completed' as const } : t
       ));
       addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
     },
     onFailed: (data) => {
       // 任务失败时，标记对应视频为错误
-      setVideos(prev => prev.map((v, idx) =>
-        idx === data.index ? { ...v, status: 'error' as const, error: data.error } : v
+      setTasks(prev => prev.map((t, idx) =>
+        idx === data.index ? { ...t, status: 'error' as const, error: data.error } : t
       ));
       addLog(`❌ 任务失败: ${data.error}`, 'error');
     },
@@ -165,86 +122,48 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   });
 
   /**
-   * 处理视频选择
+   * 生成任务列表
    */
-  const handleVideosChange = useCallback((filePaths: string[]) => {
-    setVideoPaths(filePaths);
-    // 始终重置当前预览索引
-    setCurrentIndex(0);
+  const generateTasks = useCallback((filePaths: string[]) => {
     if (filePaths.length === 0) {
-      setVideos([]);
-    }
-  }, []);
-
-  // 当素材数据变化时，同步到 videos 状态
-  useEffect(() => {
-    if (materials.length === 0 && videoPaths.length === 0) {
+      setTasks([]);
+      setCurrentIndex(0);
       return;
     }
 
-    // 根据素材数据构建 videos 状态
-    const newVideos: VideoFile[] = videoPaths.map((path, index) => {
-      const material = materials[index];
-
-      if (material && material.isLoaded) {
-        return {
-          id: Math.random().toString(36).substr(2, 9),
-          path: material.path,
-          name: material.name,
-          status: 'pending' as const,
-          thumbnailUrl: material.thumbnailUrl,
-          previewUrl: material.previewUrl,
-          width: material.width,
-          height: material.height,
-          fileSize: material.fileSize,
-          duration: material.duration,
-          orientation: material.orientation,
-        };
-      }
-
-      // 未加载完成的占位
-      return {
-        id: Math.random().toString(36).substr(2, 9),
+    const newTasks: Task[] = filePaths.map((path, index) => ({
+      id: `resize-${Date.now()}-${index}`,
+      status: 'pending' as const,
+      files: [{
         path,
-        name: path.split('/').pop() || path,
-        status: 'pending' as const,
-      };
-    });
+        index: index + 1,
+        category: 'V',
+        category_name: '视频',
+      }],
+      config: {
+        mode,
+        blurAmount,
+      },
+      outputDir,
+      concurrency,
+    }));
 
-    setVideos(newVideos);
-  }, [materials, videoPaths]);
-
-  /**
-   * 切换任务
-   */
-  const switchToTask = (index: number) => {
-    if (index < 0 || index >= videos.length) return;
-    setCurrentIndex(index);
-  };
-
-  /**
-   * 上一条
-   */
-  const goToPrevious = () => {
-    if (currentIndex > 0) {
-      switchToTask(currentIndex - 1);
-    }
-  };
+    setTasks(newTasks);
+    setCurrentIndex(0);
+  }, [mode, blurAmount, outputDir, concurrency]);
 
   /**
-   * 下一条
+   * 处理视频选择
    */
-  const goToNext = () => {
-    if (currentIndex < videos.length - 1) {
-      switchToTask(currentIndex + 1);
-    }
-  };
+  const handleVideosChange = useCallback((filePaths: string[]) => {
+    generateTasks(filePaths);
+  }, [generateTasks]);
 
   /**
    * 开始处理
    */
   const startProcessing = async () => {
-    if (videos.length === 0) {
+    if (tasks.length === 0) {
       addLog('⚠️ 请先选择视频', 'warning');
       return;
     }
@@ -256,20 +175,20 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
     setIsProcessing(true);
     // 不再自动清空日志，保留历史记录
-    setProgress({ done: 0, failed: 0, total: videos.length });
+    setProgress({ done: 0, failed: 0, total: tasks.length });
 
     // 所有任务设为等待状态
-    setVideos(prev => prev.map(v => ({ ...v, status: 'waiting' as const })));
+    setTasks(prev => prev.map(t => ({ ...t, status: 'waiting' as const })));
 
     addLog('开始智能改尺寸处理...', 'info');
-    addLog(`视频: ${videos.length} 个`, 'info');
+    addLog(`视频: ${tasks.length} 个`, 'info');
     addLog(`模式: ${MODE_CONFIG[mode].name}`, 'info');
     addLog(`输出: ${MODE_CONFIG[mode].outputs.map(o => o.label).join(', ')}`, 'info');
     addLog(`模糊程度: ${blurAmount}`, 'info');
 
     try {
       await window.api.videoResize({
-        videos: videos.map(v => ({ id: v.id, path: v.path })),
+        videos: tasks.map(t => ({ id: t.id, path: t.files[0].path })),
         mode,
         blurAmount,
         outputDir,
@@ -314,6 +233,25 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       topPercent,
     };
   };
+
+  // 当前选中的任务
+  const currentTask = tasks[currentIndex];
+
+  // 使用 useVideoMaterials 加载当前任务的素材信息
+  const currentFilePath = currentTask?.files[0]?.path;
+  const { materials: currentMaterials } = useVideoMaterials(
+    currentFilePath ? [currentFilePath] : [],
+    !!currentFilePath
+  );
+  const currentMaterial = currentMaterials[0];
+
+  // 视频信息
+  const videoInfo = currentMaterial?.isLoaded ? {
+    previewUrl: currentMaterial.previewUrl,
+    width: currentMaterial.width,
+    height: currentMaterial.height,
+    duration: currentMaterial.duration,
+  } : null;
 
   return (
     <div className="h-screen bg-black text-slate-100 flex flex-col overflow-hidden">
@@ -370,7 +308,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
             {/* Video Selection */}
             <FileSelectorGroup>
               <FileSelector
-                ref={fileSelectorRef}
                 id="resizeVideos"
                 name="视频文件"
                 accept="video"
@@ -427,204 +364,47 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
 
         {/* Middle Panel - flex-1 with vertical layout */}
         <div className="flex-1 bg-black flex flex-col overflow-hidden min-w-0">
-          {/* Top: Task List Header + Horizontal Scroll + Selected Task Details */}
-          <div className="flex-shrink-0 overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-black/50 shrink-0">
-              <h2 className="font-bold text-sm text-slate-300 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-rose-400" />
-                任务列表
-              </h2>
-              <div className="flex items-center gap-3">
-                <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
-                  {videos.length > 0 ? `${currentIndex + 1} / ${videos.length}` : videos.length}
-                </span>
-              </div>
-            </div>
+          {/* 使用通用 TaskList 组件 */}
+          <TaskList
+            tasks={tasks}
+            currentIndex={currentIndex}
+            output={outputConfig}
+            type="video_resize"
+            thumbnail_source="V"
+            themeColor="rose"
+            onTaskChange={setCurrentIndex}
+            isProcessing={isProcessing}
+            onLog={(message, type) => addLog(message, type)}
+          />
 
-            {/* 横向滚动任务栏 */}
-            <div className="h-20 overflow-x-auto overflow-y-hidden border-b border-slate-800 shrink-0">
-              <div className="flex items-center h-full px-4 gap-2">
-                {videos.map((v, index) => (
-                  <div
-                    key={v.id}
-                    className={`relative shrink-0 w-14 h-14 rounded-lg border cursor-pointer ${
-                      index === currentIndex
-                        ? 'border-rose-500/60 ring-2 ring-rose-500/20 bg-rose-500/5'
-                        : v.status === 'error'
-                        ? 'border-red-500/50 bg-red-500/5'
-                        : v.status === 'completed'
-                        ? 'border-emerald-500/50 bg-emerald-500/5'
-                        : v.status === 'waiting'
-                        ? 'border-rose-500/30 bg-rose-500/5'
-                        : v.status === 'processing'
-                        ? 'border-rose-500/30 bg-rose-500/5'
-                        : 'border-slate-700 bg-black/50'
-                    }`}
-                    onClick={() => switchToTask(index)}
-                  >
-                    {/* 缩略图 */}
-                    <div className="absolute inset-0 rounded-lg overflow-hidden">
-                      {v.thumbnailUrl ? (
-                        <img src={v.thumbnailUrl} alt={v.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-black">
-                          <FileVideo className="w-5 h-5 text-slate-600" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* processing 状态 */}
-                    {v.status === 'processing' && (
-                      <div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center pointer-events-none">
-                        <Loader2 className="w-5 h-5 text-rose-500 animate-spin" />
-                      </div>
-                    )}
-                    {/* waiting 状态 */}
-                    {v.status === 'waiting' && (
-                      <div className="absolute inset-0 rounded-lg bg-black/30 flex items-center justify-center pointer-events-none">
-                        <div className="w-4 h-4 rounded-full bg-rose-500/70" />
-                      </div>
-                    )}
-                    {/* completed 状态 */}
-                    {v.status === 'completed' && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-                        <CheckCircle className="w-2.5 h-2.5 text-black" />
-                      </div>
-                    )}
-                    {/* error 状态 */}
-                    {v.status === 'error' && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
-                        <span className="text-black text-[8px] font-bold">!</span>
-                      </div>
-                    )}
-
-                    {/* 当前预览指示器 */}
-                    {index === currentIndex && (
-                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-rose-500 rounded text-[8px] font-medium text-black whitespace-nowrap z-10">
-                        预览
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {videos.length === 0 && (
-                  <div className="flex items-center justify-center w-full h-full text-slate-500">
-                    <p className="text-xs">暂无任务</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 选中任务详情 */}
-            {currentVideo && (
-              <div className="bg-black/30 border-b border-slate-800 shrink-0">
-                <div className="px-3 py-2 flex items-center gap-2">
-                  {/* 导航按钮 */}
-                  <button
-                    onClick={goToPrevious}
-                    disabled={currentIndex === 0}
-                    className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-
-                  {/* 缩略图 */}
-                  <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden shrink-0">
-                    {currentVideo.thumbnailUrl ? (
-                      <img src={currentVideo.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <FileVideo className="w-5 h-5 text-slate-600" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 文件信息 */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-200 truncate">{currentVideo.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {currentVideo.fileSize && (
-                        <span className="text-[10px] text-slate-500">{formatFileSize(currentVideo.fileSize)}</span>
-                      )}
-                      {currentVideo.width && currentVideo.height && (
-                        <span className="text-[10px] text-slate-500">{currentVideo.width}×{currentVideo.height}</span>
-                      )}
-                      {currentVideo.duration && (
-                        <span className="text-[10px] text-slate-500">{formatDuration(currentVideo.duration)}</span>
-                      )}
-                      {currentVideo.orientation && (
-                        <span className="text-[10px] text-slate-500 px-1 py-0.5 bg-slate-800 rounded">
-                          {currentVideo.orientation === 'landscape' ? '横版' : currentVideo.orientation === 'portrait' ? '竖版' : '方形'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 操作按钮 */}
-                  <div className="flex items-center gap-1 shrink-0">
-                    {/* 预览按钮 */}
-                    {currentVideo.previewUrl && (
-                      <button
-                        onClick={handleOpenPreview}
-                        className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-slate-300 rounded transition-colors"
-                        title="预览"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    )}
-                    {currentVideo.status === 'processing' && (
-                      <Loader2 className="w-5 h-5 text-rose-500 animate-spin" />
-                    )}
-                    {currentVideo.status === 'completed' && (
-                      <CheckCircle className="w-5 h-5 text-emerald-500" />
-                    )}
-                    {currentVideo.status === 'error' && (
-                      <div className="flex items-center gap-1 text-red-400">
-                        <XCircle className="w-4 h-4" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 导航按钮 */}
-                  <button
-                    onClick={goToNext}
-                    disabled={currentIndex >= videos.length - 1}
-                    className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ArrowLeft className="w-4 h-4 rotate-180" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Bottom: Preview Area */}
+          {/* Bottom: Preview Area - 使用 TaskList 加载的素材 */}
           <div className="flex-1 overflow-hidden p-4 min-h-0">
-            {videos.length === 0 ? (
+            {tasks.length === 0 ? (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center text-slate-500">
                   <Eye className="w-12 h-12 mx-auto mb-3 opacity-50" />
                   <p className="text-sm">选择视频后显示预览</p>
                 </div>
               </div>
-            ) : !currentVideo?.previewUrl ? (
+            ) : !currentTask || !videoInfo ? (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
                   <Loader2 className="w-8 h-8 mx-auto mb-3 text-rose-400 animate-spin" />
                   <p className="text-sm text-slate-400">加载视频中...</p>
                 </div>
               </div>
-            ) : !currentVideo?.width || !currentVideo?.height ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 mx-auto mb-3 text-rose-400 animate-spin" />
-                  <p className="text-sm text-slate-400">获取视频信息...</p>
-                </div>
-              </div>
             ) : (
               <PreviewArea
                 mode={mode}
-                currentVideo={currentVideo}
+                currentVideo={{
+                  id: currentTask.id,
+                  path: currentTask.files[0].path,
+                  name: currentTask.files[0].path.split('/').pop() || '',
+                  status: currentTask.status,
+                  previewUrl: videoInfo?.previewUrl,
+                  width: videoInfo?.width,
+                  height: videoInfo?.height,
+                }}
                 blurAmount={blurAmount}
                 volume={volume}
                 isMuted={isMuted}
@@ -657,7 +437,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
                 onChange={setConcurrency}
                 disabled={isProcessing}
                 themeColor="rose"
-                compact
               />
             </div>
 
@@ -705,41 +484,17 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
             {/* Start Button */}
             <Button
               onClick={startProcessing}
-              disabled={isProcessing || videos.length === 0 || !outputDir}
+              disabled={isProcessing || tasks.length === 0 || !outputDir}
               variant="primary"
               size="md"
-              fullWidth
+            fullWidth
               loading={isProcessing}
-              leftIcon={!isProcessing && <FolderOpen className="w-4 h-4" />}
-              themeColor="rose"
             >
               {isProcessing ? '处理中...' : '开始处理'}
             </Button>
           </div>
         </div>
       </div>
-
-      {/* 视频预览弹窗 */}
-      {showPreview && currentVideo && (
-        <FilePreviewModal
-          file={{
-            path: currentVideo.path,
-            name: currentVideo.name,
-            type: 'video',
-          }}
-          visible={showPreview}
-          onClose={handleClosePreview}
-          allFiles={videos.map(v => ({
-            path: v.path,
-            name: v.name,
-            type: 'video' as const,
-          }))}
-          currentIndex={currentIndex}
-          onPrevious={goToPrevious}
-          onNext={goToNext}
-          themeColor="rose"
-        />
-      )}
     </div>
   );
 };

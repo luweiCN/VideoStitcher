@@ -200,6 +200,11 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
             { path: aMaterial.path, index: indices[0] + 1, category: 'A', category_name: 'A' },
             { path: bMaterial.path, index: indices[1] + 1, category: 'B', category_name: 'B' },
           ],
+          config: {
+            orientation,
+          },
+          outputDir,
+          concurrency,
         };
       },
       { priority: [0, 1] }  // 优先按A(0)排序，其次按B(1)排序
@@ -207,7 +212,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
 
     setTasks(newTasks);
     setCurrentIndex(0);
-  }, []);
+  }, [orientation, outputDir, concurrency]);
 
   /**
    * A 面文件变化处理

@@ -28,6 +28,12 @@ export interface Task {
   id: string;
   status: TaskStatus;
   files: TaskFile[];
+  /** 任务配置（如处理模式、模糊程度等） */
+  config?: Record<string, unknown>;
+  /** 输出目录 */
+  outputDir?: string;
+  /** 并发数 */
+  concurrency?: number;
   error?: string;
 }
 
@@ -388,7 +394,7 @@ export const TaskList: React.FC<TaskListProps> = ({
             {/* 输出配置信息 */}
             <div className="flex items-center gap-3 text-[10px]">
               <span className="text-slate-500">输出</span>
-              <span className={`${colors.text} font-medium`}>{output.resolution}</span>
+              <span className={`${colors.text} font-medium whitespace-nowrap`}>{output.resolution}</span>
               <span className="text-slate-600">·</span>
               {output.fps && (
                 <>
@@ -443,10 +449,7 @@ export const TaskList: React.FC<TaskListProps> = ({
                 className="px-3 py-2 flex items-center gap-2 border-b border-slate-800/30 last:border-b-0"
               >
                 {/* Category 标签 */}
-                <div className="flex items-center gap-1.5 shrink-0 w-14">
-                  <div className={`w-5 h-5 rounded ${colors.bgLight20} flex items-center justify-center`}>
-                    <Icon className={`w-3 h-3 ${colors.text}`} />
-                  </div>
+                <div className="flex items-center gap-1.5 shrink-0 w-10">
                   <span className={`text-[10px] font-medium ${colors.text}`}>
                     {file.category_name}{file.index}
                   </span>

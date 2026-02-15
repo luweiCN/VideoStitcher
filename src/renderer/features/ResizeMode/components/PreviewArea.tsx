@@ -1,18 +1,18 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Play, Pause, Volume2, VolumeX, Volume1 } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import { Play, Pause, Volume2, VolumeX, Volume1 } from "lucide-react";
 
 // ============================================================================
 // 类型定义
 // ============================================================================
 
-type ThemeColor = 'rose' | 'cyan' | 'violet' | 'emerald' | 'amber';
-type ResizeMode = 'siya' | 'fishing' | 'unify_h' | 'unify_v';
+type ThemeColor = "rose" | "cyan" | "violet" | "emerald" | "amber";
+type ResizeMode = "siya" | "fishing" | "unify_h" | "unify_v";
 
 interface VideoFile {
   id: string;
   path: string;
   name: string;
-  status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
+  status: "pending" | "waiting" | "processing" | "completed" | "error";
   previewUrl?: string;
   width?: number;
   height?: number;
@@ -36,7 +36,12 @@ interface PreviewAreaProps {
   onVolumeChange: (volume: number) => void;
   onMuteChange: (muted: boolean) => void;
   isProcessing: boolean;
-  getPreviewStyle: (ow: number, oh: number, fw: number, fh: number) => PreviewStyle;
+  getPreviewStyle: (
+    ow: number,
+    oh: number,
+    fw: number,
+    fh: number,
+  ) => PreviewStyle;
 }
 
 interface OutputConfig {
@@ -46,18 +51,37 @@ interface OutputConfig {
 }
 
 const MODE_CONFIG: Record<ResizeMode, { outputs: OutputConfig[] }> = {
-  siya: { outputs: [{ width: 1920, height: 1080, label: '1920x1080' }, { width: 1920, height: 1920, label: '1920x1920' }] },
-  fishing: { outputs: [{ width: 1080, height: 1920, label: '1080x1920' }, { width: 1920, height: 1920, label: '1920x1920' }] },
-  unify_h: { outputs: [{ width: 1920, height: 1080, label: '1920x1080' }] },
-  unify_v: { outputs: [{ width: 1080, height: 1920, label: '1080x1920' }] },
+  siya: {
+    outputs: [
+      { width: 1920, height: 1080, label: "1920x1080" },
+      { width: 1920, height: 1920, label: "1920x1920" },
+    ],
+  },
+  fishing: {
+    outputs: [
+      { width: 1080, height: 1920, label: "1080x1920" },
+      { width: 1920, height: 1920, label: "1920x1920" },
+    ],
+  },
+  unify_h: { outputs: [{ width: 1920, height: 1080, label: "1920x1080" }] },
+  unify_v: { outputs: [{ width: 1080, height: 1920, label: "1080x1920" }] },
 };
 
 const THEME_COLORS: Record<ThemeColor, { gradient: string; glow: string }> = {
-  rose: { gradient: 'from-rose-500 to-pink-500', glow: 'shadow-rose-500/50' },
-  cyan: { gradient: 'from-cyan-500 to-teal-500', glow: 'shadow-cyan-500/50' },
-  violet: { gradient: 'from-violet-500 to-purple-500', glow: 'shadow-violet-500/50' },
-  emerald: { gradient: 'from-emerald-500 to-green-500', glow: 'shadow-emerald-500/50' },
-  amber: { gradient: 'from-amber-500 to-yellow-500', glow: 'shadow-amber-500/50' },
+  rose: { gradient: "from-rose-500 to-pink-500", glow: "shadow-rose-500/50" },
+  cyan: { gradient: "from-cyan-500 to-teal-500", glow: "shadow-cyan-500/50" },
+  violet: {
+    gradient: "from-violet-500 to-purple-500",
+    glow: "shadow-violet-500/50",
+  },
+  emerald: {
+    gradient: "from-emerald-500 to-green-500",
+    glow: "shadow-emerald-500/50",
+  },
+  amber: {
+    gradient: "from-amber-500 to-yellow-500",
+    glow: "shadow-amber-500/50",
+  },
 };
 
 // ============================================================================
@@ -65,10 +89,10 @@ const THEME_COLORS: Record<ThemeColor, { gradient: string; glow: string }> = {
 // ============================================================================
 
 const formatTime = (seconds: number): string => {
-  if (!isFinite(seconds) || seconds < 0) return '0:00';
+  if (!isFinite(seconds) || seconds < 0) return "0:00";
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
 
 // ============================================================================
@@ -107,7 +131,7 @@ const VideoCanvas: React.FC<VideoCanvasProps> = ({
         ref={backgroundRef}
         src={src}
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ filter: `blur(${blurAmount}px)`, transform: 'scale(1.1)' }}
+        style={{ filter: `blur(${blurAmount}px)`, transform: "scale(1.1)" }}
         muted
         playsInline
         loop
@@ -124,7 +148,7 @@ const VideoCanvas: React.FC<VideoCanvasProps> = ({
           height: `${heightPercent}%`,
           left: `${leftPercent}%`,
           top: `${topPercent}%`,
-          objectFit: 'contain',
+          objectFit: "contain",
         }}
         muted={isMuted}
         playsInline
@@ -176,12 +200,15 @@ const VideoControls: React.FC<VideoControlsProps> = ({
 }) => {
   const theme = THEME_COLORS[themeColor];
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
+  const VolumeIcon =
+    isMuted || volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
   // 音量面板状态
   const [showVolumePanel, setShowVolumePanel] = useState(false);
   const volumeSliderRef = useRef<HTMLDivElement>(null);
-  const volumeHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const volumeHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // 延迟隐藏音量面板
   const handleVolumeAreaEnter = useCallback(() => {
@@ -199,16 +226,22 @@ const VideoControls: React.FC<VideoControlsProps> = ({
   }, []);
 
   // 音量滑块处理
-  const handleVolumeSliderClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!volumeSliderRef.current) return;
-    const rect = volumeSliderRef.current.getBoundingClientRect();
-    const percent = 1 - (e.clientY - rect.top) / rect.height;
-    onVolumeChange(Math.round(Math.max(0, Math.min(100, percent * 100))));
-  }, [onVolumeChange]);
+  const handleVolumeSliderClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!volumeSliderRef.current) return;
+      const rect = volumeSliderRef.current.getBoundingClientRect();
+      const percent = 1 - (e.clientY - rect.top) / rect.height;
+      onVolumeChange(Math.round(Math.max(0, Math.min(100, percent * 100))));
+    },
+    [onVolumeChange],
+  );
 
-  const handleVolumeSliderDrag = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    // 可以在这里添加拖拽逻辑
-  }, []);
+  const handleVolumeSliderDrag = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // 可以在这里添加拖拽逻辑
+    },
+    [],
+  );
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg">
@@ -220,11 +253,17 @@ const VideoControls: React.FC<VideoControlsProps> = ({
           bg-gradient-to-br ${theme.gradient} shadow-lg ${theme.glow}
           hover:scale-110 active:scale-95 transition-transform`}
       >
-        {isPlaying ? <Pause className="w-3.5 h-3.5 text-white" /> : <Play className="w-3.5 h-3.5 text-white ml-0.5" />}
+        {isPlaying ? (
+          <Pause className="w-3.5 h-3.5 text-white" />
+        ) : (
+          <Play className="w-3.5 h-3.5 text-white ml-0.5" />
+        )}
       </button>
 
       {/* 当前时间 */}
-      <span className="text-[11px] text-slate-300 font-mono min-w-[32px]">{formatTime(currentTime)}</span>
+      <span className="text-[11px] text-slate-300 font-mono min-w-[32px]">
+        {formatTime(currentTime)}
+      </span>
 
       {/* 进度条 */}
       <div
@@ -233,14 +272,20 @@ const VideoControls: React.FC<VideoControlsProps> = ({
         onClick={(e) => {
           if (!progressRef.current || duration === 0) return;
           const rect = progressRef.current.getBoundingClientRect();
-          const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const percent = Math.max(
+            0,
+            Math.min(1, (e.clientX - rect.left) / rect.width),
+          );
           onSeek(percent * duration);
         }}
         onMouseMove={onProgressHover}
         onMouseLeave={() => {}}
       >
         <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div className={`h-full bg-gradient-to-r ${theme.gradient} rounded-full`} style={{ width: `${progressPercent}%` }} />
+          <div
+            className={`h-full bg-gradient-to-r ${theme.gradient} rounded-full`}
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
         {/* 悬浮时间 */}
         {hoverTime !== null && (
@@ -254,7 +299,9 @@ const VideoControls: React.FC<VideoControlsProps> = ({
       </div>
 
       {/* 总时长 */}
-      <span className="text-[11px] text-slate-500 font-mono min-w-[32px]">{formatTime(duration)}</span>
+      <span className="text-[11px] text-slate-500 font-mono min-w-[32px]">
+        {formatTime(duration)}
+      </span>
 
       {/* 音量控制 - 带弹出式滑块 */}
       <div
@@ -279,8 +326,10 @@ const VideoControls: React.FC<VideoControlsProps> = ({
           >
             <div className="flex flex-col items-center gap-2">
               {/* 当前音量显示 */}
-              <span className={`text-[11px] font-mono font-medium w-8 text-center whitespace-nowrap ${isMuted ? 'text-slate-500' : 'text-slate-300'}`}>
-                {isMuted ? '静音' : `${volume}%`}
+              <span
+                className={`text-[11px] font-mono font-medium w-8 text-center whitespace-nowrap ${isMuted ? "text-slate-500" : "text-slate-300"}`}
+              >
+                {isMuted ? "静音" : `${volume}%`}
               </span>
 
               {/* 垂直滑块轨道 */}
@@ -290,23 +339,29 @@ const VideoControls: React.FC<VideoControlsProps> = ({
                 onClick={handleVolumeSliderClick}
                 onMouseDown={(e) => {
                   const handleDrag = (moveEvent: MouseEvent) => {
-                    const rect = volumeSliderRef.current?.getBoundingClientRect();
+                    const rect =
+                      volumeSliderRef.current?.getBoundingClientRect();
                     if (rect) {
-                      const percent = 1 - (moveEvent.clientY - rect.top) / rect.height;
-                      onVolumeChange(Math.round(Math.max(0, Math.min(100, percent * 100))));
+                      const percent =
+                        1 - (moveEvent.clientY - rect.top) / rect.height;
+                      onVolumeChange(
+                        Math.round(Math.max(0, Math.min(100, percent * 100))),
+                      );
                     }
                   };
                   const handleUp = () => {
-                    document.removeEventListener('mousemove', handleDrag);
-                    document.removeEventListener('mouseup', handleUp);
+                    document.removeEventListener("mousemove", handleDrag);
+                    document.removeEventListener("mouseup", handleUp);
                   };
-                  document.addEventListener('mousemove', handleDrag);
-                  document.addEventListener('mouseup', handleUp);
+                  document.addEventListener("mousemove", handleDrag);
+                  document.addEventListener("mouseup", handleUp);
 
                   // 立即处理当前点击
                   const rect = e.currentTarget.getBoundingClientRect();
                   const percent = 1 - (e.clientY - rect.top) / rect.height;
-                  onVolumeChange(Math.round(Math.max(0, Math.min(100, percent * 100))));
+                  onVolumeChange(
+                    Math.round(Math.max(0, Math.min(100, percent * 100))),
+                  );
                 }}
               >
                 {/* 音量填充条 */}
@@ -342,7 +397,12 @@ interface SinglePreviewProps {
   onMuteChange: (muted: boolean) => void;
   isProcessing: boolean;
   themeColor: ThemeColor;
-  getPreviewStyle: (ow: number, oh: number, fw: number, fh: number) => PreviewStyle;
+  getPreviewStyle: (
+    ow: number,
+    oh: number,
+    fw: number,
+    fh: number,
+  ) => PreviewStyle;
 }
 
 const SinglePreview: React.FC<SinglePreviewProps> = ({
@@ -371,7 +431,12 @@ const SinglePreview: React.FC<SinglePreviewProps> = ({
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState(0);
 
-  const style = getPreviewStyle(output.width, output.height, videoFile.width!, videoFile.height!);
+  const style = getPreviewStyle(
+    output.width,
+    output.height,
+    videoFile.width!,
+    videoFile.height!,
+  );
   const aspectRatio = style.containerAspectRatio;
   const isPortrait = output.height > output.width;
 
@@ -418,9 +483,10 @@ const SinglePreview: React.FC<SinglePreviewProps> = ({
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
 
-      // 预留：标题行 28px + 控件 44px + 间距 8px = 80px
+      // 预留：标题行 28px + 控件 44px + 间距 8px = 80px，外层 p-4 padding 32px
       const reservedHeight = 80;
-      const availableHeight = containerHeight - reservedHeight;
+      const padding = 32;
+      const availableHeight = containerHeight - reservedHeight - padding;
 
       // 最小宽度：横屏 500，竖屏 250
       const minW = isPortrait ? 250 : 500;
@@ -447,12 +513,15 @@ const SinglePreview: React.FC<SinglePreviewProps> = ({
         canvasHeight = canvasWidth / aspectRatio;
       }
 
-      setCanvasSize({ width: Math.floor(canvasWidth), height: Math.floor(canvasHeight) });
+      setCanvasSize({
+        width: Math.floor(canvasWidth),
+        height: Math.floor(canvasHeight),
+      });
     };
 
     const timer = setTimeout(calculateSize, 10);
     const handleResize = () => calculateSize();
-    window.addEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
 
     const observer = new ResizeObserver(calculateSize);
     if (containerRef.current) {
@@ -461,10 +530,10 @@ const SinglePreview: React.FC<SinglePreviewProps> = ({
 
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
       observer.disconnect();
     };
-  }, [aspectRatio, isPortrait]);
+  }, [aspectRatio, isPortrait, containerRef.current]);
 
   // 视频事件 - 当视频元素可用时绑定事件
   useEffect(() => {
@@ -495,18 +564,18 @@ const SinglePreview: React.FC<SinglePreviewProps> = ({
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('ended', handleEnded);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("loadedmetadata", handleLoadedMetadata);
+    video.addEventListener("ended", handleEnded);
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("pause", handlePause);
 
     return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('ended', handleEnded);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      video.removeEventListener("ended", handleEnded);
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("pause", handlePause);
     };
   }, [videoFile.id, output.label, canvasSize.width, volume, isMuted]);
 
@@ -546,22 +615,31 @@ const SinglePreview: React.FC<SinglePreviewProps> = ({
     setCurrentTime(time);
   }, []);
 
-  const handleProgressHover = useCallback((e: React.MouseEvent) => {
-    if (!progressRef.current || duration === 0) return;
-    const rect = progressRef.current.getBoundingClientRect();
-    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    setHoverTime(percent * duration);
-    setHoverPosition(percent * 100);
-  }, [duration]);
+  const handleProgressHover = useCallback(
+    (e: React.MouseEvent) => {
+      if (!progressRef.current || duration === 0) return;
+      const rect = progressRef.current.getBoundingClientRect();
+      const percent = Math.max(
+        0,
+        Math.min(1, (e.clientX - rect.left) / rect.width),
+      );
+      setHoverTime(percent * duration);
+      setHoverPosition(percent * 100);
+    },
+    [duration],
+  );
 
   // 音量控制
-  const handleVolumeChange = useCallback((newVolume: number) => {
-    onVolumeChange(newVolume);
-    if (foregroundRef.current) {
-      foregroundRef.current.volume = newVolume / 100;
-      foregroundRef.current.muted = newVolume === 0;
-    }
-  }, [onVolumeChange]);
+  const handleVolumeChange = useCallback(
+    (newVolume: number) => {
+      onVolumeChange(newVolume);
+      if (foregroundRef.current) {
+        foregroundRef.current.volume = newVolume / 100;
+        foregroundRef.current.muted = newVolume === 0;
+      }
+    },
+    [onVolumeChange],
+  );
 
   const handleMuteToggle = useCallback(() => {
     const newMuted = !isMuted;
@@ -578,18 +656,32 @@ const SinglePreview: React.FC<SinglePreviewProps> = ({
   }, [isMuted, volume, onMuteChange, onVolumeChange]);
 
   return (
-    <div ref={containerRef} className="h-full w-full flex flex-col items-center">
+    <div
+      ref={containerRef}
+      className="h-full w-full flex flex-col items-center"
+    >
       {/* 内容容器 - 标题、视频、控件都居中对齐，宽度一致 */}
-      <div style={{ width: contentWidth }} className="flex flex-col items-center">
+      <div
+        style={{ width: contentWidth }}
+        className="flex flex-col items-center"
+      >
         {/* 标题行 */}
         <div className="w-full flex items-center justify-between mb-2 shrink-0">
-          <span className="text-xs font-mono text-slate-400">{output.label}</span>
+          <span className="text-xs font-mono text-slate-400">
+            {output.label}
+          </span>
           <span className="text-[10px] text-slate-500">实时预览</span>
         </div>
 
         {/* 视频画布 */}
         {canvasSize.width > 0 && canvasSize.height > 0 && (
-          <div style={{ width: canvasSize.width, height: canvasSize.height }} className="shrink-0">
+          <div
+            style={{
+              width: canvasSize.width,
+              height: canvasSize.height,
+            }}
+            className="shrink-0"
+          >
             <VideoCanvas
               src={videoFile.previewUrl!}
               blurAmount={blurAmount}
@@ -643,7 +735,14 @@ interface PreviewItemProps {
   onMuteChange: (muted: boolean) => void;
   isProcessing: boolean;
   themeColor: ThemeColor;
-  getPreviewStyle: (ow: number, oh: number, fw: number, fh: number) => PreviewStyle;
+  getPreviewStyle: (
+    ow: number,
+    oh: number,
+    fw: number,
+    fh: number,
+  ) => PreviewStyle;
+  maxWidth?: number;
+  maxHeight?: number;
 }
 
 const PreviewItem: React.FC<PreviewItemProps> = ({
@@ -657,6 +756,8 @@ const PreviewItem: React.FC<PreviewItemProps> = ({
   isProcessing,
   themeColor,
   getPreviewStyle,
+  maxWidth = 250,
+  maxHeight = 400,
 }) => {
   const foregroundRef = useRef<HTMLVideoElement>(null);
   const backgroundRef = useRef<HTMLVideoElement>(null);
@@ -669,7 +770,12 @@ const PreviewItem: React.FC<PreviewItemProps> = ({
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPosition, setHoverPosition] = useState(0);
 
-  const style = getPreviewStyle(output.width, output.height, videoFile.width!, videoFile.height!);
+  const style = getPreviewStyle(
+    output.width,
+    output.height,
+    videoFile.width!,
+    videoFile.height!,
+  );
 
   // 组件挂载时和视频切换时：重置播放状态并应用音量
   useEffect(() => {
@@ -726,18 +832,18 @@ const PreviewItem: React.FC<PreviewItemProps> = ({
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('ended', handleEnded);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
+    video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("loadedmetadata", handleLoadedMetadata);
+    video.addEventListener("ended", handleEnded);
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("pause", handlePause);
 
     return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('ended', handleEnded);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
+      video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      video.removeEventListener("ended", handleEnded);
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("pause", handlePause);
     };
   }, [videoFile.id, output.label, volume, isMuted]);
 
@@ -777,22 +883,31 @@ const PreviewItem: React.FC<PreviewItemProps> = ({
     setCurrentTime(time);
   }, []);
 
-  const handleProgressHover = useCallback((e: React.MouseEvent) => {
-    if (!progressRef.current || duration === 0) return;
-    const rect = progressRef.current.getBoundingClientRect();
-    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    setHoverTime(percent * duration);
-    setHoverPosition(percent * 100);
-  }, [duration]);
+  const handleProgressHover = useCallback(
+    (e: React.MouseEvent) => {
+      if (!progressRef.current || duration === 0) return;
+      const rect = progressRef.current.getBoundingClientRect();
+      const percent = Math.max(
+        0,
+        Math.min(1, (e.clientX - rect.left) / rect.width),
+      );
+      setHoverTime(percent * duration);
+      setHoverPosition(percent * 100);
+    },
+    [duration],
+  );
 
   // 音量控制
-  const handleVolumeChange = useCallback((newVolume: number) => {
-    onVolumeChange(newVolume);
-    if (foregroundRef.current) {
-      foregroundRef.current.volume = newVolume / 100;
-      foregroundRef.current.muted = newVolume === 0;
-    }
-  }, [onVolumeChange]);
+  const handleVolumeChange = useCallback(
+    (newVolume: number) => {
+      onVolumeChange(newVolume);
+      if (foregroundRef.current) {
+        foregroundRef.current.volume = newVolume / 100;
+        foregroundRef.current.muted = newVolume === 0;
+      }
+    },
+    [onVolumeChange],
+  );
 
   const handleMuteToggle = useCallback(() => {
     const newMuted = !isMuted;
@@ -808,16 +923,34 @@ const PreviewItem: React.FC<PreviewItemProps> = ({
     }
   }, [isMuted, volume, onMuteChange, onVolumeChange]);
 
+  // 根据 maxWidth/maxHeight 计算实际尺寸
+  const aspectRatio = output.width / output.height;
+  // 预留控件和标题高度
+  const reservedHeight = 80; 
+  const availableHeight = maxHeight - reservedHeight;
+  
+  // 计算宽度不超过 maxWidth，高度不超过 availableHeight
+  let canvasWidth = maxWidth;
+  let canvasHeight = canvasWidth / aspectRatio;
+  
+  if (canvasHeight > availableHeight) {
+    canvasHeight = availableHeight;
+    canvasWidth = canvasHeight * aspectRatio;
+  }
+
   return (
-    <div className="flex flex-col" style={{ minWidth: 250 }}>
+    <div className="flex flex-col" style={{ width: canvasWidth, height: canvasHeight + reservedHeight }}>
       {/* 标题行 */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-2 shrink-0">
         <span className="text-xs font-mono text-slate-400">{output.label}</span>
         <span className="text-[10px] text-slate-500">实时预览</span>
       </div>
 
       {/* 视频画布 */}
-      <div style={{ aspectRatio: style.containerAspectRatio, minWidth: 250 }} className="shrink-0">
+      <div
+        style={{ aspectRatio: style.containerAspectRatio, width: canvasWidth, height: canvasHeight }}
+        className="shrink-0"
+      >
         <VideoCanvas
           src={videoFile.previewUrl!}
           blurAmount={blurAmount}
@@ -832,7 +965,7 @@ const PreviewItem: React.FC<PreviewItemProps> = ({
       </div>
 
       {/* 播放控件 */}
-      <div className="mt-2" style={{ minWidth: 250 }}>
+      <div className="mt-2 shrink-0" style={{ width: canvasWidth }}>
         <VideoControls
           isPlaying={isPlaying}
           currentTime={currentTime}
@@ -869,7 +1002,12 @@ interface MultiPreviewProps {
   onMuteChange: (muted: boolean) => void;
   isProcessing: boolean;
   themeColor: ThemeColor;
-  getPreviewStyle: (ow: number, oh: number, fw: number, fh: number) => PreviewStyle;
+  getPreviewStyle: (
+    ow: number,
+    oh: number,
+    fw: number,
+    fh: number,
+  ) => PreviewStyle;
 }
 
 const MultiPreview: React.FC<MultiPreviewProps> = ({
@@ -884,9 +1022,50 @@ const MultiPreview: React.FC<MultiPreviewProps> = ({
   themeColor,
   getPreviewStyle,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  // 计算容器尺寸
+  useEffect(() => {
+    const calculateSize = () => {
+      if (!containerRef.current) return;
+      const container = containerRef.current;
+      setContainerSize({
+        width: container.clientWidth,
+        height: container.clientHeight,
+      });
+    };
+
+    const timer = setTimeout(calculateSize, 10);
+    const observer = new ResizeObserver(calculateSize);
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, []);
+
+  // 计算每个预览项的最大尺寸（考虑容器和 padding）
+  const padding = 32;
+  const gap = 24;
+  const availableWidth = containerSize.width - padding * 2 - gap;
+  const availableHeight = containerSize.height - padding * 2;
+
+  const itemMaxWidth = Math.floor(availableWidth / 2);
+  const itemMaxHeight = availableHeight;
+
   return (
-    <div className="h-full flex items-center justify-center overflow-y-auto">
-      <div className="grid grid-cols-2 gap-4 w-full max-w-3xl p-4">
+    <div ref={containerRef} className="h-full flex items-center justify-center overflow-y-auto">
+      <div 
+        className="grid grid-cols-2 gap-6 w-full"
+        style={{ 
+          maxWidth: containerSize.width > 0 ? itemMaxWidth * 2 + gap : 'auto',
+          padding: padding / 2 
+        }}
+      >
         {outputs.map((output) => (
           <PreviewItem
             key={output.label}
@@ -900,6 +1079,8 @@ const MultiPreview: React.FC<MultiPreviewProps> = ({
             isProcessing={isProcessing}
             themeColor={themeColor}
             getPreviewStyle={getPreviewStyle}
+            maxWidth={itemMaxWidth}
+            maxHeight={itemMaxHeight}
           />
         ))}
       </div>
