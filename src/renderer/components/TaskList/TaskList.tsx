@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import FilePreviewModal from '../../components/FilePreviewModal';
 import useVideoMaterials, { type VideoMaterial } from '../../hooks/useVideoMaterials';
+import useImageMaterials, { type ImageMaterial } from '../../hooks/useImageMaterials';
 import { formatDuration, formatFileSize } from '../../utils/format';
 
 /**
@@ -57,10 +58,12 @@ export interface TaskListProps {
   output: OutputConfig;
   /** 任务类型 */
   type: string;
-  /** 缩略图来源（category 值） */
+  /**缩略图来源（category 值） */
   thumbnail_source: string;
+  /** 素材类型数组（与 task.files 一一对应） */
+  materialsType?: ('video' | 'image')[];
   /** 主题色 */
-  themeColor: 'slate' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan';
+  themeColor: 'slate' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan' | 'amber';
   /** 任务切换回调 */
   onTaskChange?: (index: number) => void;
   /** 任务变化回调（用于外部同步状态） */
@@ -71,6 +74,16 @@ export interface TaskListProps {
   isProcessing?: boolean;
   /** 日志回调 */
   onLog?: (message: string, type?: 'info' | 'warning' | 'error' | 'success') => void;
+  /** 任务开始回调 */
+  onStart?: (data: { total: number; concurrency: number }) => void;
+  /** 单个任务开始处理回调 */
+  onTaskStart?: (data: { index: number; videoIndex?: number; videoId?: string; taskId?: string }) => void;
+  /** 任务进度回调 */
+  onProgress?: (data: { done: number; failed: number; total: number; index: number }) => void;
+  /** 任务失败回调 */
+  onFailed?: (data: { done: number; failed: number; total: number; index: number; error: string; current?: string }) => void;
+  /** 任务全部完成回调 */
+  onFinish?: (data: { done: number; failed: number }) => void;
 }
 
 /** 主题色配置 */
@@ -147,6 +160,18 @@ const THEME_COLORS = {
     borderLight: 'border-cyan-500/60',
     borderLight30: 'border-cyan-500/30',
   },
+  amber: {
+    text: 'text-amber-400',
+    bg: 'bg-amber-500',
+    border: 'border-amber-500',
+    ring: 'ring-amber-500',
+    bgLight: 'bg-amber-500/5',
+    bgLight20: 'bg-amber-500/20',
+    bgLight30: 'bg-amber-500/30',
+    bgLight70: 'bg-amber-500/70',
+    borderLight: 'border-amber-500/60',
+    borderLight30: 'border-amber-500/30',
+  },
 };
 
 /**
@@ -173,6 +198,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   currentIndex,
   output,
   thumbnail_source,
+  materialsType = [],
   themeColor,
   onTaskChange,
   disabled,
@@ -183,32 +209,57 @@ export const TaskList: React.FC<TaskListProps> = ({
   const colors = THEME_COLORS[themeColor] || THEME_COLORS.rose;
 
   // 当前选中的任务
-  const currentTask = tasks[currentIndex];
+  const currentTask = tasks?.[currentIndex];
 
-  // 收集所有文件路径用于加载素材
-  const allFilePaths = useMemo(() => {
-    const paths: string[] = [];
+  // 收集所有文件路径，并记录每个路径对应的类型
+  const allFilePathsWithType = useMemo(() => {
+    if (!tasks || tasks.length === 0) return [];
+    const paths: { path: string; type: 'video' | 'image' }[] = [];
     tasks.forEach(task => {
-      task.files.forEach(file => {
-        if (!paths.includes(file.path)) {
-          paths.push(file.path);
+      task.files?.forEach((file, fileIdx) => {
+        if (file.path && !paths.find(p => p.path === file.path)) {
+          // 根据 materialsType 数组对应位置的类型，如果没有则默认 video
+          const type = materialsType[fileIdx] || 'video';
+          paths.push({ path: file.path, type });
         }
       });
     });
     return paths;
-  }, [tasks]);
+  }, [tasks, materialsType]);
 
-  // 使用 hook 加载素材（带缓存）
-  const { materials } = useVideoMaterials(allFilePaths, true, {
+  // 分离视频和图片路径
+  const videoPaths = useMemo(() => {
+    return allFilePathsWithType.filter(p => p.type === 'video').map(p => p.path);
+  }, [allFilePathsWithType]);
+
+  const imagePaths = useMemo(() => {
+    return allFilePathsWithType.filter(p => p.type === 'image').map(p => p.path);
+  }, [allFilePathsWithType]);
+
+  // 加载视频素材
+  const { materials: videoMaterials } = useVideoMaterials(videoPaths, true, {
     onLog: onLog ? (message, type) => onLog(message, type) : undefined,
   });
 
+  // 加载图片素材
+  const { materials: imageMaterials } = useImageMaterials(imagePaths, true, {
+    onLog: onLog ? (message, type) => onLog(message, type) : undefined,
+  });
+
+  // 合并所有素材
+  const allMaterials = useMemo(() => {
+    const map = new Map<string, VideoMaterial | ImageMaterial>();
+    videoMaterials.forEach(m => map.set(m.path, m));
+    imageMaterials.forEach(m => map.set(m.path, m));
+    return map;
+  }, [videoMaterials, imageMaterials]);
+
   // 素材映射（path -> material）
   const materialMap = useMemo(() => {
-    const map = new Map<string, VideoMaterial>();
-    materials.forEach(m => map.set(m.path, m));
+    const map = new Map<string, VideoMaterial | ImageMaterial>();
+    allMaterials.forEach((m) => map.set(m.path, m));
     return map;
-  }, [materials]);
+  }, [allMaterials]);
 
   // 预览弹窗状态
   const [showPreview, setShowPreview] = useState(false);
@@ -216,7 +267,7 @@ export const TaskList: React.FC<TaskListProps> = ({
 
   // 预览的文件列表
   const previewAllFiles = useMemo(() => {
-    if (!currentTask) return [];
+    if (!currentTask?.files) return [];
     return currentTask.files.map(f => ({
       path: f.path,
       name: `${f.category_name}${f.index}`,
@@ -301,9 +352,9 @@ export const TaskList: React.FC<TaskListProps> = ({
       {/* 横向滚动任务栏 */}
       <div className="h-20 overflow-x-auto overflow-y-hidden border-b border-slate-800 shrink-0">
         <div className="flex items-center h-full px-4 gap-2">
-          {tasks.map((task, index) => {
+          {(tasks || []).map((task, index) => {
             // 获取缩略图来源的文件
-            const thumbnailFile = task.files.find(f => f.category === thumbnail_source);
+            const thumbnailFile = task.files?.find(f => f.category === thumbnail_source);
             const material = thumbnailFile ? materialMap.get(thumbnailFile.path) : null;
 
             // 计算任务卡片的样式
@@ -439,7 +490,7 @@ export const TaskList: React.FC<TaskListProps> = ({
           </div>
 
           {/* 文件列表 */}
-          {currentTask.files.map((file, fileIndex) => {
+          {(currentTask.files || []).map((file, fileIndex) => {
             const material = materialMap.get(file.path);
             const { Icon, type: fileType } = getFileIcon(file.path);
 
@@ -481,22 +532,22 @@ export const TaskList: React.FC<TaskListProps> = ({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-100 truncate">{file.path.split('/').pop()}</p>
                   <div className="text-xs text-slate-500">
-                    {material?.duration && <span>{formatDuration(material.duration)}</span>}
+                    {!!(material as VideoMaterial)?.duration && <span>{formatDuration((material as VideoMaterial).duration!)}</span>}
                     {material?.width && material?.height && (
                       <span>
-                        {material.duration && ' · '}
+                        {!!(material as VideoMaterial)?.duration && ' · '}
                         {material.width}×{material.height}
                       </span>
                     )}
                     {material?.fileSize && (
                       <span>
-                        {(material.duration || material.width) && ' · '}
+                        {(!!(material as VideoMaterial)?.duration || material?.width) && ' · '}
                         {formatFileSize(material.fileSize)}
                       </span>
                     )}
                     {material?.width && material?.height && (
                       <span>
-                        {(material.duration || material.width || material.fileSize) && ' · '}
+                        {(!!(material as VideoMaterial)?.duration || material?.width || material?.fileSize) && ' · '}
                         {material.aspectRatio}
                       </span>
                     )}

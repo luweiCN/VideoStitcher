@@ -1,162 +1,57 @@
-import React, { useState, useRef, useEffect, MouseEvent, useCallback } from 'react';
-import { ArrowLeft, Loader2, Image as ImageIcon, Move, FolderOpen, Layers, Check, Trash2, Settings, Eye } from 'lucide-react';
-import * as Slider from '@radix-ui/react-slider';
-import * as Checkbox from '@radix-ui/react-checkbox';
-import PageHeader from '../components/PageHeader';
-import OutputDirSelector from '../components/OutputDirSelector';
-import OperationLogPanel from '../components/OperationLogPanel';
-import ConcurrencySelector from '../components/ConcurrencySelector';
-import { FilePreviewModal } from '../components/FilePreviewModal';
-import { FileSelector, FileSelectorGroup, type FileSelectorRef, formatFileSize } from '../components/FileSelector';
-import { Button } from '../components/Button/Button';
-import { useOutputDirCache } from '../hooks/useOutputDirCache';
-import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
-import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
-
-/**
- * 图片文件状态
- */
-interface ImageFile {
-  id: string;
-  path: string;
-  name: string;
-  status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
-  previewUrl?: string;      // 预览图片 URL (用于 Canvas)
-  thumbnailUrl?: string;     // 缩略图 URL (base64，用于任务列表)
-  originalSize?: number;    // 原始文件大小（字节）
-  width?: number;           // 图片宽度
-  height?: number;          // 图片高度
-  orientation?: string;     // 方向: portrait/landscape/square
-}
-
-/**
- * 获取图片信息（尺寸）
- */
-const getImageInfo = async (filePath: string): Promise<{ width?: number; height?: number; orientation?: string }> => {
-  try {
-    const result = await window.api.getImageDimensions(filePath);
-    if (result) {
-      return {
-        width: result.width,
-        height: result.height,
-        orientation: result.orientation
-      };
-    }
-  } catch (err) {
-    addLog(`获取图片尺寸失败: ${err}`, 'error');
-  }
-  return {};
-};
-
-/**
- * 获取文件大小
- */
-const getFileInfo = async (filePath: string): Promise<number | undefined> => {
-  try {
-    const result = await window.api.getFileInfo(filePath);
-    if (result.success && result.info) {
-      return result.info.size;
-    }
-  } catch (err) {
-    addLog(`获取文件信息失败: ${err}`, 'error');
-  }
-  return undefined;
-};
-
-/**
- * 加载缩略图（200x200 base64）- 用于任务列表快速显示
- */
-const loadThumbnail = async (filePath: string): Promise<string | undefined> => {
-  try {
-    const result = await window.api.getPreviewThumbnail(filePath);
-    if (result.success && result.thumbnail) {
-      addLog(`缩略图加载成功: ${filePath}`, 'info');
-      return result.thumbnail;
-    }
-    addLog(`缩略图加载失败: ${result.error || '未知错误'}`, 'error');
-  } catch (err) {
-    addLog(`加载缩略图异常: ${err}`, 'error');
-  }
-  return undefined;
-};
-
-/**
- * Logo 位置状态 (相对于 800x800 画布)
- */
-interface LogoPosition {
-  x: number;
-  y: number;
-}
-
-/**
- * 导出选项
- */
-interface ExportOptions {
-  single: boolean;  // 导出单张完整图 (800x800)
-  grid: boolean;    // 导出九宫格切片 (800x800 x9)
-}
-
-/**
- * 预览尺寸模式
- */
-type PreviewSizeMode = 'cover' | 'fill' | 'inside';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { FolderOpen, Layers, Settings } from "lucide-react";
+import PageHeader from "../components/PageHeader";
+import OutputDirSelector from "../components/OutputDirSelector";
+import OperationLogPanel from "../components/OperationLogPanel";
+import ConcurrencySelector from "../components/ConcurrencySelector";
+import { FileSelector, FileSelectorGroup } from "../components/FileSelector";
+import { Button } from "../components/Button/Button";
+import TaskList, { type Task, type OutputConfig } from "../components/TaskList";
+import { useOutputDirCache } from "../hooks/useOutputDirCache";
+import { useConcurrencyCache } from "../hooks/useConcurrencyCache";
+import { useOperationLogs } from "../hooks/useOperationLogs";
+import { useImageProcessingEvents } from "../hooks/useImageProcessingEvents";
+import { loadImageAsElement } from "../utils/image";
+import {
+  LogoControls,
+  PreviewModeSelector,
+  ExportOptionsPanel,
+  CanvasPreview,
+  type PreviewSizeMode,
+  type ExportOptions,
+} from "./ImageMaterialMode/components";
 
 interface ImageMaterialModeProps {
   onBack: () => void;
 }
 
-/**
- * 预览尺寸模式配置
- */
-const PREVIEW_SIZE_MODES: Record<PreviewSizeMode, { name: string; desc: string }> = {
-  cover: { name: '裁剪正方形', desc: '裁剪为800x800正方形（取中心）' },
-  fill: { name: '拉伸填充', desc: '强制拉伸到800x800（可能变形）' },
-  inside: { name: '保持比例', desc: '按比例缩放，留白填充' },
-};
-
-/**
- * 图片素材处理工具
- * 参考 VideoMaster 项目设计，使用 Sharp 后端处理
- */
 const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
-  // 素材图片列表 - 保留原有的 ImageFile 结构以支持状态跟踪
-  const [images, setImages] = useState<ImageFile[]>([]);
+  const PREVIEW_SIZE = 400;
+  const BASE_SIZE = 800;
 
-  // 当前预览索引
   const [currentIndex, setCurrentIndex] = useState(0);
-
-  // Logo 相关状态
-  const [logoPath, setLogoPath] = useState<string>('');
+  const [logoPath, setLogoPath] = useState<string>("");
   const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
-
-  // Logo 位置和缩放 (相对于 800x800 画布)
-  const [logoPosition, setLogoPosition] = useState<LogoPosition>({ x: 50, y: 50 });
-  const [logoScale, setLogoScale] = useState(1); // 1 = 原始大小
-
-  // 拖动状态
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
-  // 处理状态
+  const [logoPosition, setLogoPosition] = useState({ x: 50, y: 50 });
+  const [logoScale, setLogoScale] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // 并发线程数 - 使用缓存
-  const { concurrency, setConcurrency } = useConcurrencyCache('ImageMaterialMode');
-
-  // 导出选项
+  const [previewSizeMode, setPreviewSizeMode] = useState<PreviewSizeMode>("cover");
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     single: true,
-    grid: true
+    grid: true,
   });
+  const [selectedImagePaths, setSelectedImagePaths] = useState<string[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [previewImageKey, setPreviewImageKey] = useState(0);
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
-  // 预览尺寸模式
-  const [previewSizeMode, setPreviewSizeMode] = useState<PreviewSizeMode>('cover');
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const previewImageRef = useRef<HTMLImageElement | null>(null);
 
-  // 输出目录
-  const { outputDir, setOutputDir } = useOutputDirCache('ImageMaterialMode');
+  const { outputDir, setOutputDir } = useOutputDirCache("ImageMaterialMode");
+  const { concurrency, setConcurrency } = useConcurrencyCache("ImageMaterialMode");
 
-  // 使用日志 Hook
   const {
     logs,
     addLog,
@@ -173,467 +68,270 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
     scrollToTop,
     onUserInteractStart,
   } = useOperationLogs({
-    moduleNameCN: '图片素材',
-    moduleNameEN: 'ImageMaterial',
+    moduleNameCN: "图片素材",
+    moduleNameEN: "ImageMaterial",
   });
 
-  // 常量
-  const PREVIEW_SIZE = 400; // 显示大小 (像素)
-  const BASE_SIZE = 800;    // 逻辑尺寸 (编辑和单图导出)
-
-  // Refs
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const previewImageRef = useRef<HTMLImageElement | null>(null);
-  const fileSelectorRef = useRef<FileSelectorRef>(null);
-  // 追踪当前正在加载的图片路径，用于避免竞态条件
-  const loadingImagePathRef = useRef<string | null>(null);
-
-  // 预览触发器 - 用于触发重绘
-  const [previewTrigger, setPreviewTrigger] = useState(0);
-
-  // 预览弹窗状态
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewIndex, setPreviewIndex] = useState(0);
-
-  /**
-   * 加载指定索引的预览图片
-   */
-  const loadPreviewImage = async (imagePath: string) => {
-    try {
-      addLog(`正在加载预览图: ${imagePath}`, 'info');
-      const result = await window.api.getPreviewUrl(imagePath);
-      if (!result.success || !result.url) {
-        addLog(`获取预览 URL 失败: ${result.error || '未知错误'}`, 'error');
-        return;
-      }
-      const img = new Image();
-      img.src = result.url;
-      img.onload = () => {
-        addLog(`预览图加载成功: ${imagePath}`, 'info');
-        previewImageRef.current = img;
-        // 触发重绘
-        setPreviewTrigger(prev => prev + 1);
-      };
-      img.onerror = () => {
-        addLog(`加载图片失败: ${imagePath}`, 'error');
-      };
-    } catch (err) {
-      addLog(`加载预览失败: ${err}`, 'error');
-    }
-  };
-
-  /**
-   * 加载图片详细信息（尺寸、文件大小）- 懒加载
-   */
-  const loadImageDetails = useCallback(async (img: ImageFile) => {
-    if (img.originalSize && img.width && img.height) {
-      // 已加载过，不再重复加载
-      return img;
-    }
-
-    try {
-      addLog(`正在获取图片详情: ${img.path}`, 'info');
-      const [info, fileInfo] = await Promise.all([
-        getImageInfo(img.path),
-        getFileInfo(img.path)
-      ]);
-
-      // 更新图片信息到状态
-      setImages(prev => prev.map(item =>
-        item.id === img.id
-          ? {
-              ...item,
-              width: info.width,
-              height: info.height,
-              orientation: info.orientation,
-              originalSize: fileInfo
-            }
-          : item
-      ));
-
-      addLog(`图片详情获取成功: ${img.width}x${info.height}, ${(fileInfo / 1024).toFixed(1)}KB`, 'info');
-      return { ...img, ...info, originalSize: fileInfo };
-    } catch (err) {
-      addLog(`获取图片详情失败: ${err}`, 'error');
-      return img;
-    }
-  }, []);
-
-  /**
-   * 切换到指定索引的图片预览
-   * 只负责切换索引，实际的加载由 useEffect 处理
-   */
-  const switchToPreview = useCallback((index: number) => {
-    if (index < 0 || index >= images.length) return;
-    setCurrentIndex(index);
-  }, [images.length]);
-
-  // 上一张
-  const goToPrevious = () => {
-    if (currentIndex > 0) {
-      switchToPreview(currentIndex - 1);
-    }
-  };
-
-  // 下一张
-  const goToNext = () => {
-    if (currentIndex < images.length - 1) {
-      switchToPreview(currentIndex + 1);
-    }
-  };
-
-  /**
-   * 打开任务列表预览
-   */
-  const handleOpenPreview = (index: number) => {
-    setPreviewIndex(index);
-    setShowPreview(true);
-  };
-
-  // 关闭预览
-  const handleClosePreview = () => {
-    setShowPreview(false);
-  };
-
-  // 上一张预览
-  const handlePreviousPreview = () => {
-    if (previewIndex > 0) {
-      setPreviewIndex(previewIndex - 1);
-    }
-  };
-
-  // 下一张预览
-  const handleNextPreview = () => {
-    if (previewIndex < images.length - 1) {
-      setPreviewIndex(previewIndex + 1);
-    }
-  };
-
-  /**
-   * 处理素材图片选择 - 使用 FileSelector
-   */
-  const handleImagesChange = useCallback(async (files: string[]) => {
-    // 如果是空数组（来自 clearFiles 触发的 onChange），不处理
-    if (files.length === 0) {
-      return;
-    }
-
-    addLog(`正在添加 ${files.length} 张图片...`, 'info');
-
-    // 批量加载所有缩略图和第一张的预览图
-    const loadAllThumbnails = async () => {
-      try {
-        // 并行加载所有缩略图
-        const thumbnailResults = await Promise.all(
-          files.map(file => window.api.getPreviewThumbnail(file))
-        );
-
-        // 并行加载第一张的预览图
-        const previewResult = await window.api.getPreviewUrl(files[0]);
-
-        setImages(prev => {
-          const updated = [...prev];
-          const startIndex = prev.length - files.length;
-
-          // 更新每个图片的缩略图
-          files.forEach((file, idx) => {
-            const imageIndex = startIndex + idx;
-            if (updated[imageIndex]) {
-              const thumbnailUrl = thumbnailResults[idx]?.success ? thumbnailResults[idx].thumbnail : undefined;
-              updated[imageIndex] = {
-                ...updated[imageIndex],
-                thumbnailUrl,
-                // 第一张同时设置预览 URL
-                ...(idx === 0 && previewResult.success ? { previewUrl: previewResult.url } : {})
-              };
-            }
-          });
-
-          return updated;
-        });
-      } catch (err) {
-        console.error('加载缩略图失败:', err);
-      }
-    };
-
-    const newImages: ImageFile[] = files.map((path, idx) => ({
-      id: Math.random().toString(36).substr(2, 9),
-      path,
-      name: path.split('/').pop() || path,
-      status: 'pending' as const,
-      previewUrl: undefined,  // 预览图后面统一加载
-      thumbnailUrl: undefined  // 缩略图后面统一加载
-    }));
-
-    setImages(prev => {
-      const updated = [...prev, ...newImages];
-      // 批量加载所有缩略图和第一张预览
-      if (files.length > 0) {
-        loadAllThumbnails();
-        // 如果是第一批图片，同时加载第一张用于 Canvas 预览
-        if (prev.length === 0) {
-          loadPreviewImage(files[0]);
-        }
-      }
-      return updated;
-    });
-
-    addLog(`已添加 ${files.length} 张素材图片`, 'info');
-
-    // 延迟清空 FileSelector 内部列表，避免 onChange 触发死循环
-    setTimeout(() => {
-      fileSelectorRef.current?.clearFiles();
-    }, 0);
-  }, [addLog]);
-
-  /**
-   * 处理 Logo 选择 - 使用 FileSelector
-   */
-  const handleLogoChange = useCallback(async (files: string[]) => {
-    if (files.length > 0) {
-      setLogoPath(files[0]);
-      addLog(`已选择 Logo: ${files[0].split('/').pop()}`, 'info');
-
-      // 加载 Logo 图片
-      const result = await window.api.getPreviewUrl(files[0]);
-      if (result.success && result.url) {
-        const img = new Image();
-        img.src = result.url;
-        img.onload = () => {
-          setLogoImage(img);
-          // 重置位置和缩放
-          setLogoPosition({ x: 50, y: 50 });
-          setLogoScale(1);
-        };
-      }
-    } else {
-      // 清空 Logo
-      clearLogo();
-    }
-  }, [addLog]);
-
-  /**
-   * 清空 Logo
-   */
-  const clearLogo = () => {
-    setLogoPath('');
-    setLogoImage(null);
-    setLogoPosition({ x: 50, y: 50 });
-    setLogoScale(1);
-    drawPreview();
-  };
-
-  /**
-   * 绘制预览画布
-   */
-  const drawPreview = () => {
+  const drawPreview = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // 清空画布
     ctx.clearRect(0, 0, BASE_SIZE, BASE_SIZE);
 
-    // 绘制背景图片
     if (previewImageRef.current) {
       const img = previewImageRef.current;
-
-      // 根据预览模式绘制图片
-      if (previewSizeMode === 'fill') {
-        // 拉伸填充 - 直接拉伸到 800x800
+      if (previewSizeMode === "fill") {
         ctx.drawImage(img, 0, 0, BASE_SIZE, BASE_SIZE);
-      } else if (previewSizeMode === 'cover') {
-        // 裁剪正方形 - 取中心区域
+      } else if (previewSizeMode === "cover") {
         const size = Math.min(img.width, img.height);
         const sx = (img.width - size) / 2;
         const sy = (img.height - size) / 2;
         ctx.drawImage(img, sx, sy, size, size, 0, 0, BASE_SIZE, BASE_SIZE);
       } else {
-        // inside - 保持比例，居中，留白
         const scale = Math.min(BASE_SIZE / img.width, BASE_SIZE / img.height);
         const w = img.width * scale;
         const h = img.height * scale;
         const x = (BASE_SIZE - w) / 2;
         const y = (BASE_SIZE - h) / 2;
-
-        // 白色背景
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, BASE_SIZE, BASE_SIZE);
         ctx.drawImage(img, x, y, w, h);
       }
     } else {
-      // 占位背景
-      ctx.fillStyle = '#0f172a';
+      ctx.fillStyle = "#0f172a";
       ctx.fillRect(0, 0, BASE_SIZE, BASE_SIZE);
-      ctx.strokeStyle = '#1e293b';
+      ctx.strokeStyle = "#1e293b";
       ctx.strokeRect(0, 0, BASE_SIZE, BASE_SIZE);
     }
 
-    // 绘制网格辅助线 (如果启用九宫格导出)
     if (exportOptions.grid) {
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      // 垂直线
       ctx.moveTo(BASE_SIZE / 3, 0);
       ctx.lineTo(BASE_SIZE / 3, BASE_SIZE);
-      ctx.moveTo(BASE_SIZE * 2 / 3, 0);
-      ctx.lineTo(BASE_SIZE * 2 / 3, BASE_SIZE);
-      // 水平线
+      ctx.moveTo((BASE_SIZE * 2) / 3, 0);
+      ctx.lineTo((BASE_SIZE * 2) / 3, BASE_SIZE);
       ctx.moveTo(0, BASE_SIZE / 3);
       ctx.lineTo(BASE_SIZE, BASE_SIZE / 3);
-      ctx.moveTo(0, BASE_SIZE * 2 / 3);
-      ctx.lineTo(BASE_SIZE, BASE_SIZE * 2 / 3);
+      ctx.moveTo(0, (BASE_SIZE * 2) / 3);
+      ctx.lineTo(BASE_SIZE, (BASE_SIZE * 2) / 3);
       ctx.stroke();
     }
 
-    // 绘制 Logo
     if (logoImage) {
       const w = logoImage.width * logoScale;
       const h = logoImage.height * logoScale;
-
       ctx.save();
-      // 绘制选中边框
-      ctx.strokeStyle = '#f59e0b';
+      ctx.strokeStyle = "#f59e0b";
       ctx.lineWidth = 2;
       ctx.strokeRect(logoPosition.x, logoPosition.y, w, h);
-
       ctx.drawImage(logoImage, logoPosition.x, logoPosition.y, w, h);
       ctx.restore();
     }
-  };
+  }, [previewImageRef.current, logoImage, logoPosition, logoScale, exportOptions.grid, previewSizeMode]);
 
-  // 依赖变化时重绘
+  // 切换任务时重绘
   useEffect(() => {
     drawPreview();
-  }, [logoImage, logoPosition, logoScale, exportOptions, previewSizeMode, previewTrigger]);
+  }, [previewImageKey]);
 
-  // 鼠标拖动处理
-  const handleMouseDown = (e: MouseEvent) => {
-    if (!logoImage) return;
-    const rect = canvasRef.current!.getBoundingClientRect();
+  useEffect(() => {
+    drawPreview();
+  }, [logoImage, logoPosition, logoScale, exportOptions, previewSizeMode]);
+
+  useEffect(() => {
+    if (selectedImagePaths.length === 0) {
+      setTasks([]);
+      return;
+    }
+
+    const newTasks: Task[] = selectedImagePaths.map((path, index) => {
+      const files = [
+        {
+          path,
+          index: index + 1,
+          category: 'image',
+          category_name: '图片',
+        }
+      ];
+
+      if (logoPath) {
+        files.push({
+          path: logoPath,
+          index: 1,
+          category: 'logo',
+          category_name: 'Logo',
+        });
+      }
+
+      return {
+        id: `image-${Date.now()}-${index}`,
+        status: 'pending' as const,
+        files,
+        config: {
+          previewSizeMode,
+          logoPosition,
+          logoScale,
+          exportOptions,
+        },
+        outputDir,
+        concurrency,
+      };
+    });
+
+    setTasks(newTasks);
+    setCurrentIndex(0);
+  }, [selectedImagePaths, logoPath, previewSizeMode, logoPosition, logoScale, exportOptions, outputDir, concurrency]);
+
+  useEffect(() => {
+    if (tasks.length > 0 && currentIndex >= 0 && currentIndex < tasks.length) {
+      const task = tasks[currentIndex];
+      const filePath = task.files?.[0]?.path;
+      if (filePath) {
+        requestAnimationFrame(async () => {
+          try {
+            const img = await loadImageAsElement(filePath);
+            if (img) {
+              previewImageRef.current = img;
+              setPreviewImageKey(k => k + 1);
+            }
+          } catch (err) {
+            addLog(`加载预览失败: ${err}`, "error");
+          }
+        });
+      }
+    } else {
+      previewImageRef.current = null;
+    }
+  }, [currentIndex, tasks.length]);
+
+  const handleImagesChange = useCallback(async (files: string[]) => {
+    setSelectedImagePaths(files);
+  }, []);
+
+  const handleLogoChange = useCallback(async (files: string[]) => {
+    if (files.length > 0) {
+      const file = files[0];
+      setLogoPath(file);
+      addLog(`已选择 Logo: ${file.split("/").pop()}`, "info");
+      const img = await loadImageAsElement(file);
+      if (img) {
+        setLogoImage(img);
+        setLogoPosition({ x: 50, y: 50 });
+        setLogoScale(1);
+      }
+    } else {
+      setLogoPath("");
+      setLogoImage(null);
+    }
+  }, [addLog]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!logoImage || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
     const scaleFactor = BASE_SIZE / rect.width;
     const mouseX = (e.clientX - rect.left) * scaleFactor;
     const mouseY = (e.clientY - rect.top) * scaleFactor;
-
     const w = logoImage.width * logoScale;
     const h = logoImage.height * logoScale;
-
     if (mouseX >= logoPosition.x && mouseX <= logoPosition.x + w &&
         mouseY >= logoPosition.y && mouseY <= logoPosition.y + h) {
-      setIsDragging(true);
-      setDragStart({ x: mouseX - logoPosition.x, y: mouseY - logoPosition.y });
+      setIsDraggingLogo(true);
+      setDragOffset({ x: mouseX - logoPosition.x, y: mouseY - logoPosition.y });
     }
-  };
+  }, [logoImage, logoScale, logoPosition]);
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging || !logoImage) return;
-    const rect = canvasRef.current!.getBoundingClientRect();
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDraggingLogo || !logoImage || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
     const scaleFactor = BASE_SIZE / rect.width;
     const mouseX = (e.clientX - rect.left) * scaleFactor;
     const mouseY = (e.clientY - rect.top) * scaleFactor;
+    setLogoPosition({ x: mouseX - dragOffset.x, y: mouseY - dragOffset.y });
+  }, [isDraggingLogo, logoImage, dragOffset]);
 
-    setLogoPosition({
-      x: mouseX - dragStart.x,
-      y: mouseY - dragStart.y
-    });
-  };
+  const handleMouseUp = useCallback(() => {
+    setIsDraggingLogo(false);
+  }, []);
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
+  const handleMouseLeave = useCallback(() => {
+    setIsDraggingLogo(false);
+  }, []);
 
-  // 使用图片处理事件 Hook
+  const outputConfig = useCallback((): OutputConfig => {
+    const modes: string[] = [];
+    if (exportOptions.single) modes.push("单图 800×800");
+    if (exportOptions.grid) modes.push("九宫格切片");
+    
+    return {
+      resolution: modes.join(" + ") || "无",
+      format: "jpg",
+      nums: modes.length,
+    };
+  }, [exportOptions])();
+
   useImageProcessingEvents({
     onStart: (data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`, 'info');
+      addLog(`开始处理: 总任务 ${data.total}, 模式: ${data.mode}`, "info");
     },
     onTaskStart: (data) => {
-      // 记录当前处理第几个任务
-      addLog(`开始处理第 ${data.index + 1} 个任务`, 'info');
-      // 更新对应任务为处理中状态
-      setImages(prev => {
-        const fileIndex = data.index;
-        let found = false;
-        return prev.map((f, idx) => {
-          if (idx === fileIndex && !found) {
-            found = true;
-            return { ...f, status: 'processing' as const };
-          }
-          return f;
-        });
-      });
+      addLog(`开始处理第 ${data.index + 1} 个任务`, "info");
+      setTasks((prev) => prev.map((f, idx) => 
+        idx === data.index ? { ...f, status: "processing" as const } : f
+      ));
     },
     onTaskFinish: (data) => {
-      // 记录第几个任务完成
-      addLog(`第 ${data.index + 1} 个任务完成`, 'success');
-      // 更新对应任务为完成状态
-      setImages(prev => {
-        const fileIndex = data.index;
-        let found = false;
-        return prev.map((f, idx) => {
-          if (idx === fileIndex && !found) {
-            found = true;
-            return { ...f, status: 'completed' as const };
-          }
-          return f;
-        });
-      });
+      addLog(`第 ${data.index + 1} 个任务完成`, "success");
+      setTasks((prev) => prev.map((f, idx) => 
+        idx === data.index ? { ...f, status: "completed" as const } : f
+      ));
     },
     onProgress: (data) => {
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
+      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, "info");
     },
     onFailed: (data) => {
-      addLog(`❌ 处理失败: ${data.current} - ${data.error}`, 'error');
-      // 找到对应的任务并更新为失败状态
-      const failedIndex = images.findIndex(img => img.path === data.current);
+      addLog(`处理失败: ${data.current} - ${data.error}`, "error");
+      const failedIndex = tasks.findIndex((t) => t.files?.[0]?.path === data.current);
       if (failedIndex >= 0) {
-        setImages(prev => prev.map((img, idx) => {
-          if (idx === failedIndex) {
-            return { ...img, status: 'error' as const };
-          }
-          return img;
-        }));
+        setTasks((prev) => prev.map((t, idx) => 
+          idx === failedIndex ? { ...t, status: "error" as const } : t
+        ));
       }
     },
     onFinish: (data) => {
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
+      addLog(`完成! 成功 ${data.done}, 失败 ${data.failed}`, "success");
       setIsProcessing(false);
     },
   });
 
-  // 开始处理
   const processImages = async () => {
-    if (images.length === 0) {
-      addLog('⚠️ 请先选择素材图片', 'warning');
+    if (tasks.length === 0) {
+      addLog("请先选择素材图片", "warning");
       return;
     }
     if (!outputDir) {
-      addLog('⚠️ 请先选择输出目录', 'warning');
+      addLog("请先选择输出目录", "warning");
       return;
     }
     if (!exportOptions.single && !exportOptions.grid) {
-      addLog('⚠️ 请至少选择一种导出模式（单图或九宫格）', 'warning');
+      addLog("请至少选择一种导出模式（单图或九宫格）", "warning");
       return;
     }
     if (isProcessing) return;
 
     setIsProcessing(true);
-    // 不再自动清空日志，保留历史记录
-    addLog('开始图片素材处理...', 'info');
-    addLog(`素材: ${images.length} 张`, 'info');
-    addLog(`Logo: ${logoPath ? '已设置' : '无'}`, 'info');
-    addLog(`预览模式: ${PREVIEW_SIZE_MODES[previewSizeMode].name}`, 'info');
-    addLog(`导出选项: ${exportOptions.single ? '单图 ' : ''}${exportOptions.grid ? '九宫格' : ''}`, 'info');
+    addLog("开始图片素材处理...", "info");
+    addLog(`素材: ${tasks.length} 张`, "info");
+    addLog(`Logo: ${logoPath ? "已设置" : "无"}`, "info");
 
-    // 重置所有图片状态为 waiting（等待处理）
-    setImages(prev => prev.map(img => ({ ...img, status: 'waiting' as const })));
+    setTasks((prev) => prev.map((img) => ({ ...img, status: "waiting" as const })));
 
     try {
       await window.api.imageMaterial({
-        images: images.map(img => img.path),
+        images: tasks.map((t) => t.files?.[0]?.path).filter(Boolean),
         logoPath: logoPath || undefined,
         outputDir,
         previewSize: previewSizeMode,
@@ -643,103 +341,9 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         concurrency: concurrency === 0 ? undefined : concurrency,
       });
     } catch (err: any) {
-      addLog(`❌ 处理失败: ${err.message || err}`, 'error');
+      addLog(`处理失败: ${err.message || err}`, "error");
       setIsProcessing(false);
     }
-  };
-
-  // 当 currentIndex 或 images.length 改变时，自动加载预览图和图片详情
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (images.length > 0 && currentIndex >= 0 && currentIndex < images.length) {
-      const img = images[currentIndex];
-      if (!img) return;
-
-      // 记录当前正在加载的图片路径
-      loadingImagePathRef.current = img.path;
-
-      // 异步加载预览图和详情（不阻塞渲染）
-      requestAnimationFrame(() => {
-        loadPreviewImage(img.path);
-
-        // 懒加载图片详情（如果还没有）
-        if (!img.originalSize || !img.width) {
-          loadImageDetails(img);
-        }
-      });
-    } else {
-      // 没有图片了，清空预览
-      addLog('没有图片了，清空预览', 'info');
-      loadingImagePathRef.current = null;
-      previewImageRef.current = null;
-      // 稍后重绘 Canvas，确保状态已更新
-      setTimeout(() => drawPreview(), 0);
-    }
-  }, [currentIndex, images.length]); // 监听索引变化和数组长度变化（初始添加图片时触发）
-
-  // 删除单个图片
-  const removeImage = (id: string) => {
-    setImages(prev => {
-      const removedIndex = prev.findIndex(img => img.id === id);
-      const removedImg = prev[removedIndex];
-      const filtered = prev.filter(img => img.id !== id);
-
-      addLog(`正在删除任务: ${removedImg.name}`, 'info');
-
-      // 需要重新计算 currentIndex，因为数组索引可能变化
-      let newIndex = currentIndex;
-      let indexChanged = false; // 跟踪索引是否变化
-
-      if (removedIndex < currentIndex) {
-        // 删除的是当前任务前面的，索引需要 -1
-        newIndex = currentIndex - 1;
-        indexChanged = true;
-      } else if (removedIndex === currentIndex) {
-        // 删除的是当前任务，保持索引位置（指向下一个），但如果越界则调整
-        if (newIndex >= filtered.length) {
-          newIndex = filtered.length - 1; // 删除的是最后一张，指向前一个
-        }
-        // 删除当前任务时索引值不变但指向的图片变了
-        indexChanged = true;
-      }
-      // 如果 removedIndex > currentIndex，删除的是后面的任务，currentIndex 不需要变
-
-      // 确保 newIndex 有效
-      if (filtered.length === 0) {
-        newIndex = 0; // 没有图片了
-        indexChanged = true;
-      } else if (newIndex < 0) {
-        newIndex = 0;
-        indexChanged = true;
-      } else if (newIndex >= filtered.length) {
-        newIndex = filtered.length - 1;
-        indexChanged = true;
-      }
-
-      addLog(`删除任务完成，新索引: ${newIndex}`, 'info');
-      setCurrentIndex(newIndex);
-
-      // 删除后手动加载新任务的预览和详情（确保索引变化时也能正确更新）
-      if (filtered.length > 0 && newIndex < filtered.length) {
-        const newImg = filtered[newIndex];
-        setTimeout(() => {
-          loadPreviewImage(newImg.path);
-          if (!newImg.originalSize || !newImg.width) {
-            loadImageDetails(newImg);
-          }
-        }, 0);
-      }
-
-      return filtered;
-    });
-  };
-
-  // 清空图片列表
-  const clearImages = () => {
-    setImages([]);
-    setCurrentIndex(0);
-    previewImageRef.current = null;
-    setPreviewTrigger(prev => prev + 1); // 触发重绘
   };
 
   return (
@@ -751,306 +355,84 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
         iconColor="text-amber-400"
         description="批量加Logo，导出九宫格切片和预览图"
         featureInfo={{
-          title: '图片素材处理',
-          description: '批量为图片添加 Logo 水印，支持导出九宫格切片和预览图。',
+          title: "图片素材处理",
+          description: "批量为图片添加 Logo 水印，支持导出九宫格切片和预览图。",
           details: [
-            '支持批量上传图片，自动添加 Logo 水印',
-            'Logo 可拖动调整位置，支持缩放大小',
-            '三种预览模式：裁剪正方形、拉伸填充、保持比例',
-            '导出选项：单张完整图（800×800）、九宫格切片（9张）',
-            '实时预览效果，所见即所得',
+            "支持批量上传图片，自动添加 Logo 水印",
+            "Logo 可拖动调整位置，支持缩放大小",
+            "三种预览模式：裁剪正方形、拉伸填充、保持比例",
+            "导出选项：单张完整图（800×800）、九宫格切片（9张）",
+            "实时预览效果，所见即所得",
           ],
-          themeColor: 'amber',
+          themeColor: "amber",
         }}
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* 左侧：文件选择 + 基础设置 */}
         <div className="w-96 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="p-4 space-y-4">
-            {/* 文件选择器组 */}
             <FileSelectorGroup>
-              {/* 素材图片 */}
               <FileSelector
-                ref={fileSelectorRef}
                 id="materialImages"
                 name="素材图片"
                 accept="image"
                 multiple
-                showList={false}
                 themeColor="amber"
-                directoryCache
                 onChange={handleImagesChange}
               />
-
-              {/* Logo 水印 */}
               <FileSelector
                 id="logoImage"
                 name="Logo 水印 (可选)"
                 accept="image"
-                multiple={false}
-                showList={false}
                 themeColor="amber"
-                directoryCache
                 onChange={handleLogoChange}
               />
             </FileSelectorGroup>
 
-            {/* Logo 控制 */}
-            {logoImage && (
-              <div className="bg-black/50 border border-slate-800 rounded-xl p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold uppercase tracking-wider">
-                    <Move className="w-3 h-3" /> Logo 调整
-                  </div>
-                  <span className="text-xs text-amber-400 font-mono">{(logoScale * 100).toFixed(0)}%</span>
-                </div>
-                {/* Radix UI Slider */}
-                <Slider.Root
-                  className="relative flex items-center select-none touch-none h-4"
-                  value={[logoScale]}
-                  onValueChange={([value]) => setLogoScale(value)}
-                  min={0.1}
-                  max={3}
-                  step={0.1}
-                >
-                  <Slider.Track className="bg-slate-800 relative grow rounded-full h-1.5">
-                    <Slider.Range className="absolute h-full rounded-full bg-amber-500" />
-                  </Slider.Track>
-                  <Slider.Thumb
-                    className="block w-3 h-3 rounded-full bg-amber-500 hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all cursor-grab active:cursor-grabbing"
-                    aria-label="Logo 缩放"
-                  />
-                </Slider.Root>
-              </div>
-            )}
+            <LogoControls
+              logoImage={logoImage}
+              logoScale={logoScale}
+              onScaleChange={setLogoScale}
+            />
 
-            {/* 预览模式 */}
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-2">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">预览模式</h3>
-              <div className="space-y-2">
-                {(Object.keys(PREVIEW_SIZE_MODES) as PreviewSizeMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setPreviewSizeMode(mode)}
-                    className={`w-full p-3 rounded-lg border text-left transition-all text-sm ${
-                      previewSizeMode === mode
-                        ? 'border-amber-500 bg-amber-500/20 text-amber-400'
-                        : 'border-slate-800 bg-black/50 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="font-medium">{PREVIEW_SIZE_MODES[mode].name}</div>
-                    <div className="text-xs opacity-70 mt-0.5">{PREVIEW_SIZE_MODES[mode].desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <PreviewModeSelector
+              value={previewSizeMode}
+              onChange={setPreviewSizeMode}
+            />
 
-            {/* 导出选项 */}
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-3 space-y-2">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">导出选项</h3>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <Checkbox.Root
-                  className="w-4 h-4 rounded flex items-center justify-center border transition-all cursor-pointer data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 data-[state=unchecked]:border-slate-600 data-[state=unchecked]:bg-black/50"
-                  checked={exportOptions.single}
-                  onCheckedChange={(checked: boolean) => setExportOptions(prev => ({ ...prev, single: checked }))}
-                >
-                  <Checkbox.Indicator className="text-white">
-                    <Check className="w-3 h-3" strokeWidth={3} />
-                  </Checkbox.Indicator>
-                </Checkbox.Root>
-                <span className="text-sm text-slate-300">单张完整图</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <Checkbox.Root
-                  className="w-4 h-4 rounded flex items-center justify-center border transition-all cursor-pointer data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 data-[state=unchecked]:border-slate-600 data-[state=unchecked]:bg-black/50"
-                  checked={exportOptions.grid}
-                  onCheckedChange={(checked: boolean) => setExportOptions(prev => ({ ...prev, grid: checked }))}
-                >
-                  <Checkbox.Indicator className="text-white">
-                    <Check className="w-3 h-3" strokeWidth={3} />
-                  </Checkbox.Indicator>
-                </Checkbox.Root>
-                <span className="text-sm text-slate-300">九宫格切片</span>
-              </label>
-            </div>
+            <ExportOptionsPanel
+              value={exportOptions}
+              onChange={setExportOptions}
+            />
           </div>
         </div>
 
-        {/* 中间：任务列表 + 预览 */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          {/* 任务列表 - 横向滚动 */}
-          <div className="flex-shrink-0 bg-black/50">
-            <div className="px-4 py-2 border-b border-slate-800 flex items-center justify-between">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Layers className="w-3.5 h-3.5 text-amber-400" />
-                任务列表
-              </h2>
-              <div className="flex items-center gap-3">
-                <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
-                  {images.length > 0 ? `${currentIndex + 1} / ${images.length}` : images.length}
-                </span>
-                {images.length > 0 && !isProcessing && (
-                  <button
-                    onClick={() => {
-                      // 清空所有任务
-                      setImages([]);
-                      fileSelectorRef.current?.clearFiles();
-                    }}
-                    className="text-xs text-slate-400 hover:text-amber-400 px-3 py-1.5 rounded-lg border border-slate-700 hover:border-amber-500/50 hover:bg-amber-500/10 transition-all"
-                  >
-                    清除全部
-                  </button>
-                )}
-              </div>
-            </div>
-            {/* 横向滚动任务栏 */}
-            <div className="h-20 overflow-x-auto overflow-y-hidden border-b border-slate-800">
-              <div className="flex items-center h-full px-4 gap-2">
-                {images.map((img, index) => (
-                  <div
-                    key={img.id}
-                    className={`relative shrink-0 w-14 h-14 rounded-lg border cursor-pointer ${
-                      index === currentIndex
-                        ? 'border-amber-500/60 ring-2 ring-amber-500/20 bg-amber-500/5'
-                        : img.status === 'error'
-                        ? 'border-red-500/50 bg-red-500/5'
-                        : img.status === 'completed'
-                        ? 'border-emerald-500/50 bg-emerald-500/5'
-                        : img.status === 'waiting'
-                        ? 'border-amber-500/30 bg-amber-500/5'
-                        : 'border-slate-700 bg-slate-800/50'
-                    }`}
-                    onClick={() => switchToPreview(index)}
-                  >
-                    {/* 缩略图 */}
-                    <div className="absolute inset-0 rounded-lg overflow-hidden">
-                      {img.thumbnailUrl ? (
-                        <img src={img.thumbnailUrl} alt={img.name} className="w-full h-full object-cover" />
-                      ) : img.previewUrl ? (
-                        <img src={img.previewUrl} alt={img.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon className="w-5 h-5 text-slate-600" />
-                        </div>
-                      )}
-                    </div>
+          <TaskList
+            tasks={tasks}
+            currentIndex={currentIndex}
+            output={outputConfig}
+            type="image_material"
+            thumbnail_source="image"
+            materialsType={['image']}
+            themeColor="amber"
+            onTaskChange={setCurrentIndex}
+            isProcessing={isProcessing}
+            onLog={(message, type) => addLog(message, type)}
+          />
 
-                    {/* loading 状态 - 居中覆盖 */}
-                    {img.status === 'processing' && (
-                      <div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center pointer-events-none">
-                        <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
-                      </div>
-                    )}
-                    {/* waiting 状态 - 居中覆盖 */}
-                    {img.status === 'waiting' && (
-                      <div className="absolute inset-0 rounded-lg bg-black/30 flex items-center justify-center pointer-events-none">
-                        <div className="w-4 h-4 rounded-full bg-amber-500/70" />
-                      </div>
-                    )}
-                    {/* completed 状态 - 居中角标放大 */}
-                    {img.status === 'completed' && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-                        <Check className="w-2.5 h-2.5 text-black" />
-                      </div>
-                    )}
-                    {/* error 状态 - 居中角标 */}
-                    {img.status === 'error' && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
-                        <span className="text-black text-[8px] font-bold">!</span>
-                      </div>
-                    )}
-
-                    {/* 当前预览指示器 */}
-                    {index === currentIndex && (
-                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-amber-500 rounded text-[8px] font-medium text-black whitespace-nowrap z-10">
-                        预览
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {images.length === 0 && (
-                  <div className="flex items-center justify-center w-full h-full text-slate-500">
-                    <p className="text-xs">暂无任务</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 选中任务详情 */}
-          {images[currentIndex] && (
-            <div className="px-3 py-2 bg-black/30 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                {/* 缩略图 */}
-                <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden shrink-0">
-                  {images[currentIndex].thumbnailUrl ? (
-                    <img src={images[currentIndex].thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                  ) : images[currentIndex].previewUrl && (
-                    <img src={images[currentIndex].previewUrl} alt="" className="w-full h-full object-cover" />
-                  )}
-                </div>
-                {/* 文件信息 */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-slate-200 truncate">{images[currentIndex].name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {images[currentIndex].originalSize && (
-                      <span className="text-[10px] text-slate-500">{formatFileSize(images[currentIndex].originalSize)}</span>
-                    )}
-                    {images[currentIndex].width && images[currentIndex].height && (
-                      <span className="text-[10px] text-slate-500">{images[currentIndex].width}×{images[currentIndex].height}</span>
-                    )}
-                    {images[currentIndex].orientation && (
-                      <span className="text-[10px] text-slate-500 px-1 py-0.5 bg-slate-800 rounded">
-                        {images[currentIndex].orientation === 'portrait' ? '竖版' : images[currentIndex].orientation === 'landscape' ? '横版' : '方版'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                {/* 操作按钮 */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    onClick={() => handleOpenPreview(currentIndex)}
-                    className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-400 rounded transition-colors"
-                    title="全屏预览"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                  </button>
-                  {!isProcessing && (
-                    <button
-                      onClick={() => removeImage(images[currentIndex].id)}
-                      className="p-1.5 hover:bg-red-500/10 text-slate-500 hover:text-red-400 rounded transition-colors"
-                      title="删除"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 预览画布 */}
           <div className="flex-1 flex flex-col flex-shrink-0 border-t border-slate-800 bg-black p-4 min-h-0">
-            <div className="flex-1 flex items-center justify-center">
-              <div
-                ref={containerRef}
-                className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
-                style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
-              >
-                <canvas
-                  ref={canvasRef}
-                  width={BASE_SIZE}
-                  height={BASE_SIZE}
-                  style={{ width: '100%', height: '100%', cursor: logoImage ? 'move' : 'default' }}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                />
-              </div>
-            </div>
-            {images.length > 0 && (
+            <CanvasPreview
+              canvasRef={canvasRef}
+              previewSize={PREVIEW_SIZE}
+              baseSize={BASE_SIZE}
+              hasLogo={!!logoImage}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseLeave}
+            />
+            {tasks.length > 0 && (
               <div className="text-center mt-3 text-xs text-slate-500">
                 {exportOptions.grid && <span className="mr-3">九宫格切片导出</span>}
                 {exportOptions.single && <span>800x800 完整图</span>}
@@ -1059,35 +441,27 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
           </div>
         </div>
 
-        {/* 右侧：设置 + 日志 + 按钮 */}
         <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
           <div className="flex flex-col flex-1 overflow-y-auto p-4 space-y-4">
-            {/* 输出目录 */}
             <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
                 <Settings className="w-3.5 h-3.5" />
                 设置
               </h3>
-
               <OutputDirSelector
                 value={outputDir}
                 onChange={setOutputDir}
                 disabled={isProcessing}
                 themeColor="amber"
               />
-
-              {/* 并发线程数 */}
               <ConcurrencySelector
-                id="image-material-concurrency"
                 value={concurrency}
                 onChange={setConcurrency}
                 disabled={isProcessing}
                 themeColor="amber"
-                compact
               />
             </div>
 
-            {/* 日志面板 */}
             <OperationLogPanel
               logs={logs}
               addLog={addLog}
@@ -1107,11 +481,15 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
             />
           </div>
 
-          {/* 开始处理按钮 */}
           <div className="p-4 border-t border-slate-800 bg-black/50">
             <Button
               onClick={processImages}
-              disabled={images.length === 0 || isProcessing || !outputDir || (!exportOptions.single && !exportOptions.grid)}
+              disabled={
+                tasks.length === 0 ||
+                isProcessing ||
+                !outputDir ||
+                (!exportOptions.single && !exportOptions.grid)
+              }
               variant="primary"
               size="md"
               fullWidth
@@ -1119,32 +497,10 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
               leftIcon={!isProcessing && <FolderOpen className="w-4 h-4" />}
               themeColor="amber"
             >
-              {isProcessing ? '处理中...' : '开始处理'}
+              {isProcessing ? "处理中..." : "开始处理"}
             </Button>
           </div>
         </div>
-
-        {/* 预览弹窗 */}
-        {showPreview && images[previewIndex] && (
-          <FilePreviewModal
-            file={{
-              path: images[previewIndex].path,
-              name: images[previewIndex].name,
-              type: 'image'
-            }}
-            visible={showPreview}
-            onClose={handleClosePreview}
-            allFiles={images.map(img => ({
-              path: img.path,
-              name: img.name,
-              type: 'image' as const,
-            }))}
-            currentIndex={previewIndex}
-            onPrevious={handlePreviousPreview}
-            onNext={handleNextPreview}
-            themeColor="amber"
-          />
-        )}
       </div>
     </div>
   );

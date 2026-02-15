@@ -465,6 +465,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
             output={outputConfig}
             type="video_ab_stitch"
             thumbnail_source="A"
+            materialsType={['video', 'video']}
             themeColor="rose"
             onTaskChange={setCurrentIndex}
             isProcessing={isProcessing}

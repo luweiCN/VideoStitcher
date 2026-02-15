@@ -25,7 +25,7 @@ interface FilePreviewModalProps {
   /** 切换到下一个文件 */
   onNext?: () => void;
   /** 视频播放器主题色 */
-  themeColor?: 'slate' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan';
+  themeColor?: 'slate' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan' | 'amber';
 }
 
 // ============================================================================

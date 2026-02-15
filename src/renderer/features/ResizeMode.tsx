@@ -371,6 +371,7 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
             output={outputConfig}
             type="video_resize"
             thumbnail_source="V"
+            materialsType={['video']}
             themeColor="rose"
             onTaskChange={setCurrentIndex}
             isProcessing={isProcessing}
