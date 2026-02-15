@@ -8,7 +8,7 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { execFile, spawn } = require("child_process");
-const { runFfmpeg } = require("../ffmpeg/runFfmpeg");
+const { runFfmpeg, getFfmpegPath } = require("../ffmpeg/runFfmpeg");
 const { buildArgs } = require("../ffmpeg/videoMerge");
 const { TaskQueue } = require("../ffmpeg/queue");
 const { generatePreviews, cleanupPreviews } = require("../ffmpeg/videoResize");
@@ -23,27 +23,36 @@ const {
  */
 function getFfprobePath() {
   if (app.isPackaged) {
-    // 打包后：ffprobe 在 app.asar.unpacked/node_modules/@ffprobe-installer/
+    // 打包后：ffprobe 在 app.asar.unpacked/node_modules/@ffprobe-installer/<platform>-<arch>/
     const resourcesPath = process.resourcesPath;
+    
+    // 根据平台选择正确的子目录
+    const platform = process.platform;
+    const arch = process.arch;
+    let subdir;
+    if (platform === "win32") {
+      subdir = "win32-x64";
+    } else if (platform === "darwin") {
+      subdir = arch === "arm64" ? "darwin-arm64" : "darwin-x64";
+    } else {
+      subdir = "linux-x64";
+    }
+    
     const unpackedPath = path.join(
       resourcesPath,
       "app.asar.unpacked",
       "node_modules",
       "@ffprobe-installer",
-      "ffprobe",
+      subdir,
     );
 
-    // 根据 platform 选择正确的可执行文件名
-    const ffprobeBin = process.platform === "win32" ? "ffprobe.exe" : "ffprobe";
+    const ffprobeBin = platform === "win32" ? "ffprobe.exe" : "ffprobe";
     return path.join(unpackedPath, ffprobeBin);
   }
 
   // 开发环境：使用 @ffprobe-installer/ffprobe 提供的路径
   return require("@ffprobe-installer/ffprobe").path;
 }
-
-// 缓存 ffprobe 路径
-const ffprobePath = getFfprobePath();
 
 // 创建任务队列 (复用现有逻辑)
 const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
@@ -98,7 +107,7 @@ async function getVideoMetadata(filePath) {
       filePath,
     ];
 
-    const process = spawn(ffprobePath, args, { windowsHide: true });
+    const process = spawn(getFfprobePath(), args, { windowsHide: true });
     let stdout = "";
     let stderr = "";
 
@@ -236,8 +245,8 @@ async function getVideoFullInfo(filePath, options = {}) {
       return { ...result, success: false, error: "文件不存在" };
     }
 
-    // 获取 ffmpeg 路径
-    const ffmpeg = require("ffmpeg-static");
+// 获取 ffmpeg 路径（兼容打包环境）
+    const ffmpeg = getFfmpegPath();
 
     // 并行执行所有操作
     const [thumbnailResult, statsResult, metadataResult] =
