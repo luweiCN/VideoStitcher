@@ -169,9 +169,10 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
    */
   const handleVideosChange = useCallback((filePaths: string[]) => {
     setVideoPaths(filePaths);
+    // 始终重置当前预览索引
+    setCurrentIndex(0);
     if (filePaths.length === 0) {
       setVideos([]);
-      setCurrentIndex(0);
     }
   }, []);
 
