@@ -343,6 +343,19 @@ export const TaskList: React.FC<TaskListProps> = ({
           任务列表
         </h2>
         <div className="flex items-center gap-3">
+          {tasks.length > 0 && (isProcessing || tasks.some(t => t.status === 'waiting' || t.status === 'processing')) && (
+            <div className="flex items-center gap-2">
+              <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full ${colors.bg} transition-all duration-300`}
+                  style={{ width: `${((tasks.filter(t => t.status === 'completed').length) / tasks.length) * 100}%` }}
+                />
+              </div>
+              <span className={`text-xs ${colors.text}`}>
+                {tasks.filter(t => t.status === 'completed').length}/{tasks.length}
+              </span>
+            </div>
+          )}
           <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
             {tasks.length > 0 ? `${currentIndex + 1} / ${tasks.length}` : tasks.length}
           </span>
