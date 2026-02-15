@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Loader2, Settings, Link2,
-  Eye, Play, Monitor, Smartphone, Layers, ArrowLeft, CheckCircle, XCircle, FileVideo
+  Eye, Play, Monitor, Smartphone, XCircle
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import OutputDirSelector from '../components/OutputDirSelector';
 import ConcurrencySelector from '../components/ConcurrencySelector';
 import OperationLogPanel from '../components/OperationLogPanel';
 import FilePreviewModal from '../components/FilePreviewModal';
-import { FileSelector, FileSelectorGroup, type FileSelectorRef, formatFileSize } from '../components/FileSelector';
-import { formatDuration } from '../utils/format';
+import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '../components/FileSelector';
 import { Button } from '../components/Button/Button';
 import TaskCountSlider, { type TaskSource } from '../components/TaskCountSlider';
 import VideoPlayer from '../components/VideoPlayer/VideoPlayer';
+import TaskList, { type Task, type OutputConfig } from '../components/TaskList';
 import { useOutputDirCache } from '../hooks/useOutputDirCache';
 import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
 import { useOperationLogs } from '../hooks/useOperationLogs';
@@ -27,20 +27,6 @@ interface VideoStitcherModeProps {
 
 type Orientation = 'landscape' | 'portrait';
 
-/**
- * 合成任务数据结构
- */
-interface StitchTask {
-  id: string;
-  status: 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
-  aVideo: VideoMaterial;
-  bVideo: VideoMaterial;
-  aIndex: number;  // A 面视频序号（1开始）
-  bIndex: number;  // B 面视频序号（1开始）
-  outputFileName: string;
-  error?: string;
-}
-
 const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   // 配置状态
   const { outputDir, setOutputDir } = useOutputDirCache('VideoStitcherMode');
@@ -49,7 +35,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
 
   // 任务列表状态
-  const [tasks, setTasks] = useState<StitchTask[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // 原始素材池（用于任务生成）
@@ -96,6 +82,15 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
       : { width: 1080, height: 1920, label: '1080×1920', aspectRatio: '9/16' };
   }, [orientation]);
 
+  // 输出配置（用于 TaskList）
+  const outputConfig = useMemo((): OutputConfig => ({
+    fps: '30fps',
+    resolution: canvasConfig.label.replace('×', 'x'),
+    codec: 'H.264',
+    format: 'mp4',
+    nums: 1,
+  }), [canvasConfig.label]);
+
   // 日志管理
   const {
     logs,
@@ -120,17 +115,29 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   // 当前选中的任务
   const currentTask = tasks[currentIndex];
 
+  // A 面文件在 files[0]，B 面文件在 files[1]
+  const currentAFile = currentTask?.files[0];
+  const currentBFile = currentTask?.files[1];
+
+  // 加载当前任务的素材信息
+  const { materials: currentMaterials } = useVideoMaterials(
+    currentTask ? [currentAFile?.path, currentBFile?.path].filter(Boolean) as string[] : [],
+    !!currentTask
+  );
+  const currentAMaterial = currentMaterials[0];
+  const currentBMaterial = currentMaterials[1];
+
   // 预览弹窗状态
   const [showPreview, setShowPreview] = useState(false);
   const [previewType, setPreviewType] = useState<'a' | 'b'>('a');
 
   // 使用 hook 管理预览视频（只截取 A 最后 5 秒 + B 前 5 秒）
-  const previewConfig = currentTask ? {
-    aPath: currentTask.aVideo.path,
-    bPath: currentTask.bVideo.path,
+  const previewConfig = currentAMaterial && currentBMaterial ? {
+    aPath: currentAMaterial.path,
+    bPath: currentBMaterial.path,
     orientation,
-    aDuration: currentTask.aVideo.duration,
-    bDuration: currentTask.bVideo.duration,
+    aDuration: currentAMaterial.duration,
+    bDuration: currentBMaterial.duration,
   } : null;
 
   const {
@@ -185,16 +192,14 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
       (elements, indices, taskIndex) => {
         const aMaterial = elements[0] as VideoMaterial;
         const bMaterial = elements[1] as VideoMaterial;
-        const outputFileName = `${aMaterial.name.split('.')[0]}_${bMaterial.name.split('.')[0]}.mp4`;
 
         return {
           id: `stitch-${Date.now()}-${taskIndex}`,
           status: 'pending' as const,
-          aVideo: aMaterial,
-          bVideo: bMaterial,
-          aIndex: indices[0] + 1,  // 1 开始
-          bIndex: indices[1] + 1,
-          outputFileName,
+          files: [
+            { path: aMaterial.path, index: indices[0] + 1, category: 'A', category_name: 'A' },
+            { path: bMaterial.path, index: indices[1] + 1, category: 'B', category_name: 'B' },
+          ],
         };
       },
       { priority: [0, 1] }  // 优先按A(0)排序，其次按B(1)排序
@@ -295,52 +300,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   }, [tasks, currentIndex]);
 
   /**
-   * 切换任务
-   */
-  const switchToTask = (index: number) => {
-    if (index < 0 || index >= tasks.length) return;
-    setCurrentIndex(index);
-  };
-
-  /**
-   * 上一条任务
-   */
-  const goToPrevious = () => {
-    if (currentIndex > 0) {
-      switchToTask(currentIndex - 1);
-    }
-  };
-
-  /**
-   * 下一条任务
-   */
-  const goToNext = () => {
-    if (currentIndex < tasks.length - 1) {
-      switchToTask(currentIndex + 1);
-    }
-  };
-
-  /**
-   * 打开 A 面视频预览
-   */
-  const handleOpenAPreview = useCallback(() => {
-    if (currentTask?.aVideo) {
-      setPreviewType('a');
-      setShowPreview(true);
-    }
-  }, [currentTask]);
-
-  /**
-   * 打开 B 面视频预览
-   */
-  const handleOpenBPreview = useCallback(() => {
-    if (currentTask?.bVideo) {
-      setPreviewType('b');
-      setShowPreview(true);
-    }
-  }, [currentTask]);
-
-  /**
    * 关闭预览弹窗
    */
   const handleClosePreview = useCallback(() => {
@@ -374,8 +333,8 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
 
     try {
       await window.api.videoStitchAB({
-        aFiles: tasks.map(t => t.aVideo.path),
-        bFiles: tasks.map(t => t.bVideo.path),
+        aFiles: tasks.map(t => t.files[0]?.path),
+        bFiles: tasks.map(t => t.files[1]?.path),
         outputDir,
         orientation,
         concurrency: concurrency === 0 ? undefined : concurrency
@@ -388,7 +347,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   };
 
   // 预览弹窗使用的文件信息
-  const previewFile = previewType === 'a' ? currentTask?.aVideo : currentTask?.bVideo;
+  const previewFile = previewType === 'a' ? currentAMaterial : currentBMaterial;
 
   return (
     <div className="h-screen flex flex-col bg-black text-slate-100">
@@ -452,7 +411,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
               max={maxCombinations}
               onChange={handleTaskCountChange}
               sources={taskSources}
-              themeColor="pink"
+              themeColor="rose"
               disabled={isProcessing}
             />
 
@@ -468,7 +427,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                   multiple
                   showList
                   maxHeight={200}
-                  themeColor="pink"
+                  themeColor="rose"
                   directoryCache
                   onChange={handleAFilesChange}
                   disabled={isProcessing}
@@ -482,7 +441,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                   multiple
                   showList
                   maxHeight={200}
-                  themeColor="pink"
+                  themeColor="rose"
                   directoryCache
                   onChange={handleBFilesChange}
                   disabled={isProcessing}
@@ -494,251 +453,18 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-black">
-          {/* 任务列表区域 */}
-          <div className="flex-shrink-0 overflow-hidden flex flex-col">
-            {/* 任务列表 Header */}
-            <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-black/50 shrink-0">
-              <h2 className="font-bold text-sm text-slate-300 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-pink-400" />
-                任务列表
-              </h2>
-              <div className="flex items-center gap-3">
-                <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
-                  {tasks.length > 0 ? `${currentIndex + 1} / ${tasks.length}` : tasks.length}
-                </span>
-              </div>
-            </div>
-
-            {/* 横向滚动任务栏 */}
-            <div className="h-20 overflow-x-auto overflow-y-hidden border-b border-slate-800 shrink-0">
-              <div className="flex items-center h-full px-4 gap-2">
-                {tasks.map((task, index) => (
-                  <div
-                    key={task.id}
-                    className={`relative shrink-0 w-14 h-14 rounded-lg border cursor-pointer ${
-                      index === currentIndex
-                        ? 'border-pink-500/60 ring-2 ring-pink-500/20 bg-pink-500/5'
-                        : task.status === 'error'
-                        ? 'border-red-500/50 bg-red-500/5'
-                        : task.status === 'completed'
-                        ? 'border-emerald-500/50 bg-emerald-500/5'
-                        : task.status === 'waiting'
-                        ? 'border-pink-500/30 bg-pink-500/5'
-                        : task.status === 'processing'
-                        ? 'border-pink-500/30 bg-pink-500/5'
-                        : 'border-slate-700 bg-black/50'
-                    }`}
-                    onClick={() => switchToTask(index)}
-                  >
-                    {/* 缩略图 - 使用 A 面视频缩略图 */}
-                    <div className="absolute inset-0 rounded-lg overflow-hidden">
-                      {task.aVideo.thumbnailUrl ? (
-                        <img src={task.aVideo.thumbnailUrl} alt={task.aVideo.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-black">
-                          <FileVideo className="w-5 h-5 text-slate-600" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* processing 状态 */}
-                    {task.status === 'processing' && (
-                      <div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center pointer-events-none">
-                        <Loader2 className="w-5 h-5 text-pink-500 animate-spin" />
-                      </div>
-                    )}
-                    {/* waiting 状态 */}
-                    {task.status === 'waiting' && (
-                      <div className="absolute inset-0 rounded-lg bg-black/30 flex items-center justify-center pointer-events-none">
-                        <div className="w-4 h-4 rounded-full bg-pink-500/70" />
-                      </div>
-                    )}
-                    {/* completed 状态 */}
-                    {task.status === 'completed' && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-                        <CheckCircle className="w-2.5 h-2.5 text-black" />
-                      </div>
-                    )}
-                    {/* error 状态 */}
-                    {task.status === 'error' && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
-                        <span className="text-black text-[8px] font-bold">!</span>
-                      </div>
-                    )}
-
-                    {/* 当前预览指示器 */}
-                    {index === currentIndex && (
-                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-pink-500 rounded text-[8px] font-medium text-black whitespace-nowrap z-10">
-                        预览
-                      </div>
-                    )}
-                  </div>
-                ))}
-                {tasks.length === 0 && (
-                  <div className="flex items-center justify-center w-full h-full text-slate-500">
-                    <p className="text-xs">暂无任务</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 合成详情区域 */}
-            {currentTask && (
-              <div className="bg-black/30 border-b border-slate-800 shrink-0">
-                {/* 第一行：合成配置 + 导航/操作 */}
-                <div className="px-3 py-2 flex items-center gap-2 border-b border-slate-800/50">
-                  {/* 左侧导航 */}
-                  <button
-                    onClick={goToPrevious}
-                    disabled={currentIndex === 0}
-                    className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-
-                  {/* 合成配置信息 */}
-                  <div className="flex items-center gap-3 text-[10px]">
-                    <span className="text-slate-500">输出</span>
-                    <span className="text-pink-400 font-medium">{canvasConfig.label}</span>
-                    <span className="text-slate-600">·</span>
-                    <span className="text-slate-500">帧率</span>
-                    <span className="text-slate-200">30fps</span>
-                  </div>
-
-                  {/* 弹性空间 */}
-                  <div className="flex-1" />
-
-                  {/* 状态指示 */}
-                  {currentTask.status === 'processing' && (
-                    <Loader2 className="w-4 h-4 text-pink-500 animate-spin" />
-                  )}
-                  {currentTask.status === 'completed' && (
-                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                  )}
-                  {currentTask.status === 'error' && (
-                    <XCircle className="w-4 h-4 text-red-400" />
-                  )}
-
-                  {/* 右侧导航 */}
-                  <button
-                    onClick={goToNext}
-                    disabled={currentIndex >= tasks.length - 1}
-                    className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ArrowLeft className="w-4 h-4 rotate-180" />
-                  </button>
-                </div>
-
-                {/* 第二行：A 面视频 */}
-                <div className="px-3 py-2 flex items-center gap-2 border-b border-slate-800/30">
-                  {/* A 面标签 */}
-                  <div className="flex items-center gap-1.5 shrink-0 w-14">
-                    <div className="w-5 h-5 rounded bg-violet-500/20 flex items-center justify-center">
-                      <Monitor className="w-3 h-3 text-violet-400" />
-                    </div>
-                    <span className="text-[10px] font-medium text-violet-400">A{currentTask.aIndex}</span>
-                  </div>
-                  {/* A 面缩略图 */}
-                  <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden shrink-0">
-                    {currentTask.aVideo.thumbnailUrl ? (
-                      <img src={currentTask.aVideo.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <FileVideo className="w-5 h-5 text-slate-600" />
-                      </div>
-                    )}
-                  </div>
-                  {/* A 面文件信息 */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-200 truncate">{currentTask.aVideo.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {currentTask.aVideo.fileSize && (
-                        <span className="text-[10px] text-slate-500">{formatFileSize(currentTask.aVideo.fileSize)}</span>
-                      )}
-                      {currentTask.aVideo.width && currentTask.aVideo.height && (
-                        <>
-                          <span className="text-[10px] text-slate-500">{currentTask.aVideo.width}×{currentTask.aVideo.height}</span>
-                          <span className="text-[10px] text-slate-500">
-                            ({(currentTask.aVideo.width / currentTask.aVideo.height).toFixed(2)})
-                          </span>
-                        </>
-                      )}
-                      {currentTask.aVideo.duration && (
-                        <span className="text-[10px] text-slate-500">{formatDuration(currentTask.aVideo.duration)}</span>
-                      )}
-                      {currentTask.aVideo.orientation && (
-                        <span className="text-[10px] text-slate-500 px-1.5 py-0.5 bg-slate-800 rounded">
-                          {currentTask.aVideo.orientation === 'landscape' ? '横版' : currentTask.aVideo.orientation === 'portrait' ? '竖版' : '方形'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* A 面预览按钮 */}
-                  <button
-                    onClick={handleOpenAPreview}
-                    className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-slate-300 rounded transition-colors shrink-0"
-                    title="预览 A 面"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* 第三行：B 面视频 */}
-                <div className="px-3 py-2 flex items-center gap-2">
-                  {/* B 面标签 */}
-                  <div className="flex items-center gap-1.5 shrink-0 w-14">
-                    <div className="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center">
-                      <Smartphone className="w-3 h-3 text-indigo-400" />
-                    </div>
-                    <span className="text-[10px] font-medium text-indigo-400">B{currentTask.bIndex}</span>
-                  </div>
-                  {/* B 面缩略图 */}
-                  <div className="w-10 h-10 rounded bg-slate-800 overflow-hidden shrink-0">
-                    {currentTask.bVideo.thumbnailUrl ? (
-                      <img src={currentTask.bVideo.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <FileVideo className="w-5 h-5 text-slate-600" />
-                      </div>
-                    )}
-                  </div>
-                  {/* B 面文件信息 */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-200 truncate">{currentTask.bVideo.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {currentTask.bVideo.fileSize && (
-                        <span className="text-[10px] text-slate-500">{formatFileSize(currentTask.bVideo.fileSize)}</span>
-                      )}
-                      {currentTask.bVideo.width && currentTask.bVideo.height && (
-                        <>
-                          <span className="text-[10px] text-slate-500">{currentTask.bVideo.width}×{currentTask.bVideo.height}</span>
-                          <span className="text-[10px] text-slate-500">
-                            ({(currentTask.bVideo.width / currentTask.bVideo.height).toFixed(2)})
-                          </span>
-                        </>
-                      )}
-                      {currentTask.bVideo.duration && (
-                        <span className="text-[10px] text-slate-500">{formatDuration(currentTask.bVideo.duration)}</span>
-                      )}
-                      {currentTask.bVideo.orientation && (
-                        <span className="text-[10px] text-slate-500 px-1.5 py-0.5 bg-slate-800 rounded">
-                          {currentTask.bVideo.orientation === 'landscape' ? '横版' : currentTask.bVideo.orientation === 'portrait' ? '竖版' : '方形'}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* B 面预览按钮 */}
-                  <button
-                    onClick={handleOpenBPreview}
-                    className="p-1.5 hover:bg-slate-800 text-slate-500 hover:text-slate-300 rounded transition-colors shrink-0"
-                    title="预览 B 面"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* 任务列表区域 - 使用通用 TaskList 组件 */}
+          <TaskList
+            tasks={tasks}
+            currentIndex={currentIndex}
+            output={outputConfig}
+            type="video_ab_stitch"
+            thumbnail_source="A"
+            themeColor="rose"
+            onTaskChange={setCurrentIndex}
+            isProcessing={isProcessing}
+            onLog={(message, type) => addLog(message, type)}
+          />
 
           {/* 预览区域 */}
           <div className="flex-1 flex overflow-hidden min-h-0">
@@ -777,6 +503,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                     }
                   >
                     <VideoPlayer
+                      key={`${orientation}-${previewPath}`}
                       src={`preview://${encodeURIComponent(previewPath)}`}
                       loop
                       muted={muted}
@@ -815,14 +542,14 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                 value={outputDir}
                 onChange={setOutputDir}
                 disabled={isProcessing}
-                themeColor="pink"
+                themeColor="rose"
               />
 
               <ConcurrencySelector
                 value={concurrency}
                 onChange={setConcurrency}
                 disabled={isProcessing}
-                themeColor="pink"
+                themeColor="rose"
               />
             </div>
 
@@ -863,7 +590,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
                 scrollToBottom={scrollToBottom}
                 scrollToTop={scrollToTop}
                 onUserInteractStart={onUserInteractStart}
-                themeColor="pink"
+                themeColor="rose"
               />
             </div>
 
@@ -893,17 +620,10 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
           }}
           visible={showPreview}
           onClose={handleClosePreview}
-          allFiles={(previewType === 'a' ? tasks.map(t => t.aVideo) : tasks.map(t => t.bVideo)).map(v => ({
-            path: v.path,
-            name: v.name,
-            type: 'video' as const,
-          }))}
-          currentIndex={previewType === 'a'
-            ? tasks.slice(0, currentIndex + 1).filter(t => t.aVideo).length - 1
-            : currentIndex
-          }
-          onPrevious={previewType === 'b' ? goToPrevious : undefined}
-          onNext={previewType === 'b' ? goToNext : undefined}
+          allFiles={[]}
+          currentIndex={0}
+          onPrevious={undefined}
+          onNext={undefined}
           themeColor={previewType === 'a' ? 'violet' : 'fuchsia'}
         />
       )}

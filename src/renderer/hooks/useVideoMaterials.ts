@@ -13,6 +13,7 @@ export interface VideoMaterial {
   duration?: number;
   fileSize?: number;
   orientation?: 'landscape' | 'portrait' | 'square';
+  aspectRatio?: string;  // 长宽比，如 "16:9"
   /** 是否正在加载 */
   isLoading?: boolean;
   /** 是否加载完成 */
@@ -43,6 +44,7 @@ async function fetchVideoMaterial(filePath: string): Promise<VideoMaterial> {
       material.height = result.height || undefined;
       material.duration = result.duration || undefined;
       material.orientation = result.orientation || undefined;
+      material.aspectRatio = result.aspectRatio || undefined;
     }
 
     material.isLoaded = true;

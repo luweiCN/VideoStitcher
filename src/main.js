@@ -1092,10 +1092,10 @@ ipcMain.handle("generate-stitch-preview-fast", async (_event, { aPath, bPath, or
     const os = require("os");
     const crypto = require("crypto");
 
-    // 生成临时文件路径
+    // 生成临时文件路径（包含 orientation 避免冲突）
     const tempDir = os.tmpdir();
     const tempId = crypto.randomBytes(8).toString("hex");
-    const tempPath = path.join(tempDir, `preview_fast_${tempId}.mp4`);
+    const tempPath = path.join(tempDir, `preview_fast_${orientation}_${tempId}.mp4`);
 
     // 截取时间配置
     const CLIP_DURATION = 5; // 每个视频截取 5 秒
