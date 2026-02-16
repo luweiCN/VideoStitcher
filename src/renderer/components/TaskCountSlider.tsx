@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Minus, Plus } from 'lucide-react';
 
 /**
@@ -59,14 +59,40 @@ export const TaskCountSlider: React.FC<TaskCountSliderProps> = ({
   title = '生成数量',
   themeColor = 'pink',
 }) => {
+  const [inputValue, setInputValue] = useState(String(value));
+  
+  // 同步外部 value 变化
+  useEffect(() => {
+    setInputValue(String(value));
+  }, [value]);
+
   const allRequiredHaveCount = sources.filter(s => s.required).every(s => s.count > 0);
   const canGenerate = allRequiredHaveCount && max > 0;
   const themeColors = colorMap[themeColor] || colorMap.pink;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = parseInt(e.target.value, 10);
-    if (!isNaN(newValue)) {
-      onChange(Math.max(1, Math.min(max, newValue)));
+    const newVal = e.target.value;
+    setInputValue(newVal);
+  };
+
+  const handleInputBlur = () => {
+    const newValue = parseInt(inputValue, 10);
+    if (isNaN(newValue) || newValue < 1) {
+      setInputValue(String(value));
+      onChange(1);
+    } else if (newValue > max) {
+      setInputValue(String(max));
+      onChange(max);
+    } else {
+      setInputValue(String(newValue));
+      onChange(newValue);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleInputBlur();
+      (e.target as HTMLInputElement).blur();
     }
   };
 
@@ -147,9 +173,11 @@ export const TaskCountSlider: React.FC<TaskCountSliderProps> = ({
         <div className="flex flex-col items-center">
           <div className="relative">
             <input
-              type="number"
-              value={value}
+              type="text"
+              value={inputValue}
               onChange={handleInputChange}
+              onBlur={handleInputBlur}
+              onKeyDown={handleKeyDown}
               disabled={disabled}
               min={1}
               max={max}

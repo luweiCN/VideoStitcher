@@ -23,6 +23,7 @@ const { registerVideoHandlers } = require("./ipcHandlers/video");
 const { registerImageHandlers } = require("./ipcHandlers/image");
 const { registerAuthHandlers } = require("./ipcHandlers/auth");
 const { registerFileHandlers } = require("./ipcHandlers/file");
+const { registerTaskGeneratorHandlers } = require("./ipcHandlers/taskGenerator");
 
 let win;
 
@@ -283,6 +284,15 @@ app.whenReady().then(() => {
     console.log('[主进程] 文件处理器注册完成');
   } catch (err) {
     console.error('[主进程] 注册文件处理器失败:', err);
+  }
+
+  try {
+    // 注册任务生成器 IPC 处理器
+    console.log('[主进程] 注册任务生成器...');
+    registerTaskGeneratorHandlers();
+    console.log('[主进程] 任务生成器注册完成');
+  } catch (err) {
+    console.error('[主进程] 注册任务生成器失败:', err);
   }
 
   // macOS 应用内更新处理器（需要在 setupAutoUpdater 之前）

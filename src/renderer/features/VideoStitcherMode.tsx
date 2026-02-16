@@ -19,7 +19,6 @@ import { useOperationLogs } from '../hooks/useOperationLogs';
 import { useVideoProcessingEvents } from '../hooks/useVideoProcessingEvents';
 import useVideoMaterials, { type VideoMaterial } from '../hooks/useVideoMaterials';
 import useStitchPreview from '../hooks/useStitchPreview';
-import { generateTasks as generateBalancedTasks } from '../utils/balancedCombinations';
 
 interface VideoStitcherModeProps {
   onBack: () => void;
@@ -57,6 +56,7 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
 
   // 任务数量控制
   const [taskCount, setTaskCount] = useState(1);
+  const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
 
   // 计算最大组合数
   const maxCombinations = useMemo(() => {
@@ -170,11 +170,9 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
   }, [setConcurrency]);
 
   /**
-   * 生成任务列表
-   * 使用均匀组合算法，确保每个素材尽量被均匀使用
-   * 排序优先级：A > B（先按A索引排序，再按B索引排序）
+   * 生成任务列表（通过 IPC 调用主进程）
    */
-  const generateTasks = useCallback((
+  const generateTasks = useCallback(async (
     aMatList: VideoMaterial[],
     bMatList: VideoMaterial[],
     count: number
@@ -185,34 +183,39 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
       return;
     }
 
-    // 使用均匀组合算法生成任务，排序优先级 A > B
-    const newTasks = generateBalancedTasks(
-      [aMatList, bMatList],
+    setIsGeneratingTasks(true);
+    addLog(`正在生成 ${count} 个任务...`, 'info');
+
+    // 使用 setTimeout 让 UI 有机会更新
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // 调用主进程生成任务
+    const aPaths = aMatList.map(m => m.path);
+    const bPaths = bMatList.map(m => m.path);
+
+    const result = await window.api.generateStitchTasks({
+      aPaths,
+      bPaths,
       count,
-      (elements, indices, taskIndex) => {
-        const aMaterial = elements[0] as VideoMaterial;
-        const bMaterial = elements[1] as VideoMaterial;
+      outputDir,
+      concurrency,
+      orientation,
+    });
 
-        return {
-          id: `stitch-${Date.now()}-${taskIndex}`,
-          status: 'pending' as const,
-          files: [
-            { path: aMaterial.path, index: indices[0] + 1, category: 'A', category_name: 'A' },
-            { path: bMaterial.path, index: indices[1] + 1, category: 'B', category_name: 'B' },
-          ],
-          config: {
-            orientation,
-          },
-          outputDir,
-          concurrency,
-        };
-      },
-      { priority: [0, 1] }  // 优先按A(0)排序，其次按B(1)排序
-    );
+    if (result.success && result.tasks) {
+      // 再次使用 setTimeout 让 UI 有机会更新
+      await new Promise(resolve => setTimeout(resolve, 0));
+      setTasks(result.tasks as Task[]);
+      setCurrentIndex(0);
+      addLog(`已生成 ${result.tasks.length} 个任务`, 'success');
+    } else {
+      setTasks([]);
+      setCurrentIndex(0);
+      addLog('任务生成失败', 'error');
+    }
 
-    setTasks(newTasks);
-    setCurrentIndex(0);
-  }, [orientation, outputDir, concurrency]);
+    setIsGeneratingTasks(false);
+  }, [orientation, outputDir, concurrency, addLog]);
 
   /**
    * A 面文件变化处理
@@ -222,10 +225,10 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     if (files.length > 0) {
       addLog(`已选择 ${files.length} 个 A 面视频`, 'info');
     }
-    // 文件变化时重置 taskCount 为最大值
+    // 文件变化时重置 taskCount 为最大值（最大不超过 100）
     const newMax = files.length * bFiles.length;
     if (newMax > 0) {
-      setTaskCount(newMax);
+      setTaskCount(Math.min(newMax, 100));
     }
   }, [addLog, bFiles.length]);
 
@@ -237,10 +240,10 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     if (files.length > 0) {
       addLog(`已选择 ${files.length} 个 B 面视频`, 'info');
     }
-    // 文件变化时重置 taskCount 为最大值
+    // 文件变化时重置 taskCount 为最大值（最大不超过 100）
     const newMax = aFiles.length * files.length;
     if (newMax > 0) {
-      setTaskCount(newMax);
+      setTaskCount(Math.min(newMax, 100));
     }
   }, [addLog, aFiles.length]);
 
@@ -365,11 +368,11 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         description="将两个视频前后拼接成一个完整视频"
         featureInfo={{
           title: 'A+B 前后拼接',
-          description: '将两个视频素材库按顺序前后拼接，A 面在前、B 面在后，自动生成完整的拼接视频。',
+          description: '将两个视频素材库按顺序前后拼接，采用SmartBlend™智能均衡算法，自动生成完整的拼接视频。',
           details: [
             '分别上传 A 面和 B 面视频作为素材库',
-            '智能任务分配：贪心算法优先选择使用次数最少的素材',
-            '确保每个素材均匀使用，避免重复和遗漏',
+            '采用SmartBlend™智能均衡算法，均匀分配素材组合',
+            '确保每个素材都被充分利用，避免重复和遗漏',
             'A 面在前，B 面在后，顺序拼接成一个完整视频',
             '自动调整帧率为 30fps，统一输出分辨率',
           ],
@@ -459,18 +462,27 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-black">
           {/* 任务列表区域 - 使用通用 TaskList 组件 */}
-          <TaskList
-            tasks={tasks}
-            currentIndex={currentIndex}
-            output={outputConfig}
-            type="video_ab_stitch"
-            thumbnail_source="A"
-            materialsType={['video', 'video']}
-            themeColor="rose"
-            onTaskChange={setCurrentIndex}
-            isProcessing={isProcessing}
-            onLog={(message, type) => addLog(message, type)}
-          />
+          {isGeneratingTasks ? (
+            <div className="h-[164px] flex items-center justify-center border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-5 h-5 text-pink-400 animate-spin" />
+                <span className="text-slate-400 text-sm">正在生成任务...</span>
+              </div>
+            </div>
+          ) : (
+            <TaskList
+              tasks={tasks}
+              currentIndex={currentIndex}
+              output={outputConfig}
+              type="video_ab_stitch"
+              thumbnail_source="A"
+              materialsType={['video', 'video']}
+              themeColor="rose"
+              onTaskChange={setCurrentIndex}
+              isProcessing={isProcessing}
+              onLog={(message, type) => addLog(message, type)}
+            />
+          )}
 
           {/* 预览区域 */}
           <div className="flex-1 flex overflow-hidden min-h-0">

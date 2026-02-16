@@ -15,6 +15,7 @@ const { generatePreviews, cleanupPreviews } = require("../ffmpeg/videoResize");
 const app = require("electron").app ?? require("@electron/remote");
 const {
   generateFileName,
+  generateCombinedFilename,
 } = require("../utils/fileNameHelper");
 
 /**
@@ -349,6 +350,136 @@ function calculateAspectRatio(width, height) {
   if (Math.abs(ratio - 3 / 4) < 0.1) return "3:4";
   if (Math.abs(ratio - 1) < 0.05) return "1:1";
   return `${Math.round(ratio * 10) / 10}:1`;
+}
+
+/**
+/**
+ * 统一视频合成处理
+ * 接收任务数组，每个任务包含素材和配置
+ * 
+ * @param {Array} tasks - 任务数组，每个任务结构：
+ *   {
+ *     files: [{ path, category }], // category: 'A', 'B', 'cover', 'bg'
+ *     config: { orientation, aPosition, bPosition, bgPosition, coverPosition },
+ *     outputDir,
+ *     concurrency
+ *   }
+ */
+async function handleVideoMerge(event, tasks) {
+  console.log("handleVideoMerge received:", tasks);
+  if (!tasks || tasks.length === 0) {
+    throw new Error("任务列表为空");
+  }
+
+  // 从第一个任务获取 orientation 用于发送事件
+  const firstConfig = tasks[0]?.config || {};
+  const orientation = firstConfig.orientation || 'horizontal';
+  
+  // 验证所有任务都有 outputDir
+  for (let i = 0; i < tasks.length; i++) {
+    if (!tasks[i].outputDir) {
+      throw new Error(`任务 ${i + 1}: 未设置输出目录`);
+    }
+  }
+
+  // 设置并发数（使用第一个任务的 concurrency）
+  const concurrency = tasks[0]?.concurrency || Math.max(1, os.cpus().length - 1);
+  queue.setConcurrency(concurrency);
+
+  const total = tasks.length;
+  let done = 0;
+  let failed = 0;
+
+  event.sender.send("video-start", {
+    total,
+    mode: orientation,
+    concurrency: queue.concurrency,
+  });
+
+  const ffmpegTasks = tasks.map((task, index) => {
+    return queue.push(async () => {
+      event.sender.send("video-task-start", { index });
+
+      // 从 task 获取配置
+      const { config, outputDir } = task || {};
+      const taskOrientation = config?.orientation || orientation;
+
+      // 从 task.files 中提取各类素材
+      const aFile = task.files?.find(f => f.category === 'A');
+      const bFile = task.files?.find(f => f.category === 'B');
+      const coverFile = task.files?.find(f => f.category === 'cover');
+      const bgFile = task.files?.find(f => f.category === 'bg');
+
+      if (!bFile) {
+        throw new Error(`任务 ${index + 1}: 缺少B面视频`);
+      }
+
+      const aPath = aFile?.path;
+      const bPath = bFile.path;
+      const coverImage = coverFile?.path;
+      const bgImage = bgFile?.path;
+
+      // 使用任务配置中的位置信息
+      const aPosition = config?.aPosition;
+      const bPosition = config?.bPosition;
+      const bgPosition = config?.bgPosition;
+      const coverPosition = config?.coverPosition;
+
+      const bName = path.parse(bPath).name;
+      const aName = aPath ? path.parse(aPath).name : undefined;
+      const suffix = taskOrientation === 'vertical' ? '竖' : '横';
+      const baseName = aName 
+        ? `${aName}__${bName}_${suffix}`
+        : `${bName}_${suffix}`;
+      const outName = generateFileName(outputDir, baseName, {
+        extension: ".mp4",
+        reserveSuffixSpace: 5,
+      });
+      const outPath = path.join(outputDir, outName);
+
+      try {
+        const args = buildArgs({
+          aPath,
+          bPath,
+          outPath,
+          bgImage,
+          coverImage,
+          aPosition,
+          bPosition,
+          bgPosition,
+          coverPosition,
+          orientation: taskOrientation,
+        });
+
+        await runFfmpeg(args, (log) => {
+          event.sender.send("video-log", { index, message: log });
+        });
+
+        done++;
+        event.sender.send("video-progress", {
+          done,
+          failed,
+          total,
+          index,
+          outputPath: outPath,
+        });
+      } catch (err) {
+        failed++;
+        event.sender.send("video-failed", {
+          done,
+          failed,
+          total,
+          index,
+          error: err.message,
+        });
+      }
+    });
+  });
+
+  await Promise.allSettled(ffmpegTasks);
+  event.sender.send("video-finish", { done, failed, total });
+
+  return { done, failed, total };
 }
 
 /**
@@ -1178,6 +1309,11 @@ function registerVideoHandlers() {
     return handleStitchAB(event, config);
   });
 
+  // 视频合成（统一接口）
+  ipcMain.handle("video-merge", async (event, tasks) => {
+    return handleVideoMerge(event, tasks);
+  });
+
   // 横屏合成
   ipcMain.handle("video-horizontal-merge", async (event, config) => {
     return handleHorizontalMerge(event, config);
@@ -1239,6 +1375,7 @@ module.exports = {
   getVideoDimensions,
   getVideoFullInfo,
   handleStitchAB,
+  handleVideoMerge,
   handleHorizontalMerge,
   handleVerticalMerge,
   handleResize,

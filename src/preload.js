@@ -11,6 +11,7 @@ const api = {
     startMerge: (orientation) => electron_1.ipcRenderer.invoke("start-merge", { orientation }),
     // 新的视频处理 API
     videoStitchAB: (config) => electron_1.ipcRenderer.invoke("video-stitch-ab", config),
+    videoMerge: (tasks) => electron_1.ipcRenderer.invoke("video-merge", tasks),
     videoHorizontalMerge: (config) => electron_1.ipcRenderer.invoke("video-horizontal-merge", config),
     videoVerticalMerge: (config) => electron_1.ipcRenderer.invoke("video-vertical-merge", config),
     videoResize: (config) => electron_1.ipcRenderer.invoke("video-resize", config),
@@ -147,5 +148,8 @@ const api = {
         electron_1.ipcRenderer.on("file-complete", listener);
         return () => electron_1.ipcRenderer.removeListener("file-complete", listener);
     },
+    // 任务生成 API
+    generateStitchTasks: (config) => electron_1.ipcRenderer.invoke("task:generate-stitch", config),
+    generateMergeTasks: (config) => electron_1.ipcRenderer.invoke("task:generate-merge", config),
 };
 electron_1.contextBridge.exposeInMainWorld("api", api);

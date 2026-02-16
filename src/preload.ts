@@ -30,6 +30,20 @@ export interface ElectronAPI {
     concurrency?: number;
   }) => Promise<{ done: number; failed: number; total: number }>;
 
+  // 统一视频合成（基于任务数组）
+  videoMerge: (tasks: {
+    files: { path: string; category: string }[];
+    config?: {
+      orientation: "horizontal" | "vertical";
+      aPosition?: { x: number; y: number; width: number; height: number };
+      bPosition?: { x: number; y: number; width: number; height: number };
+      bgPosition?: { x: number; y: number; width: number; height: number };
+      coverPosition?: { x: number; y: number; width: number; height: number };
+    };
+    outputDir: string;
+    concurrency?: number;
+  }[]) => Promise<{ done: number; failed: number; total: number }>;
+
   // 横屏合成
   videoHorizontalMerge: (config: {
     aVideos: string[];
@@ -564,6 +578,59 @@ export interface ElectronAPI {
       errors: Array<{ file: string; error: string }>;
     }) => void,
   ) => () => void;
+
+  // === 任务生成 API ===
+  // 生成 A+B 前后拼接任务
+  generateStitchTasks: (config: {
+    aPaths: string[];
+    bPaths: string[];
+    count: number;
+    outputDir: string;
+    concurrency: number;
+    orientation: "landscape" | "portrait";
+  }) => Promise<{
+    success: boolean;
+    tasks: Array<{
+      id: string;
+      status: string;
+      files: Array<{
+        path: string;
+        index: number;
+        category: string;
+        category_name: string;
+      }>;
+      config: { orientation: string };
+      outputDir: string;
+      concurrency: number;
+    }>;
+  }>;
+
+  // 生成视频合成任务
+  generateMergeTasks: (config: {
+    bVideos: string[];
+    aVideos?: string[];
+    covers?: string[];
+    bgImages?: string[];
+    count: number;
+    outputDir: string;
+    concurrency: number;
+    orientation: "horizontal" | "vertical";
+  }) => Promise<{
+    success: boolean;
+    tasks: Array<{
+      id: string;
+      status: string;
+      files: Array<{
+        path: string;
+        index: number;
+        category: string;
+        category_name: string;
+      }>;
+      config: { orientation: string };
+      outputDir: string;
+      concurrency: number;
+    }>;
+  }>;
 }
 
 const api: ElectronAPI = {
@@ -583,6 +650,7 @@ const api: ElectronAPI = {
 
   // 新的视频处理 API
   videoStitchAB: (config) => ipcRenderer.invoke("video-stitch-ab", config),
+  videoMerge: (tasks) => ipcRenderer.invoke("video-merge", tasks),
   videoHorizontalMerge: (config) =>
     ipcRenderer.invoke("video-horizontal-merge", config),
   videoVerticalMerge: (config) =>
@@ -766,6 +834,12 @@ const api: ElectronAPI = {
     ipcRenderer.on("file-complete", listener);
     return () => ipcRenderer.removeListener("file-complete", listener);
   },
+
+  // 任务生成 API
+  generateStitchTasks: (config) =>
+    ipcRenderer.invoke("task:generate-stitch", config),
+  generateMergeTasks: (config) =>
+    ipcRenderer.invoke("task:generate-merge", config),
 };
 
 contextBridge.exposeInMainWorld("api", api);

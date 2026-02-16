@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   ArrowLeft, CheckCircle, XCircle, Loader2, FileVideo, Image as ImageIcon, Layers, Eye, Play
 } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
 import FilePreviewModal from '../../components/FilePreviewModal';
 import useVideoMaterials, { type VideoMaterial } from '../../hooks/useVideoMaterials';
 import useImageMaterials, { type ImageMaterial } from '../../hooks/useImageMaterials';
@@ -46,6 +47,7 @@ export interface OutputConfig {
   resolution: string;
   codec?: string;
   format: string;
+  /** 单个任务输出的视频数量（不是总任务数） */
   nums: number;
 }
 
@@ -362,83 +364,93 @@ export const TaskList: React.FC<TaskListProps> = ({
         </div>
       </div>
 
-      {/* 横向滚动任务栏 */}
-      <div className="h-20 overflow-x-auto overflow-y-hidden border-b border-slate-800 shrink-0">
-        <div className="flex items-center h-full px-4 gap-2">
-          {(tasks || []).map((task, index) => {
-            // 获取缩略图来源的文件
-            const thumbnailFile = task.files?.find(f => f.category === thumbnail_source);
-            const material = thumbnailFile ? materialMap.get(thumbnailFile.path) : null;
+      {/* 横向滚动任务栏 - 使用虚拟列表 */}
+      <div className="h-20 border-b border-slate-800 shrink-0 overflow-hidden">
+        {tasks.length === 0 ? (
+          <div className="flex items-center justify-center w-full h-full text-slate-500">
+            <p className="text-xs">暂无任务</p>
+          </div>
+        ) : (
+          <Virtuoso
+            data={tasks}
+            horizontalDirection
+            style={{ height: '100%', width: '100%', overflowY: 'hidden' }}
+            className="custom-scrollbar"
+            defaultItemHeight={64}
+            itemContent={(index, task) => {
+              // 获取缩略图来源的文件
+              const thumbnailFile = task.files?.find(f => f.category === thumbnail_source);
+              const material = thumbnailFile ? materialMap.get(thumbnailFile.path) : null;
 
-            // 计算任务卡片的样式
-            let cardClass = 'border-slate-700 bg-black/50';
-            if (index === currentIndex) {
-              cardClass = `${colors.borderLight} ring-2 ${colors.ring}/20 ${colors.bgLight}`;
-            } else if (task.status === 'error') {
-              cardClass = 'border-red-500/50 bg-red-500/5';
-            } else if (task.status === 'completed') {
-              cardClass = 'border-emerald-500/50 bg-emerald-500/5';
-            } else if (task.status === 'waiting' || task.status === 'processing') {
-              cardClass = `${colors.borderLight30} ${colors.bgLight}`;
-            }
+              // 计算任务卡片的样式
+              let cardClass = 'border-slate-700 bg-black/50';
+              if (index === currentIndex) {
+                cardClass = `${colors.borderLight} ring-2 ${colors.ring}/20 ${colors.bgLight}`;
+              } else if (task.status === 'error') {
+                cardClass = 'border-red-500/50 bg-red-500/5';
+              } else if (task.status === 'completed') {
+                cardClass = 'border-emerald-500/50 bg-emerald-500/5';
+              } else if (task.status === 'waiting' || task.status === 'processing') {
+                cardClass = `${colors.borderLight30} ${colors.bgLight}`;
+              }
 
-            return (
-              <div
-                key={task.id}
-                className={`relative shrink-0 w-14 h-14 rounded-lg border cursor-pointer ${cardClass} ${disabled || isProcessing ? 'pointer-events-none opacity-50' : ''}`}
-                onClick={() => switchToTask(index)}
-              >
-                {/* 缩略图 */}
-                <div className="absolute inset-0 rounded-lg overflow-hidden">
-                  {material?.thumbnailUrl ? (
-                    <img src={material.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-black">
-                      <FileVideo className="w-5 h-5 text-slate-600" />
+              return (
+                <div
+                  className="shrink-0 flex items-center px-1"
+                  style={{ width: 64, height: '100%' }}
+                >
+                  <div
+                    className={`relative w-14 h-14 rounded-lg border cursor-pointer ${cardClass} ${disabled || isProcessing ? 'pointer-events-none opacity-50' : ''}`}
+                    onClick={() => switchToTask(index)}
+                  >
+                    {/* 缩略图 */}
+                    <div className="absolute inset-0 rounded-lg overflow-hidden">
+                      {material?.thumbnailUrl ? (
+                        <img src={material.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-black">
+                          <FileVideo className="w-5 h-5 text-slate-600" />
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* processing 状态 */}
+                    {task.status === 'processing' && (
+                      <div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center pointer-events-none">
+                        <Loader2 className={`w-5 h-5 ${colors.text} animate-spin`} />
+                      </div>
+                    )}
+                    {/* waiting 状态 */}
+                    {task.status === 'waiting' && (
+                      <div className="absolute inset-0 rounded-lg bg-black/30 flex items-center justify-center pointer-events-none">
+                        <div className={`w-4 h-4 rounded-full ${colors.bgLight70}`} />
+                      </div>
+                    )}
+                    {/* completed 状态 */}
+                    {task.status === 'completed' && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
+                        <CheckCircle className="w-2.5 h-2.5 text-black" />
+                      </div>
+                    )}
+                    {/* error 状态 */}
+                    {task.status === 'error' && (
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
+                        <span className="text-black text-[8px] font-bold">!</span>
+                      </div>
+                    )}
+
+                    {/* 当前预览指示器 */}
+                    {index === currentIndex && (
+                      <div className={`absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 ${colors.bg} rounded text-[8px] font-medium text-black whitespace-nowrap z-10`}>
+                        预览
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                {/* processing 状态 */}
-                {task.status === 'processing' && (
-                  <div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center pointer-events-none">
-                    <Loader2 className={`w-5 h-5 ${colors.text} animate-spin`} />
-                  </div>
-                )}
-                {/* waiting 状态 */}
-                {task.status === 'waiting' && (
-                  <div className="absolute inset-0 rounded-lg bg-black/30 flex items-center justify-center pointer-events-none">
-                    <div className={`w-4 h-4 rounded-full ${colors.bgLight70}`} />
-                  </div>
-                )}
-                {/* completed 状态 */}
-                {task.status === 'completed' && (
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-                    <CheckCircle className="w-2.5 h-2.5 text-black" />
-                  </div>
-                )}
-                {/* error 状态 */}
-                {task.status === 'error' && (
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
-                    <span className="text-black text-[8px] font-bold">!</span>
-                  </div>
-                )}
-
-                {/* 当前预览指示器 */}
-                {index === currentIndex && (
-                  <div className={`absolute -top-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 ${colors.bg} rounded text-[8px] font-medium text-black whitespace-nowrap z-10`}>
-                    预览
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {tasks.length === 0 && (
-            <div className="flex items-center justify-center w-full h-full text-slate-500">
-              <p className="text-xs">暂无任务</p>
-            </div>
-          )}
-        </div>
+              );
+            }}
+          />
+        )}
       </div>
 
       {/* 任务详情区域 */}
