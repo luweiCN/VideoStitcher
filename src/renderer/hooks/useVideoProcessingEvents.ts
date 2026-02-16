@@ -48,6 +48,7 @@ export interface VideoFinishData {
   done: number;
   failed: number;
   total: number;
+  elapsed?: string;
 }
 
 export interface VideoLogData {

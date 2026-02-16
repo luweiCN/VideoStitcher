@@ -113,7 +113,8 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
       addLog(`❌ 任务失败: ${data.error}`, 'error');
     },
     onFinish: (data) => {
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
+      const timeInfo = data.elapsed ? ` (耗时 ${data.elapsed}秒)` : '';
+      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}${timeInfo}`, 'success');
       setIsProcessing(false);
     },
     onLog: (data) => {
