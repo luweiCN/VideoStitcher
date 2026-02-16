@@ -295,7 +295,8 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
       addLog(`❌ 任务 ${data.index + 1} 失败: ${data.error}`, 'error');
     },
     onFinish: (data) => {
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}`, 'success');
+      const timeInfo = data.elapsed ? ` (耗时 ${data.elapsed}秒)` : '';
+      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}${timeInfo}`, 'success');
       setIsProcessing(false);
     },
   });
@@ -340,13 +341,12 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     addLog(`方向: ${orientation === 'landscape' ? '横屏' : '竖屏'}`, 'info');
 
     try {
-      await window.api.videoStitchAB({
-        aFiles: tasks.map(t => t.files[0]?.path),
-        bFiles: tasks.map(t => t.files[1]?.path),
+      await window.api.videoStitchAB(tasks.map(t => ({
+        files: t.files,
+        config: { orientation },
         outputDir,
-        orientation,
         concurrency: concurrency === 0 ? undefined : concurrency
-      });
+      })));
     } catch (err: any) {
       console.error('合成失败:', err);
       setIsProcessing(false);

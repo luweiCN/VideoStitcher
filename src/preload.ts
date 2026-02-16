@@ -21,14 +21,15 @@ export interface ElectronAPI {
   ) => Promise<{ done: number; failed: number; total: number }>;
 
   // === 新的视频处理 API ===
-  // A+B 前后拼接
-  videoStitchAB: (config: {
-    aFiles: string[];
-    bFiles: string[];
+  // A+B 前后拼接（基于任务数组）
+  videoStitchAB: (tasks: {
+    files: { path: string; category: string }[];
+    config?: {
+      orientation: "landscape" | "portrait";
+    };
     outputDir: string;
-    orientation: "landscape" | "portrait";
     concurrency?: number;
-  }) => Promise<{ done: number; failed: number; total: number }>;
+  }[]) => Promise<{ done: number; failed: number; total: number; elapsed?: string }>;
 
   // 统一视频合成（基于任务数组）
   videoMerge: (tasks: {
@@ -171,7 +172,7 @@ export interface ElectronAPI {
     orientation: "landscape" | "portrait";
     aDuration?: number;
     bDuration?: number;
-  }) => Promise<{ success: boolean; tempPath?: string; error?: string }>;
+  }) => Promise<{ success: boolean; tempPath?: string; error?: string; elapsed?: string }>;
 
   // 删除临时预览文件
   deleteTempPreview: (

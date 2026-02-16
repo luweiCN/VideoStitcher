@@ -27,7 +27,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { generateFileName } = require('./fileNameHelper');
+const { generateUniqueFilename } = require('./fileNameHelper');
 
 /**
  * 安全输出管理器

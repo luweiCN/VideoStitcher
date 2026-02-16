@@ -1115,6 +1115,8 @@ ipcMain.handle("generate-stitch-preview", async (_event, { aPath, bPath, orienta
 
 // 快速生成 A+B 拼接预览视频（只截取 A 最后 5 秒 + B 前 5 秒）
 ipcMain.handle("generate-stitch-preview-fast", async (_event, { aPath, bPath, orientation, aDuration, bDuration }) => {
+  const startTime = Date.now();
+  
   try {
     const os = require("os");
     const crypto = require("crypto");
@@ -1182,15 +1184,18 @@ ipcMain.handle("generate-stitch-preview-fast", async (_event, { aPath, bPath, or
       console.log('[快速预览]', log);
     });
 
-    console.log('[快速预览] 完成，临时文件:', tempPath);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[快速预览] 完成，耗时: ${elapsed}秒，临时文件: ${tempPath}`);
 
     return {
       success: true,
-      tempPath
+      tempPath,
+      elapsed
     };
   } catch (err) {
-    console.error('[快速预览] 失败:', err);
-    return { success: false, error: err.message };
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.error(`[快速预览] 失败，耗时: ${elapsed}秒:`, err);
+    return { success: false, error: err.message, elapsed };
   }
 });
 

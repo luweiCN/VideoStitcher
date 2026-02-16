@@ -1331,38 +1331,40 @@ async function handleClearResizePreviews(event, { previewPaths }) {
 
 /**
  * A+B 前后拼接处理
- * 用于 VideoStitcherMode 的 A+B 前后拼接功能
- *
+ * 接收任务数组，每个任务包含素材和配置
+ * 
  * @param {Object} event - IPC 事件对象
- * @param {Object} params - 参数对象
- * @param {string[]} params.aFiles - A面视频列表（前段）
- * @param {string[]} params.bFiles - B面视频列表（后段）
- * @param {string} params.outputDir - 输出目录
- * @param {string} params.orientation - 拼接方向 (landscape | portrait)
- * @param {number} [params.concurrency] - 并发数
+ * @param {Array} tasks - 任务数组，每个任务结构：
+ *   {
+ *     files: [{ path, category }], // category: 'A', 'B'
+ *     config: { orientation },
+ *     outputDir,
+ *     concurrency
+ *   }
  */
-async function handleStitchAB(
-  event,
-  { aFiles, bFiles, outputDir, orientation, concurrency },
-) {
-  if (!aFiles.length || !bFiles.length) {
-    throw new Error("A库或B库为空");
-  }
-  if (!outputDir) {
-    throw new Error("未选择输出目录");
+async function handleStitchAB(event, tasks) {
+  console.log("handleStitchAB received:", tasks);
+  if (!tasks || tasks.length === 0) {
+    throw new Error("任务列表为空");
   }
 
-  // 渲染进程已经完成配对，aFiles 和 bFiles 索引一一对应
-  const pairs = aFiles.map((a, index) => ({
-    a,
-    b: bFiles[index],
-    index,
-  }));
-  const total = pairs.length;
+  // 记录开始时间
+  const startTime = Date.now();
+
+  // 从第一个任务获取配置
+  const firstConfig = tasks[0]?.config || {};
+  const orientation = firstConfig.orientation || 'landscape';
+  const outputDir = tasks[0]?.outputDir;
+
+  if (!outputDir) {
+    throw new Error("未设置输出目录");
+  }
 
   // 设置并发数
-  queue.setConcurrency(concurrency || Math.max(1, os.cpus().length - 1));
+  const concurrency = tasks[0]?.concurrency || Math.max(1, os.cpus().length - 1);
+  queue.setConcurrency(concurrency);
 
+  const total = tasks.length;
   let done = 0;
   let failed = 0;
 
@@ -1372,76 +1374,84 @@ async function handleStitchAB(
     concurrency: queue.concurrency,
   });
 
-  const tasks = pairs.map(({ a, b, index }) => {
+  const ffmpegTasks = tasks.map((task, index) => {
     return queue.push(async () => {
-      const aName = path.parse(a).name;
-      const bName = path.parse(b).name;
-      // 使用统一文件名处理：先拼接基础名，generateFileName 会自动处理冲突
-      const baseName = `${aName}__${bName}`;
-      const outName = generateFileName(outputDir, baseName, {
-        extension: ".mp4",
-        reserveSuffixSpace: 5,
-      });
-      const outPath = path.join(outputDir, outName);
-
-      // 发送任务开始处理事件
+      const taskStartTime = Date.now();
       event.sender.send("video-task-start", { index });
 
-      const payload = { aPath: a, bPath: b, outPath, orientation };
+      // 从 task.files 中提取素材
+      const aFile = task.files?.find(f => f.category === 'A');
+      const bFile = task.files?.find(f => f.category === 'B');
 
-      const tryRun = async (attempt) => {
-        event.sender.send("video-log", {
-          index,
-          message: `\n[${index}] attempt=${attempt}\nA=${a}\nB=${b}\nOUT=${outPath}\n`,
-        });
-        return runFfmpeg(payload, (s) => {
-          event.sender.send("video-log", { index, message: s });
-        });
-      };
+      if (!aFile || !bFile) {
+        throw new Error(`任务 ${index + 1}: 缺少A面或B面视频`);
+      }
+
+      const aPath = aFile.path;
+      const bPath = bFile.path;
+      const taskOrientation = task.config?.orientation || orientation;
+
+      const aName = path.parse(aPath).name;
+      const bName = path.parse(bPath).name;
+      const rawBaseName = `${aName}__${bName}`;
+
+      // 处理特殊字符和长度限制
+      const safeBaseName = generateFileName(outputDir, rawBaseName, {
+        extension: '.mp4',
+        reserveSuffixSpace: 5,
+      });
+
+      // 创建安全输出管理器
+      const safeOutput = new SafeOutput(outputDir, 'stitch');
+      const tempPath = safeOutput.getTempOutputPath(safeBaseName, index);
 
       try {
-        await tryRun(1);
+        const payload = { aPath, bPath, outPath: tempPath, orientation: taskOrientation };
+
+        await runFfmpeg(payload, (log) => {
+          event.sender.send("video-log", { index, message: log });
+        });
+
+        // 将临时文件移动到最终目录
+        const result = safeOutput.commitSync(tempPath);
+        safeOutput.cleanup(index);
+
+        if (!result.success) {
+          throw new Error(result.error || '移动文件失败');
+        }
+
+        const taskElapsed = ((Date.now() - taskStartTime) / 1000).toFixed(1);
         done++;
         event.sender.send("video-progress", {
           done,
           failed,
           total,
           index,
-          outputPath: outPath,
+          outputPath: result.finalPath,
+          elapsed: taskElapsed,
         });
       } catch (err) {
-        event.sender.send("video-log", {
+        safeOutput.cleanup(index);
+        failed++;
+        event.sender.send("video-failed", {
+          done,
+          failed,
+          total,
           index,
-          message: `\n[${index}] 第一次失败，重试一次...\n${err.message}\n`,
+          error: err.message,
         });
-        try {
-          await tryRun(2);
-          done++;
-          event.sender.send("video-progress", {
-            done,
-            failed,
-            total,
-            index,
-            outputPath: outPath,
-          });
-        } catch (err2) {
-          failed++;
-          event.sender.send("video-failed", {
-            done,
-            failed,
-            total,
-            index,
-            error: err2.message,
-          });
-        }
       }
     });
   });
 
-  await Promise.allSettled(tasks);
-  event.sender.send("video-finish", { done, failed, total });
+  await Promise.allSettled(ffmpegTasks);
 
-  return { done, failed, total };
+  const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`[A+B拼接] 完成，成功: ${done}, 失败: ${failed}, 总耗时: ${totalElapsed}秒`);
+
+  event.sender.send("video-finish", { done, failed, total, elapsed: totalElapsed });
+
+  return { done, failed, total, elapsed: totalElapsed };
 }
 
 /**

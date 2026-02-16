@@ -7,6 +7,7 @@ export interface PreviewGenerateResult {
   success: boolean;
   tempPath?: string;
   error?: string;
+  elapsed?: string;
 }
 
 /**
@@ -150,7 +151,8 @@ export function usePreviewCache<TConfig>(
         if (result.success && result.tempPath) {
           const cache = getNamespaceCache(namespace);
           cache.set(key, result.tempPath);
-          onLog?.('预览生成完成（已缓存）', 'success');
+          const timeInfo = result.elapsed ? ` (耗时 ${result.elapsed}秒)` : '';
+          onLog?.(`预览生成完成${timeInfo}（已缓存）`, 'success');
         } else if (result.tempPath) {
           // 生成失败，删除临时文件
           await deleteTemp(result.tempPath);
@@ -168,7 +170,8 @@ export function usePreviewCache<TConfig>(
         setPreviewPath(result.tempPath);
         setIsFromCache(false);
         setError(null);
-        onLog?.('预览生成完成', 'success');
+        const timeInfo = result.elapsed ? ` (耗时 ${result.elapsed}秒)` : '';
+        onLog?.(`预览生成完成${timeInfo}`, 'success');
       } else {
         setError(result.error || '预览生成失败');
         onLog?.(`预览生成失败: ${result.error || '未知错误'}`, 'error');
