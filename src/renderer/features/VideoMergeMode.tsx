@@ -20,7 +20,7 @@ import {
   XCircle,
 } from "lucide-react";
 import useEmblaCarousel from 'embla-carousel-react';
-import { MaterialPositions, LayerId, LayerConfig } from "../types";
+import { MaterialPositions } from "../types";
 import VideoEditor from "../components/VideoEditor";
 import PageHeader from "../components/PageHeader";
 import OutputDirSelector from "../components/OutputDirSelector";
@@ -40,7 +40,6 @@ import { setGlobalIsPlaying } from "../hooks/useStitchPreview";
 import {
   getCanvasConfig,
   getInitialPositions,
-  getDefaultLayerConfigs,
 } from "../utils/positionCalculator";
 
 interface VideoMergeModeProps {
@@ -149,10 +148,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
     () => getInitialPositions(canvasConfig),
   );
 
-  const lockedLayers = useMemo(
-    () => new Set<LayerId>(["aVideo", "bgImage", "coverImage"]),
-    [],
-  );
   const [canvasZoom, setCanvasZoom] = useState<number>(100);
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
@@ -246,49 +241,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   } = useMergePreview(previewConfig, activeView === 1 && !!currentTaskMaterials.bVideo, {
     onLog: (message, type) => addLog(message, type),
   });
-
-  const layerConfigs: LayerConfig[] = useMemo(() => {
-    const defaultConfigs = getDefaultLayerConfigs();
-    const availableLayers: LayerConfig[] = [];
-    availableLayers.push({
-      ...defaultConfigs.find((l) => l.id === "bVideo")!,
-      visible: true,
-      locked: lockedLayers.has("bVideo"),
-    });
-    if (aVideos.length > 0) {
-      availableLayers.push({
-        ...defaultConfigs.find((l) => l.id === "aVideo")!,
-        visible: true,
-        locked: lockedLayers.has("aVideo"),
-      });
-    }
-    if (materials.bgImage) {
-      availableLayers.push({
-        ...defaultConfigs.find((l) => l.id === "bgImage")!,
-        visible: true,
-        locked: lockedLayers.has("bgImage"),
-      });
-    }
-    if (covers.length > 0) {
-      availableLayers.push({
-        ...defaultConfigs.find((l) => l.id === "coverImage")!,
-        visible: true,
-        locked: lockedLayers.has("coverImage"),
-      });
-    }
-    return availableLayers;
-  }, [aVideos.length, materials.bgImage, covers.length, lockedLayers]);
-
-  const [activeLayer, setActiveLayer] = useState<LayerId>("bVideo");
-
-  useEffect(() => {
-    const availableLayerIds = layerConfigs.map((l) => l.id);
-    if (!availableLayerIds.includes(activeLayer)) {
-      if (availableLayerIds.length > 0) {
-        setActiveLayer(availableLayerIds[0] as LayerId);
-      }
-    }
-  }, [layerConfigs, activeLayer]);
 
   useEffect(() => {
     setMaterialPositions(getInitialPositions(canvasConfig));
@@ -459,11 +411,10 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
     ],
   );
 
-  const handlePositionChange = (
-    id: LayerId,
+  const handleBVideoPositionChange = (
     position: { x: number; y: number; width: number; height: number },
   ) => {
-    setMaterialPositions((prev) => ({ ...prev, [id]: position }));
+    setMaterialPositions((prev) => ({ ...prev, bVideo: position }));
   };
 
   const resetPositions = () => {
@@ -837,17 +788,13 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
                         className="flex-1 w-full flex items-center justify-center min-h-0 overflow-auto"
                       >
                         <VideoEditor
-                          mode={orientation}
                           canvasWidth={canvasConfig.width}
                           canvasHeight={canvasConfig.height}
                           positions={materialPositions}
-                          onPositionChange={handlePositionChange}
-                          onActiveLayerChange={setActiveLayer}
-                          activeLayer={activeLayer}
-                          layerConfigs={layerConfigs}
+                          onBVideoPositionChange={handleBVideoPositionChange}
                           materials={materials}
+                          videoMetadata={bVideoMetadata}
                           canvasZoom={canvasZoom}
-                          onCanvasZoomChange={setCanvasZoom}
                         />
                       </div>
                       <div className="mt-8 flex flex-col items-center gap-4">

@@ -1,36 +1,16 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Position, LayerId, MaterialPositions, LayerConfig } from '../types';
-import VideoBox, { VideoBoxProps } from './VideoBox';
-
-/**
- * 素材配置
- */
-export interface MaterialConfig {
-  id: LayerId;
-  label: string;
-  position: Position;
-  colorClass: string;
-  bgClass: string;
-  visible: boolean;
-  locked: boolean;
-  thumbnail?: string;
-}
+import { Position, MaterialPositions } from '../types';
+import VideoBox from './VideoBox';
 
 /**
  * 交互式视频编辑器属性
  */
 export interface VideoEditorProps {
-  mode: 'horizontal' | 'vertical';
   canvasWidth: number;
   canvasHeight: number;
   // 素材位置映射
   positions: MaterialPositions;
-  onPositionChange: (id: LayerId, position: Position) => void;
-  // 激活图层
-  activeLayer: LayerId;
-  onActiveLayerChange: (id: LayerId) => void;
-  // 图层配置
-  layerConfigs: LayerConfig[];
+  onBVideoPositionChange: (position: Position) => void;
   // 素材路径（用于显示预览）
   materials?: {
     aVideo?: string;
@@ -38,35 +18,29 @@ export interface VideoEditorProps {
     bgImage?: string;
     coverImage?: string;
   };
+  // 视频元数据（用于获取实际宽高比）
+  videoMetadata?: {
+    width: number;
+    height: number;
+  };
   // 画布缩放
   canvasZoom: number;
-  onCanvasZoomChange: (zoom: number) => void;
 }
 
 const SNAP_THRESHOLD = 12; // 吸附阈值（像素）
 
 /**
  * 交互式视频编辑器组件
- *
- * 功能：
- * - 显示画布和背景图
- * - 支持拖拽移动视频框
- * - 支持缩放视频框大小
- * - 智能吸附到中心/边缘
- * - 显示辅助对齐线
+ * 只支持编辑 B 面视频的位置和大小
  */
 const VideoEditor: React.FC<VideoEditorProps> = ({
-  mode,
   canvasWidth,
   canvasHeight,
   positions,
-  onPositionChange,
-  onActiveLayerChange,
-  activeLayer,
-  layerConfigs,
+  onBVideoPositionChange,
   materials,
+  videoMetadata,
   canvasZoom,
-  onCanvasZoomChange,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -76,35 +50,16 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
   const [showVGuide, setShowVGuide] = useState(false);
   const [showHGuide, setShowHGuide] = useState(false);
 
-  // 记录每个图层的原始宽高比（用于背景图和封面图）
-  const originalAspectRatios = useRef<Partial<Record<LayerId, number>>>({});
-
-  // 当素材位置改变时，如果是背景图或封面图，记录其原始宽高比
-  useEffect(() => {
-    ['bgImage', 'coverImage'].forEach(layerId => {
-      const pos = positions[layerId];
-      if (pos && !originalAspectRatios.current[layerId]) {
-        // 只在第一次设置时记录
-        originalAspectRatios.current[layerId] = pos.width / pos.height;
-      }
-    });
-  }, [positions]);
-
-  // 当前正在操作的图层配置
-  const activeLayerConfig = layerConfigs.find((l) => l.id === activeLayer) || layerConfigs[0];
-  const activePosition = positions[activeLayer];
+  // B 面视频位置
+  const bVideoPosition = positions.bVideo;
 
   // 更新容器尺寸和缩放比例
   useEffect(() => {
     const updateSize = () => {
       if (!containerRef.current?.parentElement) return;
-      // 获取父容器的宽度
       const parentWidth = containerRef.current.parentElement.getBoundingClientRect().width;
-      // 应用用户设置的缩放百分比到容器宽度
       const scaledWidth = parentWidth * (canvasZoom / 100);
-      // 基于缩放后的容器宽度计算内部元素的缩放比例
       const finalScale = scaledWidth / canvasWidth;
-
       setContainerSize({ width: scaledWidth, height: (scaledWidth / canvasWidth) * canvasHeight, scale: finalScale });
     };
 
@@ -116,17 +71,13 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
   // 键盘事件处理 - 方向键调整位置
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 只在激活的图层未锁定时响应
-      if (!activeLayerConfig || activeLayerConfig.locked) return;
-
-      // 只响应方向键
       if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
 
       e.preventDefault();
 
-      const step = e.shiftKey ? 10 : 1; // 按住 Shift 键每次移动 10px
-      let newX = activePosition.x;
-      let newY = activePosition.y;
+      const step = e.shiftKey ? 10 : 1;
+      let newX = bVideoPosition.x;
+      let newY = bVideoPosition.y;
 
       switch (e.key) {
         case 'ArrowUp':
@@ -144,11 +95,11 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
       }
 
       // 边界限制
-      newX = Math.max(0, Math.min(newX, canvasWidth - activePosition.width));
-      newY = Math.max(0, Math.min(newY, canvasHeight - activePosition.height));
+      newX = Math.max(0, Math.min(newX, canvasWidth - bVideoPosition.width));
+      newY = Math.max(0, Math.min(newY, canvasHeight - bVideoPosition.height));
 
-      onPositionChange(activeLayer, {
-        ...activePosition,
+      onBVideoPositionChange({
+        ...bVideoPosition,
         x: newX,
         y: newY,
       });
@@ -156,53 +107,41 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeLayer, activeLayerConfig, activePosition, canvasWidth, canvasHeight, onPositionChange]);
+  }, [bVideoPosition, canvasWidth, canvasHeight, onBVideoPositionChange]);
 
   // 计算宽高比
   const getAspectRatio = useCallback((): number => {
-    if (mode === 'horizontal') {
-      // 横屏模式：视频通常是竖屏（9:16）
-      return 9 / 16;
-    } else {
-      // 竖屏模式：视频通常是横屏（16:9）
-      return 16 / 9;
+    // 优先使用视频的实际宽高比
+    if (videoMetadata) {
+      return videoMetadata.width / videoMetadata.height;
     }
-  }, [mode]);
+    // 没有视频元数据时，使用当前视频框的宽高比
+    return bVideoPosition.width / bVideoPosition.height;
+  }, [videoMetadata, bVideoPosition]);
 
-  // 开始拖拽 - 不再切换激活图层，只能通过图层侧边栏选择
-  const handleMouseDown = (e: React.MouseEvent, layerId: LayerId) => {
+  // 开始拖拽
+  const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!containerRef.current) return;
-    // 只允许拖拽当前激活的图层
-    if (layerId !== activeLayer) return;
 
     setIsDragging(true);
 
     const rect = containerRef.current.getBoundingClientRect();
-
-    // 转换为相对于容器内部坐标系的起始点
     const mouseX = (e.clientX - rect.left) / containerSize.scale;
     const mouseY = (e.clientY - rect.top) / containerSize.scale;
 
-    const position = positions[layerId];
-    if (position) {
-      setDragOffset({
-        x: mouseX - position.x,
-        y: mouseY - position.y,
-      });
-    }
+    setDragOffset({
+      x: mouseX - bVideoPosition.x,
+      y: mouseY - bVideoPosition.y,
+    });
   };
 
-  // 开始缩放 - 不再切换激活图层，只能通过图层侧边栏选择
-  const handleResizeStart = (e: React.MouseEvent, layerId: LayerId) => {
+  // 开始缩放
+  const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // 只允许缩放当前激活的图层
-    if (layerId !== activeLayer) return;
-
     setIsResizing(true);
   };
 
@@ -218,58 +157,45 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
       let vGuide = false;
       let hGuide = false;
 
-      if (isDragging && activeLayerConfig && !activeLayerConfig.locked) {
+      if (isDragging) {
         let newX = mouseX - dragOffset.x;
         let newY = mouseY - dragOffset.y;
 
-        const centerX = newX + activePosition.width / 2;
-        const centerY = newY + activePosition.height / 2;
+        const centerX = newX + bVideoPosition.width / 2;
+        const centerY = newY + bVideoPosition.height / 2;
 
         // X 轴吸附
         if (Math.abs(centerX - canvasWidth / 2) < SNAP_THRESHOLD) {
-          newX = canvasWidth / 2 - activePosition.width / 2;
+          newX = canvasWidth / 2 - bVideoPosition.width / 2;
           vGuide = true;
         } else if (Math.abs(newX) < SNAP_THRESHOLD) {
           newX = 0;
-        } else if (Math.abs(newX + activePosition.width - canvasWidth) < SNAP_THRESHOLD) {
-          newX = canvasWidth - activePosition.width;
+        } else if (Math.abs(newX + bVideoPosition.width - canvasWidth) < SNAP_THRESHOLD) {
+          newX = canvasWidth - bVideoPosition.width;
         }
 
         // Y 轴吸附
         if (Math.abs(centerY - canvasHeight / 2) < SNAP_THRESHOLD) {
-          newY = canvasHeight / 2 - activePosition.height / 2;
+          newY = canvasHeight / 2 - bVideoPosition.height / 2;
           hGuide = true;
         } else if (Math.abs(newY) < SNAP_THRESHOLD) {
           newY = 0;
-        } else if (Math.abs(newY + activePosition.height - canvasHeight) < SNAP_THRESHOLD) {
-          newY = canvasHeight - activePosition.height;
+        } else if (Math.abs(newY + bVideoPosition.height - canvasHeight) < SNAP_THRESHOLD) {
+          newY = canvasHeight - bVideoPosition.height;
         }
 
-        onPositionChange(activeLayer, {
-          ...activePosition,
+        onBVideoPositionChange({
+          ...bVideoPosition,
           x: newX,
           y: newY,
         });
       }
 
-      if (isResizing && activeLayerConfig && !activeLayerConfig.locked) {
-        // 根据图层类型获取宽高比
-        let aspectRatio = getAspectRatio();
+      if (isResizing) {
+        const aspectRatio = getAspectRatio();
 
-        // 背景图和封面图使用记录的原始宽高比
-        if (activeLayer === 'bgImage' || activeLayer === 'coverImage') {
-          // 如果已经有记录的原始宽高比，使用它；否则使用当前宽高比并记录
-          if (originalAspectRatios.current[activeLayer]) {
-            aspectRatio = originalAspectRatios.current[activeLayer]!;
-          } else {
-            aspectRatio = activePosition.width / activePosition.height;
-            originalAspectRatios.current[activeLayer] = aspectRatio;
-          }
-        }
-
-        // 计算新的宽度：取鼠标相对于物体左上角的 X 距离和 Y 距离（换算回宽度）的最大值
-        const potentialWidthFromX = mouseX - activePosition.x;
-        const potentialWidthFromY = (mouseY - activePosition.y) * aspectRatio;
+        const potentialWidthFromX = mouseX - bVideoPosition.x;
+        const potentialWidthFromY = (mouseY - bVideoPosition.y) * aspectRatio;
 
         let newWidth = Math.max(potentialWidthFromX, potentialWidthFromY);
 
@@ -280,19 +206,19 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
         newWidth = Math.min(newWidth, canvasWidth * 10);
 
         // Resize 吸附
-        if (Math.abs(activePosition.x + newWidth - canvasWidth) < SNAP_THRESHOLD) {
-          newWidth = canvasWidth - activePosition.x;
+        if (Math.abs(bVideoPosition.x + newWidth - canvasWidth) < SNAP_THRESHOLD) {
+          newWidth = canvasWidth - bVideoPosition.x;
         }
 
         const newHeight = newWidth / aspectRatio;
-        if (Math.abs(activePosition.y + newHeight - canvasHeight) < SNAP_THRESHOLD) {
-          newWidth = (canvasHeight - activePosition.y) * aspectRatio;
+        if (Math.abs(bVideoPosition.y + newHeight - canvasHeight) < SNAP_THRESHOLD) {
+          newWidth = (canvasHeight - bVideoPosition.y) * aspectRatio;
         }
 
-        onPositionChange(activeLayer, {
-          ...activePosition,
+        onBVideoPositionChange({
+          ...bVideoPosition,
           width: newWidth,
-          height: newHeight,
+          height: newWidth / aspectRatio,
         });
       }
 
@@ -321,30 +247,12 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
     isResizing,
     containerSize,
     dragOffset,
-    activeLayerConfig,
-    activeLayer,
-    activePosition,
-    positions,
+    bVideoPosition,
     canvasWidth,
     canvasHeight,
-    onPositionChange,
+    onBVideoPositionChange,
     getAspectRatio,
-    mode,
   ]);
-
-  // 从位置映射构建素材配置数组 - 只包含激活的图层
-  const materialConfigs: MaterialConfig[] = layerConfigs
-    .filter((layer) => layer.id === activeLayer && layer.visible)
-    .map((layer) => ({
-      id: layer.id,
-      label: layer.label,
-      position: positions[layer.id],
-      colorClass: layer.colorClass,
-      bgClass: layer.bgClass,
-      visible: layer.visible,
-      locked: layer.locked,
-      thumbnail: materials?.[layer.id],
-    }));
 
   // 获取背景图路径（如果有）
   const bgImagePath = materials?.bgImage;
@@ -400,24 +308,21 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
         </div>
       )}
 
-      {/* 素材框 - 只显示激活的图层 */}
-      {materialConfigs.map((material) => (
-        <VideoBox
-          key={material.id}
-          id={material.id}
-          label={material.label}
-          position={material.position}
-          isActive={activeLayer === material.id}
-          scale={containerSize.scale}
-          colorClass={material.colorClass}
-          bgClass={material.bgClass}
-          visible={material.visible}
-          locked={material.locked}
-          thumbnail={material.thumbnail}
-          onMouseDown={handleMouseDown}
-          onResizeStart={handleResizeStart}
-        />
-      ))}
+      {/* B 面视频框 - 可拖拽和缩放 */}
+      <VideoBox
+        id="bVideo"
+        label="B 面"
+        position={bVideoPosition}
+        isActive={true}
+        scale={containerSize.scale}
+        colorClass="bg-fuchsia-500"
+        bgClass="bg-fuchsia-500/20"
+        visible={true}
+        locked={false}
+        thumbnail={materials?.bVideo}
+        onMouseDown={handleMouseDown}
+        onResizeStart={handleResizeStart}
+      />
 
       {/* 刻度标记 */}
       <div className="absolute -bottom-6 left-0 right-0 flex justify-between text-[10px] text-slate-500 font-mono px-1">
@@ -429,7 +334,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
       {/* 顶部标签 */}
       <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap">
         <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-700 px-3 py-1 rounded-full backdrop-blur-md">
-          <div className={`w-2 h-2 rounded-full ${activeLayerConfig?.colorClass || 'bg-slate-500'}`}></div>
+          <div className="w-2 h-2 rounded-full bg-fuchsia-500"></div>
           <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
             合成画布分辨率: {canvasWidth} x {canvasHeight}
           </span>

@@ -37,7 +37,6 @@ export function getInitialPositions(
   config: CanvasConfig,
   bVideoMetadata?: { width: number; height: number; duration: number },
   aVideoMetadata?: { width: number; height: number; duration: number },
-  coverImageMetadata?: { width: number; height: number }
 ): MaterialPositions {
   const { width, height, videoAspect } = config;
 
@@ -160,56 +159,4 @@ export function getInitialPositions(
     bVideo,
     coverImage,
   };
-}
-
-/**
- * 获取默认的图层配置列表
- */
-export function getDefaultLayerConfigs(): Array<{
-  id: LayerId;
-  label: string;
-  colorClass: string;
-  bgClass: string;
-  visible: boolean;
-  locked: boolean;
-  z_index: number;
-}> {
-  return [
-    {
-      id: 'bgImage',
-      label: '背景图',
-      colorClass: 'text-slate-400',
-      bgClass: 'bg-slate-500/30',
-      visible: true,
-      locked: false,
-      z_index: 0,
-    },
-    {
-      id: 'aVideo',
-      label: 'A面视频',
-      colorClass: 'text-violet-400',
-      bgClass: 'bg-violet-500/30',
-      visible: true,
-      locked: false,
-      z_index: 10,
-    },
-    {
-      id: 'bVideo',
-      label: 'B面视频',
-      colorClass: 'text-indigo-400',
-      bgClass: 'bg-indigo-500/30',
-      visible: true,
-      locked: false,
-      z_index: 20,
-    },
-    {
-      id: 'coverImage',
-      label: '封面图',
-      colorClass: 'text-cyan-400',
-      bgClass: 'bg-cyan-500/30',
-      visible: true,
-      locked: false,
-      z_index: 30,
-    },
-  ];
 }
