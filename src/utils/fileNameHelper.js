@@ -81,7 +81,7 @@ const CHAR_REPLACEMENTS = {
  * Windows: 255 字符
  * 这里设置为 200 字节，留出扩展名和路径的空间
  */
-const MAX_FILENAME_BYTES = 200;
+const MAX_FILENAME_BYTES = 255;
 
 /**
  * 默认截断时保留的后缀长度（用于序号等）
@@ -211,15 +211,24 @@ function truncateFilename(filename, options = {}) {
       const suffixBytes = availableBytes - ellipsisBytes - prefixBytes;
 
       const prefix = truncateByBytes(name, prefixBytes);
-      const suffixStart = name.length;
       let suffixPart = '';
 
-      // 从后往前找到合适长度的后缀
-      for (let i = name.length; i >= 0; i--) {
-        const candidate = name.slice(i);
-        if (getByteLength(candidate) <= suffixBytes) {
-          suffixPart = candidate;
-          break;
+      // 从后往前按字节找到合适长度的后缀
+      // 使用 truncateByBytes 从末尾截取指定字节长度
+      const fullSuffixBytes = getByteLength(name) - prefixBytes;
+      if (fullSuffixBytes > 0 && fullSuffixBytes <= suffixBytes) {
+        // 剩余部分可以完整保留
+        suffixPart = name.slice(prefix.length);
+      } else if (fullSuffixBytes > suffixBytes) {
+        // 需要从末尾截取 suffixBytes 字节
+        // 找到从末尾开始 suffixBytes 字节对应的起始字符位置
+        let byteCount = 0;
+        for (let i = name.length - 1; i >= 0; i--) {
+          byteCount += getByteLength(name[i]);
+          if (byteCount >= suffixBytes) {
+            suffixPart = name.slice(i);
+            break;
+          }
         }
       }
 

@@ -193,6 +193,18 @@ export interface ElectronAPI {
     aVideo?: string;
   }) => Promise<{ success: boolean; previewPath?: string; error?: string }>;
 
+  // 极速合成快速预览（降低画质 + 智能截取）
+  previewMergeFast: (config: {
+    bVideo: string;
+    aVideo?: string;
+    bgImage?: string;
+    coverImage?: string;
+    orientation: "horizontal" | "vertical";
+    aPosition?: { x: number; y: number; width: number; height: number };
+    bPosition?: { x: number; y: number; width: number; height: number };
+    coverPosition?: { x: number; y: number; width: number; height: number };
+  }) => Promise<{ success: boolean; previewPath?: string; error?: string; elapsed?: string }>;
+
   // 清理预览文件
   clearPreviews: () => Promise<{ success: boolean; error?: string }>;
 
@@ -369,7 +381,7 @@ export interface ElectronAPI {
     }) => void,
   ) => void;
   onVideoFinish: (
-    callback: (data: { done: number; failed: number; total: number }) => void,
+    callback: (data: { done: number; failed: number; total: number; elapsed?: string }) => void,
   ) => void;
   onVideoLog: (
     callback: (data: { index: number; videoId?: string; message: string }) => void,
@@ -677,6 +689,8 @@ const api: ElectronAPI = {
   previewHorizontal: (config) =>
     ipcRenderer.invoke("preview-horizontal", config),
   previewVertical: (config) => ipcRenderer.invoke("preview-vertical", config),
+  previewMergeFast: (config) =>
+    ipcRenderer.invoke("preview-merge-fast", config),
   clearPreviews: () => ipcRenderer.invoke("clear-previews"),
   getPreviewUrl: (filePath) => ipcRenderer.invoke("get-preview-url", filePath),
   getFileInfo: (filePath) => ipcRenderer.invoke("get-file-info", filePath),

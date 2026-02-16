@@ -28,6 +28,7 @@ const api = {
     deleteTempPreview: (tempPath) => electron_1.ipcRenderer.invoke("delete-temp-preview", tempPath),
     previewHorizontal: (config) => electron_1.ipcRenderer.invoke("preview-horizontal", config),
     previewVertical: (config) => electron_1.ipcRenderer.invoke("preview-vertical", config),
+    previewMergeFast: (config) => electron_1.ipcRenderer.invoke("preview-merge-fast", config),
     clearPreviews: () => electron_1.ipcRenderer.invoke("clear-previews"),
     getPreviewUrl: (filePath) => electron_1.ipcRenderer.invoke("get-preview-url", filePath),
     getFileInfo: (filePath) => electron_1.ipcRenderer.invoke("get-file-info", filePath),

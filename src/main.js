@@ -204,13 +204,30 @@ function registerPreviewProtocol() {
 function cleanupResidualPreviews() {
   try {
     const tempDir = os.tmpdir();
+    let cleanedCount = 0;
+
+    // 1. 清理系统临时目录下的 preview_fast_* 文件
     const files = fs.readdirSync(tempDir);
     const previewPattern = /^preview_fast_[a-f0-9]+\.mp4$/;
-    let cleanedCount = 0;
 
     for (const file of files) {
       if (previewPattern.test(file)) {
         const filePath = path.join(tempDir, file);
+        try {
+          fs.unlinkSync(filePath);
+          cleanedCount++;
+        } catch (e) {
+          // 忽略单个文件删除失败
+        }
+      }
+    }
+
+    // 2. 清理 videostitcher-preview 目录下的所有预览文件
+    const previewDir = path.join(tempDir, "videostitcher-preview");
+    if (fs.existsSync(previewDir)) {
+      const previewFiles = fs.readdirSync(previewDir);
+      for (const file of previewFiles) {
+        const filePath = path.join(previewDir, file);
         try {
           fs.unlinkSync(filePath);
           cleanedCount++;
