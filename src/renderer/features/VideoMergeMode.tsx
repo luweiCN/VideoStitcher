@@ -15,7 +15,8 @@ import {
   Layers3,
   Loader2,
   Eye,
-  Edit3,
+  ArrowDown,
+  ArrowUp,
   XCircle,
 } from "lucide-react";
 import useEmblaCarousel from 'embla-carousel-react';
@@ -312,12 +313,12 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
 
       const targetZoom = Math.min(zoomByWidth, zoomByHeight);
 
-      const clampedZoom = Math.max(10, Math.min(200, Math.ceil(targetZoom)));
+      const clampedZoom = Math.max(10, Math.min(200, Math.ceil(targetZoom) - 5));
       setCanvasZoom(clampedZoom);
     };
     const timer = setTimeout(calculateBestFitZoom, 100);
     return () => clearTimeout(timer);
-  }, [canvasConfig]);
+  }, [canvasConfig, tasks]);
 
   useVideoProcessingEvents({
     onStart: (data) => {
@@ -812,13 +813,13 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
               >
                 {activeView === 0 ? (
                   <>
-                    <Eye className="w-4 h-4 text-violet-400" />
-                    <span className="text-xs text-slate-300">预览</span>
+                    <ArrowDown className="w-4 h-4 text-violet-400" />
+                    <span className="text-xs text-slate-300">查看预览</span>
                   </>
                 ) : (
                   <>
-                    <Edit3 className="w-4 h-4 text-violet-400" />
-                    <span className="text-xs text-slate-300">编辑</span>
+                    <ArrowUp className="w-4 h-4 text-violet-400" />
+                    <span className="text-xs text-slate-300">返回编辑</span>
                   </>
                 )}
               </button>
