@@ -179,6 +179,7 @@ const OutputDirSelector: React.FC<OutputDirSelectorProps> = ({
         </div>
 
         {/* 选择按钮 - 使用 Button 组件 */}
+        <div className="mt-1">
         <Button
           onClick={handleSelectDir}
           disabled={disabled}
@@ -190,6 +191,7 @@ const OutputDirSelector: React.FC<OutputDirSelectorProps> = ({
         >
           {value ? '更改目录' : '选择目录'}
         </Button>
+        </div>
       </div>
 
       {/* 完整路径说明 - 超长换行 */}
