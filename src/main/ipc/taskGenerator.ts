@@ -3,20 +3,58 @@
  * 在主进程中生成任务，减轻渲染进程负担
  */
 
-const { ipcMain } = require("electron");
+import { ipcMain } from 'electron';
 
-/**
- * 排序配置
- */
+interface SortConfig {
+  priority: number[];
+  ascending?: boolean | boolean[];
+}
+
+interface StitchTaskParams {
+  aPaths: string[];
+  bPaths: string[];
+  count: number;
+  outputDir: string;
+  concurrency: number;
+  orientation: string;
+}
+
+interface MergeTaskParams {
+  bVideos: string[];
+  aVideos?: string[];
+  covers?: string[];
+  bgImages?: string[];
+  count: number;
+  outputDir: string;
+  concurrency: number;
+  orientation: string;
+}
+
+interface TaskFile {
+  path: string;
+  index: number;
+  category: string;
+  category_name: string;
+}
+
+interface Task {
+  id: string;
+  status: string;
+  files: TaskFile[];
+  config: { orientation: string };
+  outputDir: string;
+  concurrency: number;
+}
+
 /**
  * 生成完整的笛卡尔积
  */
-function generateCartesianProduct(sources) {
+function generateCartesianProduct(sources: string[][]): number[][] {
   if (sources.length === 0) return [];
 
-  const results = [];
+  const results: number[][] = [];
 
-  function backtrack(depth, current) {
+  function backtrack(depth: number, current: number[]): void {
     if (depth === sources.length) {
       results.push([...current]);
       return;
@@ -35,21 +73,21 @@ function generateCartesianProduct(sources) {
 /**
  * 均匀选择组合，确保尽量使用所有素材
  */
-function selectEvenlyDistributed(combinations, count) {
+function selectEvenlyDistributed(combinations: number[][], count: number): number[][] {
   if (combinations.length <= count) {
     return combinations;
   }
 
   // 记录每个素材已使用的次数
-  const usageCount = [];
+  const usageCount: number[][] = [];
   const maxIdx = combinations[0].length;
   for (let i = 0; i < maxIdx; i++) {
     const uniqueValues = [...new Set(combinations.map((c) => c[i]))];
     usageCount.push(new Array(Math.max(...uniqueValues) + 1).fill(0));
   }
 
-  const results = [];
-  const usedCombinations = new Set();
+  const results: number[][] = [];
+  const usedCombinations = new Set<string>();
 
   for (let i = 0; i < count; i++) {
     let bestIdx = -1;
@@ -92,7 +130,7 @@ function selectEvenlyDistributed(combinations, count) {
 /**
  * 对组合数组进行排序
  */
-function sortCombinations(combinations, config) {
+function sortCombinations(combinations: number[][], config: SortConfig): void {
   const { priority, ascending = true } = config;
 
   // 处理排序方向配置
@@ -119,7 +157,7 @@ function sortCombinations(combinations, config) {
 /**
  * 生成均匀的多源组合
  */
-function generateBalancedCombinations(sources, count, sortConfig) {
+export function generateBalancedCombinations(sources: string[][], count: number, sortConfig: SortConfig): number[][] {
   // 边界检查
   if (count <= 0 || sources.length === 0) {
     return [];
@@ -154,7 +192,7 @@ function generateBalancedCombinations(sources, count, sortConfig) {
 /**
  * 生成 A+B 前后拼接任务
  */
-function generateStitchTasks(event, params) {
+function generateStitchTasks(_event: Electron.IpcMainInvokeEvent, params: StitchTaskParams): { success: boolean; tasks: Task[] } {
   const { aPaths, bPaths, count, outputDir, concurrency, orientation } = params;
 
   if (!aPaths?.length || !bPaths?.length || count <= 0) {
@@ -167,7 +205,7 @@ function generateStitchTasks(event, params) {
     priority: [0, 1],
   });
 
-  const tasks = combinations.map((indices, taskIndex) => {
+  const tasks: Task[] = combinations.map((indices, taskIndex) => {
     return {
       id: `stitch-${timestamp}-${taskIndex}`,
       status: "pending",
@@ -197,7 +235,7 @@ function generateStitchTasks(event, params) {
 /**
  * 生成视频合成任务
  */
-function generateMergeTasks(event, params) {
+function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTaskParams): { success: boolean; tasks: Task[] } {
   const {
     bVideos,
     aVideos,
@@ -214,18 +252,19 @@ function generateMergeTasks(event, params) {
   }
 
   const timestamp = Date.now();
-  const sources = [];
-  let priorityOffset = 0;
+  const sources: string[][] = [];
 
   // 添加封面（可选）
-  if (covers?.length > 0) {
-    sources.push(covers);
-    priorityOffset++;
+  const validCovers = covers && covers.length > 0 ? covers : null;
+  const validAVideos = aVideos && aVideos.length > 0 ? aVideos : null;
+  const validBgImages = bgImages && bgImages.length > 0 ? bgImages : null;
+
+  if (validCovers) {
+    sources.push(validCovers);
   }
   // 添加 A 视频（可选）
-  if (aVideos?.length > 0) {
-    sources.push(aVideos);
-    priorityOffset++;
+  if (validAVideos) {
+    sources.push(validAVideos);
   }
   // 添加 B 视频（必需）
   sources.push(bVideos);
@@ -239,13 +278,13 @@ function generateMergeTasks(event, params) {
     priority,
   });
 
-  const tasks = combinations.map((indices, taskIndex) => {
-    const files = [];
+  const tasks: Task[] = combinations.map((indices, taskIndex) => {
+    const files: TaskFile[] = [];
     let idx = 0;
 
-    if (covers?.length > 0) {
+    if (validCovers) {
       files.push({
-        path: covers[indices[idx]],
+        path: validCovers[indices[idx]],
         index: indices[idx] + 1,
         category: "cover",
         category_name: "封面",
@@ -253,9 +292,9 @@ function generateMergeTasks(event, params) {
       idx++;
     }
 
-    if (aVideos?.length > 0) {
+    if (validAVideos) {
       files.push({
-        path: aVideos[indices[idx]],
+        path: validAVideos[indices[idx]],
         index: indices[idx] + 1,
         category: "A",
         category_name: "A",
@@ -271,9 +310,9 @@ function generateMergeTasks(event, params) {
     });
 
     // 背景图（固定）
-    if (bgImages?.length > 0) {
+    if (validBgImages) {
       files.push({
-        path: bgImages[0],
+        path: validBgImages[0],
         index: 1,
         category: "bg",
         category_name: "背景",
@@ -296,7 +335,7 @@ function generateMergeTasks(event, params) {
 /**
  * 注册任务生成器 IPC 处理器
  */
-function registerTaskGeneratorHandlers() {
+export function registerTaskGeneratorHandlers(): void {
   // 生成 A+B 前后拼接任务
   ipcMain.handle("task:generate-stitch", generateStitchTasks);
   console.log("[主进程] 任务生成器已注册: task:generate-stitch");
@@ -306,9 +345,7 @@ function registerTaskGeneratorHandlers() {
   console.log("[主进程] 任务生成器已注册: task:generate-merge");
 }
 
-module.exports = {
-  registerTaskGeneratorHandlers,
-  generateBalancedCombinations,
+export {
   generateStitchTasks,
   generateMergeTasks,
 };

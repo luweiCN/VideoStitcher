@@ -9,18 +9,7 @@ export interface ElectronAPI {
   ) => Promise<string[]>;
   pickOutDir: (defaultPath?: string) => Promise<string>;
 
-  // === 原有视频处理功能 (保留兼容性) ===
-  setLibs: (
-    aFiles: string[],
-    bFiles: string[],
-    outputDir: string,
-  ) => Promise<{ aCount: number; bCount: number; outDir: string }>;
-  setConcurrency: (concurrency: number) => Promise<{ concurrency: number }>;
-  startMerge: (
-    orientation: "landscape" | "portrait",
-  ) => Promise<{ done: number; failed: number; total: number }>;
-
-  // === 新的视频处理 API ===
+  // === 视频处理 API ===
   // A+B 前后拼接（基于任务数组）
   videoStitchAB: (tasks: {
     files: { path: string; category: string }[];
@@ -653,15 +642,7 @@ const api: ElectronAPI = {
   pickOutDir: (defaultPath) =>
     ipcRenderer.invoke("pick-outdir", { defaultPath }),
 
-  // 原有视频处理功能
-  setLibs: (aFiles, bFiles, outputDir) =>
-    ipcRenderer.invoke("set-libs", { aFiles, bFiles, outputDir }),
-  setConcurrency: (concurrency) =>
-    ipcRenderer.invoke("set-concurrency", { concurrency }),
-  startMerge: (orientation) =>
-    ipcRenderer.invoke("start-merge", { orientation }),
-
-  // 新的视频处理 API
+  // 视频处理 API
   videoStitchAB: (config) => ipcRenderer.invoke("video-stitch-ab", config),
   videoMerge: (tasks) => ipcRenderer.invoke("video-merge", tasks),
   videoHorizontalMerge: (config) =>
