@@ -12,7 +12,12 @@ import crypto from 'crypto';
 import { runFfmpeg, getFfmpegPath, buildStitchCommand, buildMergeCommand, TaskQueue, generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS } from '@shared/ffmpeg';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 import { SafeOutput } from '@shared/utils/safeOutput';
-import ffprobeInstaller from '@ffprobe-installer/ffprobe';
+
+// 开发环境才 import ffprobe 模块
+let ffprobeInstaller: { path: string };
+if (!app.isPackaged) {
+  ffprobeInstaller = require('@ffprobe-installer/ffprobe');
+}
 
 interface VideoMetadata {
   width: number;

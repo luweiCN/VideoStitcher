@@ -26,7 +26,7 @@ files:
   - "!**/.vscode/*"
   - "!**/.git/*"
   - "!**/.github/*"
-  - "!**/src/**/*"
+  - "!src/**/*"
   - "!**/.gitignore"
   - "!**/.eslintrc*"
   - "!**/README.md"
@@ -38,6 +38,7 @@ asarUnpack:
   - node_modules/sharp/**/*
   - node_modules/@img/**/*
   - node_modules/@ffprobe-installer/**/*
+  - node_modules/electron-log/**/*
 
 # macOS 配置 - DMG 用于手动安装，ZIP 用于自动更新
 mac:
