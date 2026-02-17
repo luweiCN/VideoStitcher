@@ -143,6 +143,9 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const [bVideoMetadata, setBVideoMetadata] = useState<
     { width: number; height: number; duration: number } | undefined
   >();
+  const [aVideoMetadata, setAVideoMetadata] = useState<
+    { width: number; height: number; duration: number } | undefined
+  >();
 
   const [materialPositions, setMaterialPositions] = useState<MaterialPositions>(
     () => getInitialPositions(canvasConfig),
@@ -226,8 +229,10 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       aPosition: materialPositions.aVideo,
       bPosition: materialPositions.bVideo,
       coverPosition: materialPositions.coverImage,
+      aDuration: aVideoMetadata?.duration,
+      bDuration: bVideoMetadata?.duration,
     };
-  }, [currentTaskMaterials, orientation, materialPositions]);
+  }, [currentTaskMaterials, orientation, materialPositions, aVideoMetadata, bVideoMetadata]);
 
   // 预览 hook - 只有在预览视图时才启用
   const {
@@ -364,6 +369,12 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       setAVideos(files);
       if (files.length > 0) {
         addLog(`已选择 ${files.length} 个A面视频`, "info");
+        const metadata = await fetchVideoMetadata(files[0]);
+        if (metadata) {
+          setAVideoMetadata(metadata);
+        }
+      } else {
+        setAVideoMetadata(undefined);
       }
       const newMax =
         bVideos.length *
@@ -377,6 +388,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       addLog,
       bVideos.length,
       covers.length,
+      fetchVideoMetadata,
     ],
   );
 
@@ -874,9 +886,13 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
                     ) : previewPath ? (
                       <div className="relative w-full h-full flex flex-col items-center justify-center">
                         <p className="text-xs text-slate-500 mb-2">
-                          {currentTaskMaterials.coverImage && currentTaskMaterials.aVideo 
-                            ? '封面 + A前5秒 + A后5秒 + B前5秒'
-                            : currentTaskMaterials.aVideo 
+                          {currentTaskMaterials.coverImage
+                            ? (currentTaskMaterials.aVideo
+                              ? (aVideoMetadata && aVideoMetadata.duration >= 10
+                                ? '封面 + A前5秒 + A后5秒 + B前5秒'
+                                : '封面 + A完整 + B前5秒')
+                              : '封面 + B前5秒')
+                            : currentTaskMaterials.aVideo
                               ? 'A后5秒 + B前5秒'
                               : 'B前5秒'}
                         </p>

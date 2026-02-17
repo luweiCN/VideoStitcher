@@ -134,11 +134,6 @@ export interface ElectronAPI {
     aPath: string;
     bPath: string;
     orientation: "landscape" | "portrait";
-  }) => Promise<{ success: boolean; tempPath?: string; error?: string }>;
-  generateStitchPreviewFast: (config: {
-    aPath: string;
-    bPath: string;
-    orientation: "landscape" | "portrait";
     aDuration?: number;
     bDuration?: number;
   }) => Promise<{ success: boolean; tempPath?: string; error?: string; elapsed?: string }>;
@@ -421,7 +416,6 @@ const api: ElectronAPI = {
 
   // 预览功能 API
   generateStitchPreview: (config) => ipcRenderer.invoke("generate-stitch-preview", config),
-  generateStitchPreviewFast: (config) => ipcRenderer.invoke("generate-stitch-preview-fast", config),
   deleteTempPreview: (tempPath) => ipcRenderer.invoke("delete-temp-preview", tempPath),
   previewHorizontal: (config) => ipcRenderer.invoke("preview-horizontal", config),
   previewVertical: (config) => ipcRenderer.invoke("preview-vertical", config),

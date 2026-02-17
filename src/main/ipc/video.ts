@@ -9,10 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import { execFile, spawn } from 'child_process';
 import crypto from 'crypto';
-import { runFfmpeg, getFfmpegPath, buildStitchCommand } from '@shared/ffmpeg/runFfmpeg';
-import { buildArgs, buildPreviewArgs } from '@shared/ffmpeg/videoMerge';
-import { TaskQueue } from '@shared/ffmpeg/queue';
-import { generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS } from '@shared/ffmpeg/videoResize';
+import { runFfmpeg, getFfmpegPath, buildStitchCommand, buildMergeCommand, TaskQueue, generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS } from '@shared/ffmpeg';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 import { SafeOutput } from '@shared/utils/safeOutput';
 import ffprobeInstaller from '@ffprobe-installer/ffprobe';
@@ -434,10 +431,10 @@ export async function handleVideoMerge(event: IpcMainInvokeEvent, tasks: Task[])
       const tempPath = safeOutput.getTempOutputPath(safeBaseName, index);
 
       try {
-        const args = buildArgs({
+        const args = buildMergeCommand({
           aPath, bPath, outPath: tempPath, bgImage, coverImage,
-          aPosition, bPosition, bgPosition, coverPosition, orientation: taskOrientation,
-        } as any);
+          aPosition, bPosition, bgPosition, coverPosition, orientation: taskOrientation as 'horizontal' | 'vertical',
+        });
 
         await runFfmpeg(args, (log: string) => {
           event.sender.send('video-log', { index, message: log });
@@ -547,10 +544,10 @@ export async function handleHorizontalMerge(
       try {
         const currentBPosition = (bPositions && bPositions[index]) || bPosition;
 
-        const args = buildArgs({
+        const args = buildMergeCommand({
           aPath: selectedAVideo, bPath: b, outPath, bgImage, coverImage: selectedCoverImage,
           aPosition, bPosition: currentBPosition, bgPosition, coverPosition, orientation: 'horizontal',
-        } as any);
+        });
 
         await runFfmpeg(args, (log: string) => {
           event.sender.send('video-log', { index, message: log });
@@ -648,10 +645,10 @@ export async function handleVerticalMerge(
       try {
         const currentBPosition = (bPositions && bPositions[index]) || bPosition;
 
-        const args = buildArgs({
+        const args = buildMergeCommand({
           aPath: selectedAVideo, bPath: mainVideo, outPath, bgImage, coverImage: selectedCoverImage,
           aPosition, bPosition: currentBPosition, bgPosition, coverPosition, orientation: 'vertical',
-        } as any);
+        });
 
         await runFfmpeg(args, (log: string) => {
           event.sender.send('video-log', { index, message: log });
@@ -790,9 +787,9 @@ async function handleHorizontalPreview(
   event.sender.send('preview-start', { mode: 'horizontal' });
 
   try {
-    const args = buildArgs({
+    const args = buildMergeCommand({
       aPath: aVideo, bPath: bVideo, outPath: previewPath, bgImage, coverImage, orientation: 'horizontal',
-    } as any);
+    });
 
     await runFfmpeg(args, (log: string) => {
       event.sender.send('preview-log', { message: log });
@@ -831,9 +828,10 @@ async function handleVerticalPreview(
   event.sender.send('preview-start', { mode: 'vertical' });
 
   try {
-    const args = buildArgs({
+    const args = buildMergeCommand({
       aPath: aVideo, bPath: mainVideo, outPath: previewPath, bgImage, coverImage, orientation: 'vertical',
-    } as any);
+      preview: { width: 720, height: 1280, crf: 28 }
+    });
 
     await runFfmpeg(args, (log: string) => {
       event.sender.send('preview-log', { message: log });
@@ -888,35 +886,61 @@ async function handleMergePreviewFast(
 
     console.log('[预览] A面时长:', aDuration, 'B面时长:', bDuration);
 
-    const trim: { aStart?: number; aDuration?: number; bStart?: number; bDuration?: number } = {};
+    // 极速预览的截取逻辑：
+    // - 封面：取开头 0.1 秒
+    // - A面：
+    //   - 不足5秒：取全部（不截取）
+    //   - 5-10秒：取前5秒（只取一段）
+    //   - 10秒以上：取前5秒 + 后5秒（两段拼接）
+    // - B面：取开头5秒（不足5秒则取全部）
+    const CLIP_DURATION = 5;
+    const trim: { aStart?: number; aDuration?: number; a2Start?: number; a2Duration?: number; bStart?: number; bDuration?: number } = {};
 
+    // A面截取策略：
+    // - 无封面：A后5秒 + B前5秒
+    // - 有封面 + A >= 10秒：A前5秒 + A后5秒 + B前5秒
+    // - 有封面 + A < 10秒：A完整 + B前5秒
+    const hasCover = !!coverImage;
     if (aVideo && aDuration > 0) {
-      if (aDuration <= 5) {
-        trim.aStart = 0;
-        trim.aDuration = aDuration;
+      if (!hasCover) {
+        // 无封面：A后5秒 + B前5秒
+        if (aDuration >= CLIP_DURATION) {
+          trim.aStart = aDuration - CLIP_DURATION;
+          trim.aDuration = CLIP_DURATION;
+        }
+        // A < 5秒：不截取，使用全部
       } else {
-        trim.aStart = aDuration - 5;
-        trim.aDuration = 5;
+        // 有封面：展示排序效果
+        if (aDuration >= CLIP_DURATION * 2) {
+          // A >= 10秒：截取前后各5秒
+          trim.aStart = 0;
+          trim.aDuration = CLIP_DURATION;
+          trim.a2Start = aDuration - CLIP_DURATION;
+          trim.a2Duration = CLIP_DURATION;
+        }
+        // A < 10秒：不截取，使用全部
       }
     }
 
-    if (bDuration <= 5) {
+    // B面截取：只在大等于5秒时才截取开头5秒
+    if (bDuration >= CLIP_DURATION) {
+      trim.bStart = 0;
+      trim.bDuration = CLIP_DURATION;
+    } else if (bDuration > 0) {
+      // B < 5秒：取全部
       trim.bStart = 0;
       trim.bDuration = bDuration;
-    } else {
-      trim.bStart = 0;
-      trim.bDuration = 5;
     }
 
     const previewConfig = orientation === 'horizontal'
       ? { width: 1280, height: 720, crf: 28 }
       : { width: 720, height: 1280, crf: 28 };
 
-    const args = buildPreviewArgs({
+    const args = buildMergeCommand({
       aPath: aVideo, bPath: bVideo, outPath: previewPath, bgImage, coverImage,
       aPosition, bPosition, coverPosition, orientation: orientation as 'vertical' | 'horizontal',
-      preview: previewConfig, trim, coverDuration: 2,
-    } as any);
+      preview: previewConfig, trim, coverDuration: 1,
+    });
 
     console.log('[预览] 生成极速合成预览:', previewPath);
     console.log('[预览] 截取参数:', JSON.stringify(trim));
@@ -1159,98 +1183,128 @@ async function handleGetVideoThumbnail(
 
 /**
  * 生成 A+B 拼接预览视频
+ *
+ * @param config.aPath A 视频路径
+ * @param config.bPath B 视频路径
+ * @param config.orientation 方向
+ * @param config.trim 可选的裁剪配置（精确控制截取位置和时长）
+ * @param config.aDuration A 视频总时长（秒），用于自动计算截取末尾5秒
+ * @param config.bDuration B 视频总时长（秒），用于自动计算截取开头5秒
  */
 async function handleGenerateStitchPreview(
   event: IpcMainInvokeEvent,
-  config: { aPath: string; bPath: string; orientation: 'landscape' | 'portrait' }
-): Promise<{ success: boolean; tempPath?: string; error?: string }> {
-  try {
-    const tempDir = os.tmpdir();
-    const tempId = crypto.randomBytes(8).toString('hex');
-    const tempPath = path.join(tempDir, `preview_${tempId}.mp4`);
-
-    const args = buildStitchCommand({ ...config, outPath: tempPath });
-
-    // 快速预览模式
-    const quickArgs = args.map((arg, idx) => {
-      if (arg === '-preset') return '-preset';
-      if (args[idx - 1] === '-preset') return 'ultrafast';
-      if (arg === '-crf') return '-crf';
-      if (args[idx - 1] === '-crf') return '35';
-      return arg;
-    });
-
-    console.log('[预览生成] 开始生成快速预览视频...');
-
-    await runFfmpeg(quickArgs, (log: string) => {
-      console.log('[预览生成]', log);
-    });
-
-    console.log('[预览生成] 完成，临时文件:', tempPath);
-
-    return { success: true, tempPath };
-  } catch (err) {
-    console.error('[预览生成] 失败:', err);
-    return { success: false, error: (err as Error).message };
+  config: {
+    aPath: string;
+    bPath: string;
+    orientation: 'landscape' | 'portrait';
+    trim?: {
+      aStart?: number;
+      aDuration?: number;
+      bStart?: number;
+      bDuration?: number;
+    };
+    // 扁平参数：视频总时长，用于自动计算截取位置
+    aDuration?: number;
+    bDuration?: number;
   }
-}
-
-/**
- * 快速生成 A+B 拼接预览视频
- */
-async function handleGenerateStitchPreviewFast(
-  event: IpcMainInvokeEvent,
-  config: { aPath: string; bPath: string; orientation: string; aDuration?: number; bDuration?: number }
 ): Promise<{ success: boolean; tempPath?: string; elapsed?: string; error?: string }> {
-  const { aPath, bPath, orientation, aDuration, bDuration } = config;
   const startTime = Date.now();
 
   try {
     const tempDir = os.tmpdir();
     const tempId = crypto.randomBytes(8).toString('hex');
-    const tempPath = path.join(tempDir, `preview_fast_${orientation}_${tempId}.mp4`);
-
     const CLIP_DURATION = 5;
-    const aClipDuration = aDuration ? Math.min(CLIP_DURATION, aDuration) : CLIP_DURATION;
-    const aStartTime = aDuration ? Math.max(0, aDuration - CLIP_DURATION) : 0;
-    const bClipDuration = bDuration ? Math.min(CLIP_DURATION, bDuration) : CLIP_DURATION;
+    const MIN_DURATION_FOR_TRIM = 10; // 至少需要10秒才截取拼接
 
-    const isLandscape = orientation === 'landscape';
-    const width = isLandscape ? 1920 : 1080;
-    const height = isLandscape ? 1080 : 1920;
+    // 判断是否有精确的 trim 参数
+    const hasNestedParams = config.trim && (
+      config.trim.aStart !== undefined ||
+      config.trim.bStart !== undefined ||
+      config.trim.aDuration !== undefined ||
+      config.trim.bDuration !== undefined
+    );
 
-    console.log(`[快速预览] A: 截取 ${aStartTime.toFixed(1)}s 开始的 ${aClipDuration}s`);
-    console.log(`[快速预览] B: 截取前 ${bClipDuration}s`);
+    // 计算截取参数
+    let finalTrim: {
+      aStart: number;
+      aDuration: number;
+      bStart: number;
+      bDuration: number;
+    } | null = null;
 
-    const args = [
-      '-ss', String(aStartTime), '-i', aPath,
-      '-t', String(bClipDuration), '-i', bPath,
-      '-filter_complex', [
-        `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30,trim=0:${aClipDuration},setpts=PTS-STARTPTS[v0]`,
-        `[1:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1,fps=30,setpts=PTS-STARTPTS[v1]`,
-        `[0:a]atrim=0:${aClipDuration},asetpts=PTS-STARTPTS[a0]`,
-        `[1:a]asetpts=PTS-STARTPTS[a1]`,
-        `[v0][a0][v1][a1]concat=n=2:v=1:a=1[outv][outa]`,
-      ].join(';'),
-      '-map', '[outv]', '-map', '[outa]',
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '35',
-      '-c:a', 'aac', '-b:a', '64k',
-      '-movflags', '+faststart', '-y', tempPath,
-    ];
+    // 决定是否需要截取拼接
+    const aDuration = config.aDuration ?? 0;
+    const bDuration = config.bDuration ?? 0;
+    const totalDuration = aDuration + bDuration;
 
-    console.log('[快速预览] 开始生成...');
+    // 情况1：有精确 trim 参数，使用 trim 参数
+    if (hasNestedParams) {
+      finalTrim = {
+        aStart: config.trim?.aStart ?? 0,
+        aDuration: config.trim?.aDuration ?? CLIP_DURATION,
+        bStart: config.trim?.bStart ?? 0,
+        bDuration: config.trim?.bDuration ?? CLIP_DURATION,
+      };
+    }
+    // 情况2：有总时长信息，且总时长 >= 10秒，才进行截取拼接
+    else if (totalDuration > 0 && totalDuration >= MIN_DURATION_FOR_TRIM) {
+      // A 取末尾5秒，B 取开头5秒
+      finalTrim = {
+        aStart: Math.max(0, aDuration - CLIP_DURATION),
+        aDuration: CLIP_DURATION,
+        bStart: 0,
+        bDuration: CLIP_DURATION,
+      };
+    }
+    // 情况3：视频太短，不截取不拼接（直接用原视频）
+
+    // 生成输出路径
+    const useTrim = finalTrim !== null;
+    const tempPath = path.join(tempDir, `preview_${useTrim ? 'fast_' : ''}${config.orientation}_${tempId}.mp4`);
+
+    let args: string[];
+
+    if (useTrim && finalTrim) {
+      // 需要截取拼接
+      args = buildStitchCommand({
+        aPath: config.aPath,
+        bPath: config.bPath,
+        outPath: tempPath,
+        orientation: config.orientation,
+        trim: finalTrim,
+        preview: { crf: 35 }
+      });
+    } else {
+      // 视频太短，不截取，直接拼接原视频
+      console.log(`[预览生成] 视频总时长 ${totalDuration.toFixed(1)}s < 10s，跳过截取拼接`);
+      args = buildStitchCommand({
+        aPath: config.aPath,
+        bPath: config.bPath,
+        outPath: tempPath,
+        orientation: config.orientation,
+        preview: { crf: 35 }
+      });
+    }
+
+    if (useTrim && finalTrim) {
+      console.log(`[预览生成] A: 截取 ${finalTrim.aStart}s 开始的 ${finalTrim.aDuration}s`);
+      console.log(`[预览生成] B: 截取 ${finalTrim.bStart}s 开始的 ${finalTrim.bDuration}s`);
+    } else {
+      console.log(`[预览生成] 视频太短，使用完整视频拼接`);
+    }
+    console.log('[预览生成] 开始生成...');
 
     await runFfmpeg(args, (log: string) => {
-      console.log('[快速预览]', log);
+      console.log('[预览生成]', log);
     });
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`[快速预览] 完成，耗时: ${elapsed}秒，临时文件: ${tempPath}`);
+    console.log(`[预览生成] 完成，耗时: ${elapsed}秒，临时文件: ${tempPath}`);
 
     return { success: true, tempPath, elapsed };
   } catch (err) {
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.error(`[快速预览] 失败，耗时: ${elapsed}秒:`, err);
+    console.error(`[预览生成] 失败，耗时: ${elapsed}秒:`, err);
     return { success: false, error: (err as Error).message, elapsed };
   }
 }
@@ -1355,11 +1409,6 @@ export function registerVideoHandlers(): void {
     return handleGenerateStitchPreview(event, config);
   });
 
-  // 快速生成 A+B 拼接预览视频
-  ipcMain.handle('generate-stitch-preview-fast', async (event, config) => {
-    return handleGenerateStitchPreviewFast(event, config);
-  });
-
   // 删除临时预览文件
   ipcMain.handle('delete-temp-preview', async (_event, tempPath: string) => {
     return handleDeleteTempPreview(tempPath);
@@ -1370,6 +1419,5 @@ export {
   getVideoMetadata,
   handleGetVideoThumbnail,
   handleGenerateStitchPreview,
-  handleGenerateStitchPreviewFast,
   handleDeleteTempPreview,
 };

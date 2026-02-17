@@ -28,6 +28,10 @@ export interface MergePreviewConfig {
   bPosition?: { x: number; y: number; width: number; height: number };
   /** 封面位置 */
   coverPosition?: { x: number; y: number; width: number; height: number };
+  /** A面视频时长（秒） */
+  aDuration?: number;
+  /** B面视频时长（秒） */
+  bDuration?: number;
 }
 
 /**

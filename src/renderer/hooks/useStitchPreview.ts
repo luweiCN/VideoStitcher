@@ -159,7 +159,7 @@ export function useStitchPreview(
   } = usePreviewCache(config, enabled, {
     namespace: 'stitch-preview',
     generate: async (cfg, signal) => {
-      const result = await window.api.generateStitchPreviewFast({
+      const result = await window.api.generateStitchPreview({
         aPath: cfg.aPath,
         bPath: cfg.bPath,
         orientation: cfg.orientation,

@@ -4,26 +4,31 @@
  */
 
 interface QueueItem {
-  taskFn: () => Promise<void>;
+  taskFn: () => Promise<unknown>;
   resolve: (value: unknown) => void;
   reject: (reason: unknown) => void;
 }
 
 export class TaskQueue {
-  concurrency: number;
-  running: number;
-  queue: QueueItem[];
-  stopped: boolean;
+  private _concurrency: number;
+  private running: number;
+  private queue: QueueItem[];
+  private stopped: boolean;
 
   constructor(concurrency: number = 2) {
-    this.concurrency = Math.max(1, concurrency);
+    this._concurrency = Math.max(1, concurrency);
     this.running = 0;
     this.queue = [];
     this.stopped = false;
   }
 
+  /** 获取当前并发数 */
+  get concurrency(): number {
+    return this._concurrency;
+  }
+
   setConcurrency(n: number): void {
-    this.concurrency = Math.max(1, n);
+    this._concurrency = Math.max(1, n);
     this._drain();
   }
 
@@ -36,19 +41,23 @@ export class TaskQueue {
     this._drain();
   }
 
-  push(taskFn: () => Promise<void>): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-      this.queue.push({ taskFn, resolve, reject });
+  push<T = unknown>(taskFn: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.queue.push({
+        taskFn: taskFn as () => Promise<unknown>,
+        resolve: resolve as (value: unknown) => void,
+        reject
+      });
       this._drain();
     });
   }
 
-  _drain(): void {
+  private _drain(): void {
     if (this.stopped) return;
-    while (this.running < this.concurrency && this.queue.length > 0) {
+    while (this.running < this._concurrency && this.queue.length > 0) {
       const item = this.queue.shift();
       if (!item) break;
-      
+
       const { taskFn, resolve, reject } = item;
       this.running++;
       Promise.resolve()

@@ -112,11 +112,6 @@ export interface ElectronAPI {
     aPath: string;
     bPath: string;
     orientation: "landscape" | "portrait";
-  }) => Promise<{ success: boolean; tempPath?: string; error?: string }>;
-  generateStitchPreviewFast: (config: {
-    aPath: string;
-    bPath: string;
-    orientation: "landscape" | "portrait";
     aDuration?: number;
     bDuration?: number;
   }) => Promise<{ success: boolean; tempPath?: string; error?: string; elapsed?: string }>;
