@@ -27,7 +27,7 @@
 
 ## 详细指南
 
-- [代码风格](.claude/code-style.md) - 注释、日志规范
+- [代码风格](.claude/code-style.md) - 注释、日志规范、路径别名
 - [Git 工作流](.claude/git-workflow.md) - 提交格式、发布流程
 - [架构设计](.claude/architecture.md) - 项目结构、开发注意事项
 - [UI 样式](.claude/ui-style.md) - 配色标准、组件示例
