@@ -7,23 +7,11 @@ import { ipcMain, IpcMainInvokeEvent, app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { execFile, spawn } from 'child_process';
+import { execFile } from 'child_process';
 import crypto from 'crypto';
-import { runFfmpeg, getFfmpegPath, buildStitchCommand, buildMergeCommand, TaskQueue, generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS } from '@shared/ffmpeg';
+import { runFfmpeg, getFfmpegPath, buildStitchCommand, buildMergeCommand, TaskQueue, generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS, getVideoMetadata, getVideoDuration, getVideoDurationFast } from '@shared/ffmpeg';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 import { SafeOutput } from '@shared/utils/safeOutput';
-
-// 开发环境才 import ffprobe 模块
-let ffprobeInstaller: { path: string };
-if (!app.isPackaged) {
-  ffprobeInstaller = require('@ffprobe-installer/ffprobe');
-}
-
-interface VideoMetadata {
-  width: number;
-  height: number;
-  duration: number;
-}
 
 interface VideoDimensions {
   width: number;
@@ -107,39 +95,6 @@ interface ResizeConfig {
   concurrency?: number;
 }
 
-/**
- * 获取 FFprobe 可执行文件路径
- * 打包后需要特殊处理路径
- */
-function getFfprobePath(): string {
-  if (app.isPackaged) {
-    const resourcesPath = process.resourcesPath;
-    const platform = process.platform;
-    const arch = process.arch;
-    let subdir: string;
-    if (platform === 'win32') {
-      subdir = 'win32-x64';
-    } else if (platform === 'darwin') {
-      subdir = arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64';
-    } else {
-      subdir = 'linux-x64';
-    }
-
-    const unpackedPath = path.join(
-      resourcesPath,
-      'app.asar.unpacked',
-      'node_modules',
-      '@ffprobe-installer',
-      subdir,
-    );
-
-    const ffprobeBin = platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
-    return path.join(unpackedPath, ffprobeBin);
-  }
-
-  return ffprobeInstaller.path;
-}
-
 // 创建任务队列
 const queue = new TaskQueue(Math.max(1, os.cpus().length - 1));
 
@@ -163,59 +118,6 @@ function getSmartMergedBaseName(bName: string, index: number, suffix: string, aN
   } else {
     return `${bName}__${String(index + 1).padStart(4, '0')}_${suffix}`;
   }
-}
-
-/**
- * 获取视频元数据（尺寸、时长等）
- */
-async function getVideoMetadata(filePath: string): Promise<VideoMetadata> {
-  return new Promise((resolve, reject) => {
-    const args = [
-      '-v', 'error',
-      '-select_streams', 'v:0',
-      '-show_entries', 'stream=width,height,duration',
-      '-of', 'json',
-      filePath,
-    ];
-
-    const proc = spawn(getFfprobePath(), args, { windowsHide: true });
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    proc.on('close', (code) => {
-      if (code !== 0) {
-        return reject(new Error(`ffprobe exit code=${code}: ${stderr}`));
-      }
-
-      try {
-        const output = JSON.parse(stdout);
-        if (output.streams && output.streams.length > 0) {
-          const stream = output.streams[0];
-          resolve({
-            width: stream.width,
-            height: stream.height,
-            duration: stream.duration ? parseFloat(stream.duration) : 0,
-          });
-        } else {
-          reject(new Error('无法解析视频元数据'));
-        }
-      } catch (err) {
-        reject(new Error(`解析 ffprobe 输出失败: ${(err as Error).message}`));
-      }
-    });
-
-    proc.on('error', (err) => {
-      reject(new Error(`ffprobe 执行失败: ${err.message}`));
-    });
-  });
 }
 
 /**
@@ -876,17 +778,7 @@ async function handleMergePreviewFast(
   const startTime = Date.now();
 
   try {
-    const getVideoDuration = async (videoPath?: string): Promise<number> => {
-      if (!videoPath) return 0;
-      try {
-        const metadata = await getVideoMetadata(videoPath);
-        return metadata?.duration || 0;
-      } catch {
-        return 0;
-      }
-    };
-
-    const aDuration = await getVideoDuration(aVideo);
+    const aDuration = await getVideoDuration(aVideo || '');
     const bDuration = await getVideoDuration(bVideo);
 
     console.log('[预览] A面时长:', aDuration, 'B面时长:', bDuration);
@@ -1135,21 +1027,7 @@ async function handleGetVideoThumbnail(
     const { timeOffset = 0, maxSize = 200 } = options;
 
     // 获取视频时长
-    const duration = await new Promise<number>((resolve) => {
-      const args = ['-i', filePath, '-hide_banner'];
-      execFile(getFfprobePath(), args, { timeout: 5000 }, (_err, _stdout, stderr) => {
-        const match = stderr.match(/Duration: (\d{2}):(\d{2}):(\d{2})\.(\d{2})/);
-        if (match) {
-          const hours = parseInt(match[1]);
-          const mins = parseInt(match[2]);
-          const secs = parseInt(match[3]);
-          const centisecs = parseInt(match[4]);
-          resolve(hours * 3600 + mins * 60 + secs + centisecs / 100);
-        } else {
-          resolve(0);
-        }
-      });
-    });
+    const duration = await getVideoDurationFast(filePath, 5000);
 
     const actualTimeOffset = duration > 0 ? Math.min(timeOffset, duration * 0.9) : timeOffset;
 
@@ -1421,7 +1299,6 @@ export function registerVideoHandlers(): void {
 }
 
 export {
-  getVideoMetadata,
   handleGetVideoThumbnail,
   handleGenerateStitchPreview,
   handleDeleteTempPreview,
