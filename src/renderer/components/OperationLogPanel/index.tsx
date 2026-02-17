@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Copy, Download, Trash2,
 } from 'lucide-react';
-import { Virtuoso, VirtuosoMethods } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
 import type {
   OperationLogPanelProps,
   LogSelection,
@@ -43,7 +43,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
   const theme: LogStyleConfig = THEME_COLOR_MAP[themeColor];
 
   // Virtuoso 引用
-  const virtuosoRef = useRef<VirtuosoMethods>(null);
+  const virtuosoRef = useRef<any>(null);
   const virtuosoContainerRef = useRef<HTMLDivElement>(null);
 
   // 选择状态

@@ -54,7 +54,7 @@ const ImageMaterialPreviewPanel: React.FC<ImageMaterialPreviewPanelProps> = ({
 
   // 防止重复加载
   const isLoadingRef = useRef(false);
-  const currentFilesRef = useRef<string[]>([]);
+  const currentFilesRef = useRef<string>('');
 
   // 加载图片预览
   const loadImagePreview = useCallback(async (filePath: string) => {

@@ -2,9 +2,9 @@ import React, { createContext, useContext, useCallback, useState, useRef, useEff
 import { createPortal } from 'react-dom';
 import { Video, Image as ImageIcon, FileText, FolderOpen } from 'lucide-react';
 import { FileSelector, FileItem, FileSelectorProps } from './FileSelector';
-import { useToastMessages } from '../Toast';
-import { Button } from '../Button';
-import { RadioGroup, RadioItem } from '../Radio';
+import { useToastMessages } from '@/components/Toast';
+import { Button } from '@/components/Button';
+import { RadioGroup, RadioItem } from '@/components/Radio';
 import { useFileProcessor, detectFileType, checkFileTypeCompatibility } from './useFileProcessor';
 
 /**
@@ -533,7 +533,7 @@ export const FileSelectorGroup: React.FC<FileSelectorGroupProps> = ({
               includeHidden: false,
               recursive: false,
               maxDepth: 1,
-              extensions: null
+              extensions: undefined
             });
             if (result.success && result.files) {
               for (const dirFile of result.files) {

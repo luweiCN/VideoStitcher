@@ -34,7 +34,7 @@ import { getMaxHeight, isTextOverflowing } from './algorithms/measure';
  */
 export interface UseNeedsCollapseOptions {
   /** 文本内容 ref */
-  textRef: React.RefObject<HTMLElement>;
+  textRef: React.RefObject<HTMLElement | null>;
   /** 最大显示行数 */
   lines?: number;
   /** 测量延迟（毫秒） */

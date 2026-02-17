@@ -3,19 +3,19 @@ import * as Slider from '@radix-ui/react-slider';
 import {
   Settings, Loader2, Eye, Maximize2
 } from 'lucide-react';
-import PageHeader from '../components/PageHeader';
-import OutputDirSelector from '../components/OutputDirSelector';
-import ConcurrencySelector from '../components/ConcurrencySelector';
-import OperationLogPanel from '../components/OperationLogPanel';
-import { FileSelector, FileSelectorGroup } from '../components/FileSelector';
-import { Button } from '../components/Button/Button';
-import TaskList, { type Task, type OutputConfig } from '../components/TaskList';
-import { useOutputDirCache } from '../hooks/useOutputDirCache';
-import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
-import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useVideoProcessingEvents } from '../hooks/useVideoProcessingEvents';
-import { useVideoVolumeCache } from '../hooks/useVideoVolumeCache';
-import useVideoMaterials from '../hooks/useVideoMaterials';
+import PageHeader from '@/components/PageHeader';
+import OutputDirSelector from '@/components/OutputDirSelector';
+import ConcurrencySelector from '@/components/ConcurrencySelector';
+import OperationLogPanel from '@/components/OperationLogPanel';
+import { FileSelector, FileSelectorGroup } from '@/components/FileSelector';
+import { Button } from '@/components/Button/Button';
+import TaskList, { type Task, type OutputConfig } from '@/components/TaskList';
+import { useOutputDirCache } from '@/hooks/useOutputDirCache';
+import { useConcurrencyCache } from '@/hooks/useConcurrencyCache';
+import { useOperationLogs } from '@/hooks/useOperationLogs';
+import { useVideoProcessingEvents } from '@/hooks/useVideoProcessingEvents';
+import { useVideoVolumeCache } from '@/hooks/useVideoVolumeCache';
+import useVideoMaterials from '@/hooks/useVideoMaterials';
 import { PreviewArea } from './ResizeMode/components/PreviewArea';
 
 interface ResizeModeProps {

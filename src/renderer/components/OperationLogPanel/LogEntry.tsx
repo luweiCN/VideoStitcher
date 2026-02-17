@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Root, Indicator } from '@radix-ui/react-checkbox';
 import { Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import type { LogEntryProps } from './types';
-import { useNeedsCollapse } from '../TextCollapse';
+import { useNeedsCollapse } from '@/components/TextCollapse';
 
 /**
  * 获取日志类型的颜色类名

@@ -6,6 +6,12 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    resolve: {
+      alias: {
+        '@main': resolve(__dirname, 'src/main'),
+        '@shared': resolve(__dirname, 'src/shared'),
+      },
+    },
     build: {
       rollupOptions: {
         input: {
@@ -17,6 +23,12 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    resolve: {
+      alias: {
+        '@preload': resolve(__dirname, 'src/preload'),
+        '@shared': resolve(__dirname, 'src/shared'),
+      },
+    },
     build: {
       rollupOptions: {
         input: {

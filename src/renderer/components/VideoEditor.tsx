@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Position, MaterialPositions } from '../types';
+import { Position, MaterialPositions } from '@/types';
 import VideoBox from './VideoBox';
 
 /**

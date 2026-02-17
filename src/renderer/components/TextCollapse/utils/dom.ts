@@ -4,7 +4,7 @@
  * 提供安全的 DOM 操作和测量辅助函数
  */
 
-import { getTextContent, normalizeText } from '../algorithms/measure';
+import { getTextContent, normalizeText } from '@/components/TextCollapse/algorithms/measure';
 
 /**
  * 安全地获取元素的父容器

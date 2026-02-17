@@ -135,7 +135,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
 
   // 防止重复加载的标志
   const isLoadingRef = useRef(false);
-  const currentFilesRef = useRef<string[]>([]);
+  const currentFilesRef = useRef<string>('');
 
   // 监听预览事件（仅用于视频合成模式）
   useEffect(() => {
@@ -508,7 +508,6 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({
                   src={currentPreviewUrl}
                   className="w-full h-full object-cover"
                   muted={isMuted}
-                  volume={volume}
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
                   onTimeUpdate={handleTimeUpdate}

@@ -74,7 +74,7 @@ export class MeasureCache {
   /**
    * 设置缓存条目
    */
-  set(text: string, width: number, font: string, result: Omit<CacheEntry, 'timestamp'>): void {
+  set(text: string, width: number, font: string, result: { truncateAt: number; overflow: boolean }): void {
     const key = generateCacheKey(text, width, font);
 
     // 检查缓存大小，删除最旧的条目
@@ -95,6 +95,9 @@ export class MeasureCache {
     }
 
     this.cache.set(key, {
+      text,
+      width,
+      font,
       ...result,
       timestamp: Date.now(),
     });

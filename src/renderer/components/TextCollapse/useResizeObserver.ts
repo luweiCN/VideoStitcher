@@ -25,7 +25,7 @@ export interface UseResizeObserverOptions {
  */
 export interface UseResizeObserverReturn {
   /** 元素 ref */
-  ref: React.RefObject<HTMLElement>;
+  ref: React.RefObject<HTMLElement | null>;
   /** 强制触发一次测量 */
   trigger: () => void;
 }
@@ -176,7 +176,7 @@ export function useResizeObserver(
 /**
  * 简化版本：只需要 ref
  */
-export function useResizeObserverRef(options?: UseResizeObserverOptions): React.RefObject<HTMLElement> {
+export function useResizeObserverRef(options?: UseResizeObserverOptions): React.RefObject<HTMLElement | null> {
   const { ref } = useResizeObserver(() => {}, options);
   return ref;
 }

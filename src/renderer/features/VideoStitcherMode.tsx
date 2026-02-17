@@ -3,22 +3,22 @@ import {
   Loader2, Settings, Link2,
   Eye, Play, Monitor, Smartphone, XCircle
 } from 'lucide-react';
-import PageHeader from '../components/PageHeader';
-import OutputDirSelector from '../components/OutputDirSelector';
-import ConcurrencySelector from '../components/ConcurrencySelector';
-import OperationLogPanel from '../components/OperationLogPanel';
-import FilePreviewModal from '../components/FilePreviewModal';
-import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '../components/FileSelector';
-import { Button } from '../components/Button/Button';
-import TaskCountSlider, { type TaskSource } from '../components/TaskCountSlider';
-import VideoPlayer from '../components/VideoPlayer/VideoPlayer';
-import TaskList, { type Task, type OutputConfig } from '../components/TaskList';
-import { useOutputDirCache } from '../hooks/useOutputDirCache';
-import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
-import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useVideoProcessingEvents } from '../hooks/useVideoProcessingEvents';
-import useVideoMaterials, { type VideoMaterial } from '../hooks/useVideoMaterials';
-import useStitchPreview from '../hooks/useStitchPreview';
+import PageHeader from '@/components/PageHeader';
+import OutputDirSelector from '@/components/OutputDirSelector';
+import ConcurrencySelector from '@/components/ConcurrencySelector';
+import OperationLogPanel from '@/components/OperationLogPanel';
+import FilePreviewModal from '@/components/FilePreviewModal';
+import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '@/components/FileSelector';
+import { Button } from '@/components/Button/Button';
+import TaskCountSlider, { type TaskSource } from '@/components/TaskCountSlider';
+import VideoPlayer from '@/components/VideoPlayer/VideoPlayer';
+import TaskList, { type Task, type OutputConfig } from '@/components/TaskList';
+import { useOutputDirCache } from '@/hooks/useOutputDirCache';
+import { useConcurrencyCache } from '@/hooks/useConcurrencyCache';
+import { useOperationLogs } from '@/hooks/useOperationLogs';
+import { useVideoProcessingEvents } from '@/hooks/useVideoProcessingEvents';
+import useVideoMaterials, { type VideoMaterial } from '@/hooks/useVideoMaterials';
+import useStitchPreview from '@/hooks/useStitchPreview';
 
 interface VideoStitcherModeProps {
   onBack: () => void;

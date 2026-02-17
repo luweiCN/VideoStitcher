@@ -26,7 +26,7 @@ export { detectFileType, checkFileTypeCompatibility, buildNotificationMessage } 
 
 // 文件 Tooltip
 export { FileTooltipContent } from './FileTooltip';
-export { formatFileSize } from '../../utils/format';
+export { formatFileSize } from '@/utils/format';
 
 // 主题配置
 export { getThemeConfig } from './themeConfig';

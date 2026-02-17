@@ -3,10 +3,10 @@ import {
   ArrowLeft, CheckCircle, XCircle, Loader2, FileVideo, Image as ImageIcon, Layers, Eye, Play
 } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
-import FilePreviewModal from '../../components/FilePreviewModal';
-import useVideoMaterials, { type VideoMaterial } from '../../hooks/useVideoMaterials';
-import useImageMaterials, { type ImageMaterial } from '../../hooks/useImageMaterials';
-import { formatDuration, formatFileSize } from '../../utils/format';
+import FilePreviewModal from '@/components/FilePreviewModal';
+import useVideoMaterials, { type VideoMaterial } from '@/hooks/useVideoMaterials';
+import useImageMaterials, { type ImageMaterial } from '@/hooks/useImageMaterials';
+import { formatDuration, formatFileSize } from '@/utils/format';
 
 /**
  * 任务文件

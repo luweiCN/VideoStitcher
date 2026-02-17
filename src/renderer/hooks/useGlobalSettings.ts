@@ -51,16 +51,15 @@ export function useGlobalSettings(): UseGlobalSettingsResult {
     const loadSettings = async () => {
       try {
         const result = await window.api.getGlobalSettings();
-        if (result && result.success && result.settings) {
-          const settings = result.settings;
+        if (result) {
           // 同时设置应用状态和已保存状态
           setGlobalSettings({
-            defaultOutputDir: settings.defaultOutputDir || '',
-            defaultConcurrency: settings.defaultConcurrency || 3
+            defaultOutputDir: result.defaultOutputDir || '',
+            defaultConcurrency: result.defaultConcurrency || 3
           });
           setSavedSettings({
-            defaultOutputDir: settings.defaultOutputDir || '',
-            defaultConcurrency: settings.defaultConcurrency || 3
+            defaultOutputDir: result.defaultOutputDir || '',
+            defaultConcurrency: result.defaultConcurrency || 3
           });
         } else {
           // 没有保存的配置，使用默认值

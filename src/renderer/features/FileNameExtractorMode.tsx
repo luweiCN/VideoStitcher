@@ -4,14 +4,14 @@ import {
   ArrowRightLeft, File as FileIcon, Loader2, Check, Trash2, Hash, CopyCheck,
   Video, Image as ImageIcon, Eye
 } from 'lucide-react';
-import PageHeader from '../components/PageHeader';
-import OperationLogPanel from '../components/OperationLogPanel';
-import PreviewConfirmDialog from '../components/PreviewConfirmDialog';
-import { FileSelector, FileSelectorGroup, type FileSelectorRef, type FileItem } from '../components/FileSelector';
-import { FilePreviewModal } from '../components/FilePreviewModal';
-import { Button } from '../components/Button/Button';
-import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useToastMessages } from '../components/Toast/Toast';
+import PageHeader from '@/components/PageHeader';
+import OperationLogPanel from '@/components/OperationLogPanel';
+import PreviewConfirmDialog from '@/components/PreviewConfirmDialog';
+import { FileSelector, FileSelectorGroup, type FileSelectorRef, type FileItem } from '@/components/FileSelector';
+import { FilePreviewModal } from '@/components/FilePreviewModal';
+import { Button } from '@/components/Button/Button';
+import { useOperationLogs } from '@/hooks/useOperationLogs';
+import { useToastMessages } from '@/components/Toast/Toast';
 
 interface FileNameExtractorModeProps {
   onBack: () => void;

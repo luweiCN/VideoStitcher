@@ -1,4 +1,4 @@
-import type { LogEntry } from '../../hooks/useOperationLogs';
+import type { LogEntry } from '@/hooks/useOperationLogs';
 
 /**
  * 日志条目选中状态

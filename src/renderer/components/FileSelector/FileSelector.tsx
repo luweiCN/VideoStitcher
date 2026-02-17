@@ -197,7 +197,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
     );
 
     // 使用 ref 存储选择器属性，避免频繁重新注册
-    const selectorPropsRef = useRef<Omit<FileSelectorProps, "onChange">>({
+    const selectorPropsRef = useRef<FileSelectorProps>({
       id,
       name,
       accept,
@@ -579,7 +579,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
                 includeHidden: false,
                 recursive: false,
                 maxDepth: 1,
-                extensions: null,
+                extensions: undefined,
               });
               if (result.success && result.files) {
                 for (const dirFile of result.files) {

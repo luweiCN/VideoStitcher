@@ -9,12 +9,12 @@ import fs from 'fs';
 import os from 'os';
 import { execFile, spawn } from 'child_process';
 import crypto from 'crypto';
-import { runFfmpeg, getFfmpegPath, buildStitchCommand } from '../../shared/ffmpeg/runFfmpeg';
-import { buildArgs, buildPreviewArgs } from '../../shared/ffmpeg/videoMerge';
-import { TaskQueue } from '../../shared/ffmpeg/queue';
-import { generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS } from '../../shared/ffmpeg/videoResize';
-import { generateFileName } from '../../shared/utils/fileNameHelper';
-import { SafeOutput } from '../../shared/utils/safeOutput';
+import { runFfmpeg, getFfmpegPath, buildStitchCommand } from '@shared/ffmpeg/runFfmpeg';
+import { buildArgs, buildPreviewArgs } from '@shared/ffmpeg/videoMerge';
+import { TaskQueue } from '@shared/ffmpeg/queue';
+import { generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS } from '@shared/ffmpeg/videoResize';
+import { generateFileName } from '@shared/utils/fileNameHelper';
+import { SafeOutput } from '@shared/utils/safeOutput';
 import ffprobeInstaller from '@ffprobe-installer/ffprobe';
 
 interface VideoMetadata {
@@ -1162,7 +1162,7 @@ async function handleGetVideoThumbnail(
  */
 async function handleGenerateStitchPreview(
   event: IpcMainInvokeEvent,
-  config: { aPath: string; bPath: string; orientation: string }
+  config: { aPath: string; bPath: string; orientation: 'landscape' | 'portrait' }
 ): Promise<{ success: boolean; tempPath?: string; error?: string }> {
   try {
     const tempDir = os.tmpdir();

@@ -29,9 +29,9 @@ export interface TextCollapseProps {
   /** 自定义容器样式 */
   style?: React.CSSProperties;
   /** 文本内容的 ref */
-  textRef?: React.RefObject<HTMLSpanElement>;
+  textRef?: React.RefObject<HTMLSpanElement | null>;
   /** 容器内容的 ref */
-  containerRef?: React.RefObject<HTMLDivElement>;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -51,9 +51,9 @@ export interface ExpandButtonProps {
  */
 export interface UseTextCollapseOptions {
   /** 文本内容 ref */
-  textRef: React.RefObject<HTMLSpanElement>;
+  textRef: React.RefObject<HTMLSpanElement | null>;
   /** 容器 ref（可选，用于测量容器宽度） */
-  containerRef?: React.RefObject<HTMLElement>;
+  containerRef?: React.RefObject<HTMLElement | null>;
   /** 最大显示行数 */
   lines?: number;
   /** 省略号文本 */
@@ -85,15 +85,15 @@ export interface UseTextCollapseReturn {
  */
 export interface ResizeObserverEntry {
   /** 目标元素 */
-  target: HTMLElement;
+  target: Element;
   /** 内容矩形 */
   contentRect: DOMRectReadOnly;
   /** 边框矩形 */
-  borderBoxSize: ResizeObserverSize[];
+  borderBoxSize: readonly ResizeObserverSize[];
   /** 内容矩形 */
-  contentBoxSize: ResizeObserverSize[];
+  contentBoxSize: readonly ResizeObserverSize[];
   /** 设备像素比 */
-  devicePixelContentBoxSize: ResizeObserverSize[];
+  devicePixelContentBoxSize: readonly ResizeObserverSize[];
 }
 
 /**

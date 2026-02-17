@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import Plyr from 'plyr';
+import * as PlyrModule from 'plyr';
 import 'plyr-react/plyr.css';
 import './VideoPlayer.css';
+
+// Plyr 的默认导出处理
+const Plyr = (PlyrModule as any).default || PlyrModule;
 
 /**
  * 基于 Plyr 的视频播放器组件
@@ -18,7 +21,7 @@ import './VideoPlayer.css';
 // 类型定义
 // ============================================================================
 
-type ThemeColor = 'slate' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan';
+type ThemeColor = 'slate' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan' | 'amber';
 
 export interface VideoPlayerProps {
   /** 视频 URL */
@@ -90,6 +93,11 @@ const THEME_COLORS: Record<ThemeColor, { main: string; hover: string; glow: stri
     hover: '#67e8f9',
     glow: 'rgba(34, 211, 238, 0.3)',
   },
+  amber: {
+    main: '#fbbf24',
+    hover: '#fcd34d',
+    glow: 'rgba(251, 191, 36, 0.3)',
+  },
 };
 
 // ============================================================================
@@ -114,7 +122,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   themeColor = 'cyan',
   minimal = false,
 }) => {
-  const playerRef = useRef<Plyr | null>(null);
+  const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const callbacksRef = useRef({ onPlayStateChange, onProgress });
   // 记录上一次的 paused 状态，避免重复调用 play/pause
@@ -245,7 +253,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       callbacksRef.current.onPlayStateChange?.(false);
     });
 
-    player.on('timeupdate', (event) => {
+    player.on('timeupdate', (event: any) => {
       const plyr = event.detail.plyr;
       callbacksRef.current.onProgress?.(plyr.currentTime, plyr.duration);
     });

@@ -42,7 +42,7 @@ export function useTextCollapse(options: UseTextCollapseOptions): UseTextCollaps
   const [needsCollapse, setNeedsCollapse] = useState(false);
   const [isMeasuring, setIsMeasuring] = useState(false);
   const [displayText, setDisplayText] = useState('');
-  const measureIdRef = useRef<string>();
+  const measureIdRef = useRef<string | undefined>(undefined);
   const textRefCurrent = useRef('');
   const lastLinesRef = useRef(lines);
 

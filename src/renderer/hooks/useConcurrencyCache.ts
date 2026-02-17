@@ -26,8 +26,8 @@ export const useConcurrencyCache = (moduleName: string) => {
 
         // 如果没有缓存，读取全局默认设置
         const result = await window.api.getGlobalSettings();
-        if (result?.settings?.defaultConcurrency) {
-          setConcurrency(result.settings.defaultConcurrency);
+        if (result?.defaultConcurrency) {
+          setConcurrency(result.defaultConcurrency);
         }
       } catch (err) {
         console.error('加载缓存线程数失败:', err);

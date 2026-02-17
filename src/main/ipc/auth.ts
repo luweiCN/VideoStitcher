@@ -4,7 +4,7 @@
  */
 
 import { ipcMain, app } from 'electron';
-import { getMachineId, getLicenseStatus } from '../../shared/utils/license';
+import { getMachineId, getLicenseStatus } from '@shared/utils/license';
 
 // 检测开发环境
 const isDevelopment: boolean =

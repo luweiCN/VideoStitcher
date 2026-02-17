@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
-import { generateFileName } from '../utils/fileNameHelper';
+import { generateFileName } from '@shared/utils/fileNameHelper';
 
 interface CompressResult {
   success: boolean;
@@ -363,7 +363,7 @@ export async function processImageMaterial(
   inputPath: string,
   logoPath: string | null,
   outputDir: string,
-  previewSize: 'cover' | 'inside' | 'fill' = 'cover',
+  previewSize: 'cover' | 'inside' | 'fill' | 'contain' | 'square' = 'cover',
   logoPosition: LogoPosition | null = null,
   logoScale: number = 1,
   exportOptions: ExportOptions = { single: true, grid: true }
@@ -377,10 +377,13 @@ export async function processImageMaterial(
   await fs.mkdir(masterTmpDir, { recursive: true });
   const masterPath = path.join(masterTmpDir, `${inputBaseName}_master.png`);
 
+  // 映射 previewSize 到 sharp 支持的 fit 模式
   const fitMapping: Record<string, 'cover' | 'contain' | 'fill'> = {
     cover: 'cover',
     inside: 'contain',
     fill: 'fill',
+    contain: 'contain',
+    square: 'fill',
   };
 
   const masterOptions: sharp.ResizeOptions = {
@@ -389,7 +392,7 @@ export async function processImageMaterial(
     fit: fitMapping[previewSize] || 'cover',
   };
 
-  if (previewSize === 'inside') {
+  if (previewSize === 'inside' || previewSize === 'contain') {
     masterOptions.background = { r: 255, g: 255, b: 255, alpha: 1 };
   }
 

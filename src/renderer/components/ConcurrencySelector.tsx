@@ -18,6 +18,8 @@ interface ConcurrencySelectorProps {
   className?: string;
   /** 自定义主题色 */
   themeColor?: string;
+  /** 紧凑模式 */
+  compact?: boolean;
 }
 
 // 主题色配置

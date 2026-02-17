@@ -3,7 +3,7 @@
  * 根据画布配置和视频元数据计算各素材的默认位置
  */
 
-import { Position, MaterialPositions, CanvasConfig, CanvasOrientation } from '../types';
+import { Position, MaterialPositions, CanvasConfig, CanvasOrientation } from '@/types';
 
 /**
  * 根据画布方向获取默认画布配置

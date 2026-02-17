@@ -20,8 +20,8 @@ import {
   Code,
   ExternalLink
 } from 'lucide-react';
-import ConcurrencySelector from '../components/ConcurrencySelector';
-import { useGlobalSettings } from '../hooks/useGlobalSettings';
+import ConcurrencySelector from '@/components/ConcurrencySelector';
+import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 
 interface AdminModeProps {
   onBack: () => void;
@@ -805,10 +805,10 @@ const AdminMode: React.FC<AdminModeProps> = ({
                             </div>
                             <button
                               onClick={handleCheckUpdates}
-                              disabled={updateStatus === 'checking'}
+                              disabled={false}
                               className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
+                              <RefreshCw className="w-4 h-4" />
                               检查更新
                             </button>
                           </>
@@ -857,10 +857,10 @@ const AdminMode: React.FC<AdminModeProps> = ({
                             </div>
                             <button
                               onClick={handleCheckUpdates}
-                              disabled={updateStatus === 'checking'}
+                              disabled={false}
                               className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
+                              <RefreshCw className="w-4 h-4" />
                               检查更新
                             </button>
                           </>
@@ -909,10 +909,10 @@ const AdminMode: React.FC<AdminModeProps> = ({
                             </div>
                             <button
                               onClick={handleCheckUpdates}
-                              disabled={updateStatus === 'checking'}
+                              disabled={false}
                               className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <RefreshCw className={`w-4 h-4 ${updateStatus === 'checking' ? 'animate-spin' : ''}`} />
+                              <RefreshCw className="w-4 h-4" />
                               检查更新
                             </button>
                           </>

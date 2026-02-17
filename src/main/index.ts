@@ -3,22 +3,22 @@ import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 
 // 导入启动初始化模块
-import { initStartup } from './init';
+import { initStartup } from '@main/init';
 
 // 导入 IPC 处理器
-import { registerVideoHandlers } from './ipc/video';
-import { registerImageHandlers } from './ipc/image';
-import { registerAuthHandlers } from './ipc/auth';
-import { registerFileExplorerHandlers } from './ipc/file-explorer';
-import { registerTaskGeneratorHandlers } from './ipc/taskGenerator';
-import { registerApplicationHandlers, isDevelopment } from './ipc/application';
-import { registerSystemHandlers } from './ipc/system';
+import { registerVideoHandlers } from '@main/ipc/video';
+import { registerImageHandlers } from '@main/ipc/image';
+import { registerAuthHandlers } from '@main/ipc/auth';
+import { registerFileExplorerHandlers } from '@main/ipc/file-explorer';
+import { registerTaskGeneratorHandlers } from '@main/ipc/taskGenerator';
+import { registerApplicationHandlers, isDevelopment } from '@main/ipc/application';
+import { registerSystemHandlers } from '@main/ipc/system';
 
 // 导入自动更新模块
-import { setupAutoUpdater, setMainWindow as setAutoUpdaterWindow, setDevelopmentMode } from './autoUpdater';
+import { setupAutoUpdater, setMainWindow as setAutoUpdaterWindow, setDevelopmentMode } from '@main/autoUpdater';
 
 // macOS 更新处理器
-import { setupUpdateHandlers } from './ipc-handlers';
+import { setupUpdateHandlers } from '@main/ipc-handlers';
 
 let win: BrowserWindow | null = null;
 

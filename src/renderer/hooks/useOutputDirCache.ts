@@ -26,8 +26,8 @@ export const useOutputDirCache = (moduleName: string) => {
 
         // 如果没有缓存，读取全局默认设置
         const result = await window.api.getGlobalSettings();
-        if (result?.settings?.defaultOutputDir) {
-          setOutputDir(result.settings.defaultOutputDir);
+        if (result?.defaultOutputDir) {
+          setOutputDir(result.defaultOutputDir);
         }
       } catch (err) {
         console.error('加载缓存目录失败:', err);

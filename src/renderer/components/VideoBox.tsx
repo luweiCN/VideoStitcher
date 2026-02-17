@@ -1,14 +1,20 @@
 import React from 'react';
 import { Move, Maximize2 } from 'lucide-react';
-import { Position } from '../types';
+import { Position } from '@/types';
 
 /**
  * 视频框组件属性
  */
 export interface VideoBoxProps {
+  id?: string;
   label: string;
   position: Position;
+  isActive?: boolean;
   scale: number;
+  colorClass?: string;
+  bgClass?: string;
+  visible?: boolean;
+  locked?: boolean;
   thumbnail?: string;
   onMouseDown: (e: React.MouseEvent) => void;
   onResizeStart: (e: React.MouseEvent) => void;

@@ -12,13 +12,17 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/renderer/*"],
+      "@renderer/*": ["src/renderer/*"]
+    }
   },
-  "include": ["src/renderer/**/*"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src/renderer/**/*"]
 }

@@ -13,7 +13,7 @@ import {
   convertCoverFormat,
   createGridImage,
   processImageMaterial
-} from '../../shared/sharp';
+} from '@shared/sharp';
 
 interface ImageCompressConfig {
   images: string[];

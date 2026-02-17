@@ -3,20 +3,20 @@ import {
   Loader2, Play, CheckCircle,
   Image as ImageIcon, XCircle, Settings, Shrink
 } from 'lucide-react';
-import PageHeader from '../components/PageHeader';
-import OutputDirSelector from '../components/OutputDirSelector';
-import ConcurrencySelector from '../components/ConcurrencySelector';
-import OperationLogPanel from '../components/OperationLogPanel';
-import { FileSelector, FileSelectorGroup, FileItem, formatFileSize } from '../components/FileSelector';
-import { FilePreviewModal } from '../components/FilePreviewModal';
-import { Button } from '../components/Button/Button';
+import PageHeader from '@/components/PageHeader';
+import OutputDirSelector from '@/components/OutputDirSelector';
+import ConcurrencySelector from '@/components/ConcurrencySelector';
+import OperationLogPanel from '@/components/OperationLogPanel';
+import { FileSelector, FileSelectorGroup, FileItem, formatFileSize } from '@/components/FileSelector';
+import { FilePreviewModal } from '@/components/FilePreviewModal';
+import { Button } from '@/components/Button/Button';
 import { Eye } from 'lucide-react';
-import { ImageCompareModal } from '../components/ImageCompareModal';
-import { useOutputDirCache } from '../hooks/useOutputDirCache';
-import { useConcurrencyCache } from '../hooks/useConcurrencyCache';
-import { useOperationLogs } from '../hooks/useOperationLogs';
-import { useImageProcessingEvents } from '../hooks/useImageProcessingEvents';
-import { useImageMaterials } from '../hooks/useImageMaterials';
+import { ImageCompareModal } from '@/components/ImageCompareModal';
+import { useOutputDirCache } from '@/hooks/useOutputDirCache';
+import { useConcurrencyCache } from '@/hooks/useConcurrencyCache';
+import { useOperationLogs } from '@/hooks/useOperationLogs';
+import { useImageProcessingEvents } from '@/hooks/useImageProcessingEvents';
+import { useImageMaterials } from '@/hooks/useImageMaterials';
 
 interface CoverCompressModeProps {
   onBack: () => void;

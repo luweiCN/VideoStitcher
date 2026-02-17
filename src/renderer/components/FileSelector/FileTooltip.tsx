@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FileVideo, Image as ImageIcon, File } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import type { FileItem } from './FileSelector';
-import { formatFileSize, formatDuration } from '../../utils/format';
+import { formatFileSize, formatDuration } from '@/utils/format';
 
 // ============================================================================
 // 工具函数
@@ -88,12 +88,12 @@ export const FileTooltipContent: React.FC<FileTooltipContentProps> = ({
             const updatedInfo: FileItem = {
               ...file,
               _infoLoaded: true,
-              size: result.fileSize,
+              size: result.fileSize ?? undefined,
               dimensions: result.width && result.height ? `${result.width}x${result.height}` : undefined,
-              orientation: result.orientation,
-              aspectRatio: result.aspectRatio,
-              thumbnail: result.thumbnail,
-              duration: result.duration,
+              orientation: result.orientation ?? undefined,
+              aspectRatio: result.aspectRatio ?? undefined,
+              thumbnail: result.thumbnail ?? undefined,
+              duration: result.duration ?? undefined,
             };
             setFileInfo(updatedInfo);
             onInfoUpdate?.(updatedInfo);
@@ -111,11 +111,11 @@ export const FileTooltipContent: React.FC<FileTooltipContentProps> = ({
             const updatedInfo: FileItem = {
               ...file,
               _infoLoaded: true,
-              size: result.fileSize,
+              size: result.fileSize ?? undefined,
               dimensions: result.width && result.height ? `${result.width}x${result.height}` : undefined,
-              orientation: result.orientation,
-              aspectRatio: result.aspectRatio,
-              thumbnail: result.thumbnail,
+              orientation: result.orientation ?? undefined,
+              aspectRatio: result.aspectRatio ?? undefined,
+              thumbnail: result.thumbnail ?? undefined,
             };
             setFileInfo(updatedInfo);
             onInfoUpdate?.(updatedInfo);
