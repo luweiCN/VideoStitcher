@@ -297,15 +297,22 @@ const PasteDistributionModal: React.FC<PasteDistributionModalProps> = ({
 // FileSelectorGroup 组件
 // ============================================================================
 
+export interface FileSelectorGroupRef {
+  /** 清空所有选择器的文件 */
+  clearAll: () => void;
+  /** 清空指定选择器的文件 */
+  clear: (selectorId: string) => void;
+}
+
 interface FileSelectorGroupProps {
   children: React.ReactNode;
   onFilesChange?: (selectorId: string, files: string[]) => void;
 }
 
-export const FileSelectorGroup: React.FC<FileSelectorGroupProps> = ({
+export const FileSelectorGroup = React.forwardRef<FileSelectorGroupRef, FileSelectorGroupProps>(({
   children,
   onFilesChange
-}) => {
+}, ref) => {
   const selectorsRef = useRef<Map<string, Omit<FileSelectorProps, 'onChange'>>>(new Map());
   const setFilesCallbacksRef = useRef<Map<string, (files: FileItem[]) => void>>(new Map());
   const getFileCountCallbacksRef = useRef<Map<string, () => number>>(new Map());
@@ -318,6 +325,33 @@ export const FileSelectorGroup: React.FC<FileSelectorGroupProps> = ({
 
   // 使用文件处理 hook
   const { processFiles, buildNotificationMessage } = useFileProcessor();
+
+  /**
+   * 清空所有选择器的文件
+   */
+  const clearAll = useCallback(() => {
+    setFilesCallbacksRef.current.forEach((callback, selectorId) => {
+      callback([]);
+      onFilesChange?.(selectorId, []);
+    });
+  }, [onFilesChange]);
+
+  /**
+   * 清空指定选择器的文件
+   */
+  const clear = useCallback((selectorId: string) => {
+    const callback = setFilesCallbacksRef.current.get(selectorId);
+    if (callback) {
+      callback([]);
+      onFilesChange?.(selectorId, []);
+    }
+  }, [onFilesChange]);
+
+  // 暴露方法给父组件
+  React.useImperativeHandle(ref, () => ({
+    clearAll,
+    clear,
+  }), [clearAll, clear]);
 
   /**
    * 注册选择器
@@ -724,7 +758,7 @@ export const FileSelectorGroup: React.FC<FileSelectorGroupProps> = ({
       )}
     </FileSelectorGroupContext.Provider>
   );
-};
+});
 
 /**
  * Hook: 访问 FileSelectorGroup 上下文

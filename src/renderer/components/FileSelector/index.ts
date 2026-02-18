@@ -17,6 +17,7 @@ export type { FileSelectorProps, FileItem, FileAcceptType, FileSelectorRef } fro
 
 // 组件组
 export { FileSelectorGroup, useFileSelectorGroup } from './FileSelectorGroup';
+export type { FileSelectorGroupRef } from './FileSelectorGroup';
 
 
 // 文件处理 hook

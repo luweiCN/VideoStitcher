@@ -236,26 +236,40 @@ export class TaskRepository {
    */
   getTaskStats(): TaskStats {
     const db = getDatabase();
-    const stmt = db.prepare(`
+    
+    // 统计各状态数量
+    const countStmt = db.prepare(`
       SELECT status, COUNT(*) as count
       FROM tasks
       GROUP BY status
     `);
-    const rows = stmt.all() as { status: TaskStatus; count: number }[];
+    const rows = countStmt.all() as { status: string; count: number }[];
 
     const stats: TaskStats = {
       pending: 0,
-      queued: 0,
       running: 0,
-      paused: 0,
       completed: 0,
       failed: 0,
       cancelled: 0,
+      totalExecutionTime: 0,
     };
 
     for (const row of rows) {
-      stats[row.status] = row.count;
+      if (row.status === 'queued' || row.status === 'paused') {
+        stats.pending += row.count;
+      } else if (row.status in stats) {
+        stats[row.status as keyof TaskStats] = row.count;
+      }
     }
+
+    // 统计已完成任务的总执行时间
+    const timeStmt = db.prepare(`
+      SELECT COALESCE(SUM(execution_time), 0) as total_time
+      FROM tasks
+      WHERE status = 'completed' AND execution_time IS NOT NULL
+    `);
+    const timeRow = timeStmt.get() as { total_time: number };
+    stats.totalExecutionTime = timeRow?.total_time || 0;
 
     return stats;
   }
@@ -346,6 +360,25 @@ export class TaskRepository {
     const db = getDatabase();
     const stmt = db.prepare('UPDATE tasks SET output_dir = ?, updated_at = ? WHERE id = ?');
     stmt.run(outputDir, Date.now(), id);
+  }
+
+  /**
+   * 更新任务 PID
+   */
+  updateTaskPid(id: string, pid: number): void {
+    const db = getDatabase();
+    const stmt = db.prepare('UPDATE tasks SET pid = ?, pid_started_at = ?, updated_at = ? WHERE id = ?');
+    stmt.run(pid, Date.now(), Date.now(), id);
+  }
+
+  /**
+   * 清除任务 PID
+   */
+  clearTaskPid(id: string): void {
+    const db = getDatabase();
+    const now = Date.now();
+    const stmt = db.prepare('UPDATE tasks SET pid = NULL, pid_started_at = NULL, started_at = NULL, updated_at = ? WHERE id = ?');
+    stmt.run(now, id);
   }
 
   /**
@@ -503,6 +536,8 @@ export class TaskRepository {
       maxRetry: row.max_retry as number,
       error,
       outputs: [],
+      pid: (row.pid as number) ?? undefined,
+      pidStartedAt: (row.pid_started_at as number) ?? undefined,
     };
   }
 }

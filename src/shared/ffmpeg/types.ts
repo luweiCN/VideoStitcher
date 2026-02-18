@@ -50,6 +50,8 @@ export interface StitchConfig {
   trim?: StitchTrimConfig;
   /** 画质选项 */
   quality?: StitchQuality;
+  /** FFmpeg 线程数 */
+  threads?: number;
 }
 
 /**
@@ -113,6 +115,8 @@ export interface VideoMergeConfig {
   coverDuration?: number;
   /** 画质选项 */
   quality?: 'low' | 'medium' | 'high';
+  /** FFmpeg 线程数 */
+  threads?: number;
 }
 
 /**
@@ -197,6 +201,7 @@ export interface PreviewResult {
  */
 export interface FfmpegResult {
   success: boolean;
+  pid?: number;
 }
 
 /**

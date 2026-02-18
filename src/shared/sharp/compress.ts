@@ -6,7 +6,7 @@
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
-import { SHARP_CONSTANTS, type CompressResult } from './types';
+import { SHARP_CONSTANTS, type CompressResult, type ThreadsConfig } from './types';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 
 /**
@@ -66,12 +66,19 @@ async function findOptimalCompression(
  * @param inputPath 输入图片路径
  * @param targetSizeKB 目标大小（KB），默认 380KB
  * @param outputDir 输出目录，默认原图目录
+ * @param threads 线程数，默认自动
  */
 export async function compressImage(
   inputPath: string,
   targetSizeKB: number = SHARP_CONSTANTS.TARGET_SIZE_KB,
-  outputDir: string | null = null
+  outputDir: string | null = null,
+  threads?: number
 ): Promise<CompressResult> {
+  // 设置 Sharp 并发数
+  if (threads) {
+    sharp.concurrency(threads);
+  }
+  
   const targetSizeBytes = targetSizeKB * 1024;
   const stats = await fs.stat(inputPath);
 

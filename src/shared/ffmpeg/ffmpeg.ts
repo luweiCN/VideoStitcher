@@ -29,10 +29,14 @@ export function getFfmpegPath(): string {
 
 /**
  * 执行 FFmpeg 命令
+ * @param args FFmpeg 参数
+ * @param onLog 日志回调
+ * @param onPid PID 回调（进程启动后立即调用）
  */
 export function runFfmpeg(
   args: string[],
-  onLog?: FfmpegLogCallback
+  onLog?: FfmpegLogCallback,
+  onPid?: (pid: number) => void
 ): Promise<FfmpegResult> {
   return new Promise((resolve, reject) => {
     const ffmpegPath = getFfmpegPath();
@@ -49,6 +53,12 @@ export function runFfmpeg(
     const finalArgs = args[0] === "-y" ? ["-y", "-nostdin", ...args.slice(1)] : args;
 
     const p = spawn(ffmpegPath, finalArgs, { windowsHide: true });
+    const pid = p.pid;
+    
+    // 进程启动后立即回调 PID
+    if (pid && onPid) {
+      onPid(pid);
+    }
 
     let stderr = "";
     p.stderr.on("data", (d) => {
@@ -59,7 +69,7 @@ export function runFfmpeg(
 
     p.on("error", reject);
     p.on("close", (code) => {
-      if (code === 0) resolve({ success: true });
+      if (code === 0) resolve({ success: true, pid });
       else reject(new Error(`ffmpeg exit code=${code}\n${stderr}`));
     });
   });

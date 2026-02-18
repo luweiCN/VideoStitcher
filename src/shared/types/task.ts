@@ -6,10 +6,8 @@
 // ==================== 任务状态 ====================
 
 export type TaskStatus =
-  | 'pending'   // 等待中（未开始）
-  | 'queued'    // 已入队，等待执行
+  | 'pending'   // 待执行
   | 'running'   // 执行中
-  | 'paused'    // 已暂停
   | 'completed' // 已完成
   | 'failed'    // 失败
   | 'cancelled'; // 已取消
@@ -86,6 +84,10 @@ export interface Task {
   maxRetry?: number;
   /** 输出文件列表 */
   outputs?: TaskOutput[];
+  /** 执行进程 PID */
+  pid?: number;
+  /** 进程启动时间（用于防止 PID 复用） */
+  pidStartedAt?: number;
 }
 
 // ==================== 任务错误 ====================
@@ -164,6 +166,8 @@ export interface TaskLogEvent {
 export interface QueueStatus {
   running: number;
   queued: number;
+  pending: number;
+  completed: number;
   maxConcurrent: number;
   threadsPerTask: number;
   totalThreads: number;
@@ -224,9 +228,7 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   pending: '待执行',
-  queued: '已入队',
   running: '执行中',
-  paused: '已暂停',
   completed: '已完成',
   failed: '失败',
   cancelled: '已取消',
@@ -236,23 +238,32 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 
 export interface TaskStats {
   pending: number;
-  queued: number;
   running: number;
-  paused: number;
   completed: number;
   failed: number;
   cancelled: number;
+  totalExecutionTime?: number; // 已完成任务的总执行时间（毫秒）
 }
 
 // ==================== 任务中心配置 ====================
 
 export interface TaskCenterConfig {
+  // 并发控制
   maxConcurrentTasks: number;
   threadsPerTask: number;
+  
+  // 运行状态
+  isPaused: boolean;           // 任务中心是否暂停
+  totalRunTime: number;        // 任务中心累计运行时间（毫秒）
+  sessionStartTime: number | null;  // 当前会话开始时间
+  
+  // 自动化选项
   autoStartTasks: boolean;
   autoRetryFailed: boolean;
   maxRetryCount: number;
   showNotification: boolean;
+  
+  // 清理和备份
   keepCompletedDays: number;
   autoBackup: boolean;
   maxBackupCount: number;
@@ -261,12 +272,22 @@ export interface TaskCenterConfig {
 // ==================== 默认配置 ====================
 
 export const DEFAULT_TASK_CENTER_CONFIG: TaskCenterConfig = {
+  // 并发控制
   maxConcurrentTasks: 2,
   threadsPerTask: 4,
+  
+  // 运行状态
+  isPaused: false,
+  totalRunTime: 0,
+  sessionStartTime: null,
+  
+  // 自动化选项
   autoStartTasks: true,
   autoRetryFailed: false,
   maxRetryCount: 3,
   showNotification: true,
+  
+  // 清理和备份
   keepCompletedDays: 7,
   autoBackup: true,
   maxBackupCount: 5,
@@ -286,6 +307,7 @@ export interface CreateTaskRequest {
   }[];
   priority?: number;
   maxRetry?: number;
+  threads?: number;
 }
 
 // ==================== 创建任务响应 ====================
@@ -322,4 +344,15 @@ export interface TaskListOptions {
   pageSize?: number;
   withFiles?: boolean;
   withOutputs?: boolean;
+}
+
+// ==================== 任务列表结果 ====================
+
+export interface TaskListResult {
+  success: boolean;
+  tasks: Task[];
+  total: number;
+  page: number;
+  pageSize: number;
+  stats?: TaskStats;
 }

@@ -25,6 +25,7 @@ interface TaskContextValue {
   loading: boolean;
   error: string | null;
   totalRunTime: number;
+  isPaused: boolean;
 
   // 操作
   createTask: (request: CreateTaskRequest) => Promise<CreateTaskResponse>;
@@ -36,6 +37,7 @@ interface TaskContextValue {
   retryTask: (taskId: string) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   pauseAllTasks: () => Promise<void>;
+  resumeAllTasks: () => Promise<void>;
   cancelAllTasks: () => Promise<void>;
 
   // 配置
@@ -71,6 +73,7 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalRunTime, setTotalRunTime] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const runTimeRef = useRef<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -79,6 +82,13 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
     try {
       const result = await window.api.getTaskConfig();
       setConfig(result);
+      // 恢复保存的运行时间
+      if (result.totalRunTime) {
+        runTimeRef.current = result.totalRunTime;
+        setTotalRunTime(result.totalRunTime);
+      }
+      // 恢复暂停状态
+      setIsPaused(result.isPaused || false);
     } catch (err) {
       console.error('[TaskContext] 刷新配置失败:', err);
     }
@@ -158,12 +168,22 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
   // 暂停所有任务
   const pauseAllTasks = useCallback(async () => {
     await window.api.pauseAllTasks();
-  }, []);
+    setIsPaused(true);
+    await refreshQueueStatus();
+  }, [refreshQueueStatus]);
+
+  // 恢复所有任务
+  const resumeAllTasks = useCallback(async () => {
+    await window.api.startAllTasks();
+    setIsPaused(false);
+    await refreshQueueStatus();
+  }, [refreshQueueStatus]);
 
   // 取消所有任务
   const cancelAllTasks = useCallback(async () => {
     await window.api.cancelAllTasks();
-  }, []);
+    await refreshQueueStatus();
+  }, [refreshQueueStatus]);
 
   // 更新配置
   const updateConfig = useCallback(async (newConfig: Partial<TaskCenterConfig>) => {
@@ -196,10 +216,10 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
   useEffect(() => {
     const cleanups: (() => void)[] = [];
 
-    // 任务创建
+    // 任务创建 - 只监控执行中的任务（running）
     cleanups.push(
       window.api.onTaskCreated((task: Task) => {
-        if (task.status === 'running' || task.status === 'queued') {
+        if (task.status === 'running') {
           setRunningTasks((prev) => {
             if (prev.find((t) => t.id === task.id)) return prev;
             return [...prev, task];
@@ -212,10 +232,15 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
     cleanups.push(
       window.api.onTaskUpdated((task: Task) => {
         setRunningTasks((prev) => {
-          if (['completed', 'failed', 'cancelled'].includes(task.status)) {
-            return prev.filter((t) => t.id !== task.id);
+          // 任务开始运行时添加
+          if (task.status === 'running') {
+            if (prev.find((t) => t.id === task.id)) {
+              return prev.map((t) => (t.id === task.id ? task : t));
+            }
+            return [...prev, task];
           }
-          return prev.map((t) => (t.id === task.id ? task : t));
+          // 任务不再是运行中时移除
+          return prev.filter((t) => t.id !== task.id);
         });
       })
     );
@@ -224,6 +249,20 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
     cleanups.push(
       window.api.onTaskDeleted((taskId: string) => {
         setRunningTasks((prev) => prev.filter((t) => t.id !== taskId));
+      })
+    );
+
+    // 任务开始运行
+    cleanups.push(
+      window.api.onTaskStarted(async (data: { taskId: string }) => {
+        // 获取任务详情并添加到运行列表
+        const task = await window.api.getTask(data.taskId);
+        if (task && task.status === 'running') {
+          setRunningTasks((prev) => {
+            if (prev.find((t) => t.id === task.id)) return prev;
+            return [...prev, task as Task];
+          });
+        }
       })
     );
 
@@ -290,6 +329,19 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
       try {
         await refreshConfig();
         await refreshQueueStatus();
+        
+        // 加载正在运行中的任务（只有 running 状态的任务显示日志）
+        const result = await window.api.getTasks({
+          filter: { status: ['running'] },
+          withFiles: true,
+        });
+        if (result.success && result.tasks.length > 0) {
+          setRunningTasks(result.tasks as Task[]);
+        }
+        // 设置统计数据
+        if (result.stats) {
+          setStats(result.stats as TaskStats);
+        }
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -314,6 +366,7 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
     loading,
     error,
     totalRunTime,
+    isPaused,
     createTask,
     batchCreateTasks,
     startTask,
@@ -323,6 +376,7 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
     retryTask,
     deleteTask,
     pauseAllTasks,
+    resumeAllTasks,
     cancelAllTasks,
     updateConfig,
     setConcurrency,

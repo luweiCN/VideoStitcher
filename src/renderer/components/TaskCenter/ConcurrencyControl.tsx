@@ -1,22 +1,33 @@
 /**
- * 并发控制组件
+ * 并发控制组件 - 紧凑版 + 实时系统监控
  */
 
 import React, { useState, useEffect } from 'react';
-import { Cpu, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { Cpu, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { useTaskContext } from '@renderer/contexts/TaskContext';
-import { Button } from '@renderer/components/Button/Button';
 
-interface ConcurrencyControlProps {
-  compact?: boolean;
+interface SystemStats {
+  cpu: {
+    usage: number;
+    cores: number[];
+  };
+  memory: {
+    usedPercent: number;
+    usedGB: string;
+    totalGB: string;
+  };
 }
 
-const ConcurrencyControl: React.FC<ConcurrencyControlProps> = ({ compact = false }) => {
+const ConcurrencyControl: React.FC = () => {
   const { config, setConcurrency, getCpuInfo } = useTaskContext();
-  const [expanded, setExpanded] = useState(!compact);
   const [cpuCores, setCpuCores] = useState(8);
   const [localMaxTasks, setLocalMaxTasks] = useState(config?.maxConcurrentTasks || 2);
   const [localThreads, setLocalThreads] = useState(config?.threadsPerTask || 4);
+  const [showCores, setShowCores] = useState(false);
+  const [systemStats, setSystemStats] = useState<SystemStats>({
+    cpu: { usage: 0, cores: [] },
+    memory: { usedPercent: 0, usedGB: '0', totalGB: '0' },
+  });
 
   useEffect(() => {
     getCpuInfo().then((info) => {
@@ -31,132 +42,135 @@ const ConcurrencyControl: React.FC<ConcurrencyControlProps> = ({ compact = false
     }
   }, [config]);
 
+  useEffect(() => {
+    const fetchSystemStats = async () => {
+      try {
+        const stats = await window.api.getSystemStats();
+        setSystemStats(stats);
+      } catch (err) {
+        console.error('[ConcurrencyControl] 获取系统状态失败:', err);
+      }
+    };
+
+    fetchSystemStats();
+    const interval = setInterval(fetchSystemStats, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   const totalThreads = localMaxTasks * localThreads;
   const isOverloaded = totalThreads > cpuCores;
 
-  const handleApply = async () => {
-    await setConcurrency(localMaxTasks, localThreads);
-    if (compact) {
-      setExpanded(false);
-    }
+  const handleMaxTasksChange = async (value: number) => {
+    setLocalMaxTasks(value);
+    await setConcurrency(value, localThreads);
   };
 
-  const handleReset = () => {
-    const recommendedTasks = Math.max(1, Math.floor(cpuCores / 4));
-    const recommendedThreads = Math.max(1, Math.floor((cpuCores - 1) / recommendedTasks));
-    setLocalMaxTasks(recommendedTasks);
-    setLocalThreads(recommendedThreads);
+  const handleThreadsChange = async (value: number) => {
+    setLocalThreads(value);
+    await setConcurrency(localMaxTasks, value);
   };
 
-  if (compact && !expanded) {
-    return (
-      <div
-        className="flex items-center gap-3 px-3 py-2 bg-slate-800/50 rounded-lg cursor-pointer hover:bg-slate-800/70 transition-colors"
-        onClick={() => setExpanded(true)}
-      >
-        <span className="text-xs text-slate-400">并发:</span>
-        <div className="flex items-center gap-1 text-xs">
-          <span className="text-violet-400 font-medium">{localMaxTasks}</span>
-          <span className="text-slate-500">任务</span>
-          <span className="text-slate-600 mx-1">·</span>
-          <span className="text-cyan-400 font-medium">{localThreads}</span>
-          <span className="text-slate-500">线程/任务</span>
-        </div>
-        {isOverloaded && <span className="text-xs text-amber-400">⚠</span>}
-        <Settings className="w-3.5 h-3.5 text-slate-500 ml-auto" />
-      </div>
-    );
-  }
+  const getCpuColor = (usage: number) => {
+    if (usage >= 80) return 'bg-rose-500';
+    if (usage >= 60) return 'bg-amber-500';
+    if (usage >= 40) return 'bg-yellow-500';
+    return 'bg-emerald-500';
+  };
+
+  const getCpuTextColor = (usage: number) => {
+    if (usage >= 80) return 'text-rose-400';
+    if (usage >= 60) return 'text-amber-400';
+    return 'text-emerald-400';
+  };
 
   return (
-    <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl overflow-hidden">
-      {/* 标题栏 */}
-      <div
-        className="flex items-center justify-between px-4 py-3 bg-slate-800/50 cursor-pointer"
-        onClick={() => compact && setExpanded(!expanded)}
-      >
-        <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4 text-slate-400" />
-          <span className="text-sm font-medium text-white">并发控制</span>
-        </div>
-        {compact && (
-          expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />
-        )}
-      </div>
+    <div className="space-y-3">
+      {/* 主控制行 */}
+      <div className="flex items-center gap-3 p-3 bg-black/50 border border-slate-800 rounded-xl">
+        <Cpu className="w-4 h-4 text-slate-400 flex-shrink-0" />
 
-      {/* 内容区 */}
-      {expanded && (
-        <div className="p-4 space-y-5">
-          {/* CPU 信息 */}
-          <div
-            className={`p-3 rounded-lg ${
-              isOverloaded
-                ? 'bg-amber-500/10 border border-amber-500/30'
-                : 'bg-slate-800/50'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Cpu className="w-4 h-4 text-slate-400" />
-              <span className="text-sm text-slate-300">
-                检测到 <span className="font-medium text-white">{cpuCores}</span> 个 CPU 核心
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-1">
-              预计线程使用: {totalThreads} 个
-              {isOverloaded && (
-                <span className="text-amber-400 ml-2">
-                  ⚠ 超过 CPU 核心数，可能影响性能
-                </span>
-              )}
-            </p>
-          </div>
-
-          {/* 同时执行任务数 */}
-          <div>
-            <label className="text-sm text-slate-300 mb-2 block">同时执行任务数</label>
+        <div className="flex items-center gap-6 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">并发任务</span>
             <input
               type="range"
               min={1}
               max={8}
               step={1}
               value={localMaxTasks}
-              onChange={(e) => setLocalMaxTasks(Number(e.target.value))}
-              className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+              onChange={(e) => handleMaxTasksChange(Number(e.target.value))}
+              className="w-20 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
             />
-            <div className="flex justify-between text-xs text-slate-500 mt-1">
-              <span>1</span>
-              <span className="text-violet-400">当前: {localMaxTasks} 个任务</span>
-              <span>8</span>
-            </div>
+            <span className="text-xs text-violet-400 font-medium w-4">{localMaxTasks}</span>
           </div>
 
-          {/* 每个任务线程数 */}
-          <div>
-            <label className="text-sm text-slate-300 mb-2 block">每个任务使用线程数</label>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">线程/任务</span>
             <input
               type="range"
               min={1}
               max={16}
               step={1}
               value={localThreads}
-              onChange={(e) => setLocalThreads(Number(e.target.value))}
-              className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+              onChange={(e) => handleThreadsChange(Number(e.target.value))}
+              className="w-20 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
             />
-            <div className="flex justify-between text-xs text-slate-500 mt-1">
-              <span>1</span>
-              <span className="text-cyan-400">当前: {localThreads} 线程</span>
-              <span>16</span>
-            </div>
+            <span className="text-xs text-cyan-400 font-medium w-4">{localThreads}</span>
           </div>
 
-          {/* 操作按钮 */}
-          <div className="flex items-center gap-3 pt-2">
-            <Button variant="ghost" size="sm" onClick={handleReset}>
-              恢复默认
-            </Button>
-            <Button variant="primary" size="sm" onClick={handleApply} className="ml-auto">
-              应用
-            </Button>
+          {isOverloaded && (
+            <span className="text-xs text-amber-400">⚠ {totalThreads}/{cpuCores} 核心</span>
+          )}
+        </div>
+
+        {/* 系统状态快捷显示 */}
+        <button
+          onClick={() => setShowCores(!showCores)}
+          className="flex items-center gap-3 pl-3 border-l border-slate-800 cursor-pointer hover:opacity-80 transition-opacity"
+        >
+          <div className="flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            <span className="text-xs text-slate-400">CPU</span>
+            <span className={`text-xs font-medium ${getCpuTextColor(systemStats.cpu.usage)}`}>
+              {systemStats.cpu.usage}%
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-slate-400">内存</span>
+            <span className={`text-xs font-medium ${getCpuTextColor(systemStats.memory.usedPercent)}`}>
+              {systemStats.memory.usedGB}/{systemStats.memory.totalGB}
+            </span>
+          </div>
+          {showCores ? (
+            <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+          )}
+        </button>
+      </div>
+
+      {/* 各核心 CPU 占用率详情 */}
+      {showCores && systemStats.cpu.cores.length > 0 && (
+        <div className="p-3 bg-black/30 border border-slate-800 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-slate-400">各核心 CPU 占用率</span>
+            <span className="text-xs text-slate-500">{systemStats.cpu.cores.length} 核心</span>
+          </div>
+          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(systemStats.cpu.cores.length, 8)}, 1fr)` }}>
+            {systemStats.cpu.cores.map((usage, index) => (
+              <div key={index} className="flex flex-col items-center">
+                <div className="w-full h-12 bg-slate-800 rounded relative overflow-hidden">
+                  <div
+                    className={`absolute bottom-0 left-0 right-0 transition-all duration-500 ${getCpuColor(usage)}`}
+                    style={{ height: `${usage}%` }}
+                  />
+                </div>
+                <span className={`text-[10px] mt-1 font-medium ${getCpuTextColor(usage)}`}>
+                  {usage}%
+                </span>
+                <span className="text-[9px] text-slate-600">C{index}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -14,8 +14,11 @@
     "downlevelIteration": true,
     "baseUrl": ".",
     "paths": {
+      "@main": ["src/main"],
       "@main/*": ["src/main/*"],
+      "@shared": ["src/shared"],
       "@shared/*": ["src/shared/*"],
+      "@preload": ["src/preload"],
       "@preload/*": ["src/preload/*"]
     }
   },

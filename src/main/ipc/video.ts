@@ -289,10 +289,12 @@ export async function executeSingleMergeTask(
       coverPosition?: Position;
     };
     outputDir: string;
+    threads?: number;
   },
-  onLog?: (message: string) => void
-): Promise<{ success: boolean; outputPath?: string; error?: string }> {
-  const { config, outputDir, files } = task;
+  onLog?: (message: string) => void,
+  onPid?: (pid: number) => void
+): Promise<{ success: boolean; outputPath?: string; error?: string; pid?: number }> {
+  const { config, outputDir, files, threads } = task;
   const orientation = config?.orientation || 'horizontal';
 
   if (!outputDir) {
@@ -339,20 +341,24 @@ export async function executeSingleMergeTask(
       bgPosition,
       coverPosition,
       orientation: orientation as 'horizontal' | 'vertical',
+      threads,
     });
 
-    await runFfmpeg(args, (log: string) => {
+    const result = await runFfmpeg(args, (log: string) => {
       onLog?.(log);
+    }, (pid: number) => {
+      // 进程启动后立即回调 PID
+      onPid?.(pid);
     });
 
-    const result = safeOutput.commitSync(tempPath);
+    const commitResult = safeOutput.commitSync(tempPath);
     safeOutput.cleanup(0);
 
-    if (!result.success) {
-      return { success: false, error: result.error || '移动文件失败' };
+    if (!commitResult.success) {
+      return { success: false, error: commitResult.error || '移动文件失败', pid: result.pid };
     }
 
-    return { success: true, outputPath: result.finalPath };
+    return { success: true, outputPath: commitResult.finalPath, pid: result.pid };
   } catch (err) {
     safeOutput.cleanup(0);
     return { success: false, error: (err as Error).message };

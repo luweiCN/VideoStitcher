@@ -1,5 +1,6 @@
 import { contextBridge } from 'electron';
 import { electronAPI } from '@electron-toolkit/preload';
+import type { Task } from '../shared/types/task';
 
 const ipcRenderer = electronAPI.ipcRenderer;
 
@@ -21,44 +22,6 @@ export interface ElectronAPI {
     outputDir: string;
     concurrency?: number;
   }[]) => Promise<{ done: number; failed: number; total: number; elapsed?: string }>;
-  videoMerge: (tasks: {
-    files: { path: string; category: string }[];
-    config?: {
-      orientation: "horizontal" | "vertical";
-      aPosition?: { x: number; y: number; width: number; height: number };
-      bPosition?: { x: number; y: number; width: number; height: number };
-      bgPosition?: { x: number; y: number; width: number; height: number };
-      coverPosition?: { x: number; y: number; width: number; height: number };
-    };
-    outputDir: string;
-    concurrency?: number;
-  }[]) => Promise<{ done: number; failed: number; total: number }>;
-  videoHorizontalMerge: (config: {
-    aVideos: string[];
-    bVideos: string[];
-    bgImage?: string;
-    coverImages?: string[];
-    outputDir: string;
-    concurrency?: number;
-    aPosition?: { x: number; y: number; width: number; height: number };
-    bPosition?: { x: number; y: number; width: number; height: number };
-    bPositions?: { x: number; y: number; width: number; height: number }[];
-    bgPosition?: { x: number; y: number; width: number; height: number };
-    coverPosition?: { x: number; y: number; width: number; height: number };
-  }) => Promise<{ done: number; failed: number; total: number }>;
-  videoVerticalMerge: (config: {
-    mainVideos: string[];
-    bgImage?: string;
-    aVideos?: string[];
-    coverImages?: string[];
-    outputDir: string;
-    concurrency?: number;
-    aPosition?: { x: number; y: number; width: number; height: number };
-    bPosition?: { x: number; y: number; width: number; height: number };
-    bPositions?: { x: number; y: number; width: number; height: number }[];
-    bgPosition?: { x: number; y: number; width: number; height: number };
-    coverPosition?: { x: number; y: number; width: number; height: number };
-  }) => Promise<{ done: number; failed: number; total: number }>;
   videoResize: (config: {
     videos: string[];
     mode: "siya" | "fishing" | "unify_h" | "unify_v";
@@ -278,6 +241,18 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<{ version: string; isDevelopment: boolean }>;
   getDefaultDownloadDir: () => Promise<string>;
   getSystemMemory: () => Promise<{ total: number; free: number; used: number; totalGB: string; freeGB: string; usedGB: string }>;
+  getCpuUsage: () => Promise<{ usage: number; cores: number }>;
+  getCpuCoresUsage: () => Promise<{ cores: number[]; total: number }>;
+  getSystemStats: () => Promise<{
+    cpu: { usage: number; cores: number[] };
+    memory: { total: number; free: number; used: number; usedPercent: number; totalGB: string; freeGB: string; usedGB: string };
+  }>;
+  getTaskProcessStats: () => Promise<{
+    processes: Array<{ pid: number; name: string; cpu: number; memory: number; memoryMB: string }>;
+    totalCpu: number;
+    totalMemory: number;
+    totalMemoryMB: string;
+  }>;
   checkForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
@@ -404,15 +379,7 @@ export interface ElectronAPI {
     maxRetry?: number;
     threads?: number;
   }) => Promise<{ success: boolean; task?: any; error?: string }>;
-  batchCreateTasks: (tasks: Array<{
-    id: string;
-    type?: string;
-    status?: string;
-    files: Array<{ path: string; index: number; category: string; category_name: string }>;
-    config?: Record<string, unknown>;
-    outputDir?: string;
-    error?: string;
-  }>) => Promise<{ success: boolean; tasks: any[]; successCount: number; failCount: number; errors?: { index: number; error: string }[]; error?: string }>;
+  batchCreateTasks: (tasks: Task[]) => Promise<{ success: boolean; tasks: any[]; successCount: number; failCount: number; errors?: { index: number; error: string }[]; error?: string }>;
   getTask: (taskId: string) => Promise<any | null>;
   getTasks: (options?: {
     filter?: {
@@ -444,7 +411,7 @@ export interface ElectronAPI {
   setTaskConfig: (config: Record<string, any>) => Promise<{ success: boolean }>;
   setConcurrency: (config: { maxConcurrentTasks?: number; threadsPerTask?: number }) => Promise<{ success: boolean; config?: any; error?: string }>;
   getCpuInfo: () => Promise<{ cores: number; model: string; recommendedConcurrency: { maxConcurrentTasks: number; threadsPerTask: number } }>;
-  getQueueStatus: () => Promise<{ running: number; queued: number; maxConcurrent: number; threadsPerTask: number; totalThreads: number }>;
+  getQueueStatus: () => Promise<{ running: number; queued: number; pending: number; completed: number; maxConcurrent: number; threadsPerTask: number; totalThreads: number }>;
   getTaskLogs: (taskId: string, options?: { limit?: number; offset?: number }) => Promise<any[]>;
 
   // 任务中心事件
@@ -457,6 +424,27 @@ export interface ElectronAPI {
   onTaskCompleted: (callback: (data: { taskId: string; outputs: any[] }) => void) => () => void;
   onTaskFailed: (callback: (data: { taskId: string; error: any }) => void) => () => void;
   onTaskCancelled: (callback: (data: { taskId: string }) => void) => () => void;
+
+  // 任务中心广播事件（新版）
+  onTaskCenterState: (callback: (state: {
+    isPaused: boolean;
+    runningCount: number;
+    queuedCount: number;
+    taskStats: { pending: number; queued: number; running: number; paused: number; completed: number; failed: number; cancelled: number };
+    runningTasks: any[];
+    systemStats: {
+      cpu: { usage: number; cores: number[] };
+      memory: { total: number; used: number; usedPercent: number; totalGB: string; usedGB: string };
+      processes: {
+        processes: Array<{ pid: number; name: string; cpu: number; memory: number; memoryMB: string }>;
+        totalCpu: number;
+        totalMemory: number;
+        totalMemoryMB: string;
+      };
+    };
+    config: { maxConcurrentTasks: number; threadsPerTask: number };
+  }) => void) => () => void;
+  onTaskCenterLog: (callback: (log: { taskId: string; taskType: string; message: string; level: string; timestamp: number }) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -536,6 +524,10 @@ const api: ElectronAPI = {
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   getDefaultDownloadDir: () => ipcRenderer.invoke("get-default-download-dir"),
   getSystemMemory: () => ipcRenderer.invoke("get-system-memory"),
+  getCpuUsage: () => ipcRenderer.invoke("get-cpu-usage"),
+  getCpuCoresUsage: () => ipcRenderer.invoke("get-cpu-cores-usage"),
+  getSystemStats: () => ipcRenderer.invoke("get-system-stats"),
+  getTaskProcessStats: () => ipcRenderer.invoke("get-task-process-stats"),
   checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
   downloadUpdate: () => ipcRenderer.invoke("download-update"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
@@ -602,7 +594,7 @@ const api: ElectronAPI = {
   getQueueStatus: () => ipcRenderer.invoke("task:get-queue-status"),
   getTaskLogs: (taskId, options) => ipcRenderer.invoke("task:get-logs", taskId, options),
 
-  // 任务中心事件
+  // 任务中心事件（旧版，保留兼容）
   onTaskCreated: (cb) => ipcRenderer.on("task:created", (_e, task) => cb(task)),
   onTaskUpdated: (cb) => ipcRenderer.on("task:updated", (_e, task) => cb(task)),
   onTaskDeleted: (cb) => ipcRenderer.on("task:deleted", (_e, id) => cb(id)),
@@ -612,6 +604,18 @@ const api: ElectronAPI = {
   onTaskCompleted: (cb) => ipcRenderer.on("task:completed", (_e, data) => cb(data)),
   onTaskFailed: (cb) => ipcRenderer.on("task:failed", (_e, data) => cb(data)),
   onTaskCancelled: (cb) => ipcRenderer.on("task:cancelled", (_e, data) => cb(data)),
+
+  // 任务中心广播事件（新版，每秒广播）
+  onTaskCenterState: (cb) => {
+    const handler = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("task-center:state", handler);
+    return () => ipcRenderer.removeListener("task-center:state", handler);
+  },
+  onTaskCenterLog: (cb) => {
+    const handler = (_e: any, data: any) => cb(data);
+    ipcRenderer.on("task-center:log", handler);
+    return () => ipcRenderer.removeListener("task-center:log", handler);
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);

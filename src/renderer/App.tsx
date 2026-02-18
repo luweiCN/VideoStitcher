@@ -14,7 +14,7 @@ import VideoStitcherMode from './features/VideoStitcherMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
 import { TaskCenterProvider } from './contexts/TaskContext';
-import { TaskCenterListPage, HomeTaskIndicator } from './components/TaskCenter';
+import { TaskCenterListPage, TaskCenterDashboard, HomeTaskIndicator } from './components/TaskCenter';
 
 type View = 'home' | 'videoMerge' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress' | 'videoStitcher' | 'unauthorized' | 'taskCenter';
 
@@ -63,6 +63,7 @@ const UpdateNotification: React.FC<{
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('home');
+  const [showFullTaskList, setShowFullTaskList] = useState(false);
   const [appVersion, setAppVersion] = useState<string>('加载中...');
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
@@ -260,7 +261,17 @@ const App: React.FC = () => {
       case 'videoStitcher':
         return <VideoStitcherMode onBack={() => setCurrentView('home')} />;
       case 'taskCenter':
-        return <TaskCenterListPage onBack={() => setCurrentView('home')} />;
+        return showFullTaskList ? (
+          <TaskCenterListPage onBack={() => setShowFullTaskList(false)} />
+        ) : (
+          <TaskCenterDashboard
+            onBack={() => {
+              setShowFullTaskList(false);
+              setCurrentView('home');
+            }}
+            onViewAllTasks={() => setShowFullTaskList(true)}
+          />
+        );
       case 'admin':
         return (
           <AdminMode

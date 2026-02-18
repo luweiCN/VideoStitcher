@@ -1,3 +1,5 @@
+import type { Task } from '@shared/types/task';
+
 // Electron API 类型声明 - 从 preload 导出
 // 此文件复制自 src/preload/index.ts 的接口定义
 
@@ -272,6 +274,12 @@ export interface ElectronAPI {
     usedGB: string;
     cpuCount?: number;
   }>;
+  getCpuUsage: () => Promise<{ usage: number; cores: number }>;
+  getCpuCoresUsage: () => Promise<{ cores: number[]; total: number }>;
+  getSystemStats: () => Promise<{
+    cpu: { usage: number; cores: number[] };
+    memory: { total: number; free: number; used: number; usedPercent: number; totalGB: string; freeGB: string; usedGB: string };
+  }>;
   checkForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
@@ -410,4 +418,87 @@ export interface ElectronAPI {
       concurrency: number;
     }>;
   }>;
+
+  // === 任务中心 API ===
+  createTask: (request: {
+    type: string;
+    name: string;
+    outputDir: string;
+    params: Record<string, unknown>;
+    files: { path: string; category: string; categoryLabel: string }[];
+    priority?: number;
+    maxRetry?: number;
+    threads?: number;
+  }) => Promise<{ success: boolean; task?: any; error?: string }>;
+  batchCreateTasks: (tasks: Task[]) => Promise<{ success: boolean; tasks: any[]; successCount: number; failCount: number; errors?: { index: number; error: string }[]; error?: string }>;
+  getTask: (taskId: string) => Promise<any | null>;
+  getTasks: (options?: {
+    filter?: {
+      status?: string[];
+      type?: string[];
+      search?: string;
+      dateFrom?: number;
+      dateTo?: number;
+    };
+    sort?: { field: string; order: 'asc' | 'desc' };
+    page?: number;
+    pageSize?: number;
+    withFiles?: boolean;
+    withOutputs?: boolean;
+  }) => Promise<{ success: boolean; tasks: any[]; total: number; page: number; pageSize: number; stats?: any }>;
+  deleteTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  updateTaskOutputDir: (taskId: string, outputDir: string) => Promise<{ success: boolean; error?: string }>;
+  startTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  pauseTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  resumeTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  cancelTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  retryTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  startAllTasks: () => Promise<{ success: boolean; count: number }>;
+  pauseAllTasks: () => Promise<{ success: boolean; count: number }>;
+  cancelAllTasks: () => Promise<{ success: boolean; count: number }>;
+  clearCompletedTasks: (beforeDays?: number) => Promise<{ success: boolean; count: number }>;
+  clearFailedTasks: () => Promise<{ success: boolean; count: number }>;
+  getTaskConfig: () => Promise<any>;
+  setTaskConfig: (config: Record<string, any>) => Promise<{ success: boolean }>;
+  setConcurrency: (config: { maxConcurrentTasks?: number; threadsPerTask?: number }) => Promise<{ success: boolean; config?: any; error?: string }>;
+  getCpuInfo: () => Promise<{ cores: number; model: string; recommendedConcurrency: { maxConcurrentTasks: number; threadsPerTask: number } }>;
+  getQueueStatus: () => Promise<{ running: number; queued: number; pending: number; completed: number; maxConcurrent: number; threadsPerTask: number; totalThreads: number }>;
+  getTaskLogs: (taskId: string, options?: { limit?: number; offset?: number }) => Promise<any[]>;
+  getTaskProcessStats: () => Promise<{
+    processes: Array<{ pid: number; name: string; cpu: number; memory: number; memoryMB: string }>;
+    totalCpu: number;
+    totalMemory: number;
+    totalMemoryMB: string;
+  }>;
+
+  // 任务中心事件
+  onTaskCreated: (callback: (task: any) => void) => () => void;
+  onTaskUpdated: (callback: (task: any) => void) => () => void;
+  onTaskDeleted: (callback: (id: string) => void) => () => void;
+  onTaskStarted: (callback: (data: { taskId: string }) => void) => () => void;
+  onTaskProgress: (callback: (data: { taskId: string; progress: number; step?: string }) => void) => () => void;
+  onTaskLog: (callback: (data: { taskId: string; log: any }) => void) => () => void;
+  onTaskCompleted: (callback: (data: { taskId: string; outputs: any[] }) => void) => () => void;
+  onTaskFailed: (callback: (data: { taskId: string; error: any }) => void) => () => void;
+  onTaskCancelled: (callback: (data: { taskId: string }) => void) => () => void;
+
+  // 任务中心广播事件（新版）
+  onTaskCenterState: (callback: (state: {
+    isPaused: boolean;
+    runningCount: number;
+    pendingCount: number;
+    taskStats: { pending: number; running: number; completed: number; failed: number; cancelled: number; totalExecutionTime?: number };
+    tasks: any[]; // 任务列表（运行中+待执行，最多20条）
+    systemStats: {
+      cpu: { usage: number; cores: number[] };
+      memory: { total: number; used: number; usedPercent: number; totalGB: string; usedGB: string };
+      taskProcess: {
+        cpuCores: number;
+        totalCores: number;
+        totalMemoryMB: string;
+      };
+    };
+    config: { maxConcurrentTasks: number; threadsPerTask: number };
+  }) => void) => () => void;
+  onTaskCenterLog: (callback: (log: { taskId: string; taskType: string; message: string; level: string; timestamp: number }) => void) => () => void;
 }

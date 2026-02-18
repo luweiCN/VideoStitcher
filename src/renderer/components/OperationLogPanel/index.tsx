@@ -39,6 +39,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
   minHeight,
   themeColor = 'cyan',
   className = '',
+  titleComponent,
 }) => {
   const theme: LogStyleConfig = THEME_COLOR_MAP[themeColor];
 
@@ -244,8 +245,8 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
   const containerStyle = {
     width: width || '100%',
     height: height || '100%',
-    minHeight: minHeight || 200, // 确保最小高度，防止被压缩
-    minWidth: 250, // 确保最小宽度，防止被压缩
+    minHeight: minHeight || 200,
+    minWidth: 250,
   };
 
   return (
@@ -255,14 +256,17 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
     >
       {/* 头部 */}
       <div className="h-12 flex items-center justify-between px-4 border-b border-slate-800 shrink-0 whitespace-nowrap">
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-          处理日志
-          {logs.length > 0 && (
-            <span className={`text-[10px] px-1.5 py-0.5 rounded ${theme.primaryBg} ${theme.primaryColor}`}>
-              {logs.length}
-            </span>
-          )}
-        </h3>
+        {/* 自定义标题或默认标题 */}
+        {titleComponent || (
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+            处理日志
+            {logs.length > 0 && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded ${theme.primaryBg} ${theme.primaryColor}`}>
+                {logs.length}
+              </span>
+            )}
+          </h3>
+        )}
 
         {/* 选择状态操作 */}
         {selection.startIndex !== null && (

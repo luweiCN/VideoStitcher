@@ -159,4 +159,6 @@ export interface OperationLogPanelProps {
   themeColor?: LogThemeColor;
   /** 额外类名 */
   className?: string;
+  /** 自定义标题组件（替换默认标题） */
+  titleComponent?: React.ReactNode;
 }

@@ -24,7 +24,7 @@ const QUALITY_PRESETS: Record<StitchQuality, { crf: number; preset: string; audi
  * @returns FFmpeg 命令参数数组
  */
 export function buildStitchCommand(config: StitchConfig): string[] {
-  const { aPath, bPath, outPath, orientation, preview, trim, quality = 'medium' } = config;
+  const { aPath, bPath, outPath, orientation, preview, trim, quality = 'medium', threads } = config;
 
   // 目标分辨率
   const targetWidth = orientation === 'landscape'
@@ -87,6 +87,7 @@ export function buildStitchCommand(config: StitchConfig): string[] {
     '-c:a', 'aac',
     '-b:a', qualitySettings.audioBitrate,
     '-shortest',
+    ...(threads ? ['-threads', String(threads)] : []),
     '-y',
     outPath
   );

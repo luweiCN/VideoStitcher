@@ -116,12 +116,14 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_task_logs_timestamp ON task_logs(timestamp);
     `,
   },
-  // 后续版本迁移在此添加
-  // {
-  //   version: 2,
-  //   description: '添加新字段',
-  //   up: `ALTER TABLE tasks ADD COLUMN new_field TEXT;`
-  // },
+  {
+    version: 2,
+    description: '添加进程追踪字段',
+    up: `
+      ALTER TABLE tasks ADD COLUMN pid INTEGER;
+      ALTER TABLE tasks ADD COLUMN pid_started_at INTEGER;
+    `,
+  },
 ];
 
 /**

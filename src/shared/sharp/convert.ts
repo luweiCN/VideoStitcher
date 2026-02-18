@@ -5,7 +5,7 @@
 
 import sharp from 'sharp';
 import path from 'path';
-import { SHARP_CONSTANTS, type ConvertResult } from './types';
+import { SHARP_CONSTANTS, type ConvertResult, type ThreadsConfig } from './types';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 
 /**
@@ -37,12 +37,19 @@ function getImageType(width?: number, height?: number): 'square' | 'landscape' |
  * @param inputPath 输入图片路径
  * @param quality JPEG 质量，默认 90
  * @param outputDir 输出目录，默认原图目录
+ * @param threads 线程数，默认自动
  */
 export async function convertCoverFormat(
   inputPath: string,
   quality: number = SHARP_CONSTANTS.DEFAULT_QUALITY,
-  outputDir: string | null = null
+  outputDir: string | null = null,
+  threads?: number
 ): Promise<ConvertResult> {
+  // 设置 Sharp 并发数
+  if (threads) {
+    sharp.concurrency(threads);
+  }
+  
   const metadata = await sharp(inputPath).metadata();
   const imageType = getImageType(metadata.width, metadata.height);
 

@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { Loader2, CheckCircle, XCircle, Clock, Pause, Play } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import type { TaskStatus } from '@shared/types/task';
 
 interface TaskStatusBadgeProps {
@@ -21,20 +21,10 @@ const statusConfig: Record<TaskStatus, {
     icon: <Clock className="w-3 h-3" />,
     className: 'bg-slate-700/50 text-slate-400 border-slate-600/50',
   },
-  queued: {
-    label: '排队中',
-    icon: <Clock className="w-3 h-3" />,
-    className: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
-  },
   running: {
     label: '执行中',
     icon: <Loader2 className="w-3 h-3 animate-spin" />,
     className: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
-  },
-  paused: {
-    label: '已暂停',
-    icon: <Pause className="w-3 h-3" />,
-    className: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   },
   completed: {
     label: '已完成',

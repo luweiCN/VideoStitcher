@@ -31,7 +31,11 @@ export function registerTaskHandlers(): void {
         name: request.name,
         outputDir: request.outputDir,
         config: request.params,
-        files: request.files,
+        files: request.files.map(f => ({
+          path: f.path,
+          category: f.category,
+          category_name: f.categoryLabel,
+        })),
         priority: request.priority,
         maxRetry: request.maxRetry,
       });
@@ -213,30 +217,6 @@ export function registerTaskHandlers(): void {
   });
 
   /**
-   * 暂停任务
-   */
-  ipcMain.handle('task:pause', async (_event, taskId: string) => {
-    try {
-      const success = taskQueueManager.pause(taskId);
-      return { success };
-    } catch (err) {
-      return { success: false, error: (err as Error).message };
-    }
-  });
-
-  /**
-   * 恢复任务
-   */
-  ipcMain.handle('task:resume', async (_event, taskId: string) => {
-    try {
-      const success = taskQueueManager.resume(taskId);
-      return { success };
-    } catch (err) {
-      return { success: false, error: (err as Error).message };
-    }
-  });
-
-  /**
    * 取消任务
    */
   ipcMain.handle('task:cancel', async (_event, taskId: string) => {
@@ -272,21 +252,11 @@ export function registerTaskHandlers(): void {
   // ==================== 批量操作 ====================
 
   /**
-   * 开始所有待执行任务
+   * 开始所有待执行任务（恢复任务中心）
    */
   ipcMain.handle('task:start-all', async () => {
     try {
-      const result = taskRepository.getTasks({
-        filter: { status: ['pending'] },
-        pageSize: 1000,
-      });
-
-      let count = 0;
-      for (const task of result.tasks) {
-        taskQueueManager.enqueue(task.id);
-        count++;
-      }
-
+      const count = taskQueueManager.resumeAll();
       return { success: true, count };
     } catch (err) {
       return { success: false, error: (err as Error).message };

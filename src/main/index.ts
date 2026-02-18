@@ -17,13 +17,30 @@ import { registerTaskGeneratorHandlers } from '@main/ipc/taskGenerator';
 import { registerApplicationHandlers, isDevelopment } from '@main/ipc/application';
 import { registerSystemHandlers } from '@main/ipc/system';
 import { registerTaskHandlers, setTaskQueueMainWindow, stopTaskQueueManager } from '@main/ipc/task';
-import { taskQueueManager } from '@main/services/TaskQueueManager';
+import { taskQueueManager, TaskCancelledError } from '@main/services/TaskQueueManager';
 
 // 导入自动更新模块
 import { setupAutoUpdater, setMainWindow as setAutoUpdaterWindow, setDevelopmentMode } from '@main/autoUpdater';
 
 // macOS 更新处理器
 import { setupUpdateHandlers } from '@main/ipc-handlers';
+
+// 全局错误处理：忽略任务取消错误
+process.on('uncaughtException', (error) => {
+  if (error.name === 'TaskCancelledError' || error.message === '任务已被取消') {
+    console.log('[主进程] 任务已取消，忽略错误');
+    return;
+  }
+  console.error('[主进程] 未捕获的异常:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  if (reason instanceof Error && (reason.name === 'TaskCancelledError' || reason.message === '任务已被取消')) {
+    console.log('[主进程] 任务已取消，忽略 Promise 拒绝');
+    return;
+  }
+  console.error('[主进程] 未处理的 Promise 拒绝:', reason);
+});
 
 let win: BrowserWindow | null = null;
 

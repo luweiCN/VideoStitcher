@@ -41,6 +41,7 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
     trim,
     coverDuration = 1,
     quality = 'medium',
+    threads,
   } = config;
 
   // 确定画布尺寸
@@ -216,6 +217,7 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
 
   const args = [
     "-y",
+    ...(threads ? ["-threads", String(threads)] : []),
     ...inputs,
     "-filter_complex", filterComplex,
     "-map", useConcat ? "[final_v]" : "[v_b]",

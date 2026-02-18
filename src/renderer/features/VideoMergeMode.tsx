@@ -26,7 +26,7 @@ import PageHeader from "../components/PageHeader";
 import OutputDirSelector from "../components/OutputDirSelector";
 import ConcurrencySelector from "../components/ConcurrencySelector";
 import OperationLogPanel from "../components/OperationLogPanel";
-import { FileSelector, FileSelectorGroup } from "../components/FileSelector";
+import { FileSelector, FileSelectorGroup, useFileSelectorGroup, type FileSelectorGroupRef } from "../components/FileSelector";
 import { Button } from "../components/Button/Button";
 import TaskList, { type Task, type OutputConfig } from "../components/TaskList";
 import TaskCountSlider from "../components/TaskCountSlider";
@@ -48,6 +48,9 @@ interface VideoMergeModeProps {
 }
 
 const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
+  // 文件选择器组 ref，用于清空所有文件
+  const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
+  
   const [orientation, setOrientation] = useState<"horizontal" | "vertical">(
     "horizontal",
   );
@@ -604,8 +607,11 @@ return 'B';
     }
   };
 
-  // 清空编辑区域
+  // 清空编辑区域（保留导出位置）
   const clearEditor = () => {
+    // 清空文件选择器中的所有文件
+    fileSelectorGroupRef.current?.clearAll();
+    // 清空本地状态
     setBVideos([]);
     setAVideos([]);
     setBgImages([]);
@@ -677,7 +683,7 @@ return 'B';
               themeColor={primaryColor}
             />
 
-            <FileSelectorGroup>
+            <FileSelectorGroup ref={fileSelectorGroupRef}>
               <div className="space-y-4">
                 <FileSelector
                   id="bgImage"

@@ -81,6 +81,13 @@ export interface ExportOptions {
 }
 
 /**
+ * 线程配置
+ */
+export interface ThreadsConfig {
+  threads?: number;
+}
+
+/**
  * 图片预览模式
  */
 export type PreviewFitMode = 'cover' | 'inside' | 'fill' | 'contain' | 'square';

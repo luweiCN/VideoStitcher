@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs/promises';
 import os from 'os';
-import { SHARP_CONSTANTS, type ProcessResult, type LogoPosition, type ExportOptions, type PreviewFitMode, type GridResult } from './types';
+import { SHARP_CONSTANTS, type ProcessResult, type LogoPosition, type ExportOptions, type PreviewFitMode, type GridResult, type ThreadsConfig } from './types';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 import { createGridImage } from './grid';
 
@@ -57,6 +57,7 @@ const fitMapping: Record<PreviewFitMode, 'cover' | 'contain' | 'fill'> = {
  * @param logoPosition Logo 位置，默认右下角
  * @param logoScale Logo 缩放比例，默认 1
  * @param exportOptions 导出选项，默认同时导出单图和九宫格
+ * @param threads 线程数，默认自动
  */
 export async function processImageMaterial(
   inputPath: string,
@@ -65,8 +66,14 @@ export async function processImageMaterial(
   previewSize: PreviewFitMode = 'cover',
   logoPosition: LogoPosition | null = null,
   logoScale: number = SHARP_CONSTANTS.DEFAULT_LOGO_SCALE,
-  exportOptions: ExportOptions = { single: true, grid: true }
+  exportOptions: ExportOptions = { single: true, grid: true },
+  threads?: number
 ): Promise<ProcessResult> {
+  // 设置 Sharp 并发数
+  if (threads) {
+    sharp.concurrency(threads);
+  }
+  
   const inputBaseName = path.parse(inputPath).name;
   const results: ProcessResult['results'] = {};
 
