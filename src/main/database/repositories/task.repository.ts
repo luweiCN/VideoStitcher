@@ -17,19 +17,12 @@ import type {
   TaskError,
 } from '@shared/types/task';
 
-/**
- * ID 生成器
- */
-function generateId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
 export class TaskRepository {
   // ==================== 创建 ====================
 
   /**
    * 创建任务
-   * 接收共享 Task 格式，映射到数据库格式
+   * ID 由数据库自动生成（自增整数）
    */
   createTask(input: {
     type: TaskType | string;
@@ -41,19 +34,17 @@ export class TaskRepository {
     maxRetry?: number;
   }): Task {
     const db = getDatabase();
-    const id = generateId();
     const now = Date.now();
 
     const stmt = db.prepare(`
       INSERT INTO tasks (
-        id, type, name, status, priority,
+        type, name, status, priority,
         created_at, updated_at, output_dir, params,
         progress, retry_count, max_retry
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    stmt.run(
-      id,
+    const result = stmt.run(
       input.type,
       input.name || '',
       'pending',
@@ -67,6 +58,8 @@ export class TaskRepository {
       input.maxRetry ?? 3
     );
 
+    const id = result.lastInsertRowid as number;
+
     // 插入文件
     if (input.files.length > 0) {
       this.insertTaskFiles(id, input.files);
@@ -75,42 +68,7 @@ export class TaskRepository {
     return this.getTaskById(id)!;
   }
 
-  /**
-   * 插入任务文件
-   */
-  private insertTaskFiles(
-    taskId: string,
-    files: { path: string; category: string; category_name: string }[]
-  ): void {
-    const db = getDatabase();
-    const stmt = db.prepare(`
-      INSERT INTO task_files (id, task_id, path, category, category_label, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    const insertMany = db.transaction((items: typeof files) => {
-      items.forEach((file, index) => {
-        stmt.run(generateId(), taskId, file.path, file.category, file.category_name, index);
-      });
-    });
-
-    insertMany(files);
-  }
-
   // ==================== 查询 ====================
-
-  /**
-   * 根据 ID 获取任务
-   */
-  getTaskById(id: string): Task | null {
-    const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM tasks WHERE id = ?');
-    const row = stmt.get(id) as Record<string, unknown> | undefined;
-
-    if (!row) return null;
-
-    return this.mapRowToTask(row);
-  }
 
   /**
    * 获取任务列表
@@ -195,7 +153,7 @@ export class TaskRepository {
   /**
    * 获取任务文件
    */
-  getTaskFiles(taskId: string): TaskFile[] {
+  getTaskFiles(taskId: number): TaskFile[] {
     const db = getDatabase();
     const stmt = db.prepare(`
       SELECT * FROM task_files
@@ -205,7 +163,7 @@ export class TaskRepository {
     const rows = stmt.all(taskId) as Record<string, unknown>[];
 
     return rows.map((row) => ({
-      id: row.id as string,
+      id: row.id as number,
       path: row.path as string,
       index: row.sort_order as number,
       category: row.category as string,
@@ -217,13 +175,13 @@ export class TaskRepository {
   /**
    * 获取任务输出
    */
-  getTaskOutputs(taskId: string): TaskOutput[] {
+  getTaskOutputs(taskId: number): TaskOutput[] {
     const db = getDatabase();
     const stmt = db.prepare('SELECT * FROM task_outputs WHERE task_id = ?');
     const rows = stmt.all(taskId) as Record<string, unknown>[];
 
     return rows.map((row) => ({
-      id: row.id as string,
+      id: row.id as number,
       path: row.path as string,
       type: row.type as 'video' | 'image' | 'other',
       size: (row.size as number) ?? undefined,
@@ -280,7 +238,7 @@ export class TaskRepository {
    * 更新任务状态
    */
   updateTaskStatus(
-    id: string,
+    id: number,
     status: TaskStatus,
     extras?: {
       progress?: number;
@@ -343,7 +301,7 @@ export class TaskRepository {
   /**
    * 更新任务进度
    */
-  updateTaskProgress(id: string, progress: number, step?: string): void {
+  updateTaskProgress(id: number, progress: number, step?: string): void {
     const db = getDatabase();
     const stmt = db.prepare(`
       UPDATE tasks
@@ -354,18 +312,43 @@ export class TaskRepository {
   }
 
   /**
-   * 更新任务输出目录
+   * 插入任务文件
    */
-  updateTaskOutputDir(id: string, outputDir: string): void {
+  private insertTaskFiles(taskId: number, files: { path: string; category: string; category_name: string }[]): void {
     const db = getDatabase();
-    const stmt = db.prepare('UPDATE tasks SET output_dir = ?, updated_at = ? WHERE id = ?');
-    stmt.run(outputDir, Date.now(), id);
+    const stmt = db.prepare(`
+      INSERT INTO task_files (task_id, path, category, category_label, sort_order)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const insertMany = db.transaction((items: typeof files) => {
+      items.forEach((file, index) => {
+        stmt.run(taskId, file.path, file.category, file.category_name, index);
+      });
+    });
+
+    insertMany(files);
+  }
+
+  // ==================== 查询 ====================
+
+  /**
+   * 根据 ID 获取任务
+   */
+  getTaskById(id: number): Task | null {
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT * FROM tasks WHERE id = ?');
+    const row = stmt.get(id) as Record<string, unknown> | undefined;
+
+    if (!row) return null;
+
+    return this.mapRowToTask(row);
   }
 
   /**
    * 更新任务 PID
    */
-  updateTaskPid(id: string, pid: number): void {
+  updateTaskPid(id: number, pid: number): void {
     const db = getDatabase();
     const stmt = db.prepare('UPDATE tasks SET pid = ?, pid_started_at = ?, updated_at = ? WHERE id = ?');
     stmt.run(pid, Date.now(), Date.now(), id);
@@ -374,7 +357,7 @@ export class TaskRepository {
   /**
    * 清除任务 PID
    */
-  clearTaskPid(id: string): void {
+  clearTaskPid(id: number): void {
     const db = getDatabase();
     const now = Date.now();
     const stmt = db.prepare('UPDATE tasks SET pid = NULL, pid_started_at = NULL, started_at = NULL, updated_at = ? WHERE id = ?');
@@ -384,7 +367,7 @@ export class TaskRepository {
   /**
    * 增加执行时间
    */
-  incrementExecutionTime(id: string, milliseconds: number): void {
+  incrementExecutionTime(id: number, milliseconds: number): void {
     const db = getDatabase();
     const stmt = db.prepare(`
       UPDATE tasks
@@ -398,21 +381,21 @@ export class TaskRepository {
    * 添加任务输出
    */
   addTaskOutput(
-    taskId: string,
+    taskId: number,
     output: { path: string; type: 'video' | 'image' | 'other'; size?: number }
   ): void {
     const db = getDatabase();
     const stmt = db.prepare(`
-      INSERT INTO task_outputs (id, task_id, path, type, size, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO task_outputs (task_id, path, type, size, created_at)
+      VALUES (?, ?, ?, ?, ?)
     `);
-    stmt.run(generateId(), taskId, output.path, output.type, output.size ?? null, Date.now());
+    stmt.run(taskId, output.path, output.type, output.size ?? null, Date.now());
   }
 
   /**
    * 增加重试计数
    */
-  incrementRetryCount(id: string): void {
+  incrementRetryCount(id: number): void {
     const db = getDatabase();
     const stmt = db.prepare(`
       UPDATE tasks SET retry_count = retry_count + 1, updated_at = ? WHERE id = ?
@@ -425,7 +408,7 @@ export class TaskRepository {
   /**
    * 删除任务
    */
-  deleteTask(id: string): void {
+  deleteTask(id: number): void {
     const db = getDatabase();
     const stmt = db.prepare('DELETE FROM tasks WHERE id = ?');
     stmt.run(id);
@@ -517,7 +500,7 @@ export class TaskRepository {
         : undefined;
 
     return {
-      id: row.id as string,
+      id: row.id as number,
       type: row.type as TaskType,
       status: row.status as TaskStatus,
       name: row.name as string,

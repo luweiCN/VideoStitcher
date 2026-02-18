@@ -20,9 +20,9 @@ const MIGRATIONS: Migration[] = [
     version: 1,
     description: '初始表结构',
     up: `
-      -- 任务表
+      -- 任务表（自增ID）
       CREATE TABLE IF NOT EXISTS tasks (
-        id TEXT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT NOT NULL,
         name TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
@@ -48,14 +48,17 @@ const MIGRATIONS: Migration[] = [
         error_message TEXT,
         error_stack TEXT,
         
-        CHECK (status IN ('pending', 'queued', 'running', 'paused', 'completed', 'failed', 'cancelled')),
+        pid INTEGER,
+        pid_started_at INTEGER,
+        
+        CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
         CHECK (progress >= 0 AND progress <= 100)
       );
 
       -- 任务文件表
       CREATE TABLE IF NOT EXISTS task_files (
-        id TEXT PRIMARY KEY,
-        task_id TEXT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
         path TEXT NOT NULL,
         category TEXT NOT NULL,
         category_label TEXT NOT NULL,
@@ -66,8 +69,8 @@ const MIGRATIONS: Migration[] = [
 
       -- 任务输出表
       CREATE TABLE IF NOT EXISTS task_outputs (
-        id TEXT PRIMARY KEY,
-        task_id TEXT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
         path TEXT NOT NULL,
         type TEXT NOT NULL DEFAULT 'other',
         size INTEGER,
@@ -78,8 +81,8 @@ const MIGRATIONS: Migration[] = [
 
       -- 任务日志表
       CREATE TABLE IF NOT EXISTS task_logs (
-        id TEXT PRIMARY KEY,
-        task_id TEXT NOT NULL,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
         timestamp INTEGER NOT NULL,
         level TEXT NOT NULL DEFAULT 'info',
         message TEXT NOT NULL,
@@ -92,7 +95,7 @@ const MIGRATIONS: Migration[] = [
 
       -- 任务中心会话表
       CREATE TABLE IF NOT EXISTS task_center_sessions (
-        id TEXT PRIMARY KEY,
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
         started_at INTEGER NOT NULL,
         stopped_at INTEGER,
         total_execution_time INTEGER DEFAULT 0
@@ -114,14 +117,6 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_task_outputs_task_id ON task_outputs(task_id);
       CREATE INDEX IF NOT EXISTS idx_task_logs_task_id ON task_logs(task_id);
       CREATE INDEX IF NOT EXISTS idx_task_logs_timestamp ON task_logs(timestamp);
-    `,
-  },
-  {
-    version: 2,
-    description: '添加进程追踪字段',
-    up: `
-      ALTER TABLE tasks ADD COLUMN pid INTEGER;
-      ALTER TABLE tasks ADD COLUMN pid_started_at INTEGER;
     `,
   },
 ];

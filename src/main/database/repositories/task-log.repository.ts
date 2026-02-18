@@ -6,19 +6,12 @@
 import { getDatabase } from '../index';
 import type { TaskLog, LogLevel } from '@shared/types/task';
 
-/**
- * ID 生成器
- */
-function generateId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
 export class TaskLogRepository {
   /**
    * 添加日志
    */
   addLog(
-    taskId: string,
+    taskId: number,
     log: {
       level?: LogLevel;
       message: string;
@@ -27,17 +20,17 @@ export class TaskLogRepository {
   ): void {
     const db = getDatabase();
     const stmt = db.prepare(`
-      INSERT INTO task_logs (id, task_id, timestamp, level, message, raw)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO task_logs (task_id, timestamp, level, message, raw)
+      VALUES (?, ?, ?, ?, ?)
     `);
-    stmt.run(generateId(), taskId, Date.now(), log.level ?? 'info', log.message, log.raw ?? null);
+    stmt.run(taskId, Date.now(), log.level ?? 'info', log.message, log.raw ?? null);
   }
 
   /**
    * 获取任务日志
    */
   getTaskLogs(
-    taskId: string,
+    taskId: number,
     options: { limit?: number; offset?: number } = {}
   ): TaskLog[] {
     const db = getDatabase();
@@ -52,8 +45,8 @@ export class TaskLogRepository {
     const rows = stmt.all(taskId, limit, offset) as Record<string, unknown>[];
 
     return rows.map((row) => ({
-      id: row.id as string,
-      taskId: row.task_id as string,
+      id: row.id as number,
+      taskId: row.task_id as number,
       timestamp: row.timestamp as number,
       level: row.level as LogLevel,
       message: row.message as string,
@@ -64,7 +57,7 @@ export class TaskLogRepository {
   /**
    * 清除任务日志
    */
-  clearTaskLogs(taskId: string): void {
+  clearTaskLogs(taskId: number): void {
     const db = getDatabase();
     const stmt = db.prepare('DELETE FROM task_logs WHERE task_id = ?');
     stmt.run(taskId);
@@ -83,7 +76,7 @@ export class TaskLogRepository {
   /**
    * 获取日志数量
    */
-  getLogCount(taskId?: string): number {
+  getLogCount(taskId?: number): number {
     const db = getDatabase();
 
     if (taskId) {

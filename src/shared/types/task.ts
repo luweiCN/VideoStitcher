@@ -30,7 +30,7 @@ export type TaskType =
  * 与数据库 task_files 表字段一致
  */
 export interface TaskFile {
-  id?: string;
+  id?: number;
   path: string;
   index?: number;
   category: string;
@@ -45,7 +45,7 @@ export interface TaskFile {
  * 每个任务是独立的个体，包含所有必要信息
  */
 export interface Task {
-  id: string;
+  id: number;
   /** 任务类型 */
   type?: TaskType;
   /** 任务状态 */
@@ -101,7 +101,7 @@ export interface TaskError {
 // ==================== 任务输出 ====================
 
 export interface TaskOutput {
-  id?: string;
+  id?: number;
   path: string;
   type: 'video' | 'image' | 'other';
   size?: number;

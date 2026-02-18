@@ -390,7 +390,7 @@ export interface ElectronAPI {
   }) => Promise<{
     success: boolean;
     tasks: Array<{
-      id: string;
+      id: number;
       status: string;
       files: Array<{ path: string; index: number; category: string; category_name: string }>;
       config: { orientation: string };
@@ -410,7 +410,7 @@ export interface ElectronAPI {
   }) => Promise<{
     success: boolean;
     tasks: Array<{
-      id: string;
+      id: number;
       status: string;
       files: Array<{ path: string; index: number; category: string; category_name: string }>;
       config: { orientation: string };
@@ -431,7 +431,7 @@ export interface ElectronAPI {
     threads?: number;
   }) => Promise<{ success: boolean; task?: any; error?: string }>;
   batchCreateTasks: (tasks: Task[]) => Promise<{ success: boolean; tasks: any[]; successCount: number; failCount: number; errors?: { index: number; error: string }[]; error?: string }>;
-  getTask: (taskId: string) => Promise<any | null>;
+  getTask: (taskId: number) => Promise<any | null>;
   getTasks: (options?: {
     filter?: {
       status?: string[];
@@ -446,13 +446,13 @@ export interface ElectronAPI {
     withFiles?: boolean;
     withOutputs?: boolean;
   }) => Promise<{ success: boolean; tasks: any[]; total: number; page: number; pageSize: number; stats?: any }>;
-  deleteTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
-  updateTaskOutputDir: (taskId: string, outputDir: string) => Promise<{ success: boolean; error?: string }>;
-  startTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
-  pauseTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
-  resumeTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
-  cancelTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
-  retryTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  deleteTask: (taskId: number) => Promise<{ success: boolean; error?: string }>;
+  updateTaskOutputDir: (taskId: number, outputDir: string) => Promise<{ success: boolean; error?: string }>;
+  startTask: (taskId: number) => Promise<{ success: boolean; error?: string }>;
+  pauseTask: (taskId: number) => Promise<{ success: boolean; error?: string }>;
+  resumeTask: (taskId: number) => Promise<{ success: boolean; error?: string }>;
+  cancelTask: (taskId: number) => Promise<{ success: boolean; error?: string }>;
+  retryTask: (taskId: number) => Promise<{ success: boolean; error?: string }>;
   startAllTasks: () => Promise<{ success: boolean; count: number }>;
   pauseAllTasks: () => Promise<{ success: boolean; count: number }>;
   cancelAllTasks: () => Promise<{ success: boolean; count: number }>;
@@ -463,7 +463,7 @@ export interface ElectronAPI {
   setConcurrency: (config: { maxConcurrentTasks?: number; threadsPerTask?: number }) => Promise<{ success: boolean; config?: any; error?: string }>;
   getCpuInfo: () => Promise<{ cores: number; model: string; recommendedConcurrency: { maxConcurrentTasks: number; threadsPerTask: number } }>;
   getQueueStatus: () => Promise<{ running: number; queued: number; pending: number; completed: number; maxConcurrent: number; threadsPerTask: number; totalThreads: number }>;
-  getTaskLogs: (taskId: string, options?: { limit?: number; offset?: number }) => Promise<any[]>;
+  getTaskLogs: (taskId: number, options?: { limit?: number; offset?: number }) => Promise<any[]>;
   getTaskProcessStats: () => Promise<{
     processes: Array<{ pid: number; name: string; cpu: number; memory: number; memoryMB: string }>;
     totalCpu: number;
@@ -475,12 +475,12 @@ export interface ElectronAPI {
   onTaskCreated: (callback: (task: any) => void) => () => void;
   onTaskUpdated: (callback: (task: any) => void) => () => void;
   onTaskDeleted: (callback: (id: string) => void) => () => void;
-  onTaskStarted: (callback: (data: { taskId: string }) => void) => () => void;
-  onTaskProgress: (callback: (data: { taskId: string; progress: number; step?: string }) => void) => () => void;
-  onTaskLog: (callback: (data: { taskId: string; log: any }) => void) => () => void;
-  onTaskCompleted: (callback: (data: { taskId: string; outputs: any[] }) => void) => () => void;
-  onTaskFailed: (callback: (data: { taskId: string; error: any }) => void) => () => void;
-  onTaskCancelled: (callback: (data: { taskId: string }) => void) => () => void;
+  onTaskStarted: (callback: (data: { taskId: number }) => void) => () => void;
+  onTaskProgress: (callback: (data: { taskId: number; progress: number; step?: string }) => void) => () => void;
+  onTaskLog: (callback: (data: { taskId: number; log: any }) => void) => () => void;
+  onTaskCompleted: (callback: (data: { taskId: number; outputs: any[] }) => void) => () => void;
+  onTaskFailed: (callback: (data: { taskId: number; error: any }) => void) => () => void;
+  onTaskCancelled: (callback: (data: { taskId: number }) => void) => () => void;
 
   // 任务中心广播事件（新版）
   onTaskCenterState: (callback: (state: {
@@ -500,5 +500,5 @@ export interface ElectronAPI {
     };
     config: { maxConcurrentTasks: number; threadsPerTask: number };
   }) => void) => () => void;
-  onTaskCenterLog: (callback: (log: { taskId: string; taskType: string; message: string; level: string; timestamp: number }) => void) => () => void;
+  onTaskCenterLog: (callback: (log: { taskId: number; taskType: string; message: string; level: string; timestamp: number }) => void) => () => void;
 }

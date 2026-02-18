@@ -47,7 +47,7 @@ interface TaskCenterState {
 }
 
 interface TaskCenterLog {
-  taskId: string;
+  taskId: number;
   taskType: string;
   message: string;
   level: string;
@@ -127,15 +127,14 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
   // 监听日志广播
   useEffect(() => {
     const cleanup = window.api.onTaskCenterLog?.((log: TaskCenterLog) => {
-      // 系统日志（任务中心级别）
-      if (log.taskId === 'task-center') {
+      // 系统日志（taskType === 'system'）
+      if (log.taskType === 'system') {
         addLog(`[系统] ${log.message}`, log.level as any);
         return;
       }
       // 任务日志
       const taskTypeLabel = TASK_TYPE_LABELS[log.taskType as keyof typeof TASK_TYPE_LABELS] || log.taskType;
-      const shortId = log.taskId.slice(0, 8);
-      addLog(`[${shortId}] [${taskTypeLabel}] ${log.message}`, log.level as any);
+      addLog(`[#${log.taskId}] [${taskTypeLabel}] ${log.message}`, log.level as any);
     });
     return () => cleanup?.();
   }, [addLog]);
@@ -469,6 +468,7 @@ const TaskItem: React.FC<{ task: Task }> = ({ task }) => {
           ) : (
             <div className="w-2 h-2 bg-slate-500 rounded-full" />
           )}
+          <span className="text-xs text-slate-500 font-mono">#{task.id}</span>
           <span className="text-sm font-medium text-white">{taskTypeLabel}</span>
         </div>
         {isRunning && (

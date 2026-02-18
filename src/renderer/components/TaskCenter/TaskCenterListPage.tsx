@@ -293,7 +293,7 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-white truncate">
-                        {task.name || `任务 ${task.id.slice(0, 8)}`}
+                        {task.name || `任务 #${task.id}`}
                       </span>
                       <span className="text-xs text-slate-500">
                         {taskTypeLabels[task.type || ''] || task.type}

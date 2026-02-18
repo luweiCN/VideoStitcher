@@ -38,12 +38,19 @@ interface TaskFile {
 }
 
 interface Task {
-  id: string;
+  id: number;
   status: string;
   files: TaskFile[];
   config: { orientation: string };
   outputDir: string;
   concurrency: number;
+}
+
+/**
+ * 生成随机数字 ID
+ */
+function generateTempId(): number {
+  return Math.floor(Math.random() * 1000000000);
 }
 
 /**
@@ -205,9 +212,9 @@ function generateStitchTasks(_event: Electron.IpcMainInvokeEvent, params: Stitch
     priority: [0, 1],
   });
 
-  const tasks: Task[] = combinations.map((indices, taskIndex) => {
+  const tasks: Task[] = combinations.map((indices) => {
     return {
-      id: `stitch-${timestamp}-${taskIndex}`,
+      id: generateTempId(),
       status: "pending",
       files: [
         {
@@ -278,7 +285,7 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
     priority,
   });
 
-  const tasks: Task[] = combinations.map((indices, taskIndex) => {
+  const tasks: Task[] = combinations.map((indices) => {
     const files: TaskFile[] = [];
     let idx = 0;
 
@@ -320,7 +327,7 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
     }
 
     return {
-      id: `merge-${timestamp}-${taskIndex}`,
+      id: generateTempId(),
       status: "pending",
       files,
       config: { orientation },

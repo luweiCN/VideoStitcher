@@ -62,7 +62,7 @@ export function registerTaskHandlers(): void {
    * 直接接受前端 Task 格式
    */
   ipcMain.handle('task:batch-create', async (_event, tasks: Array<{
-    id: string;
+    id?: string | number;
     type?: string;
     status?: string;
     files: Array<{ path: string; index?: number; category: string; category_name: string }>;
@@ -126,7 +126,7 @@ export function registerTaskHandlers(): void {
   /**
    * 获取单个任务
    */
-  ipcMain.handle('task:get', async (_event, taskId: string) => {
+  ipcMain.handle('task:get', async (_event, taskId: number) => {
     const task = taskRepository.getTaskById(taskId);
     if (task) {
       task.files = taskRepository.getTaskFiles(taskId);
@@ -145,7 +145,7 @@ export function registerTaskHandlers(): void {
   /**
    * 删除任务
    */
-  ipcMain.handle('task:delete', async (_event, taskId: string) => {
+  ipcMain.handle('task:delete', async (_event, taskId: number) => {
     try {
       // 先取消任务（如果在运行中）
       taskQueueManager.cancel(taskId);
@@ -167,7 +167,7 @@ export function registerTaskHandlers(): void {
   /**
    * 更新任务输出目录
    */
-  ipcMain.handle('task:update-output-dir', async (_event, taskId: string, outputDir: string) => {
+  ipcMain.handle('task:update-output-dir', async (_event, taskId: number, outputDir: string) => {
     try {
       const task = taskRepository.getTaskById(taskId);
       if (!task) {
@@ -198,7 +198,7 @@ export function registerTaskHandlers(): void {
   /**
    * 开始任务
    */
-  ipcMain.handle('task:start', async (_event, taskId: string) => {
+  ipcMain.handle('task:start', async (_event, taskId: number) => {
     try {
       const task = taskRepository.getTaskById(taskId);
       if (!task) {
@@ -219,7 +219,7 @@ export function registerTaskHandlers(): void {
   /**
    * 取消任务
    */
-  ipcMain.handle('task:cancel', async (_event, taskId: string) => {
+  ipcMain.handle('task:cancel', async (_event, taskId: number) => {
     try {
       const success = taskQueueManager.cancel(taskId);
       return { success };
@@ -231,7 +231,7 @@ export function registerTaskHandlers(): void {
   /**
    * 重试任务
    */
-  ipcMain.handle('task:retry', async (_event, taskId: string) => {
+  ipcMain.handle('task:retry', async (_event, taskId: number) => {
     try {
       const task = taskRepository.getTaskById(taskId);
       if (!task) {
@@ -397,7 +397,7 @@ export function registerTaskHandlers(): void {
   /**
    * 获取任务日志
    */
-  ipcMain.handle('task:get-logs', async (_event, taskId: string, options?: {
+  ipcMain.handle('task:get-logs', async (_event, taskId: number, options?: {
     limit?: number;
     offset?: number;
   }) => {
@@ -407,7 +407,7 @@ export function registerTaskHandlers(): void {
   /**
    * 清除任务日志
    */
-  ipcMain.handle('task:clear-logs', async (_event, taskId: string) => {
+  ipcMain.handle('task:clear-logs', async (_event, taskId: number) => {
     try {
       taskLogRepository.clearTaskLogs(taskId);
       return { success: true };

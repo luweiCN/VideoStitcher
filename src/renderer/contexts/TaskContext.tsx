@@ -30,12 +30,12 @@ interface TaskContextValue {
   // 操作
   createTask: (request: CreateTaskRequest) => Promise<CreateTaskResponse>;
   batchCreateTasks: (tasks: Task[]) => Promise<BatchCreateTaskResponse>;
-  startTask: (taskId: string) => Promise<void>;
-  pauseTask: (taskId: string) => Promise<void>;
-  resumeTask: (taskId: string) => Promise<void>;
-  cancelTask: (taskId: string) => Promise<void>;
-  retryTask: (taskId: string) => Promise<void>;
-  deleteTask: (taskId: string) => Promise<void>;
+  startTask: (taskId: number) => Promise<void>;
+  pauseTask: (taskId: number) => Promise<void>;
+  resumeTask: (taskId: number) => Promise<void>;
+  cancelTask: (taskId: number) => Promise<void>;
+  retryTask: (taskId: number) => Promise<void>;
+  deleteTask: (taskId: number) => Promise<void>;
   pauseAllTasks: () => Promise<void>;
   resumeAllTasks: () => Promise<void>;
   cancelAllTasks: () => Promise<void>;
@@ -136,32 +136,27 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
   }, []);
 
   // 开始任务
-  const startTask = useCallback(async (taskId: string) => {
+  const startTask = useCallback(async (taskId: number) => {
     await window.api.startTask(taskId);
   }, []);
 
-  // 暂停任务
-  const pauseTask = useCallback(async (taskId: string) => {
+  const pauseTask = useCallback(async (taskId: number) => {
     await window.api.pauseTask(taskId);
   }, []);
 
-  // 恢复任务
-  const resumeTask = useCallback(async (taskId: string) => {
+  const resumeTask = useCallback(async (taskId: number) => {
     await window.api.resumeTask(taskId);
   }, []);
 
-  // 取消任务
-  const cancelTask = useCallback(async (taskId: string) => {
+  const cancelTask = useCallback(async (taskId: number) => {
     await window.api.cancelTask(taskId);
   }, []);
 
-  // 重试任务
-  const retryTask = useCallback(async (taskId: string) => {
+  const retryTask = useCallback(async (taskId: number) => {
     await window.api.retryTask(taskId);
   }, []);
 
-  // 删除任务
-  const deleteTask = useCallback(async (taskId: string) => {
+  const deleteTask = useCallback(async (taskId: number) => {
     await window.api.deleteTask(taskId);
   }, []);
 
@@ -247,14 +242,14 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
 
     // 任务删除
     cleanups.push(
-      window.api.onTaskDeleted((taskId: string) => {
+      window.api.onTaskDeleted((taskId: number) => {
         setRunningTasks((prev) => prev.filter((t) => t.id !== taskId));
       })
     );
 
     // 任务开始运行
     cleanups.push(
-      window.api.onTaskStarted(async (data: { taskId: string }) => {
+      window.api.onTaskStarted(async (data: { taskId: number }) => {
         // 获取任务详情并添加到运行列表
         const task = await window.api.getTask(data.taskId);
         if (task && task.status === 'running') {
@@ -268,7 +263,7 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
 
     // 任务进度
     cleanups.push(
-      window.api.onTaskProgress((data: { taskId: string; progress: number; step?: string }) => {
+      window.api.onTaskProgress((data: { taskId: number; progress: number; step?: string }) => {
         setRunningTasks((prev) =>
           prev.map((t) =>
             t.id === data.taskId
@@ -281,7 +276,7 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
 
     // 任务完成
     cleanups.push(
-      window.api.onTaskCompleted((data: { taskId: string; outputs: any[] }) => {
+      window.api.onTaskCompleted((data: { taskId: number; outputs: any[] }) => {
         setRunningTasks((prev) => prev.filter((t) => t.id !== data.taskId));
         refreshQueueStatus();
       })
@@ -289,7 +284,7 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
 
     // 任务失败
     cleanups.push(
-      window.api.onTaskFailed((data: { taskId: string; error: any }) => {
+      window.api.onTaskFailed((data: { taskId: number; error: any }) => {
         setRunningTasks((prev) => prev.filter((t) => t.id !== data.taskId));
         refreshQueueStatus();
       })
@@ -297,7 +292,7 @@ export function TaskCenterProvider({ children }: TaskCenterProviderProps) {
 
     // 任务取消
     cleanups.push(
-      window.api.onTaskCancelled((data: { taskId: string }) => {
+      window.api.onTaskCancelled((data: { taskId: number }) => {
         setRunningTasks((prev) => prev.filter((t) => t.id !== data.taskId));
         refreshQueueStatus();
       })
