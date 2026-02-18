@@ -316,6 +316,8 @@ export interface ElectronAPI {
   checkPathType: (filePath: string) => Promise<{ success: boolean; isDirectory?: boolean; isFile?: boolean; error?: string }>;
   showItemInFolder: (path: string) => Promise<void>;
   openPath: (path: string) => Promise<void>;
+  pathExists: (path: string) => Promise<{ exists: boolean }>;
+  pathsExists: (paths: string[]) => Promise<Record<string, boolean>>;
 
   onFileStart: (callback: (data: { total: number; sessionId: string }) => void) => () => void;
   onFileProgress: (callback: (data: {
@@ -395,8 +397,8 @@ export interface ElectronAPI {
     withFiles?: boolean;
     withOutputs?: boolean;
   }) => Promise<{ success: boolean; tasks: any[]; total: number; page: number; pageSize: number; stats?: any }>;
-  deleteTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
-  updateTaskOutputDir: (taskId: string, outputDir: string) => Promise<{ success: boolean; error?: string }>;
+  deleteTask: (taskId: number) => Promise<{ success: boolean; error?: string }>;
+  updateTaskOutputDir: (taskId: number, outputDir: string) => Promise<{ success: boolean; error?: string }>;
   startTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
   pauseTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
   resumeTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
@@ -412,7 +414,8 @@ export interface ElectronAPI {
   setConcurrency: (config: { maxConcurrentTasks?: number; threadsPerTask?: number }) => Promise<{ success: boolean; config?: any; error?: string }>;
   getCpuInfo: () => Promise<{ cores: number; model: string; recommendedConcurrency: { maxConcurrentTasks: number; threadsPerTask: number } }>;
   getQueueStatus: () => Promise<{ running: number; queued: number; pending: number; completed: number; maxConcurrent: number; threadsPerTask: number; totalThreads: number }>;
-  getTaskLogs: (taskId: string, options?: { limit?: number; offset?: number }) => Promise<any[]>;
+  getTaskLogs: (taskId: number, options?: { limit?: number; offset?: number }) => Promise<any[]>;
+  getRecentLogs: (limit?: number) => Promise<Array<{ id: number; taskId: number; timestamp: number; level: string; message: string; taskType?: string }>>;
 
   // 任务中心事件
   onTaskCreated: (callback: (task: any) => void) => () => void;
@@ -560,6 +563,8 @@ const api: ElectronAPI = {
   checkPathType: (filePath) => ipcRenderer.invoke("file:check-path-type", { filePath }),
   showItemInFolder: (path) => ipcRenderer.invoke("file:show-item-in-folder", path),
   openPath: (path) => ipcRenderer.invoke("file:open-path", path),
+  pathExists: (path) => ipcRenderer.invoke("file:path-exists", path),
+  pathsExists: (paths) => ipcRenderer.invoke("file:paths-exists", paths),
 
   // 文件操作事件
   onFileStart: (cb) => ipcRenderer.on("file-start", (_e, data) => cb(data)),
@@ -616,6 +621,9 @@ const api: ElectronAPI = {
     ipcRenderer.on("task-center:log", handler);
     return () => ipcRenderer.removeListener("task-center:log", handler);
   },
+  
+  // 获取最近日志
+  getRecentLogs: (limit) => ipcRenderer.invoke("task:get-recent-logs", limit),
 };
 
 contextBridge.exposeInMainWorld("api", api);

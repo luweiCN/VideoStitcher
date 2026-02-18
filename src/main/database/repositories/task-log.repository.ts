@@ -89,6 +89,33 @@ export class TaskLogRepository {
     const row = stmt.get() as { count: number };
     return row.count;
   }
+
+  /**
+   * 获取最近的日志（用于任务中心初始化）
+   */
+  getRecentLogs(limit: number = 100): Array<TaskLog & { taskType?: string }> {
+    const db = getDatabase();
+    
+    const stmt = db.prepare(`
+      SELECT tl.*, t.type as task_type
+      FROM task_logs tl
+      LEFT JOIN tasks t ON tl.task_id = t.id
+      ORDER BY tl.timestamp DESC
+      LIMIT ?
+    `);
+    const rows = stmt.all(limit) as Record<string, unknown>[];
+    
+    // 反转顺序，让时间最早的在前面
+    return rows.reverse().map((row) => ({
+      id: row.id as number,
+      taskId: row.task_id as number,
+      timestamp: row.timestamp as number,
+      level: row.level as LogLevel,
+      message: row.message as string,
+      raw: (row.raw as string) ?? undefined,
+      taskType: row.task_type as string | undefined,
+    }));
+  }
 }
 
 // 导出单例

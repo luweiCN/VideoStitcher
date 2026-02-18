@@ -355,6 +355,15 @@ export class TaskRepository {
   }
 
   /**
+   * 更新任务输出目录
+   */
+  updateTaskOutputDir(id: number, outputDir: string): void {
+    const db = getDatabase();
+    const stmt = db.prepare('UPDATE tasks SET output_dir = ?, updated_at = ? WHERE id = ?');
+    stmt.run(outputDir, Date.now(), id);
+  }
+
+  /**
    * 清除任务 PID
    */
   clearTaskPid(id: number): void {

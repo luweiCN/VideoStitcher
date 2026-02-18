@@ -174,11 +174,6 @@ export function registerTaskHandlers(): void {
         return { success: false, error: '任务不存在' };
       }
 
-      // 只有 pending 状态的任务可以修改
-      if (task.status !== 'pending') {
-        return { success: false, error: '只有待执行状态的任务可以修改输出目录' };
-      }
-
       taskRepository.updateTaskOutputDir(taskId, outputDir);
 
       // 发送任务更新事件
@@ -402,6 +397,13 @@ export function registerTaskHandlers(): void {
     offset?: number;
   }) => {
     return taskLogRepository.getTaskLogs(taskId, options);
+  });
+
+  /**
+   * 获取最近日志（用于任务中心初始化）
+   */
+  ipcMain.handle('task:get-recent-logs', async (_event, limit?: number) => {
+    return taskLogRepository.getRecentLogs(limit ?? 100);
   });
 
   /**

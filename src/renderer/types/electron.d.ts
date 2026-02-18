@@ -363,6 +363,8 @@ export interface ElectronAPI {
   }>;
   showItemInFolder: (path: string) => Promise<void>;
   openPath: (path: string) => Promise<void>;
+  pathExists: (path: string) => Promise<{ exists: boolean }>;
+  pathsExists: (paths: string[]) => Promise<Record<string, boolean>>;
 
   onFileStart: (callback: (data: { total: number; sessionId: string }) => void) => () => void;
   onFileProgress: (callback: (data: {
@@ -464,6 +466,7 @@ export interface ElectronAPI {
   getCpuInfo: () => Promise<{ cores: number; model: string; recommendedConcurrency: { maxConcurrentTasks: number; threadsPerTask: number } }>;
   getQueueStatus: () => Promise<{ running: number; queued: number; pending: number; completed: number; maxConcurrent: number; threadsPerTask: number; totalThreads: number }>;
   getTaskLogs: (taskId: number, options?: { limit?: number; offset?: number }) => Promise<any[]>;
+  getRecentLogs: (limit?: number) => Promise<Array<{ id: number; taskId: number; timestamp: number; level: string; message: string; taskType?: string }>>;
   getTaskProcessStats: () => Promise<{
     processes: Array<{ pid: number; name: string; cpu: number; memory: number; memoryMB: string }>;
     totalCpu: number;

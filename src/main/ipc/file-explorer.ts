@@ -243,6 +243,38 @@ async function handleOpenPath(_event: Electron.IpcMainInvokeEvent, filePath: str
   await shell.openPath(filePath);
 }
 
+/**
+ * 检查单个路径是否存在
+ */
+async function handlePathExists(_event: Electron.IpcMainInvokeEvent, path: string): Promise<{ exists: boolean }> {
+  try {
+    await fsp.access(path);
+    return { exists: true };
+  } catch {
+    return { exists: false };
+  }
+}
+
+/**
+ * 批量检查路径是否存在
+ */
+async function handlePathsExists(_event: Electron.IpcMainInvokeEvent, paths: string[]): Promise<Record<string, boolean>> {
+  const results: Record<string, boolean> = {};
+  
+  await Promise.all(
+    paths.map(async (path) => {
+      try {
+        await fsp.access(path);
+        results[path] = true;
+      } catch {
+        results[path] = false;
+      }
+    })
+  );
+  
+  return results;
+}
+
 // ==================== 注册处理器 ====================
 
 /**
@@ -275,6 +307,12 @@ export function registerFileExplorerHandlers(win?: BrowserWindow): void {
 
   // 用系统默认程序打开
   ipcMain.handle('file:open-path', handleOpenPath);
+
+  // 检查路径是否存在
+  ipcMain.handle('file:path-exists', handlePathExists);
+
+  // 批量检查路径是否存在
+  ipcMain.handle('file:paths-exists', handlePathsExists);
 }
 
 export {

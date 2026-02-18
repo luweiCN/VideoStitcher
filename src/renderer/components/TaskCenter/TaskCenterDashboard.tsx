@@ -124,6 +124,27 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
     return () => cleanup?.();
   }, []);
 
+  // 初始化加载最近100条日志
+  useEffect(() => {
+    const loadRecentLogs = async () => {
+      try {
+        const recentLogs = await window.api.getRecentLogs?.(100);
+        if (recentLogs && recentLogs.length > 0) {
+          recentLogs.forEach((log) => {
+            const taskTypeLabel = log.taskType 
+              ? (TASK_TYPE_LABELS[log.taskType as keyof typeof TASK_TYPE_LABELS] || log.taskType)
+              : '';
+            const prefix = log.taskType ? `[#${log.taskId}] [${taskTypeLabel}]` : '[系统]';
+            addLog(`${prefix} ${log.message}`, log.level as any);
+          });
+        }
+      } catch (err) {
+        console.error('[TaskCenterDashboard] 加载历史日志失败:', err);
+      }
+    };
+    loadRecentLogs();
+  }, []);
+
   // 监听日志广播
   useEffect(() => {
     const cleanup = window.api.onTaskCenterLog?.((log: TaskCenterLog) => {
