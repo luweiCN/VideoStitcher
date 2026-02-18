@@ -392,6 +392,71 @@ export interface ElectronAPI {
       concurrency: number;
     }>;
   }>;
+
+  // === 任务中心 API ===
+  createTask: (request: {
+    type: string;
+    name: string;
+    outputDir: string;
+    params: Record<string, unknown>;
+    files: { path: string; category: string; categoryLabel: string }[];
+    priority?: number;
+    maxRetry?: number;
+    threads?: number;
+  }) => Promise<{ success: boolean; task?: any; error?: string }>;
+  batchCreateTasks: (tasks: Array<{
+    id: string;
+    type?: string;
+    status?: string;
+    files: Array<{ path: string; index: number; category: string; category_name: string }>;
+    config?: Record<string, unknown>;
+    outputDir?: string;
+    error?: string;
+  }>) => Promise<{ success: boolean; tasks: any[]; successCount: number; failCount: number; errors?: { index: number; error: string }[]; error?: string }>;
+  getTask: (taskId: string) => Promise<any | null>;
+  getTasks: (options?: {
+    filter?: {
+      status?: string[];
+      type?: string[];
+      search?: string;
+      dateFrom?: number;
+      dateTo?: number;
+    };
+    sort?: { field: string; order: 'asc' | 'desc' };
+    page?: number;
+    pageSize?: number;
+    withFiles?: boolean;
+    withOutputs?: boolean;
+  }) => Promise<{ success: boolean; tasks: any[]; total: number; page: number; pageSize: number; stats?: any }>;
+  deleteTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  updateTaskOutputDir: (taskId: string, outputDir: string) => Promise<{ success: boolean; error?: string }>;
+  startTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  pauseTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  resumeTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  cancelTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  retryTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  startAllTasks: () => Promise<{ success: boolean; count: number }>;
+  pauseAllTasks: () => Promise<{ success: boolean; count: number }>;
+  cancelAllTasks: () => Promise<{ success: boolean; count: number }>;
+  clearCompletedTasks: (beforeDays?: number) => Promise<{ success: boolean; count: number }>;
+  clearFailedTasks: () => Promise<{ success: boolean; count: number }>;
+  getTaskConfig: () => Promise<any>;
+  setTaskConfig: (config: Record<string, any>) => Promise<{ success: boolean }>;
+  setConcurrency: (config: { maxConcurrentTasks?: number; threadsPerTask?: number }) => Promise<{ success: boolean; config?: any; error?: string }>;
+  getCpuInfo: () => Promise<{ cores: number; model: string; recommendedConcurrency: { maxConcurrentTasks: number; threadsPerTask: number } }>;
+  getQueueStatus: () => Promise<{ running: number; queued: number; maxConcurrent: number; threadsPerTask: number; totalThreads: number }>;
+  getTaskLogs: (taskId: string, options?: { limit?: number; offset?: number }) => Promise<any[]>;
+
+  // 任务中心事件
+  onTaskCreated: (callback: (task: any) => void) => () => void;
+  onTaskUpdated: (callback: (task: any) => void) => () => void;
+  onTaskDeleted: (callback: (id: string) => void) => () => void;
+  onTaskStarted: (callback: (data: { taskId: string }) => void) => () => void;
+  onTaskProgress: (callback: (data: { taskId: string; progress: number; step?: string }) => void) => () => void;
+  onTaskLog: (callback: (data: { taskId: string; log: any }) => void) => () => void;
+  onTaskCompleted: (callback: (data: { taskId: string; outputs: any[] }) => void) => () => void;
+  onTaskFailed: (callback: (data: { taskId: string; error: any }) => void) => () => void;
+  onTaskCancelled: (callback: (data: { taskId: string }) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -401,9 +466,6 @@ const api: ElectronAPI = {
 
   // 视频处理 API
   videoStitchAB: (config) => ipcRenderer.invoke("video-stitch-ab", config),
-  videoMerge: (tasks) => ipcRenderer.invoke("video-merge", tasks),
-  videoHorizontalMerge: (config) => ipcRenderer.invoke("video-horizontal-merge", config),
-  videoVerticalMerge: (config) => ipcRenderer.invoke("video-vertical-merge", config),
   videoResize: (config) => ipcRenderer.invoke("video-resize", config),
 
   // 图片处理 API
@@ -515,6 +577,41 @@ const api: ElectronAPI = {
   // 任务生成 API
   generateStitchTasks: (config) => ipcRenderer.invoke("task:generate-stitch", config),
   generateMergeTasks: (config) => ipcRenderer.invoke("task:generate-merge", config),
+
+  // 任务中心 API
+  createTask: (request) => ipcRenderer.invoke("task:create", request),
+  batchCreateTasks: (requests) => ipcRenderer.invoke("task:batch-create", requests),
+  getTask: (taskId) => ipcRenderer.invoke("task:get", taskId),
+  getTasks: (options) => ipcRenderer.invoke("task:list", options),
+  deleteTask: (taskId) => ipcRenderer.invoke("task:delete", taskId),
+  updateTaskOutputDir: (taskId, outputDir) => ipcRenderer.invoke("task:update-output-dir", taskId, outputDir),
+  startTask: (taskId) => ipcRenderer.invoke("task:start", taskId),
+  pauseTask: (taskId) => ipcRenderer.invoke("task:pause", taskId),
+  resumeTask: (taskId) => ipcRenderer.invoke("task:resume", taskId),
+  cancelTask: (taskId) => ipcRenderer.invoke("task:cancel", taskId),
+  retryTask: (taskId) => ipcRenderer.invoke("task:retry", taskId),
+  startAllTasks: () => ipcRenderer.invoke("task:start-all"),
+  pauseAllTasks: () => ipcRenderer.invoke("task:pause-all"),
+  cancelAllTasks: () => ipcRenderer.invoke("task:cancel-all"),
+  clearCompletedTasks: (beforeDays) => ipcRenderer.invoke("task:clear-completed", beforeDays),
+  clearFailedTasks: () => ipcRenderer.invoke("task:clear-failed"),
+  getTaskConfig: () => ipcRenderer.invoke("task:get-config"),
+  setTaskConfig: (config) => ipcRenderer.invoke("task:set-config", config),
+  setConcurrency: (config) => ipcRenderer.invoke("task:set-concurrency", config),
+  getCpuInfo: () => ipcRenderer.invoke("task:get-cpu-info"),
+  getQueueStatus: () => ipcRenderer.invoke("task:get-queue-status"),
+  getTaskLogs: (taskId, options) => ipcRenderer.invoke("task:get-logs", taskId, options),
+
+  // 任务中心事件
+  onTaskCreated: (cb) => ipcRenderer.on("task:created", (_e, task) => cb(task)),
+  onTaskUpdated: (cb) => ipcRenderer.on("task:updated", (_e, task) => cb(task)),
+  onTaskDeleted: (cb) => ipcRenderer.on("task:deleted", (_e, id) => cb(id)),
+  onTaskStarted: (cb) => ipcRenderer.on("task:started", (_e, data) => cb(data)),
+  onTaskProgress: (cb) => ipcRenderer.on("task:progress", (_e, data) => cb(data)),
+  onTaskLog: (cb) => ipcRenderer.on("task:log", (_e, data) => cb(data)),
+  onTaskCompleted: (cb) => ipcRenderer.on("task:completed", (_e, data) => cb(data)),
+  onTaskFailed: (cb) => ipcRenderer.on("task:failed", (_e, data) => cb(data)),
+  onTaskCancelled: (cb) => ipcRenderer.on("task:cancelled", (_e, data) => cb(data)),
 };
 
 contextBridge.exposeInMainWorld("api", api);

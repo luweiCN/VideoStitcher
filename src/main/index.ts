@@ -5,6 +5,9 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 // 导入启动初始化模块
 import { initStartup } from '@main/init';
 
+// 导入数据库初始化
+import { initDatabase, closeDatabase } from '@main/database';
+
 // 导入 IPC 处理器
 import { registerVideoHandlers } from '@main/ipc/video';
 import { registerImageHandlers } from '@main/ipc/image';
@@ -13,6 +16,8 @@ import { registerFileExplorerHandlers } from '@main/ipc/file-explorer';
 import { registerTaskGeneratorHandlers } from '@main/ipc/taskGenerator';
 import { registerApplicationHandlers, isDevelopment } from '@main/ipc/application';
 import { registerSystemHandlers } from '@main/ipc/system';
+import { registerTaskHandlers, setTaskQueueMainWindow, stopTaskQueueManager } from '@main/ipc/task';
+import { taskQueueManager } from '@main/services/TaskQueueManager';
 
 // 导入自动更新模块
 import { setupAutoUpdater, setMainWindow as setAutoUpdaterWindow, setDevelopmentMode } from '@main/autoUpdater';
@@ -55,6 +60,14 @@ function createWindow(): void {
   // 监听窗口关闭
   win.on('closed', () => {
     console.log('[主进程] 窗口已关闭');
+    
+    // 停止任务队列管理器
+    try {
+      stopTaskQueueManager();
+    } catch (err) {
+      console.error('[主进程] 停止任务队列管理器失败:', err);
+    }
+    
     win = null;
   });
 
@@ -124,6 +137,7 @@ function registerAllHandlers(): void {
   registerFileExplorerHandlers(win);
   registerApplicationHandlers(win);
   setAutoUpdaterWindow(win);
+  setTaskQueueMainWindow(win);
 
   // 注册各模块处理器
   registerVideoHandlers();
@@ -131,6 +145,9 @@ function registerAllHandlers(): void {
   registerAuthHandlers();
   registerTaskGeneratorHandlers();
   registerSystemHandlers();
+  
+  // 任务中心处理器
+  registerTaskHandlers();
 
   console.log('[主进程] IPC 处理器注册完成');
 }
@@ -138,6 +155,19 @@ function registerAllHandlers(): void {
 // 应用启动
 app.whenReady().then(() => {
   console.log('[主进程] app.whenReady 触发，开始初始化...');
+
+  // 初始化数据库
+  try {
+    console.log('[主进程] 初始化数据库...');
+    initDatabase();
+    console.log('[主进程] 数据库初始化完成');
+
+    // 初始化任务队列管理器（必须在数据库初始化后）
+    taskQueueManager.init();
+    console.log('[主进程] 任务队列管理器初始化完成');
+  } catch (err) {
+    console.error('[主进程] 数据库初始化失败:', err);
+  }
 
   // electron-toolkit 工具初始化
   electronApp.setAppUserModelId('com.videostitcher');
@@ -204,6 +234,32 @@ app.on('activate', () => {
 // 所有窗口关闭时退出（macOS 除外）
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    // 关闭数据库
+    try {
+      closeDatabase();
+    } catch (err) {
+      console.error('[主进程] 关闭数据库失败:', err);
+    }
+    
     app.quit();
+  }
+});
+
+// 应用退出前清理
+app.on('before-quit', () => {
+  console.log('[主进程] 应用即将退出，开始清理...');
+  
+  // 停止任务队列管理器
+  try {
+    stopTaskQueueManager();
+  } catch (err) {
+    console.error('[主进程] 停止任务队列管理器失败:', err);
+  }
+  
+  // 关闭数据库
+  try {
+    closeDatabase();
+  } catch (err) {
+    console.error('[主进程] 关闭数据库失败:', err);
   }
 });

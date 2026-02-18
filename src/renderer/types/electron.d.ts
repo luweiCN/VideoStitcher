@@ -17,44 +17,6 @@ export interface ElectronAPI {
     outputDir: string;
     concurrency?: number;
   }[]) => Promise<{ done: number; failed: number; total: number; elapsed?: string }>;
-  videoMerge: (tasks: {
-    files: { path: string; category: string }[];
-    config?: {
-      orientation: "horizontal" | "vertical";
-      aPosition?: { x: number; y: number; width: number; height: number };
-      bPosition?: { x: number; y: number; width: number; height: number };
-      bgPosition?: { x: number; y: number; width: number; height: number };
-      coverPosition?: { x: number; y: number; width: number; height: number };
-    };
-    outputDir: string;
-    concurrency?: number;
-  }[]) => Promise<{ done: number; failed: number; total: number }>;
-  videoHorizontalMerge: (config: {
-    aVideos: string[];
-    bVideos: string[];
-    bgImage?: string;
-    coverImages?: string[];
-    outputDir: string;
-    concurrency?: number;
-    aPosition?: { x: number; y: number; width: number; height: number };
-    bPosition?: { x: number; y: number; width: number; height: number };
-    bPositions?: { x: number; y: number; width: number; height: number }[];
-    bgPosition?: { x: number; y: number; width: number; height: number };
-    coverPosition?: { x: number; y: number; width: number; height: number };
-  }) => Promise<{ done: number; failed: number; total: number }>;
-  videoVerticalMerge: (config: {
-    mainVideos: string[];
-    bgImage?: string;
-    aVideos?: string[];
-    coverImages?: string[];
-    outputDir: string;
-    concurrency?: number;
-    aPosition?: { x: number; y: number; width: number; height: number };
-    bPosition?: { x: number; y: number; width: number; height: number };
-    bPositions?: { x: number; y: number; width: number; height: number }[];
-    bgPosition?: { x: number; y: number; width: number; height: number };
-    coverPosition?: { x: number; y: number; width: number; height: number };
-  }) => Promise<{ done: number; failed: number; total: number }>;
   videoResize: (config: {
     videos: Array<{ path: string; id: string }>;
     mode: "siya" | "fishing" | "unify_h" | "unify_v";

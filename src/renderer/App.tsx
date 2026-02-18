@@ -13,8 +13,10 @@ import ResizeMode from './features/ResizeMode';
 import VideoStitcherMode from './features/VideoStitcherMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
+import { TaskCenterProvider } from './contexts/TaskContext';
+import { TaskCenterListPage, HomeTaskIndicator } from './components/TaskCenter';
 
-type View = 'home' | 'videoMerge' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress' | 'videoStitcher' | 'unauthorized';
+type View = 'home' | 'videoMerge' | 'resize' | 'imageMaterial' | 'admin' | 'fileNameExtractor' | 'coverFormat' | 'losslessGrid' | 'coverCompress' | 'videoStitcher' | 'unauthorized' | 'taskCenter';
 
 interface UpdateInfo {
   version: string;
@@ -257,6 +259,8 @@ const App: React.FC = () => {
         return <ResizeMode onBack={() => setCurrentView('home')} />;
       case 'videoStitcher':
         return <VideoStitcherMode onBack={() => setCurrentView('home')} />;
+      case 'taskCenter':
+        return <TaskCenterListPage onBack={() => setCurrentView('home')} />;
       case 'admin':
         return (
           <AdminMode
@@ -281,7 +285,8 @@ const App: React.FC = () => {
       default:
         return (
           <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans relative pb-6">
-            <div className="fixed top-6 right-6 z-50">
+            <div className="fixed top-6 right-6 z-50 flex items-center gap-3">
+              <HomeTaskIndicator onClick={() => setCurrentView('taskCenter')} />
               <button
                 onClick={() => setCurrentView('admin')}
                 className="group relative flex items-center gap-3 px-4 py-2.5 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-xl hover:border-purple-500/50 hover:bg-slate-800/80 transition-all duration-300 shadow-lg hover:shadow-purple-500/10"
@@ -478,19 +483,21 @@ const App: React.FC = () => {
     };
 
   return (
-    <ToastProvider>
-      <Tooltip.Provider>
-        {getPageContent()}
-        {showUpdateNotification && pendingUpdateInfo && createPortal(
-          <UpdateNotification
-            updateInfo={pendingUpdateInfo}
-            onClose={handleCloseNotification}
-            onGoToUpdate={handleGoToUpdateDirectly}
-          />,
-          document.body
-        )}
-      </Tooltip.Provider>
-    </ToastProvider>
+    <TaskCenterProvider>
+      <ToastProvider>
+        <Tooltip.Provider>
+          {getPageContent()}
+          {showUpdateNotification && pendingUpdateInfo && createPortal(
+            <UpdateNotification
+              updateInfo={pendingUpdateInfo}
+              onClose={handleCloseNotification}
+              onGoToUpdate={handleGoToUpdateDirectly}
+            />,
+            document.body
+          )}
+        </Tooltip.Provider>
+      </ToastProvider>
+    </TaskCenterProvider>
   );
 };
 

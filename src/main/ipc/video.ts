@@ -274,7 +274,93 @@ export async function getVideoFullInfo(
 }
 
 /**
- * 统一视频合成处理
+ * 执行单个视频合成任务
+ * 供 TaskQueueManager 调用
+ */
+export async function executeSingleMergeTask(
+  task: {
+    id: string;
+    files: TaskFile[];
+    config?: {
+      orientation?: string;
+      aPosition?: Position;
+      bPosition?: Position;
+      bgPosition?: Position;
+      coverPosition?: Position;
+    };
+    outputDir: string;
+  },
+  onLog?: (message: string) => void
+): Promise<{ success: boolean; outputPath?: string; error?: string }> {
+  const { config, outputDir, files } = task;
+  const orientation = config?.orientation || 'horizontal';
+
+  if (!outputDir) {
+    return { success: false, error: '未设置输出目录' };
+  }
+
+  const aFile = files?.find(f => f.category === 'A');
+  const bFile = files?.find(f => f.category === 'B');
+  const coverFile = files?.find(f => f.category === 'cover');
+  const bgFile = files?.find(f => f.category === 'bg');
+
+  if (!bFile) {
+    return { success: false, error: '缺少B面视频' };
+  }
+
+  const aPath = aFile?.path;
+  const bPath = bFile.path;
+  const coverImage = coverFile?.path;
+  const bgImage = bgFile?.path;
+
+  const aPosition = config?.aPosition;
+  const bPosition = config?.bPosition;
+  const bgPosition = config?.bgPosition;
+  const coverPosition = config?.coverPosition;
+
+  const bName = path.parse(bPath).name;
+  const aName = aPath ? path.parse(aPath).name : undefined;
+  const suffix = orientation === 'vertical' ? '竖' : '横';
+  const rawBaseName = aName ? `${aName}__${bName}_${suffix}` : `${bName}_${suffix}`;
+
+  const safeBaseName = generateFileName(outputDir, rawBaseName, { extension: '.mp4', reserveSuffixSpace: 5 });
+  const safeOutput = new SafeOutput(outputDir, 'merge');
+  const tempPath = safeOutput.getTempOutputPath(safeBaseName, 0);
+
+  try {
+    const args = buildMergeCommand({
+      aPath,
+      bPath,
+      outPath: tempPath,
+      bgImage,
+      coverImage,
+      aPosition,
+      bPosition,
+      bgPosition,
+      coverPosition,
+      orientation: orientation as 'horizontal' | 'vertical',
+    });
+
+    await runFfmpeg(args, (log: string) => {
+      onLog?.(log);
+    });
+
+    const result = safeOutput.commitSync(tempPath);
+    safeOutput.cleanup(0);
+
+    if (!result.success) {
+      return { success: false, error: result.error || '移动文件失败' };
+    }
+
+    return { success: true, outputPath: result.finalPath };
+  } catch (err) {
+    safeOutput.cleanup(0);
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+/**
+ * 智能改尺寸处理
  */
 export async function handleVideoMerge(event: IpcMainInvokeEvent, tasks: Task[]): Promise<{ done: number; failed: number; total: number; elapsed: string }> {
   console.log('handleVideoMerge received:', tasks);
@@ -1215,21 +1301,6 @@ export function registerVideoHandlers(): void {
   // A+B 前后拼接
   ipcMain.handle('video-stitch-ab', async (event, config: Task[]) => {
     return handleStitchAB(event, config);
-  });
-
-  // 视频合成（统一接口）
-  ipcMain.handle('video-merge', async (event, tasks: Task[]) => {
-    return handleVideoMerge(event, tasks);
-  });
-
-  // 横屏合成
-  ipcMain.handle('video-horizontal-merge', async (event, config: HorizontalMergeConfig) => {
-    return handleHorizontalMerge(event, config);
-  });
-
-  // 竖屏合成
-  ipcMain.handle('video-vertical-merge', async (event, config: VerticalMergeConfig) => {
-    return handleVerticalMerge(event, config);
   });
 
   // 智能改尺寸

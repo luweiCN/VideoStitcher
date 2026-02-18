@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import {
-  Play,
+  Plus,
   Settings,
   RefreshCcw,
   Maximize,
@@ -31,12 +31,13 @@ import { Button } from "../components/Button/Button";
 import TaskList, { type Task, type OutputConfig } from "../components/TaskList";
 import TaskCountSlider from "../components/TaskCountSlider";
 import VideoPlayer from "../components/VideoPlayer/VideoPlayer";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { useOutputDirCache } from "../hooks/useOutputDirCache";
 import { useConcurrencyCache } from "../hooks/useConcurrencyCache";
 import { useOperationLogs } from "../hooks/useOperationLogs";
-import { useVideoProcessingEvents } from "../hooks/useVideoProcessingEvents";
 import { useMergePreview } from "../hooks/useMergePreview";
 import { setGlobalIsPlaying } from "../hooks/useStitchPreview";
+import { useTaskContext } from "../contexts/TaskContext";
 import {
   getCanvasConfig,
   getInitialPositions,
@@ -156,7 +157,11 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
 
   const { outputDir, setOutputDir } = useOutputDirCache("VideoMergeMode");
   const { concurrency, setConcurrency } = useConcurrencyCache("VideoMergeMode");
-  const [isProcessing, setIsProcessing] = useState(false);
+
+  // 任务中心相关
+  const { batchCreateTasks } = useTaskContext();
+  const [isAdding, setIsAdding] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const {
     logs,
@@ -276,46 +281,6 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
     const timer = setTimeout(calculateBestFitZoom, 100);
     return () => clearTimeout(timer);
   }, [canvasConfig, tasks]);
-
-  useVideoProcessingEvents({
-    onStart: (data) => {
-      addLog(
-        `开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`,
-        "info",
-      );
-    },
-    onTaskStart: (data) => {
-      setTasks((prev) =>
-        prev.map((t, i) =>
-          i === data.index ? { ...t, status: "processing" as const } : t
-        )
-      );
-    },
-    onProgress: (data) => {
-      setTasks((prev) =>
-        prev.map((t, i) =>
-          i === data.index ? { ...t, status: "completed" as const } : t
-        )
-      );
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, "info");
-    },
-    onFailed: (data) => {
-      setTasks((prev) =>
-        prev.map((t, i) =>
-          i === data.index ? { ...t, status: "error" as const, error: data.error } : t
-        )
-      );
-      addLog(`任务 ${data.index + 1} 失败: ${data.error}`, "error");
-    },
-    onFinish: (data) => {
-      const timeInfo = data.elapsed ? ` (耗时 ${data.elapsed}秒)` : '';
-      addLog(`完成! 成功 ${data.done}, 失败 ${data.failed}${timeInfo}`, "success");
-      setIsProcessing(false);
-    },
-    onLog: (data) => {
-      addLog(`[任务 ${data.index + 1}] ${data.message}`, "info");
-    },
-  });
 
   const fetchVideoMetadata = useCallback(
     async (filePath: string) => {
@@ -585,10 +550,11 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
   const thumbnailSource = useMemo(() => {
     if (covers.length > 0) return 'cover';
     if (aVideos.length > 0) return 'A';
-    return 'B';
+return 'B';
   }, [covers.length, aVideos.length]);
 
-  const startProcessing = async () => {
+  // 添加任务到任务中心
+  const addToTaskCenter = async () => {
     if (bVideos.length === 0) {
       addLog("请先选择主视频", "warning");
       return;
@@ -597,37 +563,56 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
       addLog("请先选择输出目录", "warning");
       return;
     }
-    if (isProcessing) return;
-    console.log("startProcessing - tasks:", tasks.length, tasks);
     if (tasks.length === 0) {
       addLog("没有可处理的任务", "warning");
       return;
     }
 
-    setIsProcessing(true);
-    const modeText = orientation === "horizontal" ? "横屏" : "竖屏";
-    addLog(`开始${modeText}合成处理...`, "info");
-
-    setTasks((prev) => prev.map((t) => ({ ...t, status: "waiting" as const })));
+    setIsAdding(true);
+    const modeText = orientation === "horizontal" ? "横屏合成" : "竖屏合成";
+    addLog(`正在添加 ${tasks.length} 个任务到任务中心...`, "info");
 
     try {
-      const tasksWithConfig = tasks.map((task) => ({
+      // 给每个任务添加 type 和 outputDir
+      const tasksWithType = tasks.map((task) => ({
         ...task,
+        type: 'video_merge' as const,
+        outputDir,
         config: {
+          ...task.config,
           orientation,
           aPosition: materialPositions.aVideo,
           bPosition: materialPositions.bVideo,
           bgPosition: materialPositions.bgImage,
           coverPosition: materialPositions.coverImage,
         },
-        outputDir,
-        concurrency,
       }));
-      await window.api.videoMerge(tasksWithConfig);
+
+      const result = await batchCreateTasks(tasksWithType);
+
+      if (result.successCount > 0) {
+        addLog(`成功添加 ${result.successCount} 个任务到任务中心`, "success");
+        setShowConfirmDialog(true);
+      }
+      if (result.failCount > 0) {
+        addLog(`${result.failCount} 个任务添加失败`, "warning");
+      }
     } catch (err: any) {
-      addLog(`处理失败: ${err.message || err}`, "error");
-      setIsProcessing(false);
+      addLog(`添加任务失败: ${err.message || err}`, "error");
+    } finally {
+      setIsAdding(false);
     }
+  };
+
+  // 清空编辑区域
+  const clearEditor = () => {
+    setBVideos([]);
+    setAVideos([]);
+    setBgImages([]);
+    setCovers([]);
+    setTasks([]);
+    setCurrentIndex(0);
+    addLog("已清空编辑区域", "info");
   };
 
   const primaryColor = "violet";
@@ -761,7 +746,7 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
               materialsType={materialsType}
               themeColor={primaryColor}
               onTaskChange={setCurrentIndex}
-              isProcessing={isProcessing}
+              isProcessing={isAdding}
               onLog={(message, type) => addLog(message, type)}
             />
           )}
@@ -943,14 +928,14 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
               <OutputDirSelector
                 value={outputDir}
                 onChange={setOutputDir}
-                disabled={isProcessing}
+                disabled={isAdding}
                 themeColor={primaryColor}
               />
 
               <ConcurrencySelector
                 value={concurrency}
                 onChange={setConcurrency}
-                disabled={isProcessing}
+                disabled={isAdding}
                 themeColor={primaryColor}
                 compact
               />
@@ -977,17 +962,32 @@ const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
 
           <div className="p-4 border-t border-slate-800 bg-black/50">
             <Button
-              onClick={startProcessing}
-              disabled={tasks.length === 0 || isProcessing || !outputDir}
+              onClick={addToTaskCenter}
+              disabled={tasks.length === 0 || isAdding || !outputDir}
               variant="primary"
               size="md"
               fullWidth
-              loading={isProcessing}
-              leftIcon={!isProcessing && <Play className="w-4 h-4" />}
+              loading={isAdding}
+              leftIcon={!isAdding && <Plus className="w-4 h-4" />}
             >
-              {isProcessing ? "处理中..." : "开始处理"}
+              {isAdding ? "添加中..." : "添加到任务中心"}
             </Button>
           </div>
+
+          {/* 确认清空对话框 */}
+          <ConfirmDialog
+            open={showConfirmDialog}
+            title="任务已添加"
+            message="是否清空编辑区域？"
+            confirmText="清空"
+            cancelText="保留"
+            type="success"
+            onConfirm={() => {
+              clearEditor();
+              setShowConfirmDialog(false);
+            }}
+            onCancel={() => setShowConfirmDialog(false)}
+          />
         </div>
       </main>
     </div>

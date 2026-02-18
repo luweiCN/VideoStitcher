@@ -7,37 +7,10 @@ import FilePreviewModal from '@/components/FilePreviewModal';
 import useVideoMaterials, { type VideoMaterial } from '@/hooks/useVideoMaterials';
 import useImageMaterials, { type ImageMaterial } from '@/hooks/useImageMaterials';
 import { formatDuration, formatFileSize } from '@/utils/format';
+import type { Task, TaskFile } from '@shared/types/task';
 
-/**
- * 任务文件
- */
-export interface TaskFile {
-  path: string;
-  index: number;
-  category: string;
-  category_name: string;
-}
-
-/**
- * 任务状态
- */
-export type TaskStatus = 'pending' | 'waiting' | 'processing' | 'completed' | 'error';
-
-/**
- * 单个任务
- */
-export interface Task {
-  id: string;
-  status: TaskStatus;
-  files: TaskFile[];
-  /** 任务配置（如处理模式、模糊程度等） */
-  config?: Record<string, unknown>;
-  /** 输出目录 */
-  outputDir?: string;
-  /** 并发数 */
-  concurrency?: number;
-  error?: string;
-}
+// 重新导出供其他模块使用
+export type { Task, TaskFile } from '@shared/types/task';
 
 /**
  * 输出配置
