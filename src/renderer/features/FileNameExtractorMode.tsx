@@ -13,10 +13,6 @@ import { Button } from '@/components/Button/Button';
 import { useOperationLogs } from '@/hooks/useOperationLogs';
 import { useToastMessages } from '@/components/Toast/Toast';
 
-interface FileNameExtractorModeProps {
-  onBack: () => void;
-}
-
 /**
  * 文件信息接口
  */
@@ -39,7 +35,7 @@ interface VideoFile {
  */
 type ExportFormat = 'text' | 'md_list' | 'md_table' | 'json';
 
-const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack }) => {
+const FileNameExtractorMode: React.FC = () => {
   // 状态管理
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [copied, setCopied] = useState(false);
@@ -662,7 +658,6 @@ const FileNameExtractorMode: React.FC<FileNameExtractorModeProps> = ({ onBack })
     <div className="h-screen bg-black text-slate-100 flex flex-col">
       {/* Header */}
       <PageHeader
-        onBack={onBack}
         title="文件名提取"
         icon={FileText}
         iconColor="text-pink-400"

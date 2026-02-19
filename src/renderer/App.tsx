@@ -80,7 +80,7 @@ const HomePage: React.FC<{
             系统管理
           </span>
           {updateAvailable && (
-            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse ml-auto" />
+            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
           )}
         </button>
       </div>
@@ -403,16 +403,16 @@ const AppContent: React.FC = () => {
     <>
       <Routes>
         <Route path="/unauthorized" element={<UnauthorizedMode />} />
-        <Route path="/videoMerge" element={<VideoMergeMode onBack={() => navigate('/')} />} />
-        <Route path="/imageMaterial" element={<ImageMaterialMode onBack={() => navigate('/')} />} />
-        <Route path="/fileNameExtractor" element={<FileNameExtractorMode onBack={() => navigate('/')} />} />
-        <Route path="/coverFormat" element={<CoverFormatMode onBack={() => navigate('/')} />} />
-        <Route path="/coverCompress" element={<CoverCompressMode onBack={() => navigate('/')} />} />
-        <Route path="/losslessGrid" element={<LosslessGridMode onBack={() => navigate('/')} />} />
-        <Route path="/resize" element={<ResizeMode onBack={() => navigate('/')} />} />
-        <Route path="/videoStitcher" element={<VideoStitcherMode onBack={() => navigate('/')} />} />
-        <Route path="/admin" element={<AdminMode onBack={() => navigate('/')} initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
-        <Route path="/taskCenter" element={<TaskCenterDashboard onBack={() => navigate('/')} onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
+        <Route path="/videoMerge" element={<VideoMergeMode />} />
+        <Route path="/imageMaterial" element={<ImageMaterialMode />} />
+        <Route path="/fileNameExtractor" element={<FileNameExtractorMode />} />
+        <Route path="/coverFormat" element={<CoverFormatMode />} />
+        <Route path="/coverCompress" element={<CoverCompressMode />} />
+        <Route path="/losslessGrid" element={<LosslessGridMode />} />
+        <Route path="/resize" element={<ResizeMode />} />
+        <Route path="/videoStitcher" element={<VideoStitcherMode />} />
+        <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
+        <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
         <Route path="/tasks" element={<TaskCenterListPage />} />
         <Route path="/task/:id" element={<TaskDetailPage />} />
         <Route path="/" element={

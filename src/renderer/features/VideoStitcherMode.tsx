@@ -20,13 +20,9 @@ import { useVideoProcessingEvents } from '@/hooks/useVideoProcessingEvents';
 import useVideoMaterials, { type VideoMaterial } from '@/hooks/useVideoMaterials';
 import useStitchPreview from '@/hooks/useStitchPreview';
 
-interface VideoStitcherModeProps {
-  onBack: () => void;
-}
-
 type Orientation = 'landscape' | 'portrait';
 
-const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
+const VideoStitcherMode: React.FC = () => {
   // 配置状态
   const { outputDir, setOutputDir } = useOutputDirCache('VideoStitcherMode');
   const { concurrency, setConcurrency } = useConcurrencyCache('VideoStitcherMode');
@@ -361,7 +357,6 @@ const VideoStitcherMode: React.FC<VideoStitcherModeProps> = ({ onBack }) => {
     <div className="h-screen flex flex-col bg-black text-slate-100">
       {/* Header */}
       <PageHeader
-        onBack={onBack}
         title="A+B 前后拼接"
         icon={Link2}
         iconColor="text-pink-500"

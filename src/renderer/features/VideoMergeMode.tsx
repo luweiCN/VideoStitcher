@@ -43,11 +43,7 @@ import {
   getInitialPositions,
 } from "../utils/positionCalculator";
 
-interface VideoMergeModeProps {
-  onBack: () => void;
-}
-
-const VideoMergeMode: React.FC<VideoMergeModeProps> = ({ onBack }) => {
+const VideoMergeMode: React.FC = () => {
   // 文件选择器组 ref，用于清空所有文件
   const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
   
@@ -626,7 +622,6 @@ return 'B';
   return (
     <div className="h-screen flex flex-col bg-black text-slate-100 font-sans overflow-hidden">
       <PageHeader
-        onBack={onBack}
         title="极速合成"
         icon={Layers3}
         iconColor="text-violet-400"

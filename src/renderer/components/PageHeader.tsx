@@ -1,10 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, LucideIcon } from 'lucide-react';
 import FeatureInfoTooltip from './FeatureInfoTooltip';
+import { HeaderTaskIndicator } from './TaskCenter';
 
 interface PageHeaderProps {
-  /** 返回按钮点击回调 */
-  onBack: () => void;
   /** 页面标题 */
   title: string;
   /** 页面图标 */
@@ -30,6 +30,8 @@ interface PageHeaderProps {
   showBackButton?: boolean;
   /** 自定义返回按钮内容 */
   backButtonContent?: React.ReactNode;
+  /** 是否显示任务指示器 */
+  showTaskIndicator?: boolean;
 }
 
 /**
@@ -37,10 +39,9 @@ interface PageHeaderProps {
  *
  * 用于所有功能页面的顶部导航栏
  * - 左侧：返回按钮 + 图标 + 标题 + 描述
- * - 右侧：自定义按钮/内容 + 功能信息图标
+ * - 右侧：任务指示器 + 自定义按钮/内容 + 功能信息图标
  */
 const PageHeader: React.FC<PageHeaderProps> = ({
-  onBack,
   title,
   icon: Icon,
   description,
@@ -49,19 +50,26 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   rightContent,
   showBackButton = true,
   backButtonContent,
+  showTaskIndicator = true,
 }) => {
+  const navigate = useNavigate();
+
+  const handleBack = () => {
+    navigate(-1);
+  };
+
   return (
     <header className="h-14 border-b border-slate-800 bg-black/50 backdrop-blur-md flex items-center px-4 shrink-0">
       {/* 左侧：返回按钮 + 标题区域 */}
       <div className="flex items-center gap-3">
         {showBackButton && (
           backButtonContent ? (
-            <div onClick={onBack} className="cursor-pointer">
+            <div onClick={handleBack} className="cursor-pointer">
               {backButtonContent}
             </div>
           ) : (
             <button
-              onClick={onBack}
+              onClick={handleBack}
               className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
               type="button"
             >
@@ -80,8 +88,9 @@ const PageHeader: React.FC<PageHeaderProps> = ({
         </div>
       </div>
 
-      {/* 右侧：自定义内容 + 功能信息图标 */}
+      {/* 右侧：任务指示器 + 自定义内容 + 功能信息图标 */}
       <div className="flex items-center gap-3 ml-auto">
+        {showTaskIndicator && <HeaderTaskIndicator />}
         {rightContent}
         {featureInfo && (
           <FeatureInfoTooltip

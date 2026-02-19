@@ -21,11 +21,7 @@ import {
   type ExportOptions,
 } from "./ImageMaterialMode/components";
 
-interface ImageMaterialModeProps {
-  onBack: () => void;
-}
-
-const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
+const ImageMaterialMode: React.FC = () => {
   const PREVIEW_SIZE = 400;
   const BASE_SIZE = 800;
 
@@ -349,7 +345,6 @@ const ImageMaterialMode: React.FC<ImageMaterialModeProps> = ({ onBack }) => {
   return (
     <div className="h-screen bg-black text-slate-100 flex flex-col">
       <PageHeader
-        onBack={onBack}
         title="图片素材处理"
         icon={Layers}
         iconColor="text-amber-400"

@@ -451,6 +451,7 @@ export class TaskQueueManager {
 
     // 更新状态为运行中
     taskRepository.updateTaskStatus(taskId, 'running');
+    this.sendTaskUpdated(taskId);
     this.sendTaskStarted(taskId);
 
     // 根据任务类型执行
@@ -577,7 +578,8 @@ export class TaskQueueManager {
     // 移除执行器
     this.runningTasks.delete(taskId);
 
-    // 发送完成事件
+    // 发送更新和完成事件
+    this.sendTaskUpdated(taskId);
     this.sendTaskCompleted(taskId, outputs);
 
     // 尝试启动下一个
@@ -613,7 +615,8 @@ export class TaskQueueManager {
     // 移除执行器
     this.runningTasks.delete(taskId);
 
-    // 发送失败事件
+    // 发送更新和失败事件
+    this.sendTaskUpdated(taskId);
     this.sendTaskFailed(taskId, {
       code: 'EXECUTION_ERROR',
       message: error.message,
@@ -628,14 +631,18 @@ export class TaskQueueManager {
    * 添加日志
    */
   private addLog(taskId: number, level: 'info' | 'warning' | 'error' | 'success', message: string): void {
-    taskLogRepository.addLog(taskId, { level, message });
+    const logEntry = { level, message, timestamp: Date.now() };
+    taskLogRepository.addLog(taskId, logEntry);
 
     // 获取任务类型
     const task = taskRepository.getTaskById(taskId);
     const taskType = task?.type || 'unknown';
 
-    // 广播日志
+    // 广播到任务中心日志
     this.broadcastLog(taskId, taskType, message, level);
+    
+    // 发送任务日志事件（供任务详情页使用）
+    this.sendTaskLog(taskId, logEntry);
   }
 
   /**

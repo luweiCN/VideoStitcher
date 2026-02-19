@@ -7,5 +7,6 @@ export { default as RunningTaskItem } from './RunningTaskItem';
 export { default as ConcurrencyControl } from './ConcurrencyControl';
 export { default as TaskCenterListPage } from './TaskCenterListPage';
 export { default as HomeTaskIndicator } from './HomeTaskIndicator';
+export { default as HeaderTaskIndicator } from './HeaderTaskIndicator';
 export { default as TaskCenterDashboard } from './TaskCenterDashboard';
 export { default as TaskDetailPage } from './TaskDetailPage';

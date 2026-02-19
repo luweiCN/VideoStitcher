@@ -14,11 +14,13 @@ interface UseFileExistsCacheResult {
   /** 检查单个路径是否存在 */
   checkPath: (path: string) => Promise<boolean>;
   /** 批量检查路径是否存在 */
-  checkPaths: (paths: string[]) => Promise<Map<string, boolean>>;
+  checkPaths: (paths: string[], forceRefresh?: boolean) => Promise<Map<string, boolean>>;
   /** 获取缓存的检查结果 */
   getCached: (path: string) => boolean | undefined;
   /** 清除缓存 */
   clearCache: () => void;
+  /** 清除指定路径的缓存 */
+  invalidatePaths: (paths: string[]) => void;
   /** 已检查的路径状态 */
   pathStatus: Map<string, boolean>;
 }
@@ -79,20 +81,24 @@ export function useFileExistsCache(): UseFileExistsCacheResult {
     }
   }, [pathStatus]);
 
-  const checkPaths = useCallback(async (paths: string[]): Promise<Map<string, boolean>> => {
+  const checkPaths = useCallback(async (paths: string[], forceRefresh: boolean = false): Promise<Map<string, boolean>> => {
     const results = new Map<string, boolean>();
     
     // 过滤掉空路径和正在检查的路径
     const pathsToCheck = paths.filter((p) => p && !pendingChecks.current.has(p));
     
-    // 先从缓存获取
+    // 先从缓存获取（除非强制刷新）
     const needsCheck: string[] = [];
     for (const path of pathsToCheck) {
-      const cached = globalCache.get(path);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        results.set(path, cached.exists);
-      } else {
+      if (forceRefresh) {
         needsCheck.push(path);
+      } else {
+        const cached = globalCache.get(path);
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+          results.set(path, cached.exists);
+        } else {
+          needsCheck.push(path);
+        }
       }
     }
 
@@ -141,11 +147,25 @@ export function useFileExistsCache(): UseFileExistsCacheResult {
     setPathStatus(new Map());
   }, []);
 
+  const invalidatePaths = useCallback((paths: string[]) => {
+    paths.forEach((path) => {
+      globalCache.delete(path);
+    });
+    setPathStatus((prev) => {
+      const next = new Map(prev);
+      paths.forEach((path) => {
+        next.delete(path);
+      });
+      return next;
+    });
+  }, []);
+
   return {
     checkPath,
     checkPaths,
     getCached,
     clearCache,
+    invalidatePaths,
     pathStatus,
   };
 }

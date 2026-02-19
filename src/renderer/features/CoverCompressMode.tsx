@@ -18,10 +18,6 @@ import { useOperationLogs } from '@/hooks/useOperationLogs';
 import { useImageProcessingEvents } from '@/hooks/useImageProcessingEvents';
 import { useImageMaterials } from '@/hooks/useImageMaterials';
 
-interface CoverCompressModeProps {
-  onBack: () => void;
-}
-
 /**
  * 图片文件状态
  */
@@ -44,7 +40,7 @@ interface ImageFile {
   skipped?: boolean;        // 是否跳过压缩（文件已达标无需压缩）
 }
 
-const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
+const CoverCompressMode: React.FC = () => {
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const { outputDir, setOutputDir } = useOutputDirCache('CoverCompressMode');
@@ -344,7 +340,6 @@ const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ onBack }) => {
   return (
     <div className="h-screen bg-black text-slate-100 flex flex-col">
       <PageHeader
-        onBack={onBack}
         title="封面压缩"
         icon={Shrink}
         iconColor="text-emerald-400"

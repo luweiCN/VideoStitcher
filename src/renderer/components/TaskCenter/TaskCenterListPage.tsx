@@ -780,11 +780,11 @@ const TaskCenterListPage: React.FC = () => {
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
       <PageHeader
-        onBack={() => navigate(-1)}
         title="任务列表"
         icon={Layers}
         iconColor="text-violet-400"
         description={`共 ${total} 个任务`}
+        showTaskIndicator={false}
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -857,7 +857,7 @@ const TaskCenterListPage: React.FC = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
                   type="text"
-                  placeholder="搜索任务 ID..."
+                  placeholder="搜索 ID 或名称..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={handleSearchKeyDown}

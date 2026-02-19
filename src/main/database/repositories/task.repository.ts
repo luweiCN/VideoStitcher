@@ -476,8 +476,15 @@ export class TaskRepository {
     }
 
     if (filter.search) {
-      conditions.push('name LIKE ?');
-      params.push(`%${filter.search}%`);
+      // 支持按 ID 或名称搜索
+      const searchNum = parseInt(filter.search, 10);
+      if (!isNaN(searchNum)) {
+        conditions.push('(id = ? OR name LIKE ?)');
+        params.push(searchNum, `%${filter.search}%`);
+      } else {
+        conditions.push('name LIKE ?');
+        params.push(`%${filter.search}%`);
+      }
     }
 
     if (filter.dateFrom) {

@@ -8,7 +8,7 @@
  * - 底部：日志区域
  */
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   FileVideo,
@@ -35,6 +35,7 @@ import { OperationLogPanel } from '@renderer/components/OperationLogPanel';
 import FilePreviewModal from '@renderer/components/FilePreviewModal';
 import { useFileExistsCache } from '@renderer/hooks/useFileExistsCache';
 import { useTaskContext } from '@renderer/contexts/TaskContext';
+import { useTaskSubscription } from '@renderer/hooks/useTaskSubscription';
 import useVideoMaterials, { type VideoMaterial } from '@renderer/hooks/useVideoMaterials';
 import useImageMaterials, { type ImageMaterial } from '@renderer/hooks/useImageMaterials';
 import { useOperationLogs } from '@renderer/hooks/useOperationLogs';
@@ -56,10 +57,8 @@ const TaskDetailPage: React.FC = () => {
   const [outputPreview, setOutputPreview] = useState<{ path: string; url: string } | null>(null);
   const [outputMeta, setOutputMeta] = useState<{ width: number; height: number; orientation: 'landscape' | 'portrait' | 'square' } | null>(null);
   const [generatingPreview, setGeneratingPreview] = useState(false);
-  
-  const ipcCleanupRef = useRef<(() => void)[]>([]);
 
-  const { checkPaths, pathStatus } = useFileExistsCache();
+  const { checkPaths, invalidatePaths, pathStatus } = useFileExistsCache();
 
   // 使用日志 hook
   const {
@@ -100,8 +99,15 @@ const TaskDetailPage: React.FC = () => {
         });
         if (result.outputDir) pathsToCheck.add(result.outputDir);
         
+        // 强制刷新输出文件的缓存
+        const outputPathList = (result.outputs || []).map((o: TaskOutput) => o.path).filter(Boolean);
+        if (outputPathList.length > 0) {
+          invalidatePaths(outputPathList);
+        }
+        
+        // 等待路径检查完成
         if (pathsToCheck.size > 0) {
-          checkPaths(Array.from(pathsToCheck));
+          await checkPaths(Array.from(pathsToCheck), true);
         }
       }
     } catch (err) {
@@ -109,7 +115,7 @@ const TaskDetailPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [taskId, checkPaths]);
+  }, [taskId, checkPaths, invalidatePaths]);
 
   // 加载任务日志
   const loadLogs = useCallback(async () => {
@@ -126,39 +132,47 @@ const TaskDetailPage: React.FC = () => {
     }
   }, [taskId, addLog]);
 
-  // 监听实时日志
-  useEffect(() => {
-    if (!task || task.status !== 'running') return;
-
-    const cleanup = window.api.onTaskLog((data: { taskId: number; log: TaskLog }) => {
-      if (data.taskId === taskId) {
-        const logType = data.log.level === 'error' ? 'error' : 
-              data.log.level === 'warning' ? 'warning' : 
-              data.log.level === 'success' ? 'success' : 'info';
-        addLog(data.log.message, logType, data.log.timestamp);
+  // 使用任务订阅 hook - 监听任务状态变化和日志
+  useTaskSubscription({
+    taskId,
+    onTaskUpdated: async (updatedTask) => {
+      const prevStatus = task?.status;
+      
+      // 任务完成时，重新加载完整任务数据（包含 outputs）
+      if (updatedTask.status === 'completed' && prevStatus !== 'completed') {
+        await loadTask();
+        return;
       }
-    });
-
-    ipcCleanupRef.current.push(cleanup);
-    return () => {
-      cleanup();
-      ipcCleanupRef.current = [];
-    };
-  }, [task, taskId, addLog]);
-
-  // 监听任务状态变化
-  useEffect(() => {
-    const cleanup = window.api.onTaskUpdated((updatedTask: Task) => {
-      if (updatedTask.id === taskId) {
-        setTask(updatedTask);
+      
+      // 其他情况只更新状态相关字段，保留 files 数组不被清空
+      setTask((prev) => {
+        if (!prev) return updatedTask;
+        return {
+          ...prev,
+          status: updatedTask.status,
+          progress: updatedTask.progress,
+          currentStep: updatedTask.currentStep,
+          startedAt: updatedTask.startedAt,
+          completedAt: updatedTask.completedAt,
+          executionTime: updatedTask.executionTime,
+          error: updatedTask.error,
+          pid: updatedTask.pid,
+          pidStartedAt: updatedTask.pidStartedAt,
+        };
+      });
+    },
+    onTaskLog: (data) => {
+      const logType = data.log.level === 'error' ? 'error' : 
+            data.log.level === 'warning' ? 'warning' : 
+            data.log.level === 'success' ? 'success' : 'info';
+      addLog(data.log.message, logType, data.log.timestamp);
+    },
+    onTaskProgress: (data) => {
+      if (data.step) {
+        addLog(data.step, 'info');
       }
-    });
-
-    ipcCleanupRef.current.push(cleanup);
-    return () => {
-      cleanup();
-    };
-  }, [taskId]);
+    },
+  });
 
   // 初始化加载
   useEffect(() => {
@@ -405,11 +419,11 @@ const TaskDetailPage: React.FC = () => {
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
       <PageHeader
-        onBack={() => navigate(-1)}
         title={`任务 #${task.id}`}
         icon={FileVideo}
         iconColor="text-violet-400"
         description={taskTypeLabel}
+        showTaskIndicator={false}
       />
 
       {/* 可滚动的主体内容 */}

@@ -14,11 +14,7 @@ import { useImageProcessingEvents } from "../hooks/useImageProcessingEvents";
 import { useImageMaterials } from "../hooks/useImageMaterials";
 import { GridPreview } from "./LosslessGridMode/components";
 
-interface LosslessGridModeProps {
-  onBack: () => void;
-}
-
-const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
+const LosslessGridMode: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -210,7 +206,6 @@ const LosslessGridMode: React.FC<LosslessGridModeProps> = ({ onBack }) => {
   return (
     <div className="h-screen bg-black text-slate-100 flex flex-col">
       <PageHeader
-        onBack={onBack}
         title="专业无损九宫格"
         icon={Grid3X3}
         iconColor="text-cyan-400"

@@ -18,10 +18,6 @@ import { useVideoVolumeCache } from '@/hooks/useVideoVolumeCache';
 import useVideoMaterials from '@/hooks/useVideoMaterials';
 import { PreviewArea } from './ResizeMode/components/PreviewArea';
 
-interface ResizeModeProps {
-  onBack: () => void;
-}
-
 type ResizeMode = 'siya' | 'fishing' | 'unify_h' | 'unify_v';
 
 const MODE_CONFIG = {
@@ -31,7 +27,7 @@ const MODE_CONFIG = {
   unify_v: { name: '统一竖屏', desc: '强制转为竖屏比例', outputs: [{ width: 1080, height: 1920, label: '1080x1920' }] },
 };
 
-const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
+const ResizeMode: React.FC = () => {
   // 任务列表状态（使用 TaskList 组件的格式）
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -257,7 +253,6 @@ const ResizeMode: React.FC<ResizeModeProps> = ({ onBack }) => {
   return (
     <div className="h-screen bg-black text-slate-100 flex flex-col overflow-hidden">
       <PageHeader
-        onBack={onBack}
         title="智能改尺寸"
         icon={Maximize2}
         iconColor="text-rose-400"

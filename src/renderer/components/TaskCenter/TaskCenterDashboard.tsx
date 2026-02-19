@@ -55,12 +55,11 @@ interface TaskCenterLog {
 }
 
 interface TaskCenterDashboardProps {
-  onBack: () => void;
   onViewAllTasks: () => void;
   onViewTaskDetail?: (taskId: number) => void;
 }
 
-const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onViewAllTasks, onViewTaskDetail }) => {
+const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onViewAllTasks, onViewTaskDetail }) => {
   const {
     pauseAllTasks,
     resumeAllTasks,
@@ -204,11 +203,11 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
       {/* 页头 */}
       <PageHeader
-        onBack={onBack}
         title="任务中心"
         icon={Layers}
         iconColor="text-violet-400"
         description="监控运行状态"
+        showTaskIndicator={false}
         rightContent={
           <Button variant="ghost" size="sm" onClick={onViewAllTasks}>
             <List className="w-4 h-4 mr-1.5" />
@@ -424,12 +423,12 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
               {isPaused ? (
                 <Button variant="primary" size="sm" onClick={resumeAllTasks}>
                   <Play className="w-3.5 h-3.5 mr-1" />
-                  恢复
+                  恢复运行
                 </Button>
               ) : state?.runningCount && state.runningCount > 0 ? (
                 <Button variant="ghost" size="sm" onClick={pauseAllTasks}>
                   <Pause className="w-3.5 h-3.5 mr-1" />
-                  暂停
+                  暂停运行
                 </Button>
               ) : null}
             </div>

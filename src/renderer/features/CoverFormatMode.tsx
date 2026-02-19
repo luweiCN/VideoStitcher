@@ -14,11 +14,7 @@ import { useImageProcessingEvents } from "../hooks/useImageProcessingEvents";
 import { useImageMaterials } from "../hooks/useImageMaterials";
 import { QualitySelector, CoverPreview, type ImageFile } from "./CoverFormatMode/components";
 
-interface CoverFormatModeProps {
-  onBack: () => void;
-}
-
-const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
+const CoverFormatMode: React.FC = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [quality, setQuality] = useState(90);
@@ -178,7 +174,6 @@ const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ onBack }) => {
   return (
     <div className="h-screen bg-black text-slate-100 flex flex-col">
       <PageHeader
-        onBack={onBack}
         title="封面格式转换"
         icon={Layers}
         iconColor="text-fuchsia-400"

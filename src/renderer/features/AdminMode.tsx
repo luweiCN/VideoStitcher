@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Settings,
   ArrowLeft,
@@ -25,7 +25,6 @@ import ConcurrencySelector from '@/components/ConcurrencySelector';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 
 interface AdminModeProps {
-  onBack: () => void;
   initialUpdateInfo?: UpdateInfo | null;
 }
 
@@ -48,9 +47,9 @@ interface UpdateInfo {
 }
 
 const AdminMode: React.FC<AdminModeProps> = ({
-  onBack,
   initialUpdateInfo,
 }) => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
   // 从 URL 读取当前标签
@@ -395,7 +394,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
         {/* 返回按钮 */}
         <div className="p-4 border-t border-slate-800/50">
           <button
-            onClick={onBack}
+            onClick={() => navigate('/')}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
           >
             <ArrowLeft className="w-4 h-4" />

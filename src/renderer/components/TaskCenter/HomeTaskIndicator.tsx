@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { Layers, Loader2, ChevronRight } from 'lucide-react';
+import { ClipboardList, Loader2, ChevronRight, CheckCircle2, Clock } from 'lucide-react';
 import { useTaskContext } from '@renderer/contexts/TaskContext';
 import { cn } from '@renderer/lib/utils';
 
@@ -29,59 +29,72 @@ const HomeTaskIndicator: React.FC<HomeTaskIndicatorProps> = ({ onClick }) => {
     <button
       onClick={onClick}
       className={cn(
-        'group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 shadow-lg',
+        'group relative flex items-center gap-3 px-4 py-2.5 backdrop-blur-xl rounded-xl transition-all duration-300 shadow-lg',
         hasRunningTasks
-          ? 'bg-slate-900/90 backdrop-blur-xl border border-violet-500/30 hover:border-violet-500/50'
-          : 'bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 hover:border-slate-600/50'
+          ? 'bg-slate-900/90 border border-violet-500/40 hover:border-violet-400/60 hover:shadow-violet-500/20'
+          : 'bg-slate-900/80 border border-slate-700/50 hover:border-purple-500/50 hover:bg-slate-800/80 hover:shadow-purple-500/10'
       )}
     >
-      {/* 图标 */}
+      {/* 图标容器 - 与系统管理保持一致 */}
       <div
         className={cn(
-          'w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
+          'w-8 h-8 rounded-lg flex items-center justify-center shadow-md transition-all',
           hasRunningTasks
-            ? 'bg-gradient-to-br from-violet-600 to-purple-600'
-            : 'bg-slate-800'
+            ? 'bg-gradient-to-br from-blue-600 to-cyan-600 shadow-blue-600/20 group-hover:shadow-blue-600/30'
+            : 'bg-gradient-to-br from-blue-600 to-cyan-600 shadow-blue-600/20 group-hover:shadow-blue-600/30'
         )}
       >
         {hasRunningTasks ? (
-          <Loader2 className="w-5 h-5 text-white animate-spin" />
+          <Loader2 className="w-4 h-4 text-white animate-spin" />
         ) : (
-          <Layers className="w-5 h-5 text-slate-400" />
+          <ClipboardList className="w-4 h-4 text-white" />
         )}
       </div>
 
-      {/* 信息区 */}
-      <div className="text-left min-w-[140px]">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white">任务中心</span>
-          {hasRunningTasks && (
-            <span className="text-xs text-violet-400">{runningCount} 运行中</span>
-          )}
-        </div>
+      {/* 文字区域 */}
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors whitespace-nowrap">
+          任务中心
+        </span>
 
+        {/* 状态徽章 */}
         {hasRunningTasks ? (
-          <>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-slate-400">运行时间</span>
-              <span className="text-xs font-mono text-emerald-400">{formatRunTime()}</span>
-            </div>
-            <div className="w-32 h-1.5 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-300"
-                style={{ width: `${avgProgress}%` }}
-              />
-            </div>
-          </>
+          <div className="flex items-center gap-1.5">
+            <span className="px-1.5 py-0.5 text-[10px] font-medium bg-violet-500/20 text-violet-400 rounded-md">
+              {runningCount} 运行中
+            </span>
+            <span className="text-[10px] font-mono text-emerald-400">{formatRunTime()}</span>
+          </div>
         ) : (
-          <div className="text-xs text-slate-500 mt-0.5">
-            {completedCount} 已完成 · {pendingCount} 待执行
+          <div className="flex items-center gap-2 text-[10px] text-slate-500">
+            {completedCount > 0 && (
+              <span className="flex items-center gap-0.5">
+                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                {completedCount}
+              </span>
+            )}
+            {pendingCount > 0 && (
+              <span className="flex items-center gap-0.5">
+                <Clock className="w-3 h-3 text-amber-500" />
+                {pendingCount}
+              </span>
+            )}
           </div>
         )}
       </div>
 
+      {/* 运行时显示进度条（覆盖在底部） */}
+      {hasRunningTasks && (
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800 rounded-b-xl overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-300"
+            style={{ width: `${avgProgress}%` }}
+          />
+        </div>
+      )}
+
       {/* 箭头 */}
-      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
+      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors ml-auto flex-shrink-0" />
     </button>
   );
 };
