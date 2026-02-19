@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Settings,
   ArrowLeft,
@@ -26,9 +27,6 @@ import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 interface AdminModeProps {
   onBack: () => void;
   initialUpdateInfo?: UpdateInfo | null;
-  gotoSection?: 'system' | 'settings' | 'updates' | null;
-  onSectionHandled?: () => void;
-  onUpdateSectionChange?: (isUpdatesSection: boolean) => void;
 }
 
 interface SystemInfo {
@@ -52,16 +50,28 @@ interface UpdateInfo {
 const AdminMode: React.FC<AdminModeProps> = ({
   onBack,
   initialUpdateInfo,
-  gotoSection = null,
-  onSectionHandled,
-  onUpdateSectionChange
 }) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // 从 URL 读取当前标签
+  const tabParam = searchParams.get('tab') as 'system' | 'settings' | 'updates' | null;
+  const activeSection: 'system' | 'settings' | 'updates' = 
+    (tabParam === 'settings' || tabParam === 'updates') ? tabParam : 'system';
+  
+  // 切换标签时更新 URL
+  const setActiveSection = useCallback((section: 'system' | 'settings' | 'updates') => {
+    if (section === 'system') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ tab: section }, { replace: true });
+    }
+  }, [setSearchParams]);
+  
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle');
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = useState<string>('');
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [activeSection, setActiveSection] = useState<'system' | 'settings' | 'updates'>('system');
 
   // 使用全局配置 hook 管理状态
   const {
@@ -97,44 +107,17 @@ const AdminMode: React.FC<AdminModeProps> = ({
   useEffect(() => {
     loadSystemInfo();
 
-    // 检查是否需要跳转到指定标签
-    if (gotoSection) {
-      setActiveSection(gotoSection);
-      if (onSectionHandled) {
-        onSectionHandled();
-      }
-    }
-
-    // 如果有初始更新信息（从全局状态传来），只设置状态，不自动跳转
-    // 让用户通过设置按钮的提示手动点击跳转
-    if (initialUpdateInfo && !gotoSection) {
+    // 如果有初始更新信息，设置状态
+    if (initialUpdateInfo) {
       setUpdateInfo(initialUpdateInfo);
       setUpdateStatus('available');
-      // 移除了自动跳转：setActiveSection('updates');
 
       // macOS：初始化后端的 updateInfo，避免点击下载时出现"未找到更新信息"
       if (isMacOS) {
         window.api.macSetUpdateInfo(initialUpdateInfo);
       }
-    } else if (initialUpdateInfo && gotoSection) {
-      // 如果有 initialUpdateInfo 且来自跳转，只设置状态不跳转
-      setUpdateInfo(initialUpdateInfo);
-      setUpdateStatus('available');
-
-      if (isMacOS) {
-        window.api.macSetUpdateInfo(initialUpdateInfo);
-      }
     }
-  }, [initialUpdateInfo, gotoSection, onSectionHandled]);
-
-  // 监听标签变化，通知 App 组件当前是否在版本更新标签
-  useEffect(() => {
-    if (onUpdateSectionChange) {
-      const isUpdatesSection = activeSection === 'updates';
-      console.log('[AdminMode] 标签变化:', activeSection, '是否为更新标签:', isUpdatesSection);
-      onUpdateSectionChange(isUpdatesSection);
-    }
-  }, [activeSection, onUpdateSectionChange]);
+  }, [initialUpdateInfo]);
 
   // 监听更新检查事件
   useEffect(() => {

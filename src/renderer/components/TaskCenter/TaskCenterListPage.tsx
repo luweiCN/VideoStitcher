@@ -8,9 +8,11 @@
  * - 单个任务操作（删除、取消、重新执行、详情）
  * - 素材文件预览
  * - 分页
+ * - URL 参数管理筛选状态
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Layers,
   XCircle,
@@ -45,24 +47,24 @@ import { TASK_TYPE_LABELS } from '@shared/types/task';
 import FilePreviewModal from '@renderer/components/FilePreviewModal';
 import { useFileExistsCache } from '@renderer/hooks/useFileExistsCache';
 
-interface TaskCenterListPageProps {
-  onBack: () => void;
-}
-
 const PAGE_SIZE = 15;
 
-const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
-  const { queueStatus, cancelTask, retryTask, deleteTask, formatRunTime } = useTaskContext();
+const TaskCenterListPage: React.FC = () => {
+  const { cancelTask, retryTask, deleteTask, formatRunTime } = useTaskContext();
   const { checkPaths, pathStatus } = useFileExistsCache();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // 从 URL 参数读取筛选状态
+  const statusFilter = (searchParams.get('status') || 'all') as TaskStatus | 'all';
+  const typeFilter = (searchParams.get('type') || 'all') as TaskType | 'all';
+  const searchQuery = searchParams.get('search') || '';
+  const currentPage = parseInt(searchParams.get('page') || '1', 10);
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
-  const [typeFilter, setTypeFilter] = useState<TaskType | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchInput, setSearchInput] = useState(searchQuery);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isAllSelected, setIsAllSelected] = useState(false);
@@ -72,6 +74,42 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
   const [expandedTasks, setExpandedTasks] = useState<Set<number | string>>(new Set());
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // 更新 URL 参数
+  const updateSearchParams = useCallback((updates: Record<string, string | number | null>) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === 'all' || value === '' || value === 1) {
+        newParams.delete(key);
+      } else {
+        newParams.set(key, String(value));
+      }
+    });
+    setSearchParams(newParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  // 筛选状态变化处理
+  const handleStatusFilterChange = useCallback((value: TaskStatus | 'all') => {
+    updateSearchParams({ status: value === 'all' ? null : value, page: null });
+  }, [updateSearchParams]);
+
+  const handleTypeFilterChange = useCallback((value: TaskType | 'all') => {
+    updateSearchParams({ type: value === 'all' ? null : value, page: null });
+  }, [updateSearchParams]);
+
+  const handleSearchSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    updateSearchParams({ search: searchInput || null, page: null });
+  }, [searchInput, updateSearchParams]);
+
+  const handlePageChange = useCallback((page: number) => {
+    updateSearchParams({ page: page === 1 ? null : page });
+  }, [updateSearchParams]);
+
+  // 跳转到任务详情
+  const handleViewTaskDetail = useCallback((taskId: number) => {
+    navigate(`/task/${taskId}`);
+  }, [navigate]);
 
   const loadTasks = async () => {
     setLoading(true);
@@ -130,8 +168,8 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
     loadTasks();
   }, [statusFilter, typeFilter, searchQuery, currentPage]);
 
+  // 筛选变化时重置选择状态（不需要手动改 page，URL 参数已经处理了）
   useEffect(() => {
-    setCurrentPage(1);
     setSelectedIds(new Set());
   }, [statusFilter, typeFilter, searchQuery]);
 
@@ -166,7 +204,7 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
   };
 
   const handleSearch = () => {
-    setSearchQuery(searchInput);
+    updateSearchParams({ search: searchInput || null, page: null });
   };
 
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
@@ -177,7 +215,7 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
 
   const handleClearSearch = () => {
     setSearchInput('');
-    setSearchQuery('');
+    updateSearchParams({ search: null, page: null });
   };
 
   const handleBatchDelete = async () => {
@@ -310,12 +348,6 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
     });
   };
 
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
-
   const getPageNumbers = () => {
     const pages: (number | 'ellipsis')[] = [];
     if (totalPages <= 7) {
@@ -332,7 +364,7 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
     return pages;
   };
 
-  const runningCount = queueStatus?.running || 0;
+  const runningCount = tasks.filter(t => t.status === 'running').length;
 
   const canRetry = useCallback((status: TaskStatus) => status !== 'running', []);
   const canCancel = useCallback((status: TaskStatus) => status === 'pending' || status === 'running', []);
@@ -367,7 +399,7 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
       <PageHeader
-        onBack={onBack}
+        onBack={() => navigate(-1)}
         title="任务列表"
         icon={Layers}
         iconColor="text-violet-400"
@@ -379,7 +411,7 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <label className="text-xs text-slate-500">状态</label>
-              <Select.Root value={statusFilter} onValueChange={(v) => setStatusFilter(v as TaskStatus | 'all')}>
+              <Select.Root value={statusFilter} onValueChange={(v) => handleStatusFilterChange(v as TaskStatus | 'all')}>
                 <Select.Trigger className="inline-flex items-center justify-between gap-2 px-3 py-1.5 bg-black/50 border border-slate-700 rounded-lg text-sm text-slate-300 hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 min-w-[120px] cursor-pointer">
                   <Select.Value />
                   <Select.Icon>
@@ -415,7 +447,7 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
 
             <div className="flex items-center gap-2">
               <label className="text-xs text-slate-500">类型</label>
-              <Select.Root value={typeFilter} onValueChange={(v) => setTypeFilter(v as TaskType | 'all')}>
+              <Select.Root value={typeFilter} onValueChange={(v) => handleTypeFilterChange(v as TaskType | 'all')}>
                 <Select.Trigger className="inline-flex items-center justify-between gap-2 px-3 py-1.5 bg-black/50 border border-slate-700 rounded-lg text-sm text-slate-300 hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 min-w-[140px] cursor-pointer">
                   <Select.Value />
                   <Select.Icon>
@@ -570,6 +602,7 @@ const TaskCenterListPage: React.FC<TaskCenterListPageProps> = ({ onBack }) => {
                         }));
                         setPreviewFiles({ files: outputFiles, index });
                       }}
+                      onViewDetail={() => handleViewTaskDetail(task.id)}
                       canRetry={canRetry(task.status)}
                       canCancel={canCancel(task.status)}
                       canOpenOutput={canOpenOutput(task.status)}
@@ -674,6 +707,7 @@ interface TaskRowProps {
   onUpdateOutputDir: () => void;
   onPreviewFile: (index: number) => void;
   onPreviewOutput: (index: number) => void;
+  onViewDetail?: () => void;
   canRetry: boolean;
   canCancel: boolean;
   canOpenOutput: boolean;
@@ -698,6 +732,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
   onUpdateOutputDir,
   onPreviewFile,
   onPreviewOutput,
+  onViewDetail,
   canRetry,
   canCancel,
   canOpenOutput,
@@ -943,11 +978,9 @@ const TaskRow: React.FC<TaskRowProps> = ({
         </div>
 
         <div className="flex items-center justify-end gap-1">
-          {task.outputDir && (
-            <Button variant="primary" size="sm" onClick={onOpenOutput}>
-              详情
-            </Button>
-          )}
+          <Button variant="primary" size="sm" onClick={onViewDetail}>
+            详情
+          </Button>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded transition-colors cursor-pointer">

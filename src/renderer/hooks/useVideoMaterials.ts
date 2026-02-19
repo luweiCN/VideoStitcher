@@ -23,7 +23,7 @@ export interface VideoMaterial {
 /**
  * 获取单个视频的素材信息（通过单个 IPC 调用）
  */
-async function fetchVideoMaterial(filePath: string): Promise<VideoMaterial> {
+async function fetchVideoMaterial(filePath: string, thumbnailMaxSize: number = 64): Promise<VideoMaterial> {
   const fileName = filePath.split(/[/\\]/).pop() || filePath;
   const material: VideoMaterial = {
     path: filePath,
@@ -34,7 +34,7 @@ async function fetchVideoMaterial(filePath: string): Promise<VideoMaterial> {
 
   try {
     // 一次 IPC 调用获取所有信息
-    const result = await window.api.getVideoFullInfo(filePath, { thumbnailMaxSize: 64 });
+    const result = await window.api.getVideoFullInfo(filePath, { thumbnailMaxSize });
 
     if (result.success) {
       material.thumbnailUrl = result.thumbnail || undefined;
@@ -61,6 +61,8 @@ async function fetchVideoMaterial(filePath: string): Promise<VideoMaterial> {
  * useVideoMaterials Hook 选项
  */
 export interface UseVideoMaterialsOptions {
+  /** 缩略图最大尺寸 */
+  thumbnailMaxSize?: number;
   /** 日志回调 */
   onLog?: (message: string, type: 'info' | 'error' | 'success') => void;
 }
@@ -92,6 +94,8 @@ export function useVideoMaterials(
   getMaterial: (path: string) => VideoMaterial | undefined;
   preloadPaths: (paths: string[]) => void;
 } {
+  const thumbnailMaxSize = options?.thumbnailMaxSize ?? 64;
+
   // 素材状态（使用 Map 存储当前路径对应的素材）
   const [materialsMap, setMaterialsMap] = useState<Map<string, VideoMaterial>>(new Map());
   const [loadingCount, setLoadingCount] = useState(0);
@@ -146,7 +150,7 @@ export function useVideoMaterials(
     });
 
     try {
-      const material = await fetchVideoMaterial(filePath);
+      const material = await fetchVideoMaterial(filePath, thumbnailMaxSize);
 
       // 更新组件级缓存
       cacheRef.current.set(filePath, material);
@@ -166,7 +170,7 @@ export function useVideoMaterials(
         options?.onLog?.('视频信息加载完成', 'success');
       }
     }
-  }, [options]);
+  }, [thumbnailMaxSize, options?.onLog]);
 
   // 当 paths 变化时，加载新的素材
   // 注意：不能依赖 materialsMap，否则会导致无限循环

@@ -57,9 +57,10 @@ interface TaskCenterLog {
 interface TaskCenterDashboardProps {
   onBack: () => void;
   onViewAllTasks: () => void;
+  onViewTaskDetail?: (taskId: number) => void;
 }
 
-const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onViewAllTasks }) => {
+const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onViewAllTasks, onViewTaskDetail }) => {
   const {
     pauseAllTasks,
     resumeAllTasks,
@@ -427,7 +428,7 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
                 </div>
               ) : (
                 tasks.map((task: Task) => (
-                  <TaskItem key={task.id} task={task} />
+                  <TaskItem key={task.id} task={task} onClick={onViewTaskDetail ? () => onViewTaskDetail(task.id) : undefined} />
                 ))
               )}
             </div>
@@ -467,7 +468,7 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
 };
 
 // 任务项组件
-const TaskItem: React.FC<{ task: Task }> = ({ task }) => {
+const TaskItem: React.FC<{ task: Task; onClick?: () => void }> = ({ task, onClick }) => {
   const taskTypeLabel = task.type ? TASK_TYPE_LABELS[task.type] : '未知类型';
   const isRunning = task.status === 'running';
   
@@ -478,7 +479,10 @@ const TaskItem: React.FC<{ task: Task }> = ({ task }) => {
     : `${elapsed}s`;
 
   return (
-    <div className="group bg-slate-900/50 border border-slate-800/60 rounded-lg p-3 hover:border-slate-700 transition-all duration-200">
+    <div 
+      className={`group bg-slate-900/50 border border-slate-800/60 rounded-lg p-3 hover:border-slate-700 transition-all duration-200 ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isRunning ? (
