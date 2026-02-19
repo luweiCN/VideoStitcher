@@ -7,6 +7,7 @@ import { BrowserWindow } from 'electron';
 import os from 'os';
 import si from 'systeminformation';
 import { exec } from 'child_process';
+import { processMonitor } from './ProcessMonitor';
 import { taskRepository } from '../database/repositories/task.repository';
 import { taskLogRepository } from '../database/repositories/task-log.repository';
 import { configRepository } from '../database/repositories/config.repository';
@@ -90,7 +91,7 @@ export class TaskQueueManager {
       
       // 将所有运行中的任务改为 pending
       const runningTasks = taskRepository.getTasks({
-        filter: { status: ['running', 'queued', 'paused'] },
+        filter: { status: ['running'] },
         pageSize: 1000,
       });
       
@@ -138,17 +139,6 @@ export class TaskQueueManager {
       }
       
       taskRepository.clearTaskPid(task.id);
-    }
-    
-    // 兼容旧数据：将 queued/paused 状态的任务改为 pending
-    const legacyTasks = taskRepository.getTasks({
-      filter: { status: ['queued', 'paused'] },
-      pageSize: 1000,
-    });
-    
-    for (const task of legacyTasks.tasks) {
-      taskRepository.updateTaskStatus(task.id, 'pending');
-      console.log(`[TaskQueueManager] 任务 ${task.id} 状态已迁移为 pending`);
     }
 
     // 尝试启动任务
@@ -857,42 +847,42 @@ export class TaskQueueManager {
 
     try {
       // 1. 获取系统状态
-      const [currentLoad, mem, processesData] = await Promise.all([
+      const [currentLoad, mem] = await Promise.all([
         si.currentLoad(),
         si.mem(),
-        si.processes(),
       ]);
 
-      // 2. 获取任务进程统计
+      // 2. 获取运行中任务的 PID
       const runningPids = this.getRunningPids();
-      const taskProcesses = processesData.list.filter(p => {
-        if (runningPids.includes(p.pid)) return true;
-        if (p.name && p.name.toLowerCase().includes('ffmpeg')) return true;
-        return false;
-      });
-
+      
+      // 3. 使用 ProcessMonitor 获取任务进程统计（包含进程树）
       let totalCpu = 0;
       let totalMemory = 0;
-      const processes = taskProcesses.map(p => {
-        const cpu = p.cpu || 0;
-        const memoryBytes = p.memRss || 0;
+      const processes: Array<{ pid: number; name: string; cpu: number; memory: number; memoryMB: string }> = [];
+      
+      if (runningPids.length > 0) {
+        // 批量获取所有任务进程的统计（包含子进程）
+        const taskStatsMap = await processMonitor.getBatchTaskProcessStats(runningPids);
         
-        totalCpu += cpu;
-        totalMemory += memoryBytes;
-        
-        return {
-          pid: p.pid,
-          name: p.name || 'unknown',
-          cpu: Math.round(cpu * 10) / 10,
-          memory: Math.round((p.mem || 0) * 10) / 10,
-          memoryMB: (memoryBytes / (1024 * 1024)).toFixed(1),
-        };
-      });
+        for (const [mainPid, stats] of taskStatsMap) {
+          totalCpu += stats.totalCpu;
+          totalMemory += stats.totalMemory;
+          
+          // 添加主进程信息
+          processes.push({
+            pid: mainPid,
+            name: 'ffmpeg',
+            cpu: stats.totalCpu,
+            memory: stats.totalMemory,
+            memoryMB: stats.totalMemoryMB.toFixed(1),
+          });
+        }
+      }
 
-      // 3. 获取任务统计（从数据库）
+      // 4. 获取任务统计（从数据库）
       const taskStats = taskRepository.getTaskStats();
 
-      // 4. 获取任务列表（最多20条，优先显示运行中的任务）
+      // 5. 获取任务列表（最多20条，优先显示运行中的任务）
       const runningTaskIds = Array.from(this.runningTasks.keys());
       const runningTasks = runningTaskIds
         .map(id => taskRepository.getTaskById(id))
@@ -923,10 +913,8 @@ export class TaskQueueManager {
       }
       
       const allTasks = [...runningTasks, ...otherTasks];
-      
-      console.log(`[TaskQueueManager] 广播状态: tasks=${allTasks.length}, running=${runningTasks.length}, pending=${otherTasks.length}`);
 
-      // 5. 组装完整状态
+      // 6. 组装完整状态
       const totalCores = currentLoad.cpus.length;
       const taskCpuCores = Math.round(totalCpu / 100 * 10) / 10;
       
@@ -973,7 +961,7 @@ export class TaskQueueManager {
   /**
    * 广播日志
    */
-  broadcastLog(taskId: number, taskType: string, message: string, level: 'info' | 'error' | 'warning' | 'success' = 'info'): void {
+  broadcastLog(taskId: number | 'task-center', taskType: string, message: string, level: 'info' | 'error' | 'warning' | 'success' = 'info'): void {
     if (!this.mainWindow) return;
 
     this.mainWindow.webContents.send('task-center:log', {

@@ -136,8 +136,8 @@ export type LogLevel = 'info' | 'warning' | 'error' | 'success' | 'debug';
 // ==================== 任务日志 ====================
 
 export interface TaskLog {
-  id: string;
-  taskId: string;
+  id: number;
+  taskId: number;
   timestamp: number;
   level: LogLevel;
   message: string;

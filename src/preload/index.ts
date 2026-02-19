@@ -382,7 +382,7 @@ export interface ElectronAPI {
     threads?: number;
   }) => Promise<{ success: boolean; task?: any; error?: string }>;
   batchCreateTasks: (tasks: Task[]) => Promise<{ success: boolean; tasks: any[]; successCount: number; failCount: number; errors?: { index: number; error: string }[]; error?: string }>;
-  getTask: (taskId: string) => Promise<any | null>;
+  getTask: (taskId: number) => Promise<any | null>;
   getTasks: (options?: {
     filter?: {
       status?: string[];

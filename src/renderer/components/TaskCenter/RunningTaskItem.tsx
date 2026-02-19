@@ -18,7 +18,7 @@ import { OperationLogPanel } from '@renderer/components/OperationLogPanel';
 
 interface RunningTaskItemProps {
   task: Task;
-  onCancel?: (taskId: string) => void;
+  onCancel?: (taskId: number) => void;
 }
 
 const RunningTaskItem: React.FC<RunningTaskItemProps> = ({
@@ -51,7 +51,7 @@ const RunningTaskItem: React.FC<RunningTaskItemProps> = ({
 
   // 监听当前任务的日志
   useEffect(() => {
-    const handleTaskLog = (data: { taskId: string; log: { message: string; level?: string } }) => {
+    const handleTaskLog = (data: { taskId: number; log: { message: string; level?: string } }) => {
       if (data.taskId === task.id) {
         const logType = data.log.level === 'error' ? 'error' 
           : data.log.level === 'warning' ? 'warning'
@@ -67,7 +67,7 @@ const RunningTaskItem: React.FC<RunningTaskItemProps> = ({
 
   // 监听任务进度更新，显示当前步骤
   useEffect(() => {
-    const handleTaskProgress = (data: { taskId: string; progress: number; step?: string }) => {
+    const handleTaskProgress = (data: { taskId: number; progress: number; step?: string }) => {
       if (data.taskId === task.id && data.step) {
         addLog(data.step, 'info');
       }
@@ -87,7 +87,7 @@ const RunningTaskItem: React.FC<RunningTaskItemProps> = ({
             <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
             <div>
               <h3 className="text-sm font-medium text-white">
-                {task.name || `任务 ${task.id.slice(0, 8)}`}
+                {task.name || `任务 #${task.id}`}
               </h3>
               <p className="text-xs text-slate-500">{taskTypeLabel}</p>
             </div>

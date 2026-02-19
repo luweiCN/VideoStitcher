@@ -51,7 +51,7 @@ interface TaskFile {
 }
 
 interface Task {
-  id: string;
+  id: number;
   status: string;
   files: TaskFile[];
   config: { orientation: string; aPosition?: Position; bPosition?: Position; bgPosition?: Position; coverPosition?: Position };
@@ -279,7 +279,7 @@ export async function getVideoFullInfo(
  */
 export async function executeSingleMergeTask(
   task: {
-    id: string;
+    id: number;
     files: TaskFile[];
     config?: {
       orientation?: string;
