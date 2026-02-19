@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  ArrowLeft, CheckCircle, XCircle, Loader2, FileVideo, Image as ImageIcon, Layers, Eye, Play
+  ArrowLeft, FileVideo, Image as ImageIcon, Layers, Eye, Play
 } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import FilePreviewModal from '@/components/FilePreviewModal';
@@ -11,6 +11,9 @@ import type { Task, TaskFile } from '@shared/types/task';
 
 // 重新导出供其他模块使用
 export type { Task, TaskFile } from '@shared/types/task';
+
+/** 任务列表最大显示数量 */
+const MAX_DISPLAY_COUNT = 100;
 
 /**
  * 输出配置
@@ -41,24 +44,8 @@ export interface TaskListProps {
   themeColor: 'slate' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan' | 'amber';
   /** 任务切换回调 */
   onTaskChange?: (index: number) => void;
-  /** 任务变化回调（用于外部同步状态） */
-  onTasksChange?: (tasks: Task[]) => void;
   /** 是否禁用 */
   disabled?: boolean;
-  /** 是否正在处理（禁用任务列表交互） */
-  isProcessing?: boolean;
-  /** 日志回调 */
-  onLog?: (message: string, type?: 'info' | 'warning' | 'error' | 'success') => void;
-  /** 任务开始回调 */
-  onStart?: (data: { total: number; concurrency: number }) => void;
-  /** 单个任务开始处理回调 */
-  onTaskStart?: (data: { index: number; videoIndex?: number; videoId?: string; taskId?: string }) => void;
-  /** 任务进度回调 */
-  onProgress?: (data: { done: number; failed: number; total: number; index: number }) => void;
-  /** 任务失败回调 */
-  onFailed?: (data: { done: number; failed: number; total: number; index: number; error: string; current?: string }) => void;
-  /** 任务全部完成回调 */
-  onFinish?: (data: { done: number; failed: number }) => void;
 }
 
 /** 主题色配置 */
@@ -177,8 +164,6 @@ export const TaskList: React.FC<TaskListProps> = ({
   themeColor,
   onTaskChange,
   disabled,
-  isProcessing,
-  onLog,
 }) => {
   // 获取主题色配置
   const colors = THEME_COLORS[themeColor] || THEME_COLORS.rose;
@@ -186,11 +171,19 @@ export const TaskList: React.FC<TaskListProps> = ({
   // 当前选中的任务
   const currentTask = tasks?.[currentIndex];
 
-  // 收集所有文件路径，并记录每个路径对应的类型
+  // 用于显示的任务列表（最多100个，避免页面卡顿）
+  const displayedTasks = useMemo(() => {
+    return tasks.slice(0, MAX_DISPLAY_COUNT);
+  }, [tasks]);
+
+  // 是否有超出显示范围的任务
+  const hasHiddenTasks = tasks.length > MAX_DISPLAY_COUNT;
+
+  // 收集所有文件路径，并记录每个路径对应的类型（只处理显示的任务）
   const allFilePathsWithType = useMemo(() => {
-    if (!tasks || tasks.length === 0) return [];
+    if (!displayedTasks || displayedTasks.length === 0) return [];
     const paths: { path: string; type: 'video' | 'image' }[] = [];
-    tasks.forEach(task => {
+    displayedTasks.forEach(task => {
       task.files?.forEach((file, fileIdx) => {
         if (file.path && !paths.find(p => p.path === file.path)) {
           // 根据 materialsType 数组对应位置的类型，如果没有则默认 video
@@ -200,7 +193,7 @@ export const TaskList: React.FC<TaskListProps> = ({
       });
     });
     return paths;
-  }, [tasks, materialsType]);
+  }, [displayedTasks, materialsType]);
 
   // 分离视频和图片路径
   const videoPaths = useMemo(() => {
@@ -212,14 +205,10 @@ export const TaskList: React.FC<TaskListProps> = ({
   }, [allFilePathsWithType]);
 
   // 加载视频素材
-  const { materials: videoMaterials } = useVideoMaterials(videoPaths, true, {
-    onLog: onLog ? (message, type) => onLog(message, type) : undefined,
-  });
+  const { materials: videoMaterials } = useVideoMaterials(videoPaths, true);
 
   // 加载图片素材
-  const { materials: imageMaterials } = useImageMaterials(imagePaths, true, {
-    onLog: onLog ? (message, type) => onLog(message, type) : undefined,
-  });
+  const { materials: imageMaterials } = useImageMaterials(imagePaths, true);
 
   // 合并所有素材
   const allMaterials = useMemo(() => {
@@ -318,21 +307,13 @@ export const TaskList: React.FC<TaskListProps> = ({
           任务列表
         </h2>
         <div className="flex items-center gap-3">
-          {tasks.length > 0 && (isProcessing || tasks.some(t => t.status === 'waiting' || t.status === 'processing')) && (
-            <div className="flex items-center gap-2">
-              <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full ${colors.bg} transition-all duration-300`}
-                  style={{ width: `${((tasks.filter(t => t.status === 'completed').length) / tasks.length) * 100}%` }}
-                />
-              </div>
-              <span className={`text-xs ${colors.text}`}>
-                {tasks.filter(t => t.status === 'completed').length}/{tasks.length}
-              </span>
-            </div>
+          {hasHiddenTasks && (
+            <span className="text-xs text-amber-400">
+              当前参数下共{tasks.length}个任务，为了防止软件卡顿，预览任务最多显示{MAX_DISPLAY_COUNT}个
+            </span>
           )}
           <span className="bg-slate-800 text-slate-400 text-xs px-2 py-1 rounded-full">
-            {tasks.length > 0 ? `${currentIndex + 1} / ${tasks.length}` : tasks.length}
+            {tasks.length > 0 ? `${currentIndex + 1} / ${displayedTasks.length}` : tasks.length}
           </span>
         </div>
       </div>
@@ -345,7 +326,7 @@ export const TaskList: React.FC<TaskListProps> = ({
           </div>
         ) : (
           <Virtuoso
-            data={tasks}
+            data={displayedTasks}
             horizontalDirection
             style={{ height: '100%', width: '100%', overflowY: 'hidden' }}
             className="custom-scrollbar"
@@ -356,16 +337,9 @@ export const TaskList: React.FC<TaskListProps> = ({
               const material = thumbnailFile ? materialMap.get(thumbnailFile.path) : null;
 
               // 计算任务卡片的样式
-              let cardClass = 'border-slate-700 bg-black/50';
-              if (index === currentIndex) {
-                cardClass = `${colors.borderLight} ring-2 ${colors.ring}/20 ${colors.bgLight}`;
-              } else if (task.status === 'error') {
-                cardClass = 'border-red-500/50 bg-red-500/5';
-              } else if (task.status === 'completed') {
-                cardClass = 'border-emerald-500/50 bg-emerald-500/5';
-              } else if (task.status === 'waiting' || task.status === 'processing') {
-                cardClass = `${colors.borderLight30} ${colors.bgLight}`;
-              }
+              const cardClass = index === currentIndex
+                ? `${colors.borderLight} ring-2 ${colors.ring}/20 ${colors.bgLight}`
+                : 'border-slate-700 bg-black/50';
 
               return (
                 <div
@@ -373,7 +347,7 @@ export const TaskList: React.FC<TaskListProps> = ({
                   style={{ width: 64, height: '100%' }}
                 >
                   <div
-                    className={`relative w-14 h-14 rounded-lg border cursor-pointer ${cardClass} ${disabled || isProcessing ? 'pointer-events-none opacity-50' : ''}`}
+                    className={`relative w-14 h-14 rounded-lg border cursor-pointer ${cardClass} ${disabled ? 'pointer-events-none opacity-50' : ''}`}
                     onClick={() => switchToTask(index)}
                   >
                     {/* 缩略图 */}
@@ -386,31 +360,6 @@ export const TaskList: React.FC<TaskListProps> = ({
                         </div>
                       )}
                     </div>
-
-                    {/* processing 状态 */}
-                    {task.status === 'processing' && (
-                      <div className="absolute inset-0 rounded-lg bg-black/50 flex items-center justify-center pointer-events-none">
-                        <Loader2 className={`w-5 h-5 ${colors.text} animate-spin`} />
-                      </div>
-                    )}
-                    {/* waiting 状态 */}
-                    {task.status === 'waiting' && (
-                      <div className="absolute inset-0 rounded-lg bg-black/30 flex items-center justify-center pointer-events-none">
-                        <div className={`w-4 h-4 rounded-full ${colors.bgLight70}`} />
-                      </div>
-                    )}
-                    {/* completed 状态 */}
-                    {task.status === 'completed' && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg">
-                        <CheckCircle className="w-2.5 h-2.5 text-black" />
-                      </div>
-                    )}
-                    {/* error 状态 */}
-                    {task.status === 'error' && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
-                        <span className="text-black text-[8px] font-bold">!</span>
-                      </div>
-                    )}
 
                     {/* 当前预览指示器 */}
                     {index === currentIndex && (
@@ -434,7 +383,7 @@ export const TaskList: React.FC<TaskListProps> = ({
             {/* 左侧导航 */}
             <button
               onClick={goToPrevious}
-              disabled={currentIndex === 0 || disabled || isProcessing}
+              disabled={currentIndex === 0 || disabled}
               className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -466,21 +415,10 @@ export const TaskList: React.FC<TaskListProps> = ({
             {/* 弹性空间 */}
             <div className="flex-1" />
 
-            {/* 状态指示 */}
-            {currentTask.status === 'processing' && (
-              <Loader2 className={`w-4 h-4 ${colors.text} animate-spin`} />
-            )}
-            {currentTask.status === 'completed' && (
-              <CheckCircle className="w-4 h-4 text-emerald-500" />
-            )}
-            {currentTask.status === 'error' && (
-              <XCircle className="w-4 h-4 text-red-400" />
-            )}
-
             {/* 右侧导航 */}
             <button
               onClick={goToNext}
-              disabled={currentIndex >= tasks.length - 1 || disabled || isProcessing}
+              disabled={currentIndex >= tasks.length - 1 || disabled}
               className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <ArrowLeft className="w-4 h-4 rotate-180" />

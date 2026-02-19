@@ -26,7 +26,6 @@ interface MergeTaskParams {
   bgImages?: string[];
   count: number;
   outputDir: string;
-  concurrency: number;
   orientation: string;
 }
 
@@ -43,7 +42,6 @@ interface Task {
   files: TaskFile[];
   config: { orientation: string };
   outputDir: string;
-  concurrency: number;
 }
 
 /**
@@ -250,7 +248,6 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
     bgImages,
     count,
     outputDir,
-    concurrency,
     orientation,
   } = params;
 
@@ -332,7 +329,6 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
       files,
       config: { orientation },
       outputDir,
-      concurrency,
     };
   });
 

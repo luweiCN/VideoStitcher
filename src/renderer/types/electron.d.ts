@@ -407,7 +407,6 @@ export interface ElectronAPI {
     bgImages?: string[];
     count: number;
     outputDir: string;
-    concurrency: number;
     orientation: "horizontal" | "vertical";
   }) => Promise<{
     success: boolean;
@@ -417,7 +416,6 @@ export interface ElectronAPI {
       files: Array<{ path: string; index: number; category: string; category_name: string }>;
       config: { orientation: string };
       outputDir: string;
-      concurrency: number;
     }>;
   }>;
 
@@ -477,7 +475,7 @@ export interface ElectronAPI {
   // 任务中心事件
   onTaskCreated: (callback: (task: any) => void) => () => void;
   onTaskUpdated: (callback: (task: any) => void) => () => void;
-  onTaskDeleted: (callback: (id: string) => void) => () => void;
+  onTaskDeleted: (callback: (id: number) => void) => () => void;
   onTaskStarted: (callback: (data: { taskId: number }) => void) => () => void;
   onTaskProgress: (callback: (data: { taskId: number; progress: number; step?: string }) => void) => () => void;
   onTaskLog: (callback: (data: { taskId: number; log: any }) => void) => () => void;

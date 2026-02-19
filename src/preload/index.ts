@@ -356,7 +356,6 @@ export interface ElectronAPI {
     bgImages?: string[];
     count: number;
     outputDir: string;
-    concurrency: number;
     orientation: "horizontal" | "vertical";
   }) => Promise<{
     success: boolean;
@@ -366,7 +365,6 @@ export interface ElectronAPI {
       files: Array<{ path: string; index: number; category: string; category_name: string }>;
       config: { orientation: string };
       outputDir: string;
-      concurrency: number;
     }>;
   }>;
 
@@ -447,7 +445,7 @@ export interface ElectronAPI {
     };
     config: { maxConcurrentTasks: number; threadsPerTask: number };
   }) => void) => () => void;
-  onTaskCenterLog: (callback: (log: { taskId: string; taskType: string; message: string; level: string; timestamp: number }) => void) => () => void;
+  onTaskCenterLog: (callback: (log: { taskId: number; taskType: string; message: string; level: string; timestamp: number }) => void) => () => void;
 }
 
 const api: ElectronAPI = {

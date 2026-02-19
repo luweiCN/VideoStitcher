@@ -8,7 +8,6 @@ import React, {
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
-  Settings,
   RefreshCcw,
   Maximize,
   ZoomIn,
@@ -25,7 +24,6 @@ import { MaterialPositions } from "../types";
 import VideoEditor from "../components/VideoEditor";
 import PageHeader from "../components/PageHeader";
 import OutputDirSelector from "../components/OutputDirSelector";
-import ConcurrencySelector from "../components/ConcurrencySelector";
 import OperationLogPanel from "../components/OperationLogPanel";
 import TaskAddedDialog from "../components/TaskAddedDialog";
 import { FileSelector, FileSelectorGroup, useFileSelectorGroup, type FileSelectorGroupRef } from "../components/FileSelector";
@@ -34,7 +32,6 @@ import TaskList, { type Task, type OutputConfig } from "../components/TaskList";
 import TaskCountSlider from "../components/TaskCountSlider";
 import VideoPlayer from "../components/VideoPlayer/VideoPlayer";
 import { useOutputDirCache } from "../hooks/useOutputDirCache";
-import { useConcurrencyCache } from "../hooks/useConcurrencyCache";
 import { useOperationLogs } from "../hooks/useOperationLogs";
 import { useMergePreview } from "../hooks/useMergePreview";
 import { setGlobalIsPlaying } from "../hooks/useStitchPreview";
@@ -157,7 +154,6 @@ const VideoMergeMode: React.FC = () => {
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const { outputDir, setOutputDir } = useOutputDirCache("VideoMergeMode");
-  const { concurrency, setConcurrency } = useConcurrencyCache("VideoMergeMode");
 
   // 任务中心相关
   const { batchCreateTasks } = useTaskContext();
@@ -317,7 +313,7 @@ const VideoMergeMode: React.FC = () => {
           (covers.length > 0 ? covers.length : 1) *
           (aVideos.length > 0 ? aVideos.length : 1);
         if (newMax > 0) {
-          setTaskCount(Math.min(newMax, 100));
+          setTaskCount(newMax);
         }
       }
     },
@@ -347,7 +343,7 @@ const VideoMergeMode: React.FC = () => {
         (covers.length > 0 ? covers.length : 1) *
         (files.length > 0 ? files.length : 1);
       if (newMax > 0) {
-        setTaskCount(Math.min(newMax, 100));
+        setTaskCount(newMax);
       }
     },
     [
@@ -379,7 +375,7 @@ const VideoMergeMode: React.FC = () => {
         (files.length > 0 ? files.length : 1) *
         (aVideos.length > 0 ? aVideos.length : 1);
       if (newMax > 0) {
-        setTaskCount(Math.min(newMax, 100));
+        setTaskCount(newMax);
       }
     },
     [
@@ -443,7 +439,6 @@ const VideoMergeMode: React.FC = () => {
       bgImages: bgImages.length > 0 ? bgImages : undefined,
       count: taskCount,
       outputDir,
-      concurrency,
       orientation,
     });
 
@@ -468,7 +463,6 @@ const VideoMergeMode: React.FC = () => {
     taskCount,
     orientation,
     outputDir,
-    concurrency,
     addLog,
   ]);
 
@@ -491,7 +485,6 @@ const VideoMergeMode: React.FC = () => {
       bgImages: bgImages.length > 0 ? bgImages : undefined,
       count: taskCount,
       outputDir,
-      concurrency,
       orientation,
     });
 
@@ -511,7 +504,6 @@ const VideoMergeMode: React.FC = () => {
     taskCount,
     orientation,
     outputDir,
-    concurrency,
   ]);
 
   useEffect(() => {
@@ -749,8 +741,6 @@ return 'B';
               materialsType={materialsType}
               themeColor={primaryColor}
               onTaskChange={setCurrentIndex}
-              isProcessing={isAdding}
-              onLog={(message, type) => addLog(message, type)}
             />
           )}
 
@@ -922,27 +912,12 @@ return 'B';
 
         <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-4">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Settings className="w-3.5 h-3.5" />
-                设置
-              </h3>
-
-              <OutputDirSelector
-                value={outputDir}
-                onChange={setOutputDir}
-                disabled={isAdding}
-                themeColor={primaryColor}
-              />
-
-              <ConcurrencySelector
-                value={concurrency}
-                onChange={setConcurrency}
-                disabled={isAdding}
-                themeColor={primaryColor}
-                compact
-              />
-            </div>
+            <OutputDirSelector
+              value={outputDir}
+              onChange={setOutputDir}
+              disabled={isAdding}
+              themeColor={primaryColor}
+            />
 
             <OperationLogPanel
               logs={logs}

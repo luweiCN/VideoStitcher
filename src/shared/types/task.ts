@@ -147,7 +147,7 @@ export interface TaskLog {
 // ==================== 任务进度事件 ====================
 
 export interface TaskProgressEvent {
-  taskId: string;
+  taskId: number;
   progress: number;
   step?: string;
   elapsed?: number;
@@ -157,7 +157,7 @@ export interface TaskProgressEvent {
 // ==================== 任务日志事件 ====================
 
 export interface TaskLogEvent {
-  taskId: string;
+  taskId: number;
   log: TaskLog;
 }
 
