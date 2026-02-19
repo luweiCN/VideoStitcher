@@ -218,56 +218,49 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
 
       {/* 主内容区 */}
       <div className="flex-1 flex flex-col overflow-hidden p-4 gap-4">
-        {/* 顶部：统计 + 系统监控 */}
+        {/* 顶部：统计 + 负载监控 + CPU 核心 */}
         <div className="flex gap-4 shrink-0">
-          {/* 左侧：任务统计 */}
-          <div className="flex gap-3">
-            <div className="bg-black/50 border border-slate-800 rounded-lg px-4 py-2 min-w-[100px]">
-              <div className="text-[10px] text-slate-600">任务中心运行</div>
-              <div className="font-mono text-base font-bold text-white">{formatRunTime()}</div>
-              <div className="text-[10px] text-slate-600 mt-1">任务总耗时</div>
-              <div className="font-mono text-base font-bold text-violet-400">{formatTaskTotalTime()}</div>
-            </div>
-            <div className="bg-black/50 border border-slate-800 rounded-lg px-4 py-2 min-w-[70px]">
-              <div className="text-xs text-slate-500">执行中</div>
-              <div className="text-lg font-bold text-emerald-400">{state?.runningCount ?? 0}</div>
-              <div className="text-xs text-slate-500 mt-1">待执行</div>
-              <div className="text-lg font-bold text-cyan-400">{state?.pendingCount ?? 0}</div>
-            </div>
-            <div className="bg-black/50 border border-slate-800 rounded-lg px-4 py-2 min-w-[70px]">
-              <div className="text-xs text-slate-500">已完成</div>
-              <div className="text-lg font-bold text-white">{taskStats?.completed ?? 0}</div>
-              <div className="text-xs text-slate-500 mt-1">失败</div>
-              <div className="text-lg font-bold text-rose-400">{taskStats?.failed ?? 0}</div>
-            </div>
-          </div>
-
-          {/* CPU 核心 */}
-          <div className="flex-1 bg-black/50 border border-slate-800 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Cpu className="w-4 h-4 text-slate-400" />
-              <span className="text-xs text-slate-400">CPU 核心</span>
-              <span className="text-xs text-slate-500 ml-auto">{systemStats?.cpu.cores.length ?? 0} 核心</span>
-            </div>
-            <div className="flex gap-1">
-              {(systemStats?.cpu.cores ?? []).map((usage, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center">
-                  <div className="w-full h-20 bg-slate-800 rounded relative overflow-hidden">
-                    <div
-                      className={`absolute bottom-0 left-0 right-0 ${getUsageColor(usage)} transition-all duration-300`}
-                      style={{ height: `${usage}%` }}
-                    />
-                  </div>
-                  <span className="text-[8px] text-slate-600 mt-0.5">{index}</span>
+          {/* 任务统计卡片 */}
+          <div className="bg-black/50 border border-slate-800 rounded-lg p-3">
+            <div className="flex flex-col gap-2">
+              {/* 上行：运行时间 */}
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-0.5">
+                  <div className="text-[10px] text-slate-600">任务中心运行</div>
+                  <div className="font-mono text-base font-bold text-white">{formatRunTime()}</div>
                 </div>
-              ))}
+                <div className="w-px h-8 bg-slate-800" />
+                <div className="flex flex-col gap-0.5">
+                  <div className="text-[10px] text-slate-600">任务总耗时</div>
+                  <div className="font-mono text-base font-bold text-violet-400">{formatTaskTotalTime()}</div>
+                </div>
+              </div>
+              {/* 下行：任务统计 */}
+              <div className="flex items-center gap-5 pt-1 border-t border-slate-800/50">
+                <div className="flex flex-col items-center">
+                  <div className="text-[10px] text-slate-500">执行中</div>
+                  <div className="text-lg font-bold text-emerald-400">{state?.runningCount ?? 0}</div>
+                </div>
+                <div className="flex flex-col items-center">
+                  <div className="text-[10px] text-slate-500">待执行</div>
+                  <div className="text-lg font-bold text-cyan-400">{state?.pendingCount ?? 0}</div>
+                </div>
+                <div className="flex flex-col items-center">
+                  <div className="text-[10px] text-slate-500">已完成</div>
+                  <div className="text-lg font-bold text-white">{taskStats?.completed ?? 0}</div>
+                </div>
+                <div className="flex flex-col items-center">
+                  <div className="text-[10px] text-slate-500">失败</div>
+                  <div className="text-lg font-bold text-rose-400">{taskStats?.failed ?? 0}</div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* 右侧：负载监控 */}
-          <div className="flex gap-3">
+          {/* 负载监控卡片 */}
+          <div className="bg-black/50 border border-slate-800 rounded-lg p-3 flex gap-6">
             {/* 系统负载 */}
-            <div className="bg-black/50 border border-slate-800 rounded-lg p-3 min-w-[130px]">
+            <div className="min-w-[130px]">
               <div className="text-xs text-slate-500 mb-2">系统负载</div>
               <div className="space-y-2">
                 <div>
@@ -301,7 +294,7 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
             </div>
             
             {/* 任务负载 */}
-            <div className="bg-black/50 border border-slate-800 rounded-lg p-3 min-w-[130px]">
+            <div className="min-w-[130px]">
               <div className="text-xs text-slate-500 mb-2">任务负载</div>
               <div className="space-y-2">
                 <div>
@@ -335,6 +328,28 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* CPU 核心卡片 */}
+          <div className="flex-1 bg-black/50 border border-slate-800 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Cpu className="w-4 h-4 text-slate-400" />
+              <span className="text-xs text-slate-400">CPU 核心</span>
+              <span className="text-xs text-slate-500 ml-auto">{systemStats?.cpu.cores.length ?? 0} 核心</span>
+            </div>
+            <div className="flex gap-1">
+              {(systemStats?.cpu.cores ?? []).map((usage, index) => (
+                <div key={index} className="flex-1 flex flex-col items-center">
+                  <div className="w-full h-20 bg-slate-800 rounded relative overflow-hidden">
+                    <div
+                      className={`absolute bottom-0 left-0 right-0 ${getUsageColor(usage)} transition-all duration-300`}
+                      style={{ height: `${usage}%` }}
+                    />
+                  </div>
+                  <span className="text-[8px] text-slate-600 mt-0.5">{index}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
