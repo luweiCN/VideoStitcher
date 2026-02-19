@@ -33,6 +33,7 @@ import PageHeader from '@renderer/components/PageHeader';
 import TaskStatusBadge from './TaskStatusBadge';
 import { OperationLogPanel } from '@renderer/components/OperationLogPanel';
 import FilePreviewModal from '@renderer/components/FilePreviewModal';
+import VideoPlayer from '@renderer/components/VideoPlayer/VideoPlayer';
 import { useFileExistsCache } from '@renderer/hooks/useFileExistsCache';
 import { useTaskContext } from '@renderer/contexts/TaskContext';
 import { useTaskSubscription } from '@renderer/hooks/useTaskSubscription';
@@ -687,12 +688,15 @@ const TaskDetailPage: React.FC = () => {
                 ) : (
                   // 显示预览
                   <div className="w-full flex gap-4">
-                    <video
-                      src={outputPreview.url}
-                      controls
-                      className="flex-1 rounded-lg bg-slate-800 object-contain"
-                      style={{ maxHeight: previewHeight.maxHeight }}
-                    />
+                    <div className="flex-1 rounded-lg overflow-hidden" style={{ maxHeight: previewHeight.maxHeight }}>
+                      <VideoPlayer
+                        src={outputPreview.url}
+                        title={getFileName(outputPreview.path)}
+                        themeColor="violet"
+                        minimal
+                        className="h-full"
+                      />
+                    </div>
                     {(task.outputs || []).length > 1 && (
                       <div className="w-48 flex flex-col gap-2 overflow-y-auto" style={{ maxHeight: previewHeight.maxHeight }}>
                         {(task.outputs || []).map((output, index) => {
