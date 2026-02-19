@@ -136,7 +136,8 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
               ? (TASK_TYPE_LABELS[log.taskType as keyof typeof TASK_TYPE_LABELS] || log.taskType)
               : '';
             const prefix = log.taskType ? `[#${log.taskId}] [${taskTypeLabel}]` : '[系统]';
-            addLog(`${prefix} ${log.message}`, log.level as any);
+            // 传入真实时间戳
+            addLog(`${prefix} ${log.message}`, log.level as any, log.timestamp);
           });
         }
       } catch (err) {
@@ -211,7 +212,7 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onBack, onVie
         rightContent={
           <Button variant="ghost" size="sm" onClick={onViewAllTasks}>
             <List className="w-4 h-4 mr-1.5" />
-            完整列表
+            任务列表
           </Button>
         }
       />

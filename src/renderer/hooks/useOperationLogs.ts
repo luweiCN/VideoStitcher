@@ -21,8 +21,8 @@ export interface UseOperationLogsOptions {
 export interface UseOperationLogsReturn {
   /** 日志列表 */
   logs: LogEntry[];
-  /** 添加日志 */
-  addLog: (message: string, type?: LogEntry['type']) => void;
+  /** 添加日志（可选传入时间戳，不传则使用当前时间） */
+  addLog: (message: string, type?: LogEntry['type'], timestamp?: number) => void;
   /** 清空日志 */
   clearLogs: () => void;
   /** 复制日志到剪贴板 */
@@ -57,12 +57,13 @@ export interface UseOperationLogsReturn {
 
 /**
  * 格式化时间戳为 HH:MM:SS 格式
+ * @param timestamp 可选的时间戳（毫秒），不传则使用当前时间
  */
-function formatTimestamp(): string {
-  const now = new Date();
-  const hours = now.getHours().toString().padStart(2, '0');
-  const minutes = now.getMinutes().toString().padStart(2, '0');
-  const seconds = now.getSeconds().toString().padStart(2, '0');
+function formatTimestamp(timestamp?: number): string {
+  const date = timestamp ? new Date(timestamp) : new Date();
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = date.getSeconds().toString().padStart(2, '0');
   return `${hours}:${minutes}:${seconds}`;
 }
 
@@ -253,11 +254,11 @@ export function useOperationLogs(options: UseOperationLogsOptions): UseOperation
   }, [clearAutoResumeTimer]);
 
   // 添加日志（使用批量优化）
-  const addLog = useCallback((message: string, type?: LogEntry['type']) => {
+  const addLog = useCallback((message: string, type?: LogEntry['type'], timestamp?: number) => {
     const logType = type ?? inferLogType(message);
     const newLog: LogEntry = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: formatTimestamp(),
+      id: `${timestamp ?? Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: formatTimestamp(timestamp),
       message: message,
       type: logType,
     };
