@@ -341,7 +341,7 @@ const TaskDetailPage: React.FC = () => {
   }, [task, deleteTask, navigate]);
 
   // 操作可用性
-  const canRetry = task && task.status !== 'running';
+  const canRetry = task && (task.status === 'failed' || task.status === 'cancelled' || task.status === 'completed');
   const canCancel = task && (task.status === 'pending' || task.status === 'running');
 
   // 根据输出视频方向计算预览高度

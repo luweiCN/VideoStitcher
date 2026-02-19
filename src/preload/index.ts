@@ -402,8 +402,8 @@ export interface ElectronAPI {
   startTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
   pauseTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
   resumeTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
-  cancelTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
-  retryTask: (taskId: string) => Promise<{ success: boolean; error?: string }>;
+  cancelTask: (taskId: number) => Promise<{ success: boolean; error?: string }>;
+  retryTask: (taskId: number) => Promise<{ success: boolean; error?: string }>;
   startAllTasks: () => Promise<{ success: boolean; count: number }>;
   pauseAllTasks: () => Promise<{ success: boolean; count: number }>;
   cancelAllTasks: () => Promise<{ success: boolean; count: number }>;
@@ -420,13 +420,13 @@ export interface ElectronAPI {
   // 任务中心事件
   onTaskCreated: (callback: (task: any) => void) => () => void;
   onTaskUpdated: (callback: (task: any) => void) => () => void;
-  onTaskDeleted: (callback: (id: string) => void) => () => void;
-  onTaskStarted: (callback: (data: { taskId: string }) => void) => () => void;
-  onTaskProgress: (callback: (data: { taskId: string; progress: number; step?: string }) => void) => () => void;
-  onTaskLog: (callback: (data: { taskId: string; log: any }) => void) => () => void;
-  onTaskCompleted: (callback: (data: { taskId: string; outputs: any[] }) => void) => () => void;
-  onTaskFailed: (callback: (data: { taskId: string; error: any }) => void) => () => void;
-  onTaskCancelled: (callback: (data: { taskId: string }) => void) => () => void;
+  onTaskDeleted: (callback: (id: number) => void) => () => void;
+  onTaskStarted: (callback: (data: { taskId: number }) => void) => () => void;
+  onTaskProgress: (callback: (data: { taskId: number; progress: number; step?: string }) => void) => () => void;
+  onTaskLog: (callback: (data: { taskId: number; log: any }) => void) => () => void;
+  onTaskCompleted: (callback: (data: { taskId: number; outputs: any[] }) => void) => () => void;
+  onTaskFailed: (callback: (data: { taskId: number; error: any }) => void) => () => void;
+  onTaskCancelled: (callback: (data: { taskId: number }) => void) => () => void;
 
   // 任务中心广播事件（新版）
   onTaskCenterState: (callback: (state: {

@@ -18,7 +18,7 @@ import { DEFAULT_TASK_CENTER_CONFIG } from '@shared/types/task';
  * 任务执行器接口
  */
 interface TaskExecutor {
-  taskId: string;
+  taskId: number;
   startTime: number;
   pid?: number;
 }
@@ -41,7 +41,7 @@ export class TaskCancelledError extends Error {
  */
 export class TaskQueueManager {
   private config: TaskCenterConfig | null = null;
-  private runningTasks: Map<string, TaskExecutor>;
+  private runningTasks: Map<number, TaskExecutor>;
   private mainWindow: BrowserWindow | null = null;
   private executionTimeTimer: NodeJS.Timeout | null = null;
   private runTimeSaveTimer: NodeJS.Timeout | null = null;
@@ -232,7 +232,7 @@ export class TaskQueueManager {
   /**
    * 添加任务（状态保持 pending，尝试启动）
    */
-  enqueue(taskId: string): void {
+  enqueue(taskId: number): void {
     this.ensureInitialized();
     const task = taskRepository.getTaskById(taskId);
     if (!task) {
@@ -250,7 +250,7 @@ export class TaskQueueManager {
   /**
    * 取消任务
    */
-  cancel(taskId: string): boolean {
+  cancel(taskId: number): boolean {
     const executor = this.runningTasks.get(taskId);
     if (executor) {
       // 杀掉进程
@@ -288,7 +288,7 @@ export class TaskQueueManager {
   /**
    * 重试任务
    */
-  retry(taskId: string): boolean {
+  retry(taskId: number): boolean {
     const task = taskRepository.getTaskById(taskId);
     if (!task) return false;
 
@@ -443,7 +443,7 @@ export class TaskQueueManager {
   /**
    * 启动单个任务
    */
-  private async startTask(taskId: string): Promise<void> {
+  private async startTask(taskId: number): Promise<void> {
     this.ensureInitialized();
     const task = taskRepository.getTaskById(taskId);
     if (!task) return;
@@ -568,7 +568,7 @@ export class TaskQueueManager {
   /**
    * 处理任务完成
    */
-  private handleTaskComplete(taskId: string, outputs: TaskOutput[]): void {
+  private handleTaskComplete(taskId: number, outputs: TaskOutput[]): void {
     const executor = this.runningTasks.get(taskId);
     if (!executor) return;
 
@@ -597,7 +597,7 @@ export class TaskQueueManager {
   /**
    * 处理任务错误
    */
-  private handleTaskError(taskId: string, error: Error): void {
+  private handleTaskError(taskId: number, error: Error): void {
     // 如果是取消错误，静默处理（任务状态已在 cancel() 中更新）
     if (error instanceof TaskCancelledError) {
       this.addLog(taskId, 'info', '任务已取消');
@@ -637,7 +637,7 @@ export class TaskQueueManager {
   /**
    * 添加日志
    */
-  private addLog(taskId: string, level: 'info' | 'warning' | 'error' | 'success', message: string): void {
+  private addLog(taskId: number, level: 'info' | 'warning' | 'error' | 'success', message: string): void {
     taskLogRepository.addLog(taskId, { level, message });
 
     // 获取任务类型
@@ -700,8 +700,8 @@ export class TaskQueueManager {
   /**
    * 获取运行中任务的进程信息
    */
-  getRunningTaskProcesses(): Array<{ taskId: string; pid?: number; startTime: number }> {
-    const processes: Array<{ taskId: string; pid?: number; startTime: number }> = [];
+  getRunningTaskProcesses(): Array<{ taskId: number; pid?: number; startTime: number }> {
+    const processes: Array<{ taskId: number; pid?: number; startTime: number }> = [];
     for (const [taskId, executor] of this.runningTasks) {
       processes.push({
         taskId,
@@ -973,7 +973,7 @@ export class TaskQueueManager {
   /**
    * 广播日志
    */
-  broadcastLog(taskId: string, taskType: string, message: string, level: 'info' | 'error' | 'warning' | 'success' = 'info'): void {
+  broadcastLog(taskId: number, taskType: string, message: string, level: 'info' | 'error' | 'warning' | 'success' = 'info'): void {
     if (!this.mainWindow) return;
 
     this.mainWindow.webContents.send('task-center:log', {
@@ -987,44 +987,44 @@ export class TaskQueueManager {
 
   // ==================== 事件发送 ====================
 
-  private sendTaskUpdated(taskId: string): void {
+  private sendTaskUpdated(taskId: number): void {
     const task = taskRepository.getTaskById(taskId);
     if (task && this.mainWindow) {
       this.mainWindow.webContents.send('task:updated', task);
     }
   }
 
-  private sendTaskStarted(taskId: string): void {
+  private sendTaskStarted(taskId: number): void {
     if (this.mainWindow) {
       this.mainWindow.webContents.send('task:started', { taskId });
     }
   }
 
-  private sendTaskProgress(event: { taskId: string; progress: number; step?: string }): void {
+  private sendTaskProgress(event: { taskId: number; progress: number; step?: string }): void {
     if (this.mainWindow) {
       this.mainWindow.webContents.send('task:progress', event);
     }
   }
 
-  private sendTaskLog(taskId: string, log: any): void {
+  private sendTaskLog(taskId: number, log: any): void {
     if (this.mainWindow) {
       this.mainWindow.webContents.send('task:log', { taskId, log });
     }
   }
 
-  private sendTaskCompleted(taskId: string, outputs: TaskOutput[]): void {
+  private sendTaskCompleted(taskId: number, outputs: TaskOutput[]): void {
     if (this.mainWindow) {
       this.mainWindow.webContents.send('task:completed', { taskId, outputs });
     }
   }
 
-  private sendTaskFailed(taskId: string, error: any): void {
+  private sendTaskFailed(taskId: number, error: any): void {
     if (this.mainWindow) {
       this.mainWindow.webContents.send('task:failed', { taskId, error });
     }
   }
 
-  private sendTaskCancelled(taskId: string): void {
+  private sendTaskCancelled(taskId: number): void {
     if (this.mainWindow) {
       this.mainWindow.webContents.send('task:cancelled', { taskId });
     }

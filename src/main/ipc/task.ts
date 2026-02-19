@@ -233,8 +233,8 @@ export function registerTaskHandlers(): void {
         return { success: false, error: '任务不存在' };
       }
 
-      if (!['failed', 'cancelled'].includes(task.status)) {
-        return { success: false, error: '只有失败或已取消的任务可以重试' };
+      if (!['failed', 'cancelled', 'completed'].includes(task.status)) {
+        return { success: false, error: '只有失败、已取消或已完成的任务可以重试' };
       }
 
       const success = taskQueueManager.retry(taskId);

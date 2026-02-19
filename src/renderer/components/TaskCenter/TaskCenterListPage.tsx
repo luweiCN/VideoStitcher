@@ -9,10 +9,17 @@
  * - 素材文件预览
  * - 分页
  * - URL 参数管理筛选状态
+ * - 使用 TanStack Table 实现表格
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import {
+  useReactTable,
+  getCoreRowModel,
+  flexRender,
+  createColumnHelper,
+} from '@tanstack/react-table';
 import {
   Layers,
   XCircle,
@@ -30,8 +37,6 @@ import {
   Image as ImageIcon,
   X,
   Check,
-  ChevronDown,
-  ChevronUp,
   Pencil,
   FileX,
 } from 'lucide-react';
@@ -46,8 +51,17 @@ import type { Task, TaskStatus, TaskType, TaskFile } from '@shared/types/task';
 import { TASK_TYPE_LABELS } from '@shared/types/task';
 import FilePreviewModal from '@renderer/components/FilePreviewModal';
 import { useFileExistsCache } from '@renderer/hooks/useFileExistsCache';
+import { useVideoMaterials } from '@renderer/hooks/useVideoMaterials';
+import { useImageMaterials } from '@renderer/hooks/useImageMaterials';
 
 const PAGE_SIZE = 15;
+const THUMBNAIL_SIZE = 128;
+
+interface TaskRowData extends Task {
+  isSelected: boolean;
+}
+
+const columnHelper = createColumnHelper<TaskRowData>();
 
 const TaskCenterListPage: React.FC = () => {
   const { cancelTask, retryTask, deleteTask, formatRunTime } = useTaskContext();
@@ -72,8 +86,64 @@ const TaskCenterListPage: React.FC = () => {
 
   const [previewFiles, setPreviewFiles] = useState<{ files: TaskFile[]; index: number } | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Set<number | string>>(new Set());
+  const [outputExpandedTasks, setOutputExpandedTasks] = useState<Set<number>>(new Set());
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // 收集所有视频和图片路径用于获取缩略图
+  const { videoPaths, imagePaths } = useMemo(() => {
+    const videoExts = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'flv'];
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+    const videos: string[] = [];
+    const images: string[] = [];
+
+    tasks.forEach((task) => {
+      (task.files || []).forEach((file) => {
+        const ext = file.path.split('.').pop()?.toLowerCase() || '';
+        if (videoExts.includes(ext)) {
+          videos.push(file.path);
+        } else if (imageExts.includes(ext)) {
+          images.push(file.path);
+        }
+      });
+      (task.outputs || []).forEach((output) => {
+        const ext = output.path.split('.').pop()?.toLowerCase() || '';
+        if (videoExts.includes(ext)) {
+          videos.push(output.path);
+        } else if (imageExts.includes(ext)) {
+          images.push(output.path);
+        }
+      });
+    });
+
+    return { videoPaths: videos, imagePaths: images };
+  }, [tasks]);
+
+  // 获取缩略图
+  const { getMaterial: getVideoMaterial } = useVideoMaterials(videoPaths, !loading, {
+    thumbnailMaxSize: THUMBNAIL_SIZE,
+  });
+  const { getMaterial: getImageMaterial } = useImageMaterials(imagePaths, !loading, {
+    thumbnailMaxSize: THUMBNAIL_SIZE,
+  });
+
+  // 合并缩略图映射
+  const thumbnails = useMemo(() => {
+    const map = new Map<string, string>();
+    videoPaths.forEach((path) => {
+      const material = getVideoMaterial(path);
+      if (material?.thumbnailUrl) {
+        map.set(path, material.thumbnailUrl);
+      }
+    });
+    imagePaths.forEach((path) => {
+      const material = getImageMaterial(path);
+      if (material?.thumbnailUrl) {
+        map.set(path, material.thumbnailUrl);
+      }
+    });
+    return map;
+  }, [videoPaths, imagePaths, getVideoMaterial, getImageMaterial]);
 
   // 更新 URL 参数
   const updateSearchParams = useCallback((updates: Record<string, string | number | null>) => {
@@ -96,11 +166,6 @@ const TaskCenterListPage: React.FC = () => {
   const handleTypeFilterChange = useCallback((value: TaskType | 'all') => {
     updateSearchParams({ type: value === 'all' ? null : value, page: null });
   }, [updateSearchParams]);
-
-  const handleSearchSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    updateSearchParams({ search: searchInput || null, page: null });
-  }, [searchInput, updateSearchParams]);
 
   const handlePageChange = useCallback((page: number) => {
     updateSearchParams({ page: page === 1 ? null : page });
@@ -141,19 +206,15 @@ const TaskCenterListPage: React.FC = () => {
       // 收集所有需要检查的路径
       const pathsToCheck = new Set<string>();
       loadedTasks.forEach((task) => {
-        // 检查素材文件
         (task.files || []).forEach((file) => {
           if (file.path) pathsToCheck.add(file.path);
         });
-        // 检查输出文件
         (task.outputs || []).forEach((output) => {
           if (output.path) pathsToCheck.add(output.path);
         });
-        // 检查输出目录
         if (task.outputDir) pathsToCheck.add(task.outputDir);
       });
 
-      // 批量检查路径是否存在
       if (pathsToCheck.size > 0) {
         checkPaths(Array.from(pathsToCheck));
       }
@@ -168,7 +229,6 @@ const TaskCenterListPage: React.FC = () => {
     loadTasks();
   }, [statusFilter, typeFilter, searchQuery, currentPage]);
 
-  // 筛选变化时重置选择状态（不需要手动改 page，URL 参数已经处理了）
   useEffect(() => {
     setSelectedIds(new Set());
   }, [statusFilter, typeFilter, searchQuery]);
@@ -336,8 +396,20 @@ const TaskCenterListPage: React.FC = () => {
     }
   };
 
-  const toggleExpandTask = (taskId: number | string) => {
+  const toggleExpandTask = (taskId: number) => {
     setExpandedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+
+  const toggleOutputExpandTask = (taskId: number) => {
+    setOutputExpandedTasks((prev) => {
       const next = new Set(prev);
       if (next.has(taskId)) {
         next.delete(taskId);
@@ -366,7 +438,7 @@ const TaskCenterListPage: React.FC = () => {
 
   const runningCount = tasks.filter(t => t.status === 'running').length;
 
-  const canRetry = useCallback((status: TaskStatus) => status !== 'running', []);
+  const canRetry = useCallback((status: TaskStatus) => status === 'failed' || status === 'cancelled' || status === 'completed', []);
   const canCancel = useCallback((status: TaskStatus) => status === 'pending' || status === 'running', []);
   const canOpenOutput = useCallback((status: TaskStatus) => status === 'completed', []);
 
@@ -395,6 +467,315 @@ const TaskCenterListPage: React.FC = () => {
       type: getFileType(f.path),
     }));
   }, [previewFiles]);
+
+  // 准备表格数据
+  const tableData = useMemo(() => {
+    return tasks.map((task) => ({
+      ...task,
+      isSelected: selectedIds.has(task.id),
+    }));
+  }, [tasks, selectedIds]);
+
+  // 定义列
+  const columns = useMemo(() => [
+    columnHelper.display({
+      id: 'select',
+      header: () => (
+        <Checkbox.Root
+          checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
+          onCheckedChange={handleSelectAll}
+          className="w-4 h-4 bg-black border border-slate-600 rounded flex items-center justify-center hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 cursor-pointer data-[state=checked]:bg-violet-500 data-[state=checked]:border-violet-500 data-[state=indeterminate]:bg-violet-500/50 data-[state=indeterminate]:border-violet-500/50"
+        >
+          <Checkbox.Indicator>
+            {isAllSelected ? <Check className="w-3 h-3 text-white" /> : <div className="w-2 h-0.5 bg-white rounded" />}
+          </Checkbox.Indicator>
+        </Checkbox.Root>
+      ),
+      cell: ({ row }) => (
+        <Checkbox.Root
+          checked={row.original.isSelected}
+          onCheckedChange={(checked) => handleSelectTask(row.original.id, checked)}
+          className="w-4 h-4 bg-black border border-slate-600 rounded flex items-center justify-center hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 cursor-pointer data-[state=checked]:bg-violet-500 data-[state=checked]:border-violet-500"
+        >
+          <Checkbox.Indicator>
+            <Check className="w-3 h-3 text-white" />
+          </Checkbox.Indicator>
+        </Checkbox.Root>
+      ),
+    }),
+    columnHelper.accessor('id', {
+      header: 'ID',
+      cell: (info) => <span className="text-xs font-mono text-slate-400">#{info.getValue()}</span>,
+    }),
+    columnHelper.accessor('type', {
+      header: '类型',
+      cell: (info) => {
+        const label = info.getValue() ? TASK_TYPE_LABELS[info.getValue()!] : '未知类型';
+        return <span className="text-sm text-white font-medium whitespace-nowrap" title={label}>{label}</span>;
+      },
+    }),
+    columnHelper.accessor('status', {
+      header: '状态',
+      cell: (info) => <TaskStatusBadge status={info.getValue()} size="sm" />,
+    }),
+    columnHelper.display({
+      id: 'files',
+      header: '素材',
+      cell: ({ row }) => {
+        const task = row.original;
+        const files = task.files || [];
+        const isExpanded = expandedTasks.has(task.id);
+        const displayCount = isExpanded ? files.length : 4;
+
+        if (files.length === 0) {
+          return <span className="text-xs text-slate-600">无素材</span>;
+        }
+
+        return (
+          <div className="flex flex-wrap gap-1">
+            {files.slice(0, displayCount).map((file, index) => {
+              const fileExists = pathStatus.get(file.path);
+              const thumbnail = thumbnails.get(file.path);
+              const fileType = getFileType(file.path);
+              const Icon = fileExists === false ? FileX : getFileIcon(fileType);
+              const fileName = getFileName(file.path);
+              return (
+                <button
+                  key={`${file.category}-${file.index || index}`}
+                  onClick={() => fileExists !== false && handlePreviewFile(files, index)}
+                  className={`w-16 h-16 rounded border flex items-center justify-center transition-colors cursor-pointer overflow-hidden ${
+                    fileExists === false
+                      ? 'bg-rose-500/20 border-rose-500/30 text-rose-400'
+                      : thumbnail
+                        ? 'border-slate-700/50 hover:border-slate-600'
+                        : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-600 text-slate-400 hover:text-slate-200'
+                  }`}
+                  title={`${file.category_name || ''} ${fileName}${fileExists === false ? ' (文件不存在)' : ''}`}
+                >
+                  {thumbnail ? (
+                    <img src={thumbnail} alt={fileName} className="w-full h-full object-cover" />
+                  ) : (
+                    <Icon className="w-6 h-6" />
+                  )}
+                </button>
+              );
+            })}
+            {files.length > 4 && (
+              <button
+                onClick={() => toggleExpandTask(task.id)}
+                className="h-16 px-2 text-xs text-violet-400 hover:text-violet-300 bg-violet-500/10 border border-violet-500/20 rounded transition-colors cursor-pointer"
+              >
+                {isExpanded ? '收起' : `+${files.length - 4}`}
+              </button>
+            )}
+          </div>
+        );
+      },
+    }),
+    columnHelper.display({
+      id: 'outputs',
+      header: '输出',
+      cell: ({ row }) => {
+        const task = row.original;
+        const outputs = task.outputs || [];
+        const isExpanded = outputExpandedTasks.has(task.id);
+        const displayCount = isExpanded ? outputs.length : Math.min(outputs.length, 4);
+        const canOpen = canOpenOutput(task.status);
+
+        if (!canOpen || outputs.length === 0) {
+          return <span className="text-xs text-slate-600">-</span>;
+        }
+
+        return (
+          <div className="flex flex-wrap gap-1">
+            {outputs.slice(0, displayCount).map((output, index) => {
+              if (!output) return null;
+              const outputExists = pathStatus.get(output.path);
+              const thumbnail = thumbnails.get(output.path);
+              const fileType = output.type === 'other' ? 'video' : output.type;
+              const Icon = outputExists === false ? FileX : getFileIcon(fileType);
+              const fileName = getFileName(output.path);
+              return (
+                <button
+                  key={`output-${output.id || index}`}
+                  onClick={() => {
+                    if (outputExists !== false) {
+                      const outputFiles = outputs.map(o => ({
+                        path: o.path,
+                        category: 'output',
+                        category_name: '输出',
+                        index: 0,
+                      }));
+                      setPreviewFiles({ files: outputFiles, index });
+                    }
+                  }}
+                  className={`w-16 h-16 rounded border flex items-center justify-center transition-colors cursor-pointer overflow-hidden ${
+                    outputExists === false
+                      ? 'bg-rose-500/20 border-rose-500/30 text-rose-400'
+                      : thumbnail
+                        ? 'border-emerald-500/30 hover:border-emerald-500/50'
+                        : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/30'
+                  }`}
+                  title={`${fileName}${outputExists === false ? ' (文件不存在)' : ''}`}
+                >
+                  {thumbnail ? (
+                    <img src={thumbnail} alt={fileName} className="w-full h-full object-cover" />
+                  ) : (
+                    <Icon className="w-6 h-6" />
+                  )}
+                </button>
+              );
+            })}
+            {outputs.length > 4 && (
+              <button
+                onClick={() => toggleOutputExpandTask(task.id)}
+                className="h-16 px-2 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded transition-colors cursor-pointer"
+              >
+                {isExpanded ? '收起' : `+${outputs.length - 4}`}
+              </button>
+            )}
+          </div>
+        );
+      },
+    }),
+    columnHelper.display({
+      id: 'outputDir',
+      header: '输出目录',
+      cell: ({ row }) => {
+        const task = row.original;
+        const getOutputDirName = (path: string) => path.split(/[/\\]/).pop() || path;
+
+        if (task.outputDir) {
+          const dirExists = pathStatus.get(task.outputDir);
+          return (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => dirExists !== false && handleOpenOutputDir(task.outputDir!)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer flex-1 min-w-0 ${
+                  dirExists === false
+                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                    : 'bg-slate-800/50 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
+                }`}
+                title={dirExists === false ? `目录不存在: ${task.outputDir}` : task.outputDir}
+              >
+                {dirExists === false ? (
+                  <FileX className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+                )}
+                <span className="truncate">{getOutputDirName(task.outputDir!)}</span>
+              </button>
+              <button
+                onClick={() => handleUpdateOutputDir(task.id)}
+                className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded transition-colors cursor-pointer shrink-0"
+                title="修改输出目录"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <button
+            onClick={() => handleUpdateOutputDir(task.id)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border border-violet-500/20 transition-colors cursor-pointer"
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            设置目录
+          </button>
+        );
+      },
+    }),
+    columnHelper.accessor('createdAt', {
+      header: '创建时间 / 耗时',
+      cell: ({ row, getValue }) => {
+        const task = row.original;
+        return (
+          <div className="text-xs space-y-0.5 whitespace-nowrap">
+            <div className="text-slate-400">{formatTime(getValue() || 0)}</div>
+            {task.status === 'completed' && task.executionTime && (
+              <div className="text-violet-400 font-mono">{formatExecutionTime(task.executionTime)}</div>
+            )}
+          </div>
+        );
+      },
+    }),
+    columnHelper.display({
+      id: 'actions',
+      header: '操作',
+      cell: ({ row }) => {
+        const task = row.original;
+        const taskCanRetry = canRetry(task.status);
+        const taskCanCancel = canCancel(task.status);
+        const taskCanOpenOutput = canOpenOutput(task.status);
+
+        return (
+          <div className="flex items-center justify-end gap-1">
+            <Button variant="primary" size="sm" onClick={() => handleViewTaskDetail(task.id)}>
+              详情
+            </Button>
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded transition-colors cursor-pointer">
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content
+                  className="min-w-[140px] bg-slate-900 border border-slate-700 rounded-lg p-1 shadow-xl z-50"
+                  sideOffset={4}
+                  align="end"
+                >
+                  {taskCanRetry && (
+                    <DropdownMenu.Item
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 rounded cursor-pointer hover:bg-slate-800 focus:outline-none focus:bg-slate-800"
+                      onSelect={() => { retryTask(task.id); loadTasks(); }}
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      重新执行
+                    </DropdownMenu.Item>
+                  )}
+                  {taskCanCancel && (
+                    <DropdownMenu.Item
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 rounded cursor-pointer hover:bg-slate-800 focus:outline-none focus:bg-slate-800"
+                      onSelect={() => { cancelTask(task.id); loadTasks(); }}
+                    >
+                      <XCircle className="w-3.5 h-3.5" />
+                      取消任务
+                    </DropdownMenu.Item>
+                  )}
+                  {taskCanOpenOutput && (
+                    <DropdownMenu.Item
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 rounded cursor-pointer hover:bg-slate-800 focus:outline-none focus:bg-slate-800"
+                      onSelect={() => handleOpenOutputDir(task.outputDir || '')}
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      打开目录
+                    </DropdownMenu.Item>
+                  )}
+                  <DropdownMenu.Separator className="h-px bg-slate-700 my-1" />
+                  <DropdownMenu.Item
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-rose-400 rounded cursor-pointer hover:bg-rose-500/10 focus:outline-none focus:bg-rose-500/10"
+                    onSelect={() => { deleteTask(task.id); loadTasks(); }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    删除任务
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+          </div>
+        );
+      },
+    }),
+  ], [isAllSelected, isIndeterminate, selectedIds, expandedTasks, outputExpandedTasks, pathStatus, thumbnails, canRetry, canCancel, canOpenOutput]);
+
+  const table = useReactTable({
+    data: tableData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
 
   return (
     <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
@@ -540,7 +921,7 @@ const TaskCenterListPage: React.FC = () => {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-auto">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
@@ -552,67 +933,48 @@ const TaskCenterListPage: React.FC = () => {
             </div>
           ) : (
             <div className="p-4">
-              <div className="bg-black/30 border border-slate-800 rounded-xl overflow-hidden">
-                <div className="grid grid-cols-[40px_70px_140px_90px_1fr_1fr_120px_130px_100px] gap-2 px-4 py-3 bg-slate-900/50 border-b border-slate-800 text-xs text-slate-500 font-medium">
-                  <div className="flex items-center justify-center">
-                    <Checkbox.Root
-                      checked={isAllSelected ? true : isIndeterminate ? 'indeterminate' : false}
-                      onCheckedChange={handleSelectAll}
-                      className="w-4 h-4 bg-black border border-slate-600 rounded flex items-center justify-center hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 cursor-pointer data-[state=checked]:bg-violet-500 data-[state=checked]:border-violet-500 data-[state=indeterminate]:bg-violet-500/50 data-[state=indeterminate]:border-violet-500/50"
-                    >
-                      <Checkbox.Indicator>
-                        {isAllSelected ? <Check className="w-3 h-3 text-white" /> : <div className="w-2 h-0.5 bg-white rounded" />}
-                      </Checkbox.Indicator>
-                    </Checkbox.Root>
-                  </div>
-                  <div>ID</div>
-                  <div>类型</div>
-                  <div>状态</div>
-                  <div>素材</div>
-                  <div>输出</div>
-                  <div>输出目录</div>
-                  <div>创建时间 / 耗时</div>
-                  <div className="text-right">操作</div>
-                </div>
-
-                <div className="divide-y divide-slate-800/50">
-                  {tasks.map((task) => (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      isSelected={selectedIds.has(task.id)}
-                      isExpanded={expandedTasks.has(task.id)}
-                      isOutputExpanded={expandedTasks.has(`output-${task.id}`)}
-                      onSelect={(checked) => handleSelectTask(task.id, checked)}
-                      onToggleExpand={() => toggleExpandTask(task.id)}
-                      onToggleOutputExpand={() => toggleExpandTask(`output-${task.id}`)}
-                      onRetry={() => retryTask(task.id)}
-                      onCancel={() => cancelTask(task.id)}
-                      onDelete={() => deleteTask(task.id)}
-                      onOpenOutput={() => handleOpenOutputDir(task.outputDir || '')}
-                      onUpdateOutputDir={() => handleUpdateOutputDir(task.id)}
-                      onPreviewFile={(index) => handlePreviewFile(task.files || [], index)}
-                      onPreviewOutput={(index) => {
-                        const outputs = task.outputs || [];
-                        const outputFiles = outputs.map(o => ({
-                          path: o.path,
-                          category: 'output',
-                          category_name: '输出',
-                          index: 0,
-                        }));
-                        setPreviewFiles({ files: outputFiles, index });
-                      }}
-                      onViewDetail={() => handleViewTaskDetail(task.id)}
-                      canRetry={canRetry(task.status)}
-                      canCancel={canCancel(task.status)}
-                      canOpenOutput={canOpenOutput(task.status)}
-                      pathStatus={pathStatus}
-                      formatTime={formatTime}
-                      formatExecutionTime={formatExecutionTime}
-                      getFileName={getFileName}
-                    />
-                  ))}
-                </div>
+              <div className="bg-black/30 border border-slate-800 rounded-xl overflow-x-auto">
+                <table className="w-full border-collapse min-w-max">
+                  <thead>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <tr key={headerGroup.id} className="bg-slate-900/50 border-b border-slate-800 text-xs text-slate-500 font-medium">
+                        {headerGroup.headers.map((header, index, arr) => {
+                          const isLast = index === arr.length - 1;
+                          return (
+                            <th
+                              key={header.id}
+                              className={`px-3 py-3 text-left whitespace-nowrap ${isLast ? 'sticky right-0 bg-slate-900/95 backdrop-blur-sm z-10' : ''}`}
+                            >
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(header.column.columnDef.header, header.getContext())}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody>
+                    {table.getRowModel().rows.map((row) => (
+                      <tr
+                        key={row.id}
+                        className={`group border-b border-slate-800/50 hover:bg-slate-900/30 ${row.original.isSelected ? 'bg-violet-500/5 hover:bg-violet-500/5' : ''}`}
+                      >
+                        {row.getVisibleCells().map((cell, index, arr) => {
+                          const isLast = index === arr.length - 1;
+                          return (
+                            <td
+                              key={cell.id}
+                              className={`px-3 py-3 ${isLast ? 'sticky right-0 z-20 bg-slate-950 group-hover:bg-slate-900' : ''} ${isLast && row.original.isSelected ? '!bg-violet-500/5' : ''}`}
+                            >
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -688,351 +1050,6 @@ const TaskCenterListPage: React.FC = () => {
         onNext={previewFiles && previewFiles.index < previewFiles.files.length - 1 ? handlePreviewNext : undefined}
         themeColor="violet"
       />
-    </div>
-  );
-};
-
-interface TaskRowProps {
-  task: Task;
-  isSelected: boolean;
-  isExpanded: boolean;
-  isOutputExpanded: boolean;
-  onSelect: (checked: boolean | 'indeterminate') => void;
-  onToggleExpand: () => void;
-  onToggleOutputExpand: () => void;
-  onRetry: () => void;
-  onCancel: () => void;
-  onDelete: () => void;
-  onOpenOutput: () => void;
-  onUpdateOutputDir: () => void;
-  onPreviewFile: (index: number) => void;
-  onPreviewOutput: (index: number) => void;
-  onViewDetail?: () => void;
-  canRetry: boolean;
-  canCancel: boolean;
-  canOpenOutput: boolean;
-  pathStatus: Map<string, boolean>;
-  formatTime: (timestamp: number) => string;
-  formatExecutionTime: (ms: number | undefined) => string;
-  getFileName: (path: string) => string;
-}
-
-const TaskRow: React.FC<TaskRowProps> = ({
-  task,
-  isSelected,
-  isExpanded,
-  isOutputExpanded,
-  onSelect,
-  onToggleExpand,
-  onToggleOutputExpand,
-  onRetry,
-  onCancel,
-  onDelete,
-  onOpenOutput,
-  onUpdateOutputDir,
-  onPreviewFile,
-  onPreviewOutput,
-  onViewDetail,
-  canRetry,
-  canCancel,
-  canOpenOutput,
-  pathStatus,
-  formatTime,
-  formatExecutionTime,
-  getFileName,
-}) => {
-  const taskTypeLabel = task.type ? TASK_TYPE_LABELS[task.type] : '未知类型';
-  const files = task.files || [];
-  const outputs = task.outputs || [];
-  const displayCount = isExpanded ? files.length : 4;
-  const outputDisplayCount = isOutputExpanded ? outputs.length : Math.min(outputs.length, 4);
-
-  const getFileType = (path: string): 'video' | 'image' => {
-    const ext = path.split('.').pop()?.toLowerCase() || '';
-    const videoExts = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'flv'];
-    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
-    if (videoExts.includes(ext)) return 'video';
-    if (imageExts.includes(ext)) return 'image';
-    return 'video';
-  };
-
-  const getFileIcon = (type: 'video' | 'image') => {
-    return type === 'video' ? FileVideo : ImageIcon;
-  };
-
-  const getCategoryColor = (index: number) => {
-    const colors = [
-      'bg-violet-500/20 text-violet-300 border-violet-500/30 hover:bg-violet-500/30',
-      'bg-cyan-500/20 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/30',
-      'bg-amber-500/20 text-amber-300 border-amber-500/30 hover:bg-amber-500/30',
-      'bg-rose-500/20 text-rose-300 border-rose-500/30 hover:bg-rose-500/30',
-      'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30',
-      'bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30 hover:bg-fuchsia-500/30',
-      'bg-indigo-500/20 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/30',
-      'bg-pink-500/20 text-pink-300 border-pink-500/30 hover:bg-pink-500/30',
-    ];
-    return colors[index % colors.length];
-  };
-
-  const getOutputDirName = (path: string) => {
-    return path.split(/[/\\]/).pop() || path;
-  };
-
-  return (
-    <div className={`${isSelected ? 'bg-violet-500/5' : ''}`}>
-      <div className="grid grid-cols-[40px_70px_140px_90px_1fr_1fr_120px_130px_100px] gap-2 px-4 py-3 items-center hover:bg-slate-900/30 transition-colors">
-        <div className="flex items-center justify-center">
-          <Checkbox.Root
-            checked={isSelected}
-            onCheckedChange={onSelect}
-            className="w-4 h-4 bg-black border border-slate-600 rounded flex items-center justify-center hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50 cursor-pointer data-[state=checked]:bg-violet-500 data-[state=checked]:border-violet-500"
-          >
-            <Checkbox.Indicator>
-              <Check className="w-3 h-3 text-white" />
-            </Checkbox.Indicator>
-          </Checkbox.Root>
-        </div>
-
-        <div className="text-xs font-mono text-slate-400">#{task.id}</div>
-
-        <div className="text-sm text-white font-medium truncate" title={taskTypeLabel}>
-          {taskTypeLabel}
-        </div>
-
-        <div>
-          <TaskStatusBadge status={task.status} size="sm" />
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex flex-col gap-1.5">
-            {files.length === 0 ? (
-              <span className="text-xs text-slate-600">无素材</span>
-            ) : (
-              <>
-                {Array.from({ length: Math.ceil(displayCount / 2) }).map((_, rowIndex) => (
-                  <div key={rowIndex} className="flex gap-1.5">
-                    {[0, 1].map((col) => {
-                      const index = rowIndex * 2 + col;
-                      if (index >= displayCount) return null;
-                      const file = files[index];
-                      const fileExists = pathStatus.get(file.path);
-                      const fileType = getFileType(file.path);
-                      const Icon = fileExists === false ? FileX : getFileIcon(fileType);
-                      const fileName = getFileName(file.path);
-                      const label = `${file.category_name || ''} ${fileName}`;
-                      return (
-                        <button
-                          key={`${file.category}-${file.index || index}`}
-                          onClick={() => fileExists !== false && onPreviewFile(index)}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer max-w-[160px] ${
-                            fileExists === false 
-                              ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' 
-                              : getCategoryColor(index)
-                          }`}
-                          title={fileExists === false ? `文件不存在: ${file.path}` : file.path}
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-                {files.length > 4 && !isExpanded && (
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={onToggleExpand}
-                      className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs text-violet-400 hover:text-violet-300 bg-violet-500/10 border border-violet-500/20 rounded-lg transition-colors cursor-pointer"
-                    >
-                      +{files.length - 4} 展开
-                      <ChevronDown className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
-                {files.length > 4 && isExpanded && (
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={onToggleExpand}
-                      className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs text-violet-400 hover:text-violet-300 bg-violet-500/10 border border-violet-500/20 rounded-lg transition-colors cursor-pointer"
-                    >
-                      收起
-                      <ChevronUp className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="min-w-0">
-          {canOpenOutput && outputs.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              {Array.from({ length: Math.ceil(outputDisplayCount / 2) }).map((_, rowIndex) => (
-                <div key={rowIndex} className="flex gap-1.5">
-                  {[0, 1].map((col) => {
-                    const index = rowIndex * 2 + col;
-                    if (index >= outputDisplayCount) return null;
-                    const output = outputs[index];
-                    if (!output) return null;
-                    const outputExists = pathStatus.get(output.path);
-                    const fileType = output.type === 'other' ? 'video' : output.type;
-                    const Icon = outputExists === false ? FileX : getFileIcon(fileType);
-                    const fileName = getFileName(output.path);
-                    return (
-                      <button
-                        key={`output-${output.id || index}`}
-                        onClick={() => outputExists !== false && onPreviewOutput(index)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer max-w-[160px] ${
-                          outputExists === false 
-                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/30' 
-                            : getCategoryColor(index + 4)
-                        }`}
-                        title={outputExists === false ? `文件不存在: ${output.path}` : output.path}
-                      >
-                        <Icon className="w-3.5 h-3.5 shrink-0" />
-                        <span className="truncate">{fileName}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-              {outputs.length > 4 && !isOutputExpanded && (
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={onToggleOutputExpand}
-                    className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg transition-colors cursor-pointer"
-                  >
-                    +{outputs.length - 4} 展开
-                    <ChevronDown className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-              {outputs.length > 4 && isOutputExpanded && (
-                <div className="flex gap-1.5">
-                  <button
-                    onClick={onToggleOutputExpand}
-                    className="inline-flex items-center justify-center gap-1 px-2.5 py-1.5 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg transition-colors cursor-pointer"
-                  >
-                    收起
-                    <ChevronUp className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <span className="text-xs text-slate-600">-</span>
-          )}
-        </div>
-
-        <div className="min-w-0">
-          {task.outputDir ? (
-            <div className="flex items-center gap-1">
-              {(() => {
-                const dirExists = pathStatus.get(task.outputDir!);
-                return (
-                  <>
-                    <button
-                      onClick={() => dirExists !== false && onOpenOutput()}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer flex-1 min-w-0 ${
-                        dirExists === false 
-                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' 
-                          : 'bg-slate-800/50 text-slate-400 hover:text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
-                      }`}
-                      title={dirExists === false ? `目录不存在: ${task.outputDir}` : task.outputDir}
-                    >
-                      {dirExists === false ? (
-                        <FileX className="w-3.5 h-3.5 shrink-0" />
-                      ) : (
-                        <FolderOpen className="w-3.5 h-3.5 shrink-0" />
-                      )}
-                      <span className="truncate">{getOutputDirName(task.outputDir!)}</span>
-                    </button>
-                    <button
-                      onClick={onUpdateOutputDir}
-                      className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded transition-colors cursor-pointer shrink-0"
-                      title="修改输出目录"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  </>
-                );
-              })()}
-            </div>
-          ) : (
-            <button
-              onClick={onUpdateOutputDir}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-violet-400 hover:text-violet-300 hover:bg-violet-500/10 border border-violet-500/20 transition-colors cursor-pointer"
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              设置目录
-            </button>
-          )}
-        </div>
-
-        <div className="text-xs space-y-0.5">
-          <div className="text-slate-400">{formatTime(task.createdAt || 0)}</div>
-          {task.status === 'completed' && task.executionTime && (
-            <div className="text-violet-400 font-mono">{formatExecutionTime(task.executionTime)}</div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-end gap-1">
-          <Button variant="primary" size="sm" onClick={onViewDetail}>
-            详情
-          </Button>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded transition-colors cursor-pointer">
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
-                className="min-w-[140px] bg-slate-900 border border-slate-700 rounded-lg p-1 shadow-xl z-50"
-                sideOffset={4}
-                align="end"
-              >
-                {canRetry && (
-                  <DropdownMenu.Item
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 rounded cursor-pointer hover:bg-slate-800 focus:outline-none focus:bg-slate-800"
-                    onSelect={onRetry}
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    重新执行
-                  </DropdownMenu.Item>
-                )}
-                {canCancel && (
-                  <DropdownMenu.Item
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 rounded cursor-pointer hover:bg-slate-800 focus:outline-none focus:bg-slate-800"
-                    onSelect={onCancel}
-                  >
-                    <XCircle className="w-3.5 h-3.5" />
-                    取消任务
-                  </DropdownMenu.Item>
-                )}
-                {canOpenOutput && (
-                  <DropdownMenu.Item
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 rounded cursor-pointer hover:bg-slate-800 focus:outline-none focus:bg-slate-800"
-                    onSelect={onOpenOutput}
-                  >
-                    <FolderOpen className="w-3.5 h-3.5" />
-                    打开目录
-                  </DropdownMenu.Item>
-                )}
-                <DropdownMenu.Separator className="h-px bg-slate-700 my-1" />
-                <DropdownMenu.Item
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-rose-400 rounded cursor-pointer hover:bg-rose-500/10 focus:outline-none focus:bg-rose-500/10"
-                  onSelect={onDelete}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  删除任务
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-        </div>
-      </div>
     </div>
   );
 };
