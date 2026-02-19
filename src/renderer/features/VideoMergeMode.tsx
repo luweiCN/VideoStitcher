@@ -5,6 +5,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Settings,
@@ -26,12 +27,12 @@ import PageHeader from "../components/PageHeader";
 import OutputDirSelector from "../components/OutputDirSelector";
 import ConcurrencySelector from "../components/ConcurrencySelector";
 import OperationLogPanel from "../components/OperationLogPanel";
+import TaskAddedDialog from "../components/TaskAddedDialog";
 import { FileSelector, FileSelectorGroup, useFileSelectorGroup, type FileSelectorGroupRef } from "../components/FileSelector";
-import { Button } from "../components/Button/Button";
+import { Button } from "../components/Button";
 import TaskList, { type Task, type OutputConfig } from "../components/TaskList";
 import TaskCountSlider from "../components/TaskCountSlider";
 import VideoPlayer from "../components/VideoPlayer/VideoPlayer";
-import ConfirmDialog from "../components/ConfirmDialog";
 import { useOutputDirCache } from "../hooks/useOutputDirCache";
 import { useConcurrencyCache } from "../hooks/useConcurrencyCache";
 import { useOperationLogs } from "../hooks/useOperationLogs";
@@ -44,6 +45,7 @@ import {
 } from "../utils/positionCalculator";
 
 const VideoMergeMode: React.FC = () => {
+  const navigate = useNavigate();
   // 文件选择器组 ref，用于清空所有文件
   const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
   
@@ -975,19 +977,19 @@ return 'B';
             </Button>
           </div>
 
-          {/* 确认清空对话框 */}
-          <ConfirmDialog
+          {/* 任务添加成功弹窗 */}
+          <TaskAddedDialog
             open={showConfirmDialog}
-            title="任务已添加"
-            message="是否清空编辑区域？"
-            confirmText="清空"
-            cancelText="保留"
-            type="success"
-            onConfirm={() => {
+            taskCount={tasks.length}
+            onClear={() => {
               clearEditor();
               setShowConfirmDialog(false);
             }}
-            onCancel={() => setShowConfirmDialog(false)}
+            onKeep={() => setShowConfirmDialog(false)}
+            onTaskCenter={() => {
+              setShowConfirmDialog(false);
+              navigate('/taskCenter');
+            }}
           />
         </div>
       </main>
