@@ -37,11 +37,11 @@ import { useFileExistsCache } from '@renderer/hooks/useFileExistsCache';
 import { useTaskContext } from '@renderer/contexts/TaskContext';
 import useVideoMaterials, { type VideoMaterial } from '@renderer/hooks/useVideoMaterials';
 import useImageMaterials, { type ImageMaterial } from '@renderer/hooks/useImageMaterials';
+import { useOperationLogs } from '@renderer/hooks/useOperationLogs';
 import { formatDuration, formatFileSize } from '@renderer/utils/format';
 import { Button } from '@renderer/components/Button';
 import type { Task, TaskFile, TaskOutput, TaskLog } from '@shared/types/task';
 import { TASK_TYPE_LABELS } from '@shared/types/task';
-import type { LogEntry } from '@renderer/hooks/useOperationLogs';
 
 const TaskDetailPage: React.FC = () => {
   const navigate = useNavigate();
@@ -52,16 +52,35 @@ const TaskDetailPage: React.FC = () => {
   
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [previewFile, setPreviewFile] = useState<{ path: string; name: string; type: 'video' | 'image' } | null>(null);
   const [outputPreview, setOutputPreview] = useState<{ path: string; url: string } | null>(null);
   const [outputMeta, setOutputMeta] = useState<{ width: number; height: number; orientation: 'landscape' | 'portrait' | 'square' } | null>(null);
   const [generatingPreview, setGeneratingPreview] = useState(false);
   
-  const logsRef = useRef<LogEntry[]>([]);
   const ipcCleanupRef = useRef<(() => void)[]>([]);
 
   const { checkPaths, pathStatus } = useFileExistsCache();
+
+  // 使用日志 hook
+  const {
+    logs,
+    addLog,
+    clearLogs,
+    copyLogs,
+    downloadLogs,
+    logsContainerRef,
+    logsEndRef,
+    autoScrollEnabled,
+    setAutoScrollEnabled,
+    autoScrollPaused,
+    resumeAutoScroll,
+    scrollToBottom,
+    scrollToTop,
+    onUserInteractStart,
+  } = useOperationLogs({
+    moduleNameCN: `任务${taskId}`,
+    moduleNameEN: `Task${taskId}`,
+  });
 
   // 加载任务详情
   const loadTask = useCallback(async () => {
@@ -96,25 +115,16 @@ const TaskDetailPage: React.FC = () => {
   const loadLogs = useCallback(async () => {
     try {
       const taskLogs = await window.api.getTaskLogs(taskId);
-      const formattedLogs: LogEntry[] = (taskLogs || []).map((log: TaskLog) => ({
-        id: log.id || `${log.timestamp}-${Math.random()}`,
-        timestamp: new Date(log.timestamp).toLocaleTimeString('zh-CN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        }),
-        message: log.message,
-        type: log.level === 'error' ? 'error' : 
+      (taskLogs || []).forEach((log: TaskLog) => {
+        const logType = log.level === 'error' ? 'error' : 
               log.level === 'warning' ? 'warning' : 
-              log.level === 'success' ? 'success' : 'info',
-      }));
-      
-      logsRef.current = formattedLogs;
-      setLogs(formattedLogs);
+              log.level === 'success' ? 'success' : 'info';
+        addLog(log.message, logType, log.timestamp);
+      });
     } catch (err) {
       console.error('[TaskDetailPage] 加载日志失败:', err);
     }
-  }, [taskId]);
+  }, [taskId, addLog]);
 
   // 监听实时日志
   useEffect(() => {
@@ -122,21 +132,10 @@ const TaskDetailPage: React.FC = () => {
 
     const cleanup = window.api.onTaskLog((data: { taskId: number; log: TaskLog }) => {
       if (data.taskId === taskId) {
-        const newLog: LogEntry = {
-          id: data.log.id || `${Date.now()}-${Math.random()}`,
-          timestamp: new Date(data.log.timestamp).toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          }),
-          message: data.log.message,
-          type: data.log.level === 'error' ? 'error' : 
-                data.log.level === 'warning' ? 'warning' : 
-                data.log.level === 'success' ? 'success' : 'info',
-        };
-        
-        logsRef.current = [...logsRef.current, newLog];
-        setLogs(logsRef.current);
+        const logType = data.log.level === 'error' ? 'error' : 
+              data.log.level === 'warning' ? 'warning' : 
+              data.log.level === 'success' ? 'success' : 'info';
+        addLog(data.log.message, logType, data.log.timestamp);
       }
     });
 
@@ -145,7 +144,7 @@ const TaskDetailPage: React.FC = () => {
       cleanup();
       ipcCleanupRef.current = [];
     };
-  }, [task, taskId]);
+  }, [task, taskId, addLog]);
 
   // 监听任务状态变化
   useEffect(() => {
@@ -304,89 +303,6 @@ const TaskDetailPage: React.FC = () => {
     }
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
-
-  // 日志操作
-  const addLog = useCallback((message: string, type: LogEntry['type'] = 'info') => {
-    const newLog: LogEntry = {
-      id: `${Date.now()}-${Math.random()}`,
-      timestamp: new Date().toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }),
-      message,
-      type,
-    };
-    logsRef.current = [...logsRef.current, newLog];
-    setLogs(logsRef.current);
-  }, []);
-
-  const clearLogs = useCallback(() => {
-    logsRef.current = [];
-    setLogs([]);
-  }, []);
-
-  const copyLogs = useCallback(async (startIdx?: number, endIdx?: number) => {
-    try {
-      const start = startIdx ?? 0;
-      const end = endIdx ?? logs.length - 1;
-      const logsToCopy = logs.slice(Math.max(0, start), Math.min(logs.length, end + 1));
-      const text = logsToCopy.map(log => `[${log.timestamp}] ${log.message}`).join('\n');
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch (err) {
-      return false;
-    }
-  }, [logs]);
-
-  const downloadLogs = useCallback(() => {
-    try {
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
-      const fileName = `任务${taskId}_日志_${dateStr}_${timeStr}.txt`;
-      const text = logs.map(log => `[${log.timestamp}] ${log.message}`).join('\n');
-      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('下载日志失败:', err);
-    }
-  }, [logs, taskId]);
-
-  const logsContainerRef = useRef<HTMLDivElement | null>(null);
-  const logsEndRef = useRef<HTMLDivElement | null>(null);
-  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
-  const [autoScrollPaused, setAutoScrollPaused] = useState(false);
-
-  const scrollToBottom = useCallback(() => {
-    const container = logsContainerRef.current;
-    if (!container) return;
-    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-  }, []);
-
-  const scrollToTop = useCallback(() => {
-    const container = logsContainerRef.current;
-    if (!container) return;
-    container.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-
-  const resumeAutoScroll = useCallback(() => {
-    setAutoScrollPaused(false);
-    scrollToBottom();
-  }, [scrollToBottom]);
-
-  const onUserInteractStart = useCallback(() => {
-    if (autoScrollEnabled) {
-      setAutoScrollPaused(true);
-    }
-  }, [autoScrollEnabled]);
 
   // 打开输出目录
   const handleOpenOutputDir = async () => {
