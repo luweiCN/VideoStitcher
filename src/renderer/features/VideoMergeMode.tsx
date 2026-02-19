@@ -26,6 +26,7 @@ import PageHeader from "../components/PageHeader";
 import OutputDirSelector from "../components/OutputDirSelector";
 import OperationLogPanel from "../components/OperationLogPanel";
 import TaskAddedDialog from "../components/TaskAddedDialog";
+import TaskCountConfirmDialog from "../components/TaskCountConfirmDialog";
 import { FileSelector, FileSelectorGroup, useFileSelectorGroup, type FileSelectorGroupRef } from "../components/FileSelector";
 import { Button } from "../components/Button";
 import TaskList, { type Task, type OutputConfig } from "../components/TaskList";
@@ -159,6 +160,7 @@ const VideoMergeMode: React.FC = () => {
   const { batchCreateTasks } = useTaskContext();
   const [isAdding, setIsAdding] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showCountConfirmDialog, setShowCountConfirmDialog] = useState(false);
 
   const {
     logs,
@@ -546,23 +548,9 @@ const VideoMergeMode: React.FC = () => {
 return 'B';
   }, [covers.length, aVideos.length]);
 
-  // 添加任务到任务中心
-  const addToTaskCenter = async () => {
-    if (bVideos.length === 0) {
-      addLog("请先选择主视频", "warning");
-      return;
-    }
-    if (!outputDir) {
-      addLog("请先选择输出目录", "warning");
-      return;
-    }
-    if (tasks.length === 0) {
-      addLog("没有可处理的任务", "warning");
-      return;
-    }
-
+  // 添加任务到任务中心 - 核心逻辑
+  const doAddToTaskCenter = async () => {
     setIsAdding(true);
-    const modeText = orientation === "horizontal" ? "横屏合成" : "竖屏合成";
     addLog(`正在添加 ${tasks.length} 个任务到任务中心...`, "info");
 
     try {
@@ -594,6 +582,29 @@ return 'B';
       addLog(`添加任务失败: ${err.message || err}`, "error");
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  // 添加任务到任务中心 - 入口函数（含二次确认）
+  const addToTaskCenter = async () => {
+    if (bVideos.length === 0) {
+      addLog("请先选择主视频", "warning");
+      return;
+    }
+    if (!outputDir) {
+      addLog("请先选择输出目录", "warning");
+      return;
+    }
+    if (tasks.length === 0) {
+      addLog("没有可处理的任务", "warning");
+      return;
+    }
+
+    // 任务数量超过100时显示确认弹窗
+    if (tasks.length > 100) {
+      setShowCountConfirmDialog(true);
+    } else {
+      await doAddToTaskCenter();
     }
   };
 
@@ -965,6 +976,17 @@ return 'B';
               setShowConfirmDialog(false);
               navigate('/taskCenter');
             }}
+          />
+
+          {/* 任务数量确认弹窗 */}
+          <TaskCountConfirmDialog
+            open={showCountConfirmDialog}
+            taskCount={tasks.length}
+            onConfirm={() => {
+              setShowCountConfirmDialog(false);
+              doAddToTaskCenter();
+            }}
+            onCancel={() => setShowCountConfirmDialog(false)}
           />
         </div>
       </main>
