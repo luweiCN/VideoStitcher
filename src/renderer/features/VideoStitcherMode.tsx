@@ -1,33 +1,41 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Loader2, Settings, Link2,
-  Eye, Play, Monitor, Smartphone, XCircle
+  Loader2, Link2,
+  Eye, Plus, Monitor, Smartphone, XCircle
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import OutputDirSelector from '@/components/OutputDirSelector';
-import ConcurrencySelector from '@/components/ConcurrencySelector';
 import OperationLogPanel from '@/components/OperationLogPanel';
 import FilePreviewModal from '@/components/FilePreviewModal';
-import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '@/components/FileSelector';
+import TaskAddedDialog from '@/components/TaskAddedDialog';
+import TaskCountConfirmDialog from '@/components/TaskCountConfirmDialog';
+import { FileSelector, FileSelectorGroup, type FileSelectorRef, type FileSelectorGroupRef } from '@/components/FileSelector';
 import { Button } from '@/components/Button/Button';
 import TaskCountSlider, { type TaskSource } from '@/components/TaskCountSlider';
 import VideoPlayer from '@/components/VideoPlayer/VideoPlayer';
 import TaskList, { type Task, type OutputConfig } from '@/components/TaskList';
 import { useOutputDirCache } from '@/hooks/useOutputDirCache';
-import { useConcurrencyCache } from '@/hooks/useConcurrencyCache';
 import { useOperationLogs } from '@/hooks/useOperationLogs';
-import { useVideoProcessingEvents } from '@/hooks/useVideoProcessingEvents';
+import { useTaskContext } from '@/contexts/TaskContext';
 import useVideoMaterials, { type VideoMaterial } from '@/hooks/useVideoMaterials';
 import useStitchPreview from '@/hooks/useStitchPreview';
 
 type Orientation = 'landscape' | 'portrait';
 
 const VideoStitcherMode: React.FC = () => {
+  const navigate = useNavigate();
+  const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
+
   // 配置状态
   const { outputDir, setOutputDir } = useOutputDirCache('VideoStitcherMode');
-  const { concurrency, setConcurrency } = useConcurrencyCache('VideoStitcherMode');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
+  const [orientation, setOrientation] = useState<Orientation>('landscape');
+
+  // 任务中心相关
+  const { batchCreateTasks } = useTaskContext();
+  const [isAdding, setIsAdding] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showCountConfirmDialog, setShowCountConfirmDialog] = useState(false);
 
   // 任务列表状态
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -46,7 +54,7 @@ const VideoStitcherMode: React.FC = () => {
   });
   const isLoadingMaterials = isLoadingA || isLoadingB;
 
-  // 稳定的路径字符串，用于依赖检查（避免数组引用变化导致无限循环）
+  // 稳定的路径字符串，用于依赖检查
   const aPathsKey = useMemo(() => aFiles.join(','), [aFiles]);
   const bPathsKey = useMemo(() => bFiles.join(','), [bFiles]);
 
@@ -59,17 +67,11 @@ const VideoStitcherMode: React.FC = () => {
     return aFiles.length * bFiles.length;
   }, [aFiles.length, bFiles.length]);
 
-  // 任务数量源配置（用于 TaskCountSlider）
+  // 任务数量源配置
   const taskSources: TaskSource[] = useMemo(() => [
     { name: 'A', count: aFiles.length, color: 'violet', required: true },
     { name: 'B', count: bFiles.length, color: 'indigo', required: true },
   ], [aFiles.length, bFiles.length]);
-
-  // FileSelector ref
-  const fileSelectorRef = useRef<FileSelectorRef>(null);
-
-  // 横竖屏配置
-  const [orientation, setOrientation] = useState<Orientation>('landscape');
 
   // 画布配置
   const canvasConfig = useMemo(() => {
@@ -78,7 +80,7 @@ const VideoStitcherMode: React.FC = () => {
       : { width: 1080, height: 1920, label: '1080×1920', aspectRatio: '9/16' };
   }, [orientation]);
 
-  // 输出配置（用于 TaskList）
+  // 输出配置
   const outputConfig = useMemo((): OutputConfig => ({
     fps: '30fps',
     resolution: canvasConfig.label.replace('×', 'x'),
@@ -110,8 +112,6 @@ const VideoStitcherMode: React.FC = () => {
 
   // 当前选中的任务
   const currentTask = tasks[currentIndex];
-
-  // A 面文件在 files[0]，B 面文件在 files[1]
   const currentAFile = currentTask?.files[0];
   const currentBFile = currentTask?.files[1];
 
@@ -127,7 +127,7 @@ const VideoStitcherMode: React.FC = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewType, setPreviewType] = useState<'a' | 'b'>('a');
 
-  // 使用 hook 管理预览视频（只截取 A 最后 5 秒 + B 前 5 秒）
+  // 预览视频
   const previewConfig = currentAMaterial && currentBMaterial ? {
     aPath: currentAMaterial.path,
     bPath: currentBMaterial.path,
@@ -150,21 +150,6 @@ const VideoStitcherMode: React.FC = () => {
     onLog: (message, type) => addLog(message, type),
   });
 
-  // 加载全局默认配置
-  useEffect(() => {
-    const loadGlobalSettings = async () => {
-      try {
-        const result = await window.api.getGlobalSettings();
-        if (result?.defaultConcurrency) {
-          setConcurrency(result.defaultConcurrency);
-        }
-      } catch (err) {
-        console.error('加载全局配置失败:', err);
-      }
-    };
-    loadGlobalSettings();
-  }, [setConcurrency]);
-
   /**
    * 生成任务列表（通过 IPC 调用主进程）
    */
@@ -182,10 +167,8 @@ const VideoStitcherMode: React.FC = () => {
     setIsGeneratingTasks(true);
     addLog(`正在生成 ${count} 个任务...`, 'info');
 
-    // 使用 setTimeout 让 UI 有机会更新
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    // 调用主进程生成任务
     const aPaths = aMatList.map(m => m.path);
     const bPaths = bMatList.map(m => m.path);
 
@@ -194,12 +177,10 @@ const VideoStitcherMode: React.FC = () => {
       bPaths,
       count,
       outputDir,
-      concurrency,
       orientation,
     });
 
     if (result.success && result.tasks) {
-      // 再次使用 setTimeout 让 UI 有机会更新
       await new Promise(resolve => setTimeout(resolve, 0));
       setTasks(result.tasks as Task[]);
       setCurrentIndex(0);
@@ -211,7 +192,35 @@ const VideoStitcherMode: React.FC = () => {
     }
 
     setIsGeneratingTasks(false);
-  }, [orientation, outputDir, concurrency, addLog]);
+  }, [orientation, outputDir, addLog]);
+
+  /**
+   * 重新生成任务（不重置索引）
+   */
+  const regenerateTasksWithoutIndexReset = useCallback(async () => {
+    if (aMaterials.length === 0 || bMaterials.length === 0) {
+      return;
+    }
+
+    setIsGeneratingTasks(true);
+
+    const result = await window.api.generateStitchTasks({
+      aPaths: aMaterials.map(m => m.path),
+      bPaths: bMaterials.map(m => m.path),
+      count: taskCount,
+      outputDir,
+      orientation,
+    });
+
+    if (result.success && result.tasks) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      setTasks(result.tasks as Task[]);
+    } else {
+      setTasks([]);
+    }
+
+    setIsGeneratingTasks(false);
+  }, [aMaterials, bMaterials, taskCount, outputDir, orientation]);
 
   /**
    * A 面文件变化处理
@@ -221,10 +230,10 @@ const VideoStitcherMode: React.FC = () => {
     if (files.length > 0) {
       addLog(`已选择 ${files.length} 个 A 面视频`, 'info');
     }
-    // 文件变化时重置 taskCount 为最大值（最大不超过 100）
+    // 文件变化时重置 taskCount 为最大值
     const newMax = files.length * bFiles.length;
     if (newMax > 0) {
-      setTaskCount(Math.min(newMax, 100));
+      setTaskCount(newMax);
     }
   }, [addLog, bFiles.length]);
 
@@ -236,10 +245,10 @@ const VideoStitcherMode: React.FC = () => {
     if (files.length > 0) {
       addLog(`已选择 ${files.length} 个 B 面视频`, 'info');
     }
-    // 文件变化时重置 taskCount 为最大值（最大不超过 100）
+    // 文件变化时重置 taskCount 为最大值
     const newMax = aFiles.length * files.length;
     if (newMax > 0) {
-      setTaskCount(Math.min(newMax, 100));
+      setTaskCount(newMax);
     }
   }, [addLog, aFiles.length]);
 
@@ -250,9 +259,8 @@ const VideoStitcherMode: React.FC = () => {
     setTaskCount(count);
   }, []);
 
-  // 当素材数据或 taskCount 变化时，重新生成任务
+  // 当素材数据变化时，重新生成任务
   useEffect(() => {
-    // 只有当素材已加载完成时才生成任务
     if (aMaterials.length > 0 && bMaterials.length > 0 && taskCount > 0 && !isLoadingMaterials) {
       generateTasks(aMaterials, bMaterials, taskCount);
     } else if (aMaterials.length === 0 || bMaterials.length === 0) {
@@ -261,43 +269,14 @@ const VideoStitcherMode: React.FC = () => {
     }
   }, [aPathsKey, bPathsKey, aMaterials.length, bMaterials.length, taskCount, isLoadingMaterials, generateTasks]);
 
-  // 监听 A+B 前后拼接任务事件
-  useVideoProcessingEvents({
-    onStart: (data) => {
-      setProgress({ done: 0, failed: 0, total: data.total });
-      addLog(`开始处理 ${data.total} 个合成任务...`, 'info');
-      setTasks(prev => prev.map(t => ({ ...t, status: 'waiting' as const })));
-    },
-    onTaskStart: (data) => {
-      addLog(`开始处理第 ${data.index + 1} 个任务`, 'info');
-      setTasks(prev => prev.map((t, idx) =>
-        idx === data.index ? { ...t, status: 'processing' as const } : t
-      ));
-    },
-    onLog: (data) => {
-      addLog(data.message, 'info');
-    },
-    onProgress: (data) => {
-      setProgress({ done: data.done, failed: data.failed, total: data.total });
-      setTasks(prev => prev.map((t, idx) =>
-        idx === data.index ? { ...t, status: 'completed' as const } : t
-      ));
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
-    },
-    onFailed: (data) => {
-      setTasks(prev => prev.map((t, idx) =>
-        idx === data.index ? { ...t, status: 'error' as const, error: data.error } : t
-      ));
-      addLog(`❌ 任务 ${data.index + 1} 失败: ${data.error}`, 'error');
-    },
-    onFinish: (data) => {
-      const timeInfo = data.elapsed ? ` (耗时 ${data.elapsed}秒)` : '';
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}${timeInfo}`, 'success');
-      setIsProcessing(false);
-    },
-  });
+  // 当方向变化时，重新生成任务（不重置索引）
+  useEffect(() => {
+    if (tasks.length > 0) {
+      regenerateTasksWithoutIndexReset();
+    }
+  }, [orientation]);
 
-  // 当组合变化时，确保选中的索引有效
+  // 确保选中的索引有效
   useEffect(() => {
     if (tasks.length > 0 && currentIndex >= tasks.length) {
       setCurrentIndex(0);
@@ -305,50 +284,76 @@ const VideoStitcherMode: React.FC = () => {
   }, [tasks, currentIndex]);
 
   /**
+   * 核心添加逻辑
+   */
+  const doAddToTaskCenter = async () => {
+    setIsAdding(true);
+    addLog(`正在添加 ${tasks.length} 个任务到任务中心...`, "info");
+
+    try {
+      const tasksWithType = tasks.map((task) => ({
+        ...task,
+        type: 'video_stitch' as const,
+        config: {
+          ...task.config,
+          orientation,
+        },
+      }));
+
+      const result = await batchCreateTasks(tasksWithType);
+
+      if (result.successCount > 0) {
+        addLog(`成功添加 ${result.successCount} 个任务到任务中心`, "success");
+        setShowConfirmDialog(true);
+      }
+      if (result.failCount > 0) {
+        addLog(`${result.failCount} 个任务添加失败`, "warning");
+      }
+    } catch (err: any) {
+      addLog(`添加任务失败: ${err.message || err}`, "error");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  /**
+   * 添加任务到任务中心（入口函数）
+   */
+  const addToTaskCenter = async () => {
+    if (tasks.length === 0) {
+      addLog("请先选择视频", "warning");
+      return;
+    }
+    if (!outputDir) {
+      addLog("请先选择输出目录", "warning");
+      return;
+    }
+
+    if (tasks.length > 100) {
+      setShowCountConfirmDialog(true);
+    } else {
+      await doAddToTaskCenter();
+    }
+  };
+
+  /**
+   * 清空编辑区域
+   */
+  const clearEditor = () => {
+    fileSelectorGroupRef.current?.clearAll();
+    setAFiles([]);
+    setBFiles([]);
+    setTasks([]);
+    setCurrentIndex(0);
+    addLog("已清空编辑区域", "info");
+  };
+
+  /**
    * 关闭预览弹窗
    */
   const handleClosePreview = useCallback(() => {
     setShowPreview(false);
   }, []);
-
-  /**
-   * 开始合成
-   */
-  const startMerge = async () => {
-    if (tasks.length === 0) {
-      addLog('⚠️ 请先选择视频', 'warning');
-      return;
-    }
-    if (!outputDir) {
-      const dir = await window.api.pickOutDir();
-      if (dir) {
-        setOutputDir(dir);
-      } else {
-        return;
-      }
-    }
-    if (isProcessing) return;
-
-    setIsProcessing(true);
-    // 不再自动清空日志，保留历史记录
-
-    addLog(`开始 A+B 前后拼接处理...`, 'info');
-    addLog(`视频: ${tasks.length} 个`, 'info');
-    addLog(`方向: ${orientation === 'landscape' ? '横屏' : '竖屏'}`, 'info');
-
-    try {
-      await window.api.videoStitchAB(tasks.map(t => ({
-        files: t.files,
-        config: { orientation },
-        outputDir,
-        concurrency: concurrency === 0 ? undefined : concurrency
-      })));
-    } catch (err: any) {
-      console.error('合成失败:', err);
-      setIsProcessing(false);
-      addLog(`❌ 合成失败: ${err.message || err}`, 'error');
-    }
-  };
 
   // 预览弹窗使用的文件信息
   const previewFile = previewType === 'a' ? currentAMaterial : currentBMaterial;
@@ -415,15 +420,14 @@ const VideoStitcherMode: React.FC = () => {
               onChange={handleTaskCountChange}
               sources={taskSources}
               themeColor="rose"
-              disabled={isProcessing}
+              disabled={isAdding}
             />
 
             {/* 文件选择器组 */}
-            <FileSelectorGroup>
+            <FileSelectorGroup ref={fileSelectorGroupRef}>
               <div className="space-y-4">
                 {/* A 面视频选择器 */}
                 <FileSelector
-                  ref={fileSelectorRef}
                   id="videoStitcherA"
                   name="A 面视频（前段）"
                   accept="video"
@@ -433,7 +437,7 @@ const VideoStitcherMode: React.FC = () => {
                   themeColor="rose"
                   directoryCache
                   onChange={handleAFilesChange}
-                  disabled={isProcessing}
+                  disabled={isAdding}
                 />
 
                 {/* B 面视频选择器 */}
@@ -447,7 +451,7 @@ const VideoStitcherMode: React.FC = () => {
                   themeColor="rose"
                   directoryCache
                   onChange={handleBFilesChange}
-                  disabled={isProcessing}
+                  disabled={isAdding}
                 />
               </div>
             </FileSelectorGroup>
@@ -456,7 +460,7 @@ const VideoStitcherMode: React.FC = () => {
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-black">
-          {/* 任务列表区域 - 使用通用 TaskList 组件 */}
+          {/* 任务列表区域 */}
           {isGeneratingTasks ? (
             <div className="h-[164px] flex items-center justify-center border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-3">
@@ -469,13 +473,11 @@ const VideoStitcherMode: React.FC = () => {
               tasks={tasks}
               currentIndex={currentIndex}
               output={outputConfig}
-              type="video_ab_stitch"
+              type="video_stitch"
               thumbnail_source="A"
               materialsType={['video', 'video']}
               themeColor="rose"
               onTaskChange={setCurrentIndex}
-              isProcessing={isProcessing}
-              onLog={(message, type) => addLog(message, type)}
             />
           )}
 
@@ -541,50 +543,16 @@ const VideoStitcherMode: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Sidebar - Settings + Logs + Start Button */}
+        {/* Right Sidebar - Logs + Button */}
         <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-            {/* Settings */}
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-4">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Settings className="w-3.5 h-3.5" />
-                设置
-              </h3>
-
-              <OutputDirSelector
-                value={outputDir}
-                onChange={setOutputDir}
-                disabled={isProcessing}
-                themeColor="rose"
-              />
-
-              <ConcurrencySelector
-                value={concurrency}
-                onChange={setConcurrency}
-                disabled={isProcessing}
-                themeColor="rose"
-              />
-            </div>
-
-            {/* Progress Display */}
-            {progress.total > 0 && (
-              <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">处理进度</h3>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">已完成</span>
-                  <span className="text-pink-400 font-bold">{progress.done}/{progress.total}</span>
-                </div>
-                <div className="w-full bg-slate-800 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-violet-500 to-pink-500 h-2 rounded-full transition-all"
-                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                  />
-                </div>
-                {progress.failed > 0 && (
-                  <div className="text-xs text-rose-400">失败: {progress.failed}</div>
-                )}
-              </div>
-            )}
+            {/* 输出目录 */}
+            <OutputDirSelector
+              value={outputDir}
+              onChange={setOutputDir}
+              disabled={isAdding}
+              themeColor="rose"
+            />
 
             {/* Logs */}
             <div className="flex-1 min-h-[300px]">
@@ -607,17 +575,17 @@ const VideoStitcherMode: React.FC = () => {
               />
             </div>
 
-            {/* Start Button */}
+            {/* Add to Task Center Button */}
             <Button
-              onClick={startMerge}
-              disabled={isProcessing || tasks.length === 0}
+              onClick={addToTaskCenter}
+              disabled={tasks.length === 0 || isAdding || !outputDir}
               variant="primary"
               size="md"
               fullWidth
-              loading={isProcessing}
-              leftIcon={!isProcessing && <Play className="w-4 h-4" />}
+              loading={isAdding}
+              leftIcon={!isAdding && <Plus className="w-4 h-4" />}
             >
-              {isProcessing ? '处理中...' : '开始合成'}
+              {isAdding ? "添加中..." : "添加到任务中心"}
             </Button>
           </div>
         </div>
@@ -640,6 +608,32 @@ const VideoStitcherMode: React.FC = () => {
           themeColor={previewType === 'a' ? 'violet' : 'fuchsia'}
         />
       )}
+
+      {/* 任务添加成功弹窗 */}
+      <TaskAddedDialog
+        open={showConfirmDialog}
+        taskCount={tasks.length}
+        onClear={() => {
+          clearEditor();
+          setShowConfirmDialog(false);
+        }}
+        onKeep={() => setShowConfirmDialog(false)}
+        onTaskCenter={() => {
+          setShowConfirmDialog(false);
+          navigate('/taskCenter');
+        }}
+      />
+
+      {/* 任务数量确认弹窗 */}
+      <TaskCountConfirmDialog
+        open={showCountConfirmDialog}
+        taskCount={tasks.length}
+        onConfirm={() => {
+          setShowCountConfirmDialog(false);
+          doAddToTaskCenter();
+        }}
+        onCancel={() => setShowCountConfirmDialog(false)}
+      />
     </div>
   );
 };

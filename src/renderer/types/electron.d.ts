@@ -387,18 +387,10 @@ export interface ElectronAPI {
     bPaths: string[];
     count: number;
     outputDir: string;
-    concurrency: number;
     orientation: "landscape" | "portrait";
   }) => Promise<{
     success: boolean;
-    tasks: Array<{
-      id: number;
-      status: string;
-      files: Array<{ path: string; index: number; category: string; category_name: string }>;
-      config: { orientation: string };
-      outputDir: string;
-      concurrency: number;
-    }>;
+    tasks: Task[];
   }>;
   generateMergeTasks: (config: {
     bVideos: string[];

@@ -15,6 +15,9 @@
 - [ ] `window.api.videoResize()` / `window.api.videoMerge()` 等直接处理调用
 - [ ] `Play` 图标 import（改为 `Plus`）
 - [ ] `ConcurrencySelector` 组件（并发数在任务中心设置）
+- [ ] `Settings` 图标 import（如果只用于设置容器标题）
+- [ ] 设置容器 UI（如果只有输出目录一项，直接显示输出目录组件）
+- [ ] 任务数量 100 限制（移除 `Math.min(newMax, 100)`）
 
 ### 需要添加的内容
 - [ ] `import { useTaskContext } from "../contexts/TaskContext"`
@@ -469,10 +472,10 @@ const clearEditor = () => {
 ### 已迁移的模块
 - [x] VideoMergeMode.tsx - 横竖屏极速合成 ✅ 2024-02
 - [x] ResizeMode.tsx - 智能改尺寸 ✅ 2024-02
+- [x] VideoStitcherMode.tsx - A+B拼接 ✅ 2024-02
 
 ### 需要迁移的模块
-- [ ] VideoStitcherMode.tsx - A+B拼接 ⬅️ 下一个
-- [ ] ImageMaterialMode.tsx - 图片素材处理
+- [ ] ImageMaterialMode.tsx - 图片素材处理 ⬅️ 下一个
 - [ ] CoverFormatMode.tsx - 封面格式转换
 - [ ] CoverCompressMode.tsx - 封面压缩
 - [ ] LosslessGridMode.tsx - 无损九宫格
@@ -480,7 +483,7 @@ const clearEditor = () => {
 ### 需要实现的执行器
 - [x] `executeSingleMergeTask` - 极速合成执行器 ✅
 - [x] `executeResizeTask` - 智能改尺寸执行器 ✅
-- [ ] `executeStitchTask` - A+B拼接执行器
+- [x] `executeStitchTask` - A+B拼接执行器 ✅
 - [ ] `executeImageTask` - 图片任务执行器
 
 ## 六、注意事项
@@ -632,6 +635,8 @@ const clearEditor = () => {
 
 **6. 前端模块** (`src/renderer/features/ResizeMode.tsx`)
 - 移除：`useVideoProcessingEvents`、`isProcessing`、`progress`、`ConcurrencySelector`
+- 移除：设置容器（只保留输出目录组件）
+- 移除：`Settings` 图标 import（模糊程度标签不再需要图标）
 - 添加：`isAdding`、`videos` 状态，`generateTasks` IPC 调用
 - 添加 `pendingBlurAmount` 状态，滑块松开后才触发任务生成
 - 添加 `TaskAddedDialog`、`TaskCountConfirmDialog` 组件
@@ -656,3 +661,39 @@ const clearEditor = () => {
 7. 滑块拖动中不应触发任务生成，需要使用临时状态 `pendingBlurAmount`，在 `onValueCommit` 时才更新真正的值
 8. 智能改尺寸串行执行多个 FFmpeg，每个都需回调 PID
 9. `boxblur` 对全分辨率模糊非常耗时，优化为缩小→模糊→放大
+
+---
+
+### VideoStitcherMode（A+B前后拼接）- 2024-02
+
+**改造内容：**
+
+**1. 任务执行器** (`src/main/ipc/video.ts`)
+- 添加 `executeStitchTask` 函数，供 TaskQueueManager 调用
+- 使用 `generateFileName` 防止文件名重复
+- 使用 `SafeOutput` 原子性输出，防止覆盖
+- 支持横屏/竖屏方向设置
+
+**2. 任务队列管理器** (`src/main/services/TaskQueueManager.ts`)
+- 导入 `executeStitchTask`
+- 在 switch 语句中添加 `video_stitch` 类型处理
+- 添加 `executeStitchTaskMethod` 方法
+
+**3. 类型声明更新** (`src/preload/index.ts`, `src/renderer/types/electron.d.ts`)
+- 更新 `generateStitchTasks` 类型声明，移除 `concurrency` 参数
+- 使用共享 `Task[]` 类型作为返回值
+
+**4. 前端模块** (`src/renderer/features/VideoStitcherMode.tsx`)
+- 移除：`useVideoProcessingEvents`、`isProcessing`、`progress`、`ConcurrencySelector`
+- 移除：进度显示 UI
+- 移除：设置容器（只保留输出目录组件）
+- 移除：`Settings` 图标 import
+- 移除：任务数量 100 限制
+- 添加：`isAdding` 状态，`addToTaskCenter`、`doAddToTaskCenter`、`clearEditor` 函数
+- 添加 `TaskAddedDialog`、`TaskCountConfirmDialog` 组件
+- 方向变化时重新生成任务（不重置索引）
+
+**遇到的问题：**
+1. `generateStitchTasks` 的 `concurrency` 参数不再需要，需要从接口中移除
+2. 任务生成已通过 IPC 实现，改造时只需调整前端调用
+3. 设置容器只有输出目录一项，直接显示输出目录组件更简洁

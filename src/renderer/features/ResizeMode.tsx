@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom';
 import * as Slider from '@radix-ui/react-slider';
 import {
-  Settings, Loader2, Eye, Maximize2, Plus
+  Loader2, Eye, Maximize2, Plus
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import OutputDirSelector from '@/components/OutputDirSelector';
@@ -325,8 +325,7 @@ const ResizeMode: React.FC = () => {
             {/* Blur Amount */}
             <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Settings className="w-3 h-3" />
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   模糊程度
                 </label>
                 <span className="px-3 py-1.5 rounded-lg font-mono font-bold text-lg bg-gradient-to-r from-rose-500 to-red-500 bg-clip-text text-transparent">
@@ -433,22 +432,16 @@ const ResizeMode: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Sidebar - Settings + Logs + Button */}
+        {/* Right Sidebar - Logs + Button */}
         <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-            {/* Settings */}
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-4">
-              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                <Settings className="w-3.5 h-3.5" />
-                设置
-              </h3>
-              <OutputDirSelector
-                value={outputDir}
-                onChange={setOutputDir}
-                disabled={isAdding}
-                themeColor="rose"
-              />
-            </div>
+            {/* 输出目录 */}
+            <OutputDirSelector
+              value={outputDir}
+              onChange={setOutputDir}
+              disabled={isAdding}
+              themeColor="rose"
+            />
 
             {/* Logs */}
             <div className="flex-1 min-h-[300px]">

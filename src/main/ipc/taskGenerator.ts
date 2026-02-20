@@ -15,7 +15,7 @@ interface StitchTaskParams {
   bPaths: string[];
   count: number;
   outputDir: string;
-  concurrency: number;
+  concurrency?: number;
   orientation: string;
 }
 

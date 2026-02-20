@@ -451,6 +451,77 @@ export async function executeResizeTask(
 }
 
 /**
+ * 执行单个 A+B 前后拼接任务
+ * 供 TaskQueueManager 调用
+ */
+export async function executeStitchTask(
+  task: {
+    id: number;
+    files: TaskFile[];
+    config?: {
+      orientation?: string;
+    };
+    outputDir: string;
+    threads?: number;
+  },
+  onLog?: (message: string) => void,
+  onPid?: (pid: number) => void
+): Promise<{ success: boolean; outputPath?: string; error?: string; pid?: number }> {
+  const { config, outputDir, files, threads } = task;
+  const orientation = config?.orientation || 'landscape';
+
+  if (!outputDir) {
+    return { success: false, error: '未设置输出目录' };
+  }
+
+  const aFile = files?.find(f => f.category === 'A');
+  const bFile = files?.find(f => f.category === 'B');
+
+  if (!aFile || !bFile) {
+    return { success: false, error: '缺少A面或B面视频' };
+  }
+
+  const aPath = aFile.path;
+  const bPath = bFile.path;
+
+  const aName = path.parse(aPath).name;
+  const bName = path.parse(bPath).name;
+  const rawBaseName = `${aName}__${bName}`;
+
+  const safeBaseName = generateFileName(outputDir, rawBaseName, { extension: '.mp4', reserveSuffixSpace: 5 });
+  const safeOutput = new SafeOutput(outputDir, 'stitch');
+  const tempPath = safeOutput.getTempOutputPath(safeBaseName, 0);
+
+  try {
+    const args = buildStitchCommand({
+      aPath,
+      bPath,
+      outPath: tempPath,
+      orientation: orientation as 'landscape' | 'portrait',
+      threads,
+    });
+
+    const result = await runFfmpeg(args, (log: string) => {
+      onLog?.(log);
+    }, (pid: number) => {
+      onPid?.(pid);
+    });
+
+    const commitResult = safeOutput.commitSync(tempPath);
+    safeOutput.cleanup(0);
+
+    if (!commitResult.success) {
+      return { success: false, error: commitResult.error || '移动文件失败', pid: result.pid };
+    }
+
+    return { success: true, outputPath: commitResult.finalPath, pid: result.pid };
+  } catch (err) {
+    safeOutput.cleanup(0);
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+/**
  * 智能改尺寸处理
  */
 export async function handleVideoMerge(event: IpcMainInvokeEvent, tasks: Task[]): Promise<{ done: number; failed: number; total: number; elapsed: string }> {
