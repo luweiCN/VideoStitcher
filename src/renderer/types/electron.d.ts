@@ -413,6 +413,18 @@ export interface ElectronAPI {
     success: boolean;
     tasks: Task[];
   }>;
+  generateImageMaterialTasks: (config: {
+    images: string[];
+    logoPath?: string;
+    previewSizeMode: string;
+    logoPosition: { x: number; y: number };
+    logoScale: number;
+    exportOptions: { single: boolean; grid: boolean };
+    outputDir: string;
+  }) => Promise<{
+    success: boolean;
+    tasks: Task[];
+  }>;
 
   // === 任务中心 API ===
   createTask: (request: {

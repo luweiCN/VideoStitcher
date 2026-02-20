@@ -36,6 +36,16 @@ interface ResizeTaskParams {
   outputDir: string;
 }
 
+interface ImageMaterialTaskParams {
+  images: string[];
+  logoPath?: string;
+  previewSizeMode: string;
+  logoPosition: { x: number; y: number };
+  logoScale: number;
+  exportOptions: { single: boolean; grid: boolean };
+  outputDir: string;
+}
+
 interface TaskFile {
   path: string;
   index: number;
@@ -372,6 +382,51 @@ function generateResizeTasks(_event: Electron.IpcMainInvokeEvent, params: Resize
 }
 
 /**
+ * 生成图片素材处理任务
+ */
+function generateImageMaterialTasks(_event: Electron.IpcMainInvokeEvent, params: ImageMaterialTaskParams): { success: boolean; tasks: Task[] } {
+  const { images, logoPath, previewSizeMode, logoPosition, logoScale, exportOptions, outputDir } = params;
+
+  if (!images?.length) {
+    return { success: true, tasks: [] };
+  }
+
+  const tasks: Task[] = images.map((path, index) => {
+    const files: TaskFile[] = [{
+      path,
+      index: index + 1,
+      category: 'image',
+      category_name: '图片',
+    }];
+
+    // 如果有 Logo，添加到 files
+    if (logoPath) {
+      files.push({
+        path: logoPath,
+        index: 1,
+        category: 'logo',
+        category_name: 'Logo',
+      });
+    }
+
+    return {
+      id: generateTempId(),
+      status: 'pending',
+      files,
+      config: {
+        previewSizeMode,
+        logoPosition,
+        logoScale,
+        exportOptions,
+      },
+      outputDir,
+    };
+  });
+
+  return { success: true, tasks };
+}
+
+/**
  * 注册任务生成器 IPC 处理器
  */
 export function registerTaskGeneratorHandlers(): void {
@@ -386,10 +441,15 @@ export function registerTaskGeneratorHandlers(): void {
   // 生成智能改尺寸任务
   ipcMain.handle("task:generate-resize", generateResizeTasks);
   console.log("[主进程] 任务生成器已注册: task:generate-resize");
+
+  // 生成图片素材处理任务
+  ipcMain.handle("task:generate-image-material", generateImageMaterialTasks);
+  console.log("[主进程] 任务生成器已注册: task:generate-image-material");
 }
 
 export {
   generateStitchTasks,
   generateMergeTasks,
   generateResizeTasks,
+  generateImageMaterialTasks,
 };

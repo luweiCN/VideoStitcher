@@ -362,6 +362,18 @@ export interface ElectronAPI {
     success: boolean;
     tasks: Task[];
   }>;
+  generateImageMaterialTasks: (config: {
+    images: string[];
+    logoPath?: string;
+    previewSizeMode: string;
+    logoPosition: { x: number; y: number };
+    logoScale: number;
+    exportOptions: { single: boolean; grid: boolean };
+    outputDir: string;
+  }) => Promise<{
+    success: boolean;
+    tasks: Task[];
+  }>;
 
   // === 任务中心 API ===
   createTask: (request: {
@@ -568,6 +580,7 @@ const api: ElectronAPI = {
   generateStitchTasks: (config) => ipcRenderer.invoke("task:generate-stitch", config),
   generateMergeTasks: (config) => ipcRenderer.invoke("task:generate-merge", config),
   generateResizeTasks: (config) => ipcRenderer.invoke("task:generate-resize", config),
+  generateImageMaterialTasks: (config) => ipcRenderer.invoke("task:generate-image-material", config),
 
   // 任务中心 API
   createTask: (request) => ipcRenderer.invoke("task:create", request),

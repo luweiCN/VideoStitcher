@@ -646,7 +646,8 @@ const TaskDetailPage: React.FC = () => {
             </div>
           </section>
 
-          {/* 3. 产物预览 */}
+          {/* 3. 产物预览 - 图片素材任务不显示 */}
+          {task.type !== 'image_material' && (
           <section className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between">
               <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
@@ -755,6 +756,7 @@ const TaskDetailPage: React.FC = () => {
               </div>
             </div>
           </section>
+          )}
 
           {/* 4. 日志区域 */}
           <section className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">

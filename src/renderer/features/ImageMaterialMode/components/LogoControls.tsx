@@ -6,12 +6,14 @@ interface LogoControlsProps {
   logoImage: HTMLImageElement | null;
   logoScale: number;
   onScaleChange: (value: number) => void;
+  onScaleCommit?: (value: number) => void;
 }
 
 const LogoControls: React.FC<LogoControlsProps> = ({
   logoImage,
   logoScale,
   onScaleChange,
+  onScaleCommit,
 }) => {
   if (!logoImage) return null;
 
@@ -29,6 +31,7 @@ const LogoControls: React.FC<LogoControlsProps> = ({
         className="relative flex items-center select-none touch-none h-4"
         value={[logoScale]}
         onValueChange={([value]) => onScaleChange(value)}
+        onValueCommit={([value]) => onScaleCommit?.(value)}
         min={0.1}
         max={3}
         step={0.1}

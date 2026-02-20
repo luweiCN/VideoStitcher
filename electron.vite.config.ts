@@ -16,6 +16,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/main/index.ts'),
+          imageWorker: resolve(__dirname, 'src/main/workers/imageWorker.ts'),
         },
         external: ['ffmpeg-static', '@ffprobe-installer/ffprobe'],
       },

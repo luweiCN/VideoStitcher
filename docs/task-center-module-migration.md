@@ -473,9 +473,9 @@ const clearEditor = () => {
 - [x] VideoMergeMode.tsx - 横竖屏极速合成 ✅ 2024-02
 - [x] ResizeMode.tsx - 智能改尺寸 ✅ 2024-02
 - [x] VideoStitcherMode.tsx - A+B拼接 ✅ 2024-02
+- [x] ImageMaterialMode.tsx - 图片素材处理 ✅ 2024-02
 
 ### 需要迁移的模块
-- [ ] ImageMaterialMode.tsx - 图片素材处理 ⬅️ 下一个
 - [ ] CoverFormatMode.tsx - 封面格式转换
 - [ ] CoverCompressMode.tsx - 封面压缩
 - [ ] LosslessGridMode.tsx - 无损九宫格
@@ -484,7 +484,7 @@ const clearEditor = () => {
 - [x] `executeSingleMergeTask` - 极速合成执行器 ✅
 - [x] `executeResizeTask` - 智能改尺寸执行器 ✅
 - [x] `executeStitchTask` - A+B拼接执行器 ✅
-- [ ] `executeImageTask` - 图片任务执行器
+- [x] `executeImageMaterialTask` - 图片素材处理执行器 ✅
 
 ## 六、注意事项
 
@@ -697,3 +697,90 @@ const clearEditor = () => {
 1. `generateStitchTasks` 的 `concurrency` 参数不再需要，需要从接口中移除
 2. 任务生成已通过 IPC 实现，改造时只需调整前端调用
 3. 设置容器只有输出目录一项，直接显示输出目录组件更简洁
+
+---
+
+### ImageMaterialMode（图片素材处理）- 2024-02
+
+**改造内容：**
+
+**1. 主进程任务生成器** (`src/main/ipc/taskGenerator.ts`)
+- 添加 `ImageMaterialTaskParams` 接口
+- 添加 `generateImageMaterialTasks` 函数，在主进程生成任务
+- 注册 `task:generate-image-material` IPC 处理器
+- 任务包含 `previewSizeMode`、`logoPosition`、`logoScale`、`exportOptions` 等配置
+
+**2. 图片处理子进程** (`src/main/workers/imageWorker.ts`) - **新增**
+- 创建独立的图片处理子进程脚本
+- 通过 `fork` 启动，获取独立 PID 用于监控
+- 通过环境变量 `SHARP_THREADS` 传递线程数配置
+- 通过 `process.on('message')` 与父进程通信
+- 支持日志回传和结果回传
+
+**3. 任务执行器** (`src/main/ipc/image.ts`)
+- 添加 `executeImageMaterialTask` 函数，供 TaskQueueManager 调用
+- 使用 `fork` 启动 `imageWorker.js` 子进程
+- 通过 `onPid` 回调报告 PID，用于 CPU/内存监控
+- 支持超时保护（5分钟）
+- 子进程异常退出时自动清理
+
+**4. 构建配置** (`electron.vite.config.ts`)
+- 添加 `imageWorker` 入口，编译子进程脚本
+
+**5. 任务队列管理器** (`src/main/services/TaskQueueManager.ts`)
+- 在 switch 语句中添加 `image_material` 类型处理
+- 添加 `executeImageMaterialTaskMethod` 方法
+- 传递 `threads` 参数给执行器
+
+**6. Preload API 和类型声明** (`src/preload/index.ts`, `src/renderer/types/electron.d.ts`)
+- 添加 `generateImageMaterialTasks` API
+- 使用共享 `Task[]` 类型作为返回值
+
+**7. 前端模块** (`src/renderer/features/ImageMaterialMode.tsx`)
+- 移除：`useImageProcessingEvents`、`isProcessing`、`progress`、`ConcurrencySelector`
+- 添加：`pendingLogoPosition`、`pendingLogoScale` 临时状态
+- Logo 拖动/缩放时实时更新预览，松开鼠标才触发任务生成
+- 添加 `TaskAddedDialog`、`TaskCountConfirmDialog` 组件
+
+**8. 任务列表预览优化** (`src/renderer/components/TaskCenter/`)
+- `image_material` 任务不显示缩略图预览（避免多输出文件的复杂性）
+- 任务详情页隐藏"产物预览"区块
+
+**遇到的问题及解决方案：**
+
+1. **子进程路径错误**
+   - 问题：`Cannot find module '/out/main/imageWorker.js'`
+   - 原因：`__dirname` 已经是 `out/main/`，不需要再向上查找
+   - 解决：改为 `path.join(__dirname, 'imageWorker.js')`
+
+2. **图片任务无 PID 无法监控负载**
+   - 问题：Sharp 在主进程执行，无独立 PID
+   - 解决：使用 `fork` 创建子进程，获取独立 PID
+   - 优点：可以监控 CPU/内存、可以通过 kill 取消任务
+
+3. **线程数未传递给 Sharp**
+   - 问题：任务中心的线程设置未生效
+   - 解决：通过环境变量 `SHARP_THREADS` 传递，子进程启动时调用 `sharp.concurrency(threads)`
+
+4. **Logo 拖动频繁触发任务生成**
+   - 问题：每次拖动都重新生成任务，影响性能
+   - 解决：使用 `pendingLogoPosition`/`pendingLogoScale` 临时状态
+   - 拖动时只更新临时状态（实时预览）
+   - 松开鼠标时才更新正式状态（触发任务生成）
+
+5. **多输出文件预览复杂**
+   - 问题：图片素材任务输出多个文件（单图 + 9 张九宫格）
+   - 解决：直接隐藏预览，简化 UI
+   - 任务列表不显示缩略图
+   - 任务详情页隐藏"产物预览"区块
+
+**视频任务 vs 图片任务差异：**
+
+| 特性 | 视频任务 (FFmpeg) | 图片任务 (Sharp) |
+|------|-------------------|------------------|
+| 进程类型 | `spawn` 外部进程 | `fork` Node 子进程 |
+| PID | ✅ 自动获取 | ✅ fork 返回 |
+| 进度日志 | ✅ 实时输出 | ❌ 单次操作完成 |
+| 取消方式 | `kill(pid)` | `worker.kill()` |
+| 处理时间 | 秒~分钟 | 毫秒~秒 |
+| 线程设置 | FFmpeg `-threads` | `sharp.concurrency()` |

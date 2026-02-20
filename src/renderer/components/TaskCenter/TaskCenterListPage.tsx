@@ -526,6 +526,8 @@ const TaskCenterListPage: React.FC = () => {
         const files = task.files || [];
         const isExpanded = expandedTasks.has(task.id);
         const displayCount = isExpanded ? files.length : 4;
+        // 图片素材任务不显示缩略图
+        const hideThumbnail = task.type === 'image_material';
 
         if (files.length === 0) {
           return <span className="text-xs text-slate-600">无素材</span>;
@@ -535,7 +537,7 @@ const TaskCenterListPage: React.FC = () => {
           <div className="flex flex-wrap gap-1">
             {files.slice(0, displayCount).map((file, index) => {
               const fileExists = pathStatus.get(file.path);
-              const thumbnail = thumbnails.get(file.path);
+              const thumbnail = hideThumbnail ? undefined : thumbnails.get(file.path);
               const fileType = getFileType(file.path);
               const Icon = fileExists === false ? FileX : getFileIcon(fileType);
               const fileName = getFileName(file.path);
@@ -581,6 +583,8 @@ const TaskCenterListPage: React.FC = () => {
         const isExpanded = outputExpandedTasks.has(task.id);
         const displayCount = isExpanded ? outputs.length : Math.min(outputs.length, 4);
         const canOpen = canOpenOutput(task.status);
+        // 图片素材任务不显示缩略图
+        const hideThumbnail = task.type === 'image_material';
 
         if (!canOpen || outputs.length === 0) {
           return <span className="text-xs text-slate-600">-</span>;
@@ -591,7 +595,7 @@ const TaskCenterListPage: React.FC = () => {
             {outputs.slice(0, displayCount).map((output, index) => {
               if (!output) return null;
               const outputExists = pathStatus.get(output.path);
-              const thumbnail = thumbnails.get(output.path);
+              const thumbnail = hideThumbnail ? undefined : thumbnails.get(output.path);
               const fileType = output.type === 'other' ? 'video' : output.type;
               const Icon = outputExists === false ? FileX : getFileIcon(fileType);
               const fileName = getFileName(output.path);

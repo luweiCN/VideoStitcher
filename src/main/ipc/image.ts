@@ -3,7 +3,8 @@
  * 使用 Sharp 处理图片相关功能
  */
 
-import { ipcMain, IpcMainInvokeEvent } from 'electron';
+import { ipcMain, IpcMainInvokeEvent, app } from 'electron';
+import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -12,8 +13,18 @@ import {
   compressImage,
   convertCoverFormat,
   createGridImage,
-  processImageMaterial
+  processImageMaterial,
 } from '@shared/sharp';
+import { generateFileName } from '@shared/utils/fileNameHelper';
+import { SafeOutput } from '@shared/utils/safeOutput';
+
+// TaskFile 接口（与任务中心一致）
+interface TaskFile {
+  path: string;
+  index?: number;
+  category: string;
+  category_name: string;
+}
 
 interface ImageCompressConfig {
   images: string[];
@@ -764,3 +775,147 @@ export {
   handleGetPreviewUrl,
   handleGetPreviewThumbnail,
 };
+
+/**
+ * 获取图片处理子进程脚本路径
+ */
+function getImageWorkerPath(): string {
+  // 开发环境: 使用 electron-vite 编译后的路径
+  // 生产环境: 使用 app.asar 中的路径
+  const isDev = !app.isPackaged;
+  
+  if (isDev) {
+    // 开发环境: __dirname = out/main/，imageWorker.js 就在同一目录
+    return path.join(__dirname, 'imageWorker.js');
+  } else {
+    // 生产环境: app.asar/out/main/imageWorker.js
+    return path.join(process.resourcesPath, 'app.asar', 'out', 'main', 'imageWorker.js');
+  }
+}
+
+/**
+ * 执行单个图片素材处理任务（使用子进程）
+ * 供 TaskQueueManager 调用
+ */
+export async function executeImageMaterialTask(
+  task: {
+    id: number;
+    files: TaskFile[];
+    config?: {
+      previewSizeMode?: string;
+      logoPosition?: { x: number; y: number };
+      logoScale?: number;
+      exportOptions?: { single?: boolean; grid?: boolean };
+    };
+    outputDir: string;
+    threads?: number;
+  },
+  onLog?: (message: string) => void,
+  onPid?: (pid: number) => void
+): Promise<{ success: boolean; outputs?: { path: string; type: 'image' }[]; error?: string }> {
+  const { config, outputDir, files, threads } = task;
+  const previewSizeMode = (config?.previewSizeMode || 'cover') as 'cover' | 'contain' | 'square';
+  const logoPosition = config?.logoPosition || null;
+  const logoScale = config?.logoScale || 1;
+  const exportOptions = { single: true, grid: true, ...config?.exportOptions };
+
+  if (!outputDir) {
+    return { success: false, error: '未设置输出目录' };
+  }
+
+  const imageFile = files?.find(f => f.category === 'image');
+  const logoFile = files?.find(f => f.category === 'logo');
+
+  if (!imageFile) {
+    return { success: false, error: '缺少图片文件' };
+  }
+
+  const imagePath = imageFile.path;
+  const logoPath = logoFile?.path || null;
+
+  return new Promise((resolve, reject) => {
+    const workerPath = getImageWorkerPath();
+    
+    // 启动子进程
+    const worker: ChildProcess = fork(workerPath, [], {
+      silent: false,
+      env: { 
+        ...process.env, 
+        NODE_OPTIONS: '--max-old-space-size=4096',
+        SHARP_THREADS: threads ? String(threads) : undefined,
+      },
+    });
+
+    // 报告 PID
+    if (worker.pid && onPid) {
+      onPid(worker.pid);
+    }
+
+    let resolved = false;
+
+    // 监听子进程消息
+    worker.on('message', (message: any) => {
+      if (message.type === 'ready') {
+        // 子进程准备好，发送任务
+        worker.send({
+          taskId: task.id,
+          imagePath,
+          logoPath,
+          outputDir,
+          previewSize: previewSizeMode,
+          logoPosition,
+          logoScale,
+          exportOptions,
+        });
+      } else if (message.type === 'log') {
+        // 日志消息
+        onLog?.(message.message);
+      } else if (message.type === 'result') {
+        // 结果消息
+        resolved = true;
+        worker.kill();
+        
+        if (message.result.success) {
+          resolve({
+            success: true,
+            outputs: message.result.outputs || [],
+          });
+        } else {
+          resolve({
+            success: false,
+            error: message.result.error || '处理失败',
+          });
+        }
+      }
+    });
+
+    // 监听错误
+    worker.on('error', (err) => {
+      if (!resolved) {
+        resolved = true;
+        resolve({ success: false, error: `子进程错误: ${err.message}` });
+      }
+    });
+
+    // 监听退出
+    worker.on('exit', (code) => {
+      if (!resolved) {
+        resolved = true;
+        if (code === 0) {
+          resolve({ success: false, error: '子进程异常退出' });
+        } else {
+          resolve({ success: false, error: `子进程退出，代码: ${code}` });
+        }
+      }
+    });
+
+    // 超时保护（5分钟）
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        worker.kill();
+        resolve({ success: false, error: '处理超时' });
+      }
+    }, 5 * 60 * 1000);
+  });
+}
