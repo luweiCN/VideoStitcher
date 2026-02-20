@@ -477,8 +477,8 @@ const clearEditor = () => {
 - [x] CoverFormatMode.tsx - 封面格式转换 ✅ 2024-02
 - [x] LosslessGridMode.tsx - 无损九宫格 ✅ 2024-02
 
-### 需要迁移的模块
-- [ ] CoverCompressMode.tsx - 封面压缩
+### 不迁移的模块
+- [ ] CoverCompressMode.tsx - 封面压缩（保持原有直接执行模式）
 
 ### 需要实现的执行器
 - [x] `executeSingleMergeTask` - 极速合成执行器 ✅

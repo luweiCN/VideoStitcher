@@ -12,49 +12,12 @@ export interface ElectronAPI {
   ) => Promise<string[]>;
   pickOutDir: (defaultPath?: string) => Promise<string>;
 
-  // 视频处理 API
-  videoStitchAB: (tasks: {
-    files: { path: string; category: string }[];
-    config?: { orientation: "landscape" | "portrait" };
-    outputDir: string;
-    concurrency?: number;
-  }[]) => Promise<{ done: number; failed: number; total: number; elapsed?: string }>;
-  videoResize: (config: {
-    videos: Array<{ path: string; id: string }>;
-    mode: "siya" | "fishing" | "unify_h" | "unify_v";
-    blurAmount?: number;
-    outputDir: string;
-    concurrency?: number;
-  }) => Promise<{ done: number; failed: number; total: number }>;
-
   // 图片处理 API
   getCpuCount: () => Promise<{ success: boolean; cpuCount?: number; error?: string }>;
   imageCompress: (config: {
     images: string[];
     targetSizeKB?: number;
     outputDir: string;
-    concurrency?: number;
-  }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
-  imageCoverFormat: (config: {
-    images: string[];
-    quality?: number;
-    outputDir: string;
-    concurrency?: number;
-  }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
-  imageGrid: (config: { images: string[]; outputDir: string; concurrency?: number }) => Promise<{
-    done: number;
-    failed: number;
-    total: number;
-    results: any[];
-  }>;
-  imageMaterial: (config: {
-    images: string[];
-    logoPath?: string;
-    outputDir: string;
-    previewSize?: "inside" | "cover" | "fill" | "pad";
-    logoPosition?: { x: number; y: number };
-    logoScale?: number;
-    exportOptions?: { single: boolean; grid: boolean };
     concurrency?: number;
   }) => Promise<{ done: number; failed: number; total: number; results: any[] }>;
   previewImageMaterial: (config: {

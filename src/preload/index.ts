@@ -13,23 +13,6 @@ export interface ElectronAPI {
   ) => Promise<string[]>;
   pickOutDir: (defaultPath?: string) => Promise<string>;
 
-  // === 视频处理 API ===
-  videoStitchAB: (tasks: {
-    files: { path: string; category: string }[];
-    config?: {
-      orientation: "landscape" | "portrait";
-    };
-    outputDir: string;
-    concurrency?: number;
-  }[]) => Promise<{ done: number; failed: number; total: number; elapsed?: string }>;
-  videoResize: (config: {
-    videos: string[];
-    mode: "siya" | "fishing" | "unify_h" | "unify_v";
-    blurAmount?: number;
-    outputDir: string;
-    concurrency?: number;
-  }) => Promise<{ done: number; failed: number; total: number }>;
-
   // === 图片处理 API ===
   getCpuCount: () => Promise<{
     success: boolean;
@@ -40,37 +23,6 @@ export interface ElectronAPI {
     images: string[];
     targetSizeKB?: number;
     outputDir: string;
-    concurrency?: number;
-  }) => Promise<{
-    done: number;
-    failed: number;
-    total: number;
-    results: any[];
-  }>;
-  imageCoverFormat: (config: {
-    images: string[];
-    quality?: number;
-    outputDir: string;
-  }) => Promise<{
-    done: number;
-    failed: number;
-    total: number;
-    results: any[];
-  }>;
-  imageGrid: (config: { images: string[]; outputDir: string; concurrency?: number }) => Promise<{
-    done: number;
-    failed: number;
-    total: number;
-    results: any[];
-  }>;
-  imageMaterial: (config: {
-    images: string[];
-    logoPath?: string;
-    outputDir: string;
-    previewSize?: "inside" | "cover" | "fill" | "pad";
-    logoPosition?: { x: number; y: number };
-    logoScale?: number;
-    exportOptions?: { single: boolean; grid: boolean };
     concurrency?: number;
   }) => Promise<{
     done: number;
@@ -475,16 +427,9 @@ const api: ElectronAPI = {
   pickFiles: (title, filters) => ipcRenderer.invoke("pick-files", { title, filters }),
   pickOutDir: (defaultPath) => ipcRenderer.invoke("pick-outdir", { defaultPath }),
 
-  // 视频处理 API
-  videoStitchAB: (config) => ipcRenderer.invoke("video-stitch-ab", config),
-  videoResize: (config) => ipcRenderer.invoke("video-resize", config),
-
   // 图片处理 API
   getCpuCount: () => ipcRenderer.invoke("get-cpu-count"),
   imageCompress: (config) => ipcRenderer.invoke("image-compress", config),
-  imageCoverFormat: (config) => ipcRenderer.invoke("image-cover-format", config),
-  imageGrid: (config) => ipcRenderer.invoke("image-grid", config),
-  imageMaterial: (config) => ipcRenderer.invoke("image-material", config),
   previewImageMaterial: (config) => ipcRenderer.invoke("preview-image-material", config),
 
   // 预览功能 API
