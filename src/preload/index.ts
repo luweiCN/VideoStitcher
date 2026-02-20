@@ -374,6 +374,14 @@ export interface ElectronAPI {
     success: boolean;
     tasks: Task[];
   }>;
+  generateCoverFormatTasks: (config: {
+    images: string[];
+    quality: number;
+    outputDir: string;
+  }) => Promise<{
+    success: boolean;
+    tasks: Task[];
+  }>;
 
   // === 任务中心 API ===
   createTask: (request: {
@@ -581,6 +589,7 @@ const api: ElectronAPI = {
   generateMergeTasks: (config) => ipcRenderer.invoke("task:generate-merge", config),
   generateResizeTasks: (config) => ipcRenderer.invoke("task:generate-resize", config),
   generateImageMaterialTasks: (config) => ipcRenderer.invoke("task:generate-image-material", config),
+  generateCoverFormatTasks: (config) => ipcRenderer.invoke("task:generate-cover-format", config),
 
   // 任务中心 API
   createTask: (request) => ipcRenderer.invoke("task:create", request),

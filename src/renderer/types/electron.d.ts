@@ -425,6 +425,14 @@ export interface ElectronAPI {
     success: boolean;
     tasks: Task[];
   }>;
+  generateCoverFormatTasks: (config: {
+    images: string[];
+    quality: number;
+    outputDir: string;
+  }) => Promise<{
+    success: boolean;
+    tasks: Task[];
+  }>;
 
   // === 任务中心 API ===
   createTask: (request: {

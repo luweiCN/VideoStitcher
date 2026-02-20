@@ -919,3 +919,109 @@ export async function executeImageMaterialTask(
     }, 5 * 60 * 1000);
   });
 }
+
+/**
+ * 执行单个封面格式转换任务（使用子进程）
+ * 供 TaskQueueManager 调用
+ */
+export async function executeCoverFormatTask(
+  task: {
+    id: number;
+    files: TaskFile[];
+    config?: {
+      quality?: number;
+    };
+    outputDir: string;
+    threads?: number;
+  },
+  onLog?: (message: string) => void,
+  onPid?: (pid: number) => void
+): Promise<{ success: boolean; outputs?: { path: string; type: 'image' }[]; error?: string }> {
+  const { config, outputDir, files, threads } = task;
+  const quality = config?.quality ?? 90;
+
+  if (!outputDir) {
+    return { success: false, error: '未设置输出目录' };
+  }
+
+  const imageFile = files?.find(f => f.category === 'image');
+  if (!imageFile) {
+    return { success: false, error: '缺少图片文件' };
+  }
+
+  const imagePath = imageFile.path;
+
+  return new Promise((resolve, reject) => {
+    const workerPath = getImageWorkerPath();
+    
+    const worker: ChildProcess = fork(workerPath, [], {
+      silent: false,
+      env: { 
+        ...process.env, 
+        NODE_OPTIONS: '--max-old-space-size=4096',
+        SHARP_THREADS: threads ? String(threads) : undefined,
+      },
+    });
+
+    if (worker.pid && onPid) {
+      onPid(worker.pid);
+    }
+
+    let resolved = false;
+
+    worker.on('message', (message: any) => {
+      if (message.type === 'ready') {
+        worker.send({
+          taskType: 'cover_format',
+          taskId: task.id,
+          imagePath,
+          outputDir,
+          quality,
+        });
+      } else if (message.type === 'log') {
+        onLog?.(message.message);
+      } else if (message.type === 'result') {
+        resolved = true;
+        worker.kill();
+        
+        if (message.result.success) {
+          resolve({
+            success: true,
+            outputs: message.result.outputs || [],
+          });
+        } else {
+          resolve({
+            success: false,
+            error: message.result.error || '处理失败',
+          });
+        }
+      }
+    });
+
+    worker.on('error', (err) => {
+      if (!resolved) {
+        resolved = true;
+        resolve({ success: false, error: `子进程错误: ${err.message}` });
+      }
+    });
+
+    worker.on('exit', (code) => {
+      if (!resolved) {
+        resolved = true;
+        if (code === 0) {
+          resolve({ success: false, error: '子进程异常退出' });
+        } else {
+          resolve({ success: false, error: `子进程退出，代码: ${code}` });
+        }
+      }
+    });
+
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        worker.kill();
+        resolve({ success: false, error: '处理超时' });
+      }
+    }, 5 * 60 * 1000);
+  });
+}

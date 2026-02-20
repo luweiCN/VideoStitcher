@@ -46,6 +46,12 @@ interface ImageMaterialTaskParams {
   outputDir: string;
 }
 
+interface CoverFormatTaskParams {
+  images: string[];
+  quality: number;
+  outputDir: string;
+}
+
 interface TaskFile {
   path: string;
   index: number;
@@ -427,6 +433,34 @@ function generateImageMaterialTasks(_event: Electron.IpcMainInvokeEvent, params:
 }
 
 /**
+ * 生成封面格式转换任务
+ */
+function generateCoverFormatTasks(_event: Electron.IpcMainInvokeEvent, params: CoverFormatTaskParams): { success: boolean; tasks: Task[] } {
+  const { images, quality, outputDir } = params;
+
+  if (!images?.length) {
+    return { success: true, tasks: [] };
+  }
+
+  const tasks: Task[] = images.map((path, index) => ({
+    id: generateTempId(),
+    status: 'pending' as const,
+    files: [{
+      path,
+      index: index + 1,
+      category: 'image',
+      category_name: '图片',
+    }],
+    config: {
+      quality,
+    },
+    outputDir,
+  }));
+
+  return { success: true, tasks };
+}
+
+/**
  * 注册任务生成器 IPC 处理器
  */
 export function registerTaskGeneratorHandlers(): void {
@@ -445,6 +479,10 @@ export function registerTaskGeneratorHandlers(): void {
   // 生成图片素材处理任务
   ipcMain.handle("task:generate-image-material", generateImageMaterialTasks);
   console.log("[主进程] 任务生成器已注册: task:generate-image-material");
+
+  // 生成封面格式转换任务
+  ipcMain.handle("task:generate-cover-format", generateCoverFormatTasks);
+  console.log("[主进程] 任务生成器已注册: task:generate-cover-format");
 }
 
 export {
@@ -452,4 +490,5 @@ export {
   generateMergeTasks,
   generateResizeTasks,
   generateImageMaterialTasks,
+  generateCoverFormatTasks,
 };
