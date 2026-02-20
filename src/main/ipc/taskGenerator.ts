@@ -29,6 +29,13 @@ interface MergeTaskParams {
   orientation: string;
 }
 
+interface ResizeTaskParams {
+  videos: string[];
+  mode: string;
+  blurAmount: number;
+  outputDir: string;
+}
+
 interface TaskFile {
   path: string;
   index: number;
@@ -38,9 +45,9 @@ interface TaskFile {
 
 interface Task {
   id: number;
-  status: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   files: TaskFile[];
-  config: { orientation: string };
+  config: Record<string, unknown>;
   outputDir: string;
 }
 
@@ -336,6 +343,35 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
 }
 
 /**
+ * 生成智能改尺寸任务
+ */
+function generateResizeTasks(_event: Electron.IpcMainInvokeEvent, params: ResizeTaskParams): { success: boolean; tasks: Task[] } {
+  const { videos, mode, blurAmount, outputDir } = params;
+
+  if (!videos?.length) {
+    return { success: true, tasks: [] };
+  }
+
+  const tasks: Task[] = videos.map((path, index) => ({
+    id: generateTempId(),
+    status: 'pending',
+    files: [{
+      path,
+      index: index + 1,
+      category: 'V',
+      category_name: '视频',
+    }],
+    config: {
+      mode,
+      blurAmount,
+    },
+    outputDir,
+  }));
+
+  return { success: true, tasks };
+}
+
+/**
  * 注册任务生成器 IPC 处理器
  */
 export function registerTaskGeneratorHandlers(): void {
@@ -346,9 +382,14 @@ export function registerTaskGeneratorHandlers(): void {
   // 生成视频合成任务
   ipcMain.handle("task:generate-merge", generateMergeTasks);
   console.log("[主进程] 任务生成器已注册: task:generate-merge");
+
+  // 生成智能改尺寸任务
+  ipcMain.handle("task:generate-resize", generateResizeTasks);
+  console.log("[主进程] 任务生成器已注册: task:generate-resize");
 }
 
 export {
   generateStitchTasks,
   generateMergeTasks,
+  generateResizeTasks,
 };

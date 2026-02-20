@@ -48,13 +48,22 @@ export function buildArgs(config: BuildResizeArgsConfig): string[] {
     }
   }
 
-  console.log(`[videoResize] 目标尺寸: ${width}x${height}, 实际处理: ${targetWidth}x${targetHeight}, 模糊: ${blurAmount}, 预览: ${isPreview}`);
+  console.log(`[videoResize] 目标尺寸: ${width}x${height}, 实际处理: ${targetWidth}x${targetHeight}, 模糊: ${blurAmount}, 线程: ${threads || 'auto'}, 预览: ${isPreview}`);
 
   let filters = `[0:v]split=2[bg_src][fg_src];`;
 
+  // 优化：缩小→模糊→放大，减少模糊计算量
+  const blurScale = 2; // 缩小 2 倍
+  const scaledWidth = Math.round(targetWidth / blurScale);
+  const scaledHeight = Math.round(targetHeight / blurScale);
+  // 模糊值也需要相应缩小，因为分辨率变小了
+  const scaledBlurAmount = Math.max(1, Math.round(blurAmount / blurScale));
+
   filters += `[bg_src]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=increase,crop=${targetWidth}:${targetHeight}:(iw-${targetWidth})/2:(ih-${targetHeight})/2`;
   if (blurAmount > 0) {
-    filters += `,boxblur=${blurAmount}:${blurAmount}`;
+    filters += `,scale=${scaledWidth}:${scaledHeight}`;
+    filters += `,boxblur=${scaledBlurAmount}:${scaledBlurAmount}`;
+    filters += `,scale=${targetWidth}:${targetHeight}`;
   }
   filters += `[bg];`;
 
@@ -66,17 +75,18 @@ export function buildArgs(config: BuildResizeArgsConfig): string[] {
 
   const args = [
     '-y',
+    '-threads', String(threads || 'auto'),  // 输入解码线程
     '-i', inputPath,
     ...(isPreview ? ['-t', '10'] : []),
     '-filter_complex', filters,
+    '-threads', String(threads || 'auto'),  // 滤镜线程
     '-map', '[out]',
     '-map', '0:a?',
     '-c:v', 'libx264',
     '-preset', FFMPEG_CONSTANTS.PRESET_ULTRAFAST,
-    '-tune', 'fastdecode',
     ...(isPreview ? ['-crf', String(FFMPEG_CONSTANTS.PREVIEW_CRF), '-r', String(FFMPEG_CONSTANTS.PREVIEW_FPS)] : ['-crf', String(FFMPEG_CONSTANTS.DEFAULT_CRF)]),
-    ...(threads ? ['-threads', String(threads)] : ['-threads', 'auto']),
-    '-x264-params', 'threads=0:lookahead_threads=0',
+    '-threads', String(threads || 'auto'),  // 编码线程
+    '-x264-params', `threads=${threads || 'auto'}:lookahead_threads=${Math.min(4, Math.floor((threads || 8) / 4))}`,
     '-c:a', 'copy',
     outputPath
   ];

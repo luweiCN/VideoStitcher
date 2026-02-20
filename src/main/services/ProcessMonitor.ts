@@ -60,8 +60,12 @@ export class ProcessMonitor {
   async getBatchProcessStats(pids: number[]): Promise<ProcessStats[]> {
     if (pids.length === 0) return [];
     
+    // 过滤掉不存在的进程
+    const alivePids = pids.filter(pid => this.isProcessAlive(pid));
+    if (alivePids.length === 0) return [];
+    
     try {
-      const stats = await pidusage(pids);
+      const stats = await pidusage(alivePids);
       const results: ProcessStats[] = [];
       
       for (const [pidStr, stat] of Object.entries(stats)) {
@@ -78,7 +82,7 @@ export class ProcessMonitor {
       
       return results;
     } catch (err) {
-      console.error('[ProcessMonitor] 批量获取进程信息失败:', err);
+      // 进程不存在时静默处理，不打印错误
       return [];
     }
   }

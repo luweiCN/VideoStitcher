@@ -366,6 +366,91 @@ export async function executeSingleMergeTask(
 }
 
 /**
+ * 执行单个智能改尺寸任务
+ * 供 TaskQueueManager 调用
+ */
+export async function executeResizeTask(
+  task: {
+    id: number;
+    files: TaskFile[];
+    config?: {
+      mode?: string;
+      blurAmount?: number;
+    };
+    outputDir: string;
+    threads?: number;
+  },
+  onLog?: (message: string) => void,
+  onPid?: (pid: number) => void
+): Promise<{ success: boolean; outputs?: string[]; error?: string; pid?: number }> {
+  const { config, outputDir, files, threads } = task;
+  const mode = config?.mode || 'siya';
+  const blurAmount = config?.blurAmount ?? 20;
+
+  if (!outputDir) {
+    return { success: false, error: '未设置输出目录' };
+  }
+
+  const videoFile = files?.find(f => f.category === 'V');
+  if (!videoFile) {
+    return { success: false, error: '缺少视频文件' };
+  }
+
+  const videoPath = videoFile.path;
+  const configs = RESIZE_CONFIGS[mode];
+  if (!configs) {
+    return { success: false, error: `无效的模式: ${mode}` };
+  }
+
+  const fileName = path.parse(videoPath).name;
+  const outputs: string[] = [];
+  const safeOutput = new SafeOutput(outputDir, 'resize');
+
+  try {
+    for (let i = 0; i < configs.length; i++) {
+      const resizeConfig = configs[i];
+      const suffix = resizeConfig.suffix;
+
+      // 使用 generateFileName 生成唯一文件名
+      const rawBaseName = fileName + suffix;
+      const safeBaseName = generateFileName(outputDir, rawBaseName, { extension: '.mp4', reserveSuffixSpace: 5 });
+      const tempPath = safeOutput.getTempOutputPath(safeBaseName, i);
+
+      const args = buildResizeArgs({
+        inputPath: videoPath,
+        outputPath: tempPath,
+        width: resizeConfig.width,
+        height: resizeConfig.height,
+        blurAmount,
+        threads: threads || os.cpus().length,
+      });
+
+      const result = await runFfmpeg(args, (log: string) => {
+        onLog?.(log);
+      }, (pid: number) => {
+        // 每个 FFmpeg 启动时都回调 PID（智能改尺寸串行执行多个 FFmpeg）
+        onPid?.(pid);
+      });
+
+      // 提交到最终输出目录
+      const commitResult = safeOutput.commitSync(tempPath);
+      if (!commitResult.success) {
+        safeOutput.cleanupAll();
+        return { success: false, error: commitResult.error || '移动文件失败', pid: result.pid };
+      }
+
+      outputs.push(commitResult.finalPath!);
+    }
+
+    safeOutput.cleanupAll();
+    return { success: true, outputs };
+  } catch (err) {
+    safeOutput.cleanupAll();
+    return { success: false, error: (err as Error).message };
+  }
+}
+
+/**
  * 智能改尺寸处理
  */
 export async function handleVideoMerge(event: IpcMainInvokeEvent, tasks: Task[]): Promise<{ done: number; failed: number; total: number; elapsed: string }> {

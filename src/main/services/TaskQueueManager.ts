@@ -11,7 +11,7 @@ import { processMonitor } from './ProcessMonitor';
 import { taskRepository } from '../database/repositories/task.repository';
 import { taskLogRepository } from '../database/repositories/task-log.repository';
 import { configRepository } from '../database/repositories/config.repository';
-import { executeSingleMergeTask } from '../ipc/video';
+import { executeSingleMergeTask, executeResizeTask } from '../ipc/video';
 import type { Task, TaskCenterConfig, QueueStatus, TaskOutput, TaskStats } from '@shared/types/task';
 import { DEFAULT_TASK_CENTER_CONFIG } from '@shared/types/task';
 
@@ -482,9 +482,12 @@ export class TaskQueueManager {
         await this.executeMergeTask(task, executor);
         break;
 
-      case 'video_stitch':
       case 'video_resize':
-        // TODO: 实现其他视频任务
+        await this.executeResizeTaskMethod(task, executor);
+        break;
+
+      case 'video_stitch':
+        // TODO: 实现视频拼接任务
         this.addLog(task.id, 'info', `开始执行任务: ${type}`);
         this.handleTaskComplete(task.id, []);
         break;
@@ -550,6 +553,61 @@ export class TaskQueueManager {
       const outputs: TaskOutput[] = result.outputPath
         ? [{ path: result.outputPath, type: 'video' as const }]
         : [];
+      this.handleTaskComplete(task.id, outputs);
+    } else {
+      throw new Error(result.error || '任务执行失败');
+    }
+  }
+
+  /**
+   * 执行智能改尺寸任务
+   */
+  private async executeResizeTaskMethod(
+    task: Task,
+    executor: TaskExecutor
+  ): Promise<void> {
+    this.addLog(task.id, 'info', '开始执行智能改尺寸任务');
+
+    // 转换文件格式
+    const taskFiles = (task.files || []).map((f: any, idx: number) => ({
+      path: f.path,
+      index: f.index ?? idx,
+      category: f.category,
+      category_name: f.category_name || f.categoryLabel || f.category,
+    }));
+
+    const result = await executeResizeTask(
+      {
+        id: task.id,
+        files: taskFiles,
+        config: task.config as any,
+        outputDir: task.outputDir || '',
+        threads: this.config!.threadsPerTask,
+      },
+      (message: string) => {
+        // 检查是否被取消
+        if (!this.runningTasks.has(task.id)) {
+          throw new TaskCancelledError();
+        }
+        this.addLog(task.id, 'info', message);
+      },
+      (pid: number) => {
+        // 记录进程 PID 到内存和数据库
+        const exec = this.runningTasks.get(task.id);
+        if (exec) {
+          exec.pid = pid;
+          taskRepository.updateTaskPid(task.id, pid);
+          console.log(`[TaskQueueManager] 任务 ${task.id} 的 FFmpeg 进程 PID: ${pid}`);
+        }
+      }
+    );
+
+    if (result.success) {
+      // 智能改尺寸可能有多个输出文件
+      const outputs: TaskOutput[] = (result.outputs || []).map((path: string) => ({
+        path,
+        type: 'video' as const,
+      }));
       this.handleTaskComplete(task.id, outputs);
     } else {
       throw new Error(result.error || '任务执行失败');

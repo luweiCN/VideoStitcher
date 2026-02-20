@@ -410,13 +410,16 @@ export interface ElectronAPI {
     orientation: "horizontal" | "vertical";
   }) => Promise<{
     success: boolean;
-    tasks: Array<{
-      id: number;
-      status: string;
-      files: Array<{ path: string; index: number; category: string; category_name: string }>;
-      config: { orientation: string };
-      outputDir: string;
-    }>;
+    tasks: Task[];
+  }>;
+  generateResizeTasks: (config: {
+    videos: string[];
+    mode: string;
+    blurAmount: number;
+    outputDir: string;
+  }) => Promise<{
+    success: boolean;
+    tasks: Task[];
   }>;
 
   // === 任务中心 API ===

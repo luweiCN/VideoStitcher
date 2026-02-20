@@ -359,13 +359,16 @@ export interface ElectronAPI {
     orientation: "horizontal" | "vertical";
   }) => Promise<{
     success: boolean;
-    tasks: Array<{
-      id: string;
-      status: string;
-      files: Array<{ path: string; index: number; category: string; category_name: string }>;
-      config: { orientation: string };
-      outputDir: string;
-    }>;
+    tasks: Task[];
+  }>;
+  generateResizeTasks: (config: {
+    videos: string[];
+    mode: string;
+    blurAmount: number;
+    outputDir: string;
+  }) => Promise<{
+    success: boolean;
+    tasks: Task[];
   }>;
 
   // === 任务中心 API ===
@@ -572,6 +575,7 @@ const api: ElectronAPI = {
   // 任务生成 API
   generateStitchTasks: (config) => ipcRenderer.invoke("task:generate-stitch", config),
   generateMergeTasks: (config) => ipcRenderer.invoke("task:generate-merge", config),
+  generateResizeTasks: (config) => ipcRenderer.invoke("task:generate-resize", config),
 
   // 任务中心 API
   createTask: (request) => ipcRenderer.invoke("task:create", request),

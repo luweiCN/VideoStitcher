@@ -1,24 +1,25 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import * as Slider from '@radix-ui/react-slider';
 import {
-  Settings, Loader2, Eye, Maximize2
+  Settings, Loader2, Eye, Maximize2, Plus
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import OutputDirSelector from '@/components/OutputDirSelector';
-import ConcurrencySelector from '@/components/ConcurrencySelector';
 import OperationLogPanel from '@/components/OperationLogPanel';
-import { FileSelector, FileSelectorGroup } from '@/components/FileSelector';
+import TaskAddedDialog from '@/components/TaskAddedDialog';
+import TaskCountConfirmDialog from '@/components/TaskCountConfirmDialog';
+import { FileSelector, FileSelectorGroup, type FileSelectorGroupRef } from '@/components/FileSelector';
 import { Button } from '@/components/Button/Button';
 import TaskList, { type Task, type OutputConfig } from '@/components/TaskList';
 import { useOutputDirCache } from '@/hooks/useOutputDirCache';
-import { useConcurrencyCache } from '@/hooks/useConcurrencyCache';
 import { useOperationLogs } from '@/hooks/useOperationLogs';
-import { useVideoProcessingEvents } from '@/hooks/useVideoProcessingEvents';
 import { useVideoVolumeCache } from '@/hooks/useVideoVolumeCache';
+import { useTaskContext } from '@/contexts/TaskContext';
 import useVideoMaterials from '@/hooks/useVideoMaterials';
 import { PreviewArea } from './ResizeMode/components/PreviewArea';
 
-type ResizeMode = 'siya' | 'fishing' | 'unify_h' | 'unify_v';
+type ResizeModeType = 'siya' | 'fishing' | 'unify_h' | 'unify_v';
 
 const MODE_CONFIG = {
   siya: { name: 'Siya模式', desc: '竖屏转横屏/方形', outputs: [{ width: 1920, height: 1080, label: '1920x1080' }, { width: 1920, height: 1920, label: '1920x1920' }] },
@@ -28,19 +29,28 @@ const MODE_CONFIG = {
 };
 
 const ResizeMode: React.FC = () => {
-  // 任务列表状态（使用 TaskList 组件的格式）
+  const navigate = useNavigate();
+  const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
+
+  // 视频文件列表
+  const [videos, setVideos] = useState<string[]>([]);
+  
+  // 任务列表状态
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
 
   // 使用 hook 加载视频素材（带缓存）
   const { outputDir, setOutputDir } = useOutputDirCache('ResizeMode');
-  const { concurrency, setConcurrency } = useConcurrencyCache('ResizeMode');
-  const [mode, setMode] = useState<ResizeMode>('siya');
+  const [mode, setMode] = useState<ResizeModeType>('siya');
   const [blurAmount, setBlurAmount] = useState(20);
+  const [pendingBlurAmount, setPendingBlurAmount] = useState(20); // 拖动中的临时值
 
-  // 处理状态
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState({ done: 0, failed: 0, total: 0 });
+  // 任务中心相关
+  const { batchCreateTasks } = useTaskContext();
+  const [isAdding, setIsAdding] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showCountConfirmDialog, setShowCountConfirmDialog] = useState(false);
 
   // 使用音量缓存 Hook
   const { volume, isMuted, setVolume, setIsMuted } = useVideoVolumeCache('resize');
@@ -75,126 +85,122 @@ const ResizeMode: React.FC = () => {
     nums: MODE_CONFIG[mode].outputs.length,
   }), [mode]);
 
-  // 使用视频处理事件 Hook
-  useVideoProcessingEvents({
-    onStart: (data) => {
-      addLog(`开始处理: 总任务 ${data.total}, 并发 ${data.concurrency}`, 'info');
-      setProgress({ done: 0, failed: 0, total: data.total });
-      // 所有任务设为等待状态
-      setTasks(prev => prev.map(t => ({ ...t, status: 'waiting' as const })));
-    },
-    onTaskStart: (data) => {
-      // 直接使用后端传来的 videoIndex
-      if (data.videoIndex !== undefined) {
-        setTasks(prev => prev.map((t, idx) =>
-          idx === data.videoIndex ? { ...t, status: 'processing' as const } : t
-        ));
-      }
-    },
-    onProgress: (data) => {
-      setProgress({ done: data.done, failed: data.failed, total: data.total });
-
-      // 后端确保该视频的所有输出都完成时才发送 progress 事件
-      // 使用 index 直接匹配视频数组
-      setTasks(prev => prev.map((t, idx) =>
-        idx === data.index ? { ...t, status: 'completed' as const } : t
-      ));
-      addLog(`进度: ${data.done}/${data.total} (失败 ${data.failed})`, 'info');
-    },
-    onFailed: (data) => {
-      // 任务失败时，标记对应视频为错误
-      setTasks(prev => prev.map((t, idx) =>
-        idx === data.index ? { ...t, status: 'error' as const, error: data.error } : t
-      ));
-      addLog(`❌ 任务失败: ${data.error}`, 'error');
-    },
-    onFinish: (data) => {
-      const timeInfo = data.elapsed ? ` (耗时 ${data.elapsed}秒)` : '';
-      addLog(`✅ 完成! 成功 ${data.done}, 失败 ${data.failed}${timeInfo}`, 'success');
-      setIsProcessing(false);
-    },
-    onLog: (data) => {
-      addLog(`[${data.videoId || data.index + 1}] ${data.message}`, 'info');
-    },
-  });
-
   /**
-   * 生成任务列表
+   * 生成任务列表（通过 IPC 调用主进程）
    */
-  const generateTasks = useCallback((filePaths: string[]) => {
-    if (filePaths.length === 0) {
+  const generateTasks = useCallback(async () => {
+    if (videos.length === 0) {
       setTasks([]);
       setCurrentIndex(0);
       return;
     }
 
-    const newTasks: Task[] = filePaths.map((path, index) => ({
-      id: `resize-${Date.now()}-${index}`,
-      status: 'pending' as const,
-      files: [{
-        path,
-        index: index + 1,
-        category: 'V',
-        category_name: '视频',
-      }],
-      config: {
-        mode,
-        blurAmount,
-      },
-      outputDir,
-      concurrency,
-    }));
+    if (!outputDir) {
+      setTasks([]);
+      return;
+    }
 
-    setTasks(newTasks);
-    setCurrentIndex(0);
-  }, [mode, blurAmount, outputDir, concurrency]);
+    setIsGeneratingTasks(true);
+
+    // 使用 setTimeout 让 UI 有机会更新
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // 调用主进程生成任务
+    const result = await window.api.generateResizeTasks({
+      videos,
+      mode,
+      blurAmount,
+      outputDir,
+    });
+
+    if (result.success && result.tasks) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      setTasks(result.tasks as Task[]);
+      setCurrentIndex(0);
+    } else {
+      setTasks([]);
+      setCurrentIndex(0);
+    }
+
+    setIsGeneratingTasks(false);
+  }, [videos, mode, blurAmount, outputDir]);
+
+  /**
+   * 当素材或参数变化时重新生成任务
+   */
+  useEffect(() => {
+    generateTasks();
+  }, [videos.length, mode, blurAmount, outputDir]);
 
   /**
    * 处理视频选择
    */
   const handleVideosChange = useCallback((filePaths: string[]) => {
-    generateTasks(filePaths);
-  }, [generateTasks]);
+    setVideos(filePaths);
+    if (filePaths.length > 0) {
+      addLog(`已选择 ${filePaths.length} 个视频`, 'info');
+    }
+  }, [addLog]);
 
   /**
-   * 开始处理
+   * 核心添加逻辑
    */
-  const startProcessing = async () => {
+  const doAddToTaskCenter = async () => {
+    setIsAdding(true);
+    addLog(`正在添加 ${tasks.length} 个任务到任务中心...`, "info");
+
+    try {
+      const tasksWithType = tasks.map((task) => ({
+        ...task,
+        type: 'video_resize' as const,
+      }));
+
+      const result = await batchCreateTasks(tasksWithType);
+
+      if (result.successCount > 0) {
+        addLog(`成功添加 ${result.successCount} 个任务到任务中心`, "success");
+        setShowConfirmDialog(true);
+      }
+      if (result.failCount > 0) {
+        addLog(`${result.failCount} 个任务添加失败`, "warning");
+      }
+    } catch (err: any) {
+      addLog(`添加任务失败: ${err.message || err}`, "error");
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  /**
+   * 添加任务到任务中心（入口函数）
+   */
+  const addToTaskCenter = async () => {
     if (tasks.length === 0) {
-      addLog('⚠️ 请先选择视频', 'warning');
+      addLog("请先选择视频文件", "warning");
       return;
     }
     if (!outputDir) {
-      addLog('⚠️ 请先选择输出目录', 'warning');
+      addLog("请先选择输出目录", "warning");
       return;
     }
-    if (isProcessing) return;
 
-    setIsProcessing(true);
-    // 不再自动清空日志，保留历史记录
-    setProgress({ done: 0, failed: 0, total: tasks.length });
-
-    // 所有任务设为等待状态
-    setTasks(prev => prev.map(t => ({ ...t, status: 'waiting' as const })));
-
-    addLog('开始智能改尺寸处理...', 'info');
-    addLog(`视频: ${tasks.length} 个`, 'info');
-    addLog(`模式: ${MODE_CONFIG[mode].name}`, 'info');
-    addLog(`输出: ${MODE_CONFIG[mode].outputs.map(o => o.label).join(', ')}`, 'info');
-    addLog(`模糊程度: ${blurAmount}`, 'info');
-
-    try {
-      await window.api.videoResize({
-        videos: tasks.map(t => ({ id: t.id, path: t.files[0].path })),
-        mode,
-        blurAmount,
-        outputDir,
-        concurrency
-      });
-    } catch (err: any) {
-      addLog(`❌ 处理失败: ${err.message || err}`, 'error');
-      setIsProcessing(false);
+    // 任务数量超过100时显示确认弹窗
+    if (tasks.length > 100) {
+      setShowCountConfirmDialog(true);
+    } else {
+      await doAddToTaskCenter();
     }
+  };
+
+  /**
+   * 清空编辑区域
+   */
+  const clearEditor = () => {
+    fileSelectorGroupRef.current?.clearAll();
+    setVideos([]);
+    setTasks([]);
+    setCurrentIndex(0);
+    addLog("已清空编辑区域", "info");
   };
 
   /**
@@ -283,7 +289,7 @@ const ResizeMode: React.FC = () => {
                 处理模式
               </label>
               <div className="space-y-2">
-                {(Object.keys(MODE_CONFIG) as ResizeMode[]).map((m) => (
+                {(Object.keys(MODE_CONFIG) as ResizeModeType[]).map((m) => (
                   <button
                     key={m}
                     onClick={() => setMode(m)}
@@ -292,7 +298,7 @@ const ResizeMode: React.FC = () => {
                         ? 'border-rose-500 bg-rose-500/20 text-rose-400'
                         : 'border-slate-700 bg-black/50 text-slate-400 hover:border-slate-600'
                     }`}
-                    disabled={isProcessing}
+                    disabled={isAdding}
                   >
                     <div className="font-medium">{MODE_CONFIG[m].name}</div>
                     <div className="text-[10px] opacity-80 mt-0.5">{MODE_CONFIG[m].desc}</div>
@@ -302,7 +308,7 @@ const ResizeMode: React.FC = () => {
             </div>
 
             {/* Video Selection */}
-            <FileSelectorGroup>
+            <FileSelectorGroup ref={fileSelectorGroupRef}>
               <FileSelector
                 id="resizeVideos"
                 name="视频文件"
@@ -312,10 +318,9 @@ const ResizeMode: React.FC = () => {
                 themeColor="rose"
                 directoryCache
                 onChange={handleVideosChange}
-                disabled={isProcessing}
+                disabled={isAdding}
               />
             </FileSelectorGroup>
-
 
             {/* Blur Amount */}
             <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
@@ -325,18 +330,25 @@ const ResizeMode: React.FC = () => {
                   模糊程度
                 </label>
                 <span className="px-3 py-1.5 rounded-lg font-mono font-bold text-lg bg-gradient-to-r from-rose-500 to-red-500 bg-clip-text text-transparent">
-                  {blurAmount}
+                  {pendingBlurAmount}
                 </span>
               </div>
               {/* Radix UI Slider */}
               <Slider.Root
                 className="relative flex items-center select-none touch-none h-5"
-                value={[blurAmount]}
-                onValueChange={(values) => setBlurAmount(values[0])}
+                value={[pendingBlurAmount]}
+                onValueChange={(values) => {
+                  // 拖动时只更新临时值，用于实时显示
+                  setPendingBlurAmount(values[0]);
+                }}
+                onValueCommit={(values) => {
+                  // 松开鼠标时更新真正的 blurAmount，触发任务生成
+                  setBlurAmount(values[0]);
+                }}
                 max={50}
                 min={0}
                 step={1}
-                disabled={isProcessing}
+                disabled={isAdding}
               >
                 <Slider.Track className="bg-neutral-900 relative grow rounded-full h-2 shadow-inner">
                   <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-rose-500 to-red-500 relative">
@@ -361,18 +373,25 @@ const ResizeMode: React.FC = () => {
         {/* Middle Panel - flex-1 with vertical layout */}
         <div className="flex-1 bg-black flex flex-col overflow-hidden min-w-0">
           {/* 使用通用 TaskList 组件 */}
-          <TaskList
-            tasks={tasks}
-            currentIndex={currentIndex}
-            output={outputConfig}
-            type="video_resize"
-            thumbnail_source="V"
-            materialsType={['video']}
-            themeColor="rose"
-            onTaskChange={setCurrentIndex}
-            isProcessing={isProcessing}
-            onLog={(message, type) => addLog(message, type)}
-          />
+          {isGeneratingTasks ? (
+            <div className="h-[164px] flex items-center justify-center border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <Loader2 className="w-5 h-5 text-rose-400 animate-spin" />
+                <span className="text-slate-400 text-sm">正在生成任务...</span>
+              </div>
+            </div>
+          ) : (
+            <TaskList
+              tasks={tasks}
+              currentIndex={currentIndex}
+              output={outputConfig}
+              type="video_resize"
+              thumbnail_source="V"
+              materialsType={['video']}
+              themeColor="rose"
+              onTaskChange={setCurrentIndex}
+            />
+          )}
 
           {/* Bottom: Preview Area - 使用 TaskList 加载的素材 */}
           <div className="flex-1 overflow-hidden p-4 min-h-0">
@@ -394,20 +413,20 @@ const ResizeMode: React.FC = () => {
               <PreviewArea
                 mode={mode}
                 currentVideo={{
-                  id: currentTask.id,
+                  id: String(currentTask.id),
                   path: currentTask.files[0].path,
                   name: currentTask.files[0].path.split('/').pop() || '',
-                  status: currentTask.status,
+                  status: (currentTask.status === 'failed' ? 'error' : currentTask.status === 'running' ? 'processing' : currentTask.status === 'cancelled' ? 'pending' : currentTask.status) as 'pending' | 'completed' | 'error' | 'processing' | 'waiting',
                   previewUrl: videoInfo?.previewUrl,
                   width: videoInfo?.width,
                   height: videoInfo?.height,
                 }}
-                blurAmount={blurAmount}
+                blurAmount={pendingBlurAmount}
                 volume={volume}
                 isMuted={isMuted}
                 onVolumeChange={setVolume}
                 onMuteChange={setIsMuted}
-                isProcessing={isProcessing}
+                isProcessing={false}
                 getPreviewStyle={getPreviewStyle}
               />
             )}
@@ -426,36 +445,10 @@ const ResizeMode: React.FC = () => {
               <OutputDirSelector
                 value={outputDir}
                 onChange={setOutputDir}
-                disabled={isProcessing}
-                themeColor="rose"
-              />
-              <ConcurrencySelector
-                value={concurrency}
-                onChange={setConcurrency}
-                disabled={isProcessing}
+                disabled={isAdding}
                 themeColor="rose"
               />
             </div>
-
-            {/* Progress Display */}
-            {progress.total > 0 && (
-              <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">处理进度</h3>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-400">已完成</span>
-                  <span className="text-rose-400 font-bold">{progress.done}/{progress.total}</span>
-                </div>
-                <div className="w-full bg-slate-800 rounded-full h-2">
-                  <div
-                    className="bg-rose-500 h-2 rounded-full transition-all"
-                    style={{ width: `${(progress.done / progress.total) * 100}%` }}
-                  />
-                </div>
-                {progress.failed > 0 && (
-                  <div className="text-xs text-rose-400">失败: {progress.failed}</div>
-                )}
-              </div>
-            )}
 
             {/* Logs */}
             <div className="flex-1 min-h-[300px]">
@@ -478,20 +471,47 @@ const ResizeMode: React.FC = () => {
               />
             </div>
 
-            {/* Start Button */}
+            {/* Add to Task Center Button */}
             <Button
-              onClick={startProcessing}
-              disabled={isProcessing || tasks.length === 0 || !outputDir}
+              onClick={addToTaskCenter}
+              disabled={tasks.length === 0 || isAdding || !outputDir}
               variant="primary"
               size="md"
-            fullWidth
-              loading={isProcessing}
+              fullWidth
+              loading={isAdding}
+              leftIcon={!isAdding && <Plus className="w-4 h-4" />}
             >
-              {isProcessing ? '处理中...' : '开始处理'}
+              {isAdding ? "添加中..." : "添加到任务中心"}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* 任务添加成功弹窗 */}
+      <TaskAddedDialog
+        open={showConfirmDialog}
+        taskCount={tasks.length}
+        onClear={() => {
+          clearEditor();
+          setShowConfirmDialog(false);
+        }}
+        onKeep={() => setShowConfirmDialog(false)}
+        onTaskCenter={() => {
+          setShowConfirmDialog(false);
+          navigate('/taskCenter');
+        }}
+      />
+
+      {/* 任务数量确认弹窗 */}
+      <TaskCountConfirmDialog
+        open={showCountConfirmDialog}
+        taskCount={tasks.length}
+        onConfirm={() => {
+          setShowCountConfirmDialog(false);
+          doAddToTaskCenter();
+        }}
+        onCancel={() => setShowCountConfirmDialog(false)}
+      />
     </div>
   );
 };
