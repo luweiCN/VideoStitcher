@@ -420,6 +420,32 @@ export interface ElectronAPI {
     config: { maxConcurrentTasks: number; threadsPerTask: number };
   }) => void) => () => void;
   onTaskCenterLog: (callback: (log: { taskId: number; taskType: string; message: string; level: string; timestamp: number }) => void) => () => void;
+
+  // 数据库管理 API
+  getDbStats: () => Promise<{
+    fileSize: number;
+    taskCount: number;
+    logCount: number;
+    outputCount: number;
+    oldestTask: number | null;
+    newestTask: number | null;
+  }>;
+  getDbLogSize: () => Promise<number>;
+  clearDbLogs: () => Promise<{ success: boolean; deletedCount: number; error?: string }>;
+  cleanupOldTasks: (beforeDays: number) => Promise<{ success: boolean; deletedCount: number; error?: string }>;
+  checkDbIntegrity: () => Promise<{ healthy: boolean; errors: string[] }>;
+  repairDb: () => Promise<{
+    success: boolean;
+    needReset?: boolean;
+    error?: string;
+    details?: string[];
+  }>;
+  resetDb: () => Promise<{ success: boolean; error?: string }>;
+  resetDbDirect: () => Promise<{ success: boolean; error?: string }>;
+  createDbBackup: (description?: string) => Promise<{ success: boolean; path?: string; error?: string }>;
+  listDbBackups: () => Promise<Array<{ name: string; path: string; size: number; time: number }>>;
+  restoreDbBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
+  deleteDbBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const api: ElectronAPI = {
@@ -593,6 +619,20 @@ const api: ElectronAPI = {
   
   // 获取最近日志
   getRecentLogs: (limit) => ipcRenderer.invoke("task:get-recent-logs", limit),
+
+  // 数据库管理 API
+  getDbStats: () => ipcRenderer.invoke("db:get-stats"),
+  getDbLogSize: () => ipcRenderer.invoke("db:get-log-size"),
+  clearDbLogs: () => ipcRenderer.invoke("db:clear-logs"),
+  cleanupOldTasks: (beforeDays) => ipcRenderer.invoke("db:cleanup-old-tasks", beforeDays),
+  checkDbIntegrity: () => ipcRenderer.invoke("db:check-integrity"),
+  repairDb: () => ipcRenderer.invoke("db:repair"),
+  resetDb: () => ipcRenderer.invoke("db:reset"),
+  resetDbDirect: () => ipcRenderer.invoke("db:reset-direct"),
+  createDbBackup: (description) => ipcRenderer.invoke("db:create-backup", description),
+  listDbBackups: () => ipcRenderer.invoke("db:list-backups"),
+  restoreDbBackup: (backupPath) => ipcRenderer.invoke("db:restore-backup", backupPath),
+  deleteDbBackup: (backupPath) => ipcRenderer.invoke("db:delete-backup", backupPath),
 };
 
 contextBridge.exposeInMainWorld("api", api);

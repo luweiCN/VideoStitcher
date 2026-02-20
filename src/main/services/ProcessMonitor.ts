@@ -45,7 +45,7 @@ export class ProcessMonitor {
       const stats = await pidusage(pid);
       return {
         pid,
-        cpu: stats.cpu || 0,
+        cpu: Math.max(0, stats.cpu || 0),  // Windows 上 pidusage 偶尔返回负值
         memory: stats.memory || 0,
         memoryMB: Math.round((stats.memory || 0) / (1024 * 1024) * 10) / 10,
       };
@@ -73,7 +73,7 @@ export class ProcessMonitor {
         if (!isNaN(pid) && stat) {
           results.push({
             pid,
-            cpu: stat.cpu || 0,
+            cpu: Math.max(0, stat.cpu || 0),  // Windows 上 pidusage 偶尔返回负值
             memory: stat.memory || 0,
             memoryMB: Math.round((stat.memory || 0) / (1024 * 1024) * 10) / 10,
           });
@@ -201,10 +201,10 @@ export class ProcessMonitor {
     return {
       mainPid,
       processes,
-      totalCpu: Math.round(totalCpu * 10) / 10,
+      totalCpu: Math.max(0, Math.round(totalCpu * 10) / 10),
       totalMemory,
       totalMemoryMB: Math.round(totalMemory / (1024 * 1024) * 10) / 10,
-      coreCount,
+      coreCount: Math.max(0, coreCount),
     };
   }
 

@@ -487,4 +487,30 @@ export interface ElectronAPI {
     config: { maxConcurrentTasks: number; threadsPerTask: number };
   }) => void) => () => void;
   onTaskCenterLog: (callback: (log: { taskId: number; taskType: string; message: string; level: string; timestamp: number }) => void) => () => void;
+
+  // 数据库管理 API
+  getDbStats: () => Promise<{
+    fileSize: number;
+    taskCount: number;
+    logCount: number;
+    outputCount: number;
+    oldestTask: number | null;
+    newestTask: number | null;
+  }>;
+  getDbLogSize: () => Promise<number>;
+  clearDbLogs: () => Promise<{ success: boolean; deletedCount: number; error?: string }>;
+  cleanupOldTasks: (beforeDays: number) => Promise<{ success: boolean; deletedCount: number; error?: string }>;
+  checkDbIntegrity: () => Promise<{ healthy: boolean; errors: string[] }>;
+  repairDb: () => Promise<{
+    success: boolean;
+    needReset?: boolean;
+    error?: string;
+    details?: string[];
+  }>;
+  resetDb: () => Promise<{ success: boolean; error?: string }>;
+  resetDbDirect: () => Promise<{ success: boolean; error?: string }>;
+  createDbBackup: (description?: string) => Promise<{ success: boolean; path?: string; error?: string }>;
+  listDbBackups: () => Promise<Array<{ name: string; path: string; size: number; time: number }>>;
+  restoreDbBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
+  deleteDbBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
 }

@@ -19,7 +19,12 @@ import {
   Zap,
   Shield,
   Code,
-  ExternalLink
+  ExternalLink,
+  Database,
+  Trash2,
+  AlertTriangle,
+  Archive,
+  RotateCcw
 } from 'lucide-react';
 import ConcurrencySelector from '@/components/ConcurrencySelector';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
@@ -53,12 +58,12 @@ const AdminMode: React.FC<AdminModeProps> = ({
   const [searchParams, setSearchParams] = useSearchParams();
   
   // 从 URL 读取当前标签
-  const tabParam = searchParams.get('tab') as 'system' | 'settings' | 'updates' | null;
-  const activeSection: 'system' | 'settings' | 'updates' = 
-    (tabParam === 'settings' || tabParam === 'updates') ? tabParam : 'system';
+  const tabParam = searchParams.get('tab') as 'system' | 'settings' | 'updates' | 'database' | null;
+  const activeSection: 'system' | 'settings' | 'updates' | 'database' = 
+    (tabParam === 'settings' || tabParam === 'updates' || tabParam === 'database') ? tabParam : 'system';
   
   // 切换标签时更新 URL
-  const setActiveSection = useCallback((section: 'system' | 'settings' | 'updates') => {
+  const setActiveSection = useCallback((section: 'system' | 'settings' | 'updates' | 'database') => {
     if (section === 'system') {
       setSearchParams({}, { replace: true });
     } else {
@@ -83,6 +88,23 @@ const AdminMode: React.FC<AdminModeProps> = ({
 
   // 系统默认下载目录（用于显示）
   const [systemDefaultDownloadDir, setSystemDefaultDownloadDir] = useState<string>('');
+
+  // 数据库管理状态
+  const [dbStats, setDbStats] = useState<{
+    fileSize: number;
+    taskCount: number;
+    logCount: number;
+    outputCount: number;
+    oldestTask: number | null;
+    newestTask: number | null;
+  } | null>(null);
+  const [dbLogSize, setDbLogSize] = useState<number>(0);
+  const [dbIntegrity, setDbIntegrity] = useState<{ healthy: boolean; errors: string[] } | null>(null);
+  const [dbBackups, setDbBackups] = useState<Array<{ name: string; path: string; size: number; time: number }>>([]);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [dbRepairing, setDbRepairing] = useState(false);
+  const [dbRepairResult, setDbRepairResult] = useState<{ success: boolean; needReset?: boolean; error?: string; details?: string[] } | null>(null);
+  const [cleanupDays, setCleanupDays] = useState(7);
 
   // 检测是否为 macOS
   const isMacOS = navigator.platform.includes('Mac');
@@ -304,6 +326,185 @@ const AdminMode: React.FC<AdminModeProps> = ({
     };
   }, []);
 
+  // 数据库管理：加载数据库统计
+  const loadDbStats = async () => {
+    setDbLoading(true);
+    try {
+      const [stats, logSize] = await Promise.all([
+        window.api.getDbStats(),
+        window.api.getDbLogSize(),
+      ]);
+      setDbStats(stats);
+      setDbLogSize(logSize);
+    } catch (err) {
+      console.error('加载数据库统计失败:', err);
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  // 数据库管理：加载备份列表
+  const loadDbBackups = async () => {
+    try {
+      const backups = await window.api.listDbBackups();
+      setDbBackups(backups);
+    } catch (err) {
+      console.error('加载备份列表失败:', err);
+    }
+  };
+
+  // 数据库管理：检查完整性
+  const handleCheckIntegrity = async () => {
+    setDbLoading(true);
+    try {
+      const result = await window.api.checkDbIntegrity();
+      setDbIntegrity(result);
+    } catch (err) {
+      setDbIntegrity({ healthy: false, errors: [(err as Error).message] });
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  // 数据库管理：修复数据库
+  const handleRepairDb = async () => {
+    setDbRepairing(true);
+    setDbRepairResult(null);
+    try {
+      const result = await window.api.repairDb();
+      setDbRepairResult(result);
+      if (result.success) {
+        await loadDbStats();
+      }
+    } catch (err) {
+      setDbRepairResult({ success: false, error: (err as Error).message });
+    } finally {
+      setDbRepairing(false);
+    }
+  };
+
+  // 数据库管理：重置数据库
+  const handleResetDb = async () => {
+    const result = await window.api.resetDb();
+    if (result.success) {
+      setDbRepairResult(null);
+      await loadDbStats();
+    }
+  };
+
+  // 数据库管理：清除日志
+  const handleClearLogs = async () => {
+    if (!confirm('确定要清除所有任务日志吗？此操作不可恢复。')) return;
+    setDbLoading(true);
+    try {
+      const result = await window.api.clearDbLogs();
+      if (result.success) {
+        await loadDbStats();
+        alert(`已清除 ${result.deletedCount} 条日志`);
+      } else {
+        alert('清除失败: ' + result.error);
+      }
+    } catch (err) {
+      alert('清除失败: ' + (err as Error).message);
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  // 数据库管理：清理旧任务
+  const handleCleanupOldTasks = async () => {
+    if (!confirm(`确定要清理 ${cleanupDays} 天前的已完成/失败/取消的任务吗？此操作不可恢复。`)) return;
+    setDbLoading(true);
+    try {
+      const result = await window.api.cleanupOldTasks(cleanupDays);
+      if (result.success) {
+        await loadDbStats();
+        alert(`已清理 ${result.deletedCount} 个任务`);
+      } else {
+        alert('清理失败: ' + result.error);
+      }
+    } catch (err) {
+      alert('清理失败: ' + (err as Error).message);
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  // 数据库管理：创建备份
+  const handleCreateBackup = async () => {
+    setDbLoading(true);
+    try {
+      const result = await window.api.createDbBackup('manual');
+      if (result.success) {
+        await loadDbBackups();
+        alert('备份成功: ' + result.path);
+      } else {
+        alert('备份失败: ' + result.error);
+      }
+    } catch (err) {
+      alert('备份失败: ' + (err as Error).message);
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  // 数据库管理：恢复备份
+  const handleRestoreBackup = async (backupPath: string) => {
+    if (!confirm('确定要恢复此备份吗？当前数据将被覆盖。')) return;
+    setDbLoading(true);
+    try {
+      const result = await window.api.restoreDbBackup(backupPath);
+      if (result.success) {
+        await loadDbStats();
+        alert('恢复成功');
+      } else {
+        alert('恢复失败: ' + result.error);
+      }
+    } catch (err) {
+      alert('恢复失败: ' + (err as Error).message);
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  // 数据库管理：删除备份
+  const handleDeleteBackup = async (backupPath: string) => {
+    if (!confirm('确定要删除此备份吗？')) return;
+    try {
+      const result = await window.api.deleteDbBackup(backupPath);
+      if (result.success) {
+        await loadDbBackups();
+      } else {
+        alert('删除失败: ' + result.error);
+      }
+    } catch (err) {
+      alert('删除失败: ' + (err as Error).message);
+    }
+  };
+
+  // 数据库管理：切换到数据库标签时加载数据
+  useEffect(() => {
+    if (activeSection === 'database') {
+      loadDbStats();
+      loadDbBackups();
+    }
+  }, [activeSection]);
+
+  // 格式化文件大小
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  };
+
+  // 格式化时间戳
+  const formatTimestamp = (ts: number | null): string => {
+    if (!ts) return '无';
+    const date = new Date(ts);
+    return date.toLocaleString('zh-CN');
+  };
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '未知';
     try {
@@ -376,6 +577,18 @@ const AdminMode: React.FC<AdminModeProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveSection('database')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
+              activeSection === 'database'
+                ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30'
+                : 'hover:bg-slate-800/50 text-slate-400 hover:text-white border border-transparent'
+            }`}
+          >
+            <Database className="w-5 h-5" />
+            <span className="hidden lg:block font-medium">数据库管理</span>
+          </button>
+
+          <button
             onClick={() => setActiveSection('updates')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
               activeSection === 'updates'
@@ -414,11 +627,13 @@ const AdminMode: React.FC<AdminModeProps> = ({
                 {activeSection === 'system' && '系统概览'}
                 {activeSection === 'settings' && '全局配置'}
                 {activeSection === 'updates' && '版本更新'}
+                {activeSection === 'database' && '数据库管理'}
               </h1>
               <p className="text-sm text-slate-500 mt-0.5">
                 {activeSection === 'system' && '查看系统信息和应用状态'}
                 {activeSection === 'settings' && '配置默认工作参数'}
                 {activeSection === 'updates' && '检查并安装应用更新'}
+                {activeSection === 'database' && '数据库维护与备份管理'}
               </p>
             </div>
           </div>
@@ -958,6 +1173,381 @@ const AdminMode: React.FC<AdminModeProps> = ({
                           {systemInfo?.isDevelopment ? '开发模式' : '生产模式'}
                         </span>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'database' && (
+              <div className="space-y-6">
+                {/* 数据库状态卡片 */}
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-600/5 to-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="relative p-8">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-14 h-14 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-cyan-600/20">
+                        <Database className="w-7 h-7 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-white">数据库状态</h2>
+                        <p className="text-sm text-slate-500 mt-0.5">任务数据存储与日志管理</p>
+                      </div>
+                      <button
+                        onClick={loadDbStats}
+                        disabled={dbLoading}
+                        className="ml-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg flex items-center gap-2 transition-colors"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${dbLoading ? 'animate-spin' : ''}`} />
+                        刷新
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl">
+                        <div className="text-xs text-slate-500 mb-1">数据库大小</div>
+                        <div className="text-2xl font-bold text-white">
+                          {dbStats ? formatFileSize(dbStats.fileSize) : '加载中...'}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl">
+                        <div className="text-xs text-slate-500 mb-1">任务数量</div>
+                        <div className="text-2xl font-bold text-cyan-400">
+                          {dbStats?.taskCount ?? '...'}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl">
+                        <div className="text-xs text-slate-500 mb-1">日志数量</div>
+                        <div className="text-2xl font-bold text-amber-400">
+                          {dbStats?.logCount ?? '...'}
+                        </div>
+                      </div>
+                      <div className="p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl">
+                        <div className="text-xs text-slate-500 mb-1">日志大小</div>
+                        <div className="text-2xl font-bold text-purple-400">
+                          {formatFileSize(dbLogSize)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {dbStats?.oldestTask && (
+                      <div className="mt-4 p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-slate-500">
+                            最早任务: {formatTimestamp(dbStats.oldestTask)}
+                          </span>
+                          <span className="text-slate-500">
+                            最新任务: {formatTimestamp(dbStats.newestTask)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 完整性检查与修复 */}
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/5 to-teal-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="relative p-8">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <Shield className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white">完整性检查与修复</h3>
+                        <p className="text-sm text-slate-500">检测数据库异常并尝试修复</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* 检查按钮和状态 */}
+                      <div className="flex items-center gap-4">
+                        <button
+                          onClick={handleCheckIntegrity}
+                          disabled={dbLoading}
+                          className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg flex items-center gap-2 transition-all"
+                        >
+                          <Shield className="w-4 h-4" />
+                          检查完整性
+                        </button>
+                        
+                        {dbIntegrity && (
+                          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                            dbIntegrity.healthy 
+                              ? 'bg-emerald-500/20 text-emerald-400' 
+                              : 'bg-red-500/20 text-red-400'
+                          }`}>
+                            {dbIntegrity.healthy ? (
+                              <>
+                                <CheckCircle className="w-4 h-4" />
+                                数据库健康
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-4 h-4" />
+                                发现异常
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 异常详情 */}
+                      {dbIntegrity && !dbIntegrity.healthy && (
+                        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                          <div className="text-sm text-red-400 mb-2">检测到以下问题：</div>
+                          <ul className="text-sm text-red-300 space-y-1">
+                            {dbIntegrity.errors.map((err, i) => (
+                              <li key={i}>• {err}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* 修复按钮 */}
+                      {dbIntegrity && !dbIntegrity.healthy && (
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={handleRepairDb}
+                            disabled={dbRepairing}
+                            className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-lg flex items-center gap-2 transition-all"
+                          >
+                            {dbRepairing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                修复中...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-4 h-4" />
+                                尝试修复
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* 修复结果 */}
+                      {dbRepairResult && (
+                        <div className={`p-4 rounded-xl ${
+                          dbRepairResult.success 
+                            ? 'bg-emerald-500/10 border border-emerald-500/30' 
+                            : 'bg-red-500/10 border border-red-500/30'
+                        }`}>
+                          <div className={`text-sm font-medium mb-2 ${
+                            dbRepairResult.success ? 'text-emerald-400' : 'text-red-400'
+                          }`}>
+                            {dbRepairResult.success ? '修复成功' : '修复失败'}
+                          </div>
+                          {dbRepairResult.details && dbRepairResult.details.length > 0 && (
+                            <ul className="text-sm text-slate-400 space-y-1 mb-2">
+                              {dbRepairResult.details.map((detail, i) => (
+                                <li key={i}>• {detail}</li>
+                              ))}
+                            </ul>
+                          )}
+                          {dbRepairResult.error && (
+                            <div className="text-sm text-red-400">{dbRepairResult.error}</div>
+                          )}
+                          {dbRepairResult.needReset && (
+                            <button
+                              onClick={handleResetDb}
+                              className="mt-3 px-4 py-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 text-white rounded-lg flex items-center gap-2 transition-all"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                              重置数据库
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 日志管理 */}
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-600/5 to-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="relative p-8">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 bg-gradient-to-br from-amber-600 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <Trash2 className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white">日志管理</h3>
+                        <p className="text-sm text-slate-500">清除任务日志释放空间</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl">
+                        <div className="text-sm text-slate-400">
+                          当前日志占用 <span className="text-amber-400 font-bold">{formatFileSize(dbLogSize)}</span>，
+                          共 <span className="text-amber-400 font-bold">{dbStats?.logCount ?? 0}</span> 条记录
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleClearLogs}
+                        disabled={dbLoading || (dbStats?.logCount ?? 0) === 0}
+                        className="px-4 py-2 bg-slate-800 hover:bg-red-600 text-slate-300 hover:text-white rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        清除所有日志
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 任务清理 */}
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-600/5 to-pink-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="relative p-8">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <Trash2 className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-white">任务清理</h3>
+                        <p className="text-sm text-slate-500">清理已完成的旧任务释放空间</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1 p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl">
+                          <div className="text-sm text-slate-400 mb-3">
+                            当前共 <span className="text-purple-400 font-bold">{dbStats?.taskCount ?? 0}</span> 个任务
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-slate-500">清理</span>
+                            <select
+                              value={cleanupDays}
+                              onChange={(e) => setCleanupDays(Number(e.target.value))}
+                              className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                            >
+                              <option value={1}>1 天前</option>
+                              <option value={3}>3 天前</option>
+                              <option value={7}>7 天前</option>
+                              <option value={14}>14 天前</option>
+                              <option value={30}>30 天前</option>
+                            </select>
+                            <span className="text-sm text-slate-500">的已完成任务</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleCleanupOldTasks}
+                          disabled={dbLoading || (dbStats?.taskCount ?? 0) === 0}
+                          className="px-4 py-2 bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          清理任务
+                        </button>
+                      </div>
+                      <div className="p-3 bg-slate-950/30 border border-slate-800/30 rounded-lg">
+                        <p className="text-xs text-slate-500">
+                          仅清理「已完成」「失败」「已取消」状态的任务，待执行和运行中的任务不会被清理
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 备份管理 */}
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-cyan-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="relative p-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg">
+                          <Archive className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-white">备份管理</h3>
+                          <p className="text-sm text-slate-500">创建、恢复和删除数据库备份</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleCreateBackup}
+                        disabled={dbLoading}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg flex items-center gap-2 transition-all"
+                      >
+                        <Archive className="w-4 h-4" />
+                        创建备份
+                      </button>
+                    </div>
+
+                    {dbBackups.length > 0 ? (
+                      <div className="space-y-2">
+                        {dbBackups.map((backup) => (
+                          <div
+                            key={backup.path}
+                            className="flex items-center justify-between p-4 bg-slate-950/50 border border-slate-800/50 rounded-xl"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                <Archive className="w-5 h-5 text-blue-400" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-white">{backup.name}</div>
+                                <div className="text-xs text-slate-500">
+                                  {formatFileSize(backup.size)} · {formatTimestamp(backup.time)}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleRestoreBackup(backup.path)}
+                                disabled={dbLoading}
+                                className="px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 rounded-lg text-sm transition-colors"
+                              >
+                                恢复
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBackup(backup.path)}
+                                className="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-sm transition-colors"
+                              >
+                                删除
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center text-slate-500">
+                        <Archive className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>暂无备份</p>
+                        <p className="text-sm mt-1">点击"创建备份"按钮创建第一个备份</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 危险操作 */}
+                <div className="group relative overflow-hidden rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-950/30 to-slate-900/30 backdrop-blur-sm">
+                  <div className="relative p-8">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-red-600 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
+                        <AlertTriangle className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-red-400">危险操作</h3>
+                        <p className="text-sm text-slate-500">以下操作不可逆，请谨慎使用</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-white">重置数据库</div>
+                        <div className="text-xs text-slate-400 mt-1">
+                          删除所有任务数据和日志，恢复到初始状态
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleResetDb}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg flex items-center gap-2 transition-all"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        重置
+                      </button>
                     </div>
                   </div>
                 </div>
