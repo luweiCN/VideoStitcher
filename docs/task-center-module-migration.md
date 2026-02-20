@@ -475,10 +475,10 @@ const clearEditor = () => {
 - [x] VideoStitcherMode.tsx - A+B拼接 ✅ 2024-02
 - [x] ImageMaterialMode.tsx - 图片素材处理 ✅ 2024-02
 - [x] CoverFormatMode.tsx - 封面格式转换 ✅ 2024-02
+- [x] LosslessGridMode.tsx - 无损九宫格 ✅ 2024-02
 
 ### 需要迁移的模块
 - [ ] CoverCompressMode.tsx - 封面压缩
-- [ ] LosslessGridMode.tsx - 无损九宫格
 
 ### 需要实现的执行器
 - [x] `executeSingleMergeTask` - 极速合成执行器 ✅
@@ -486,6 +486,7 @@ const clearEditor = () => {
 - [x] `executeStitchTask` - A+B拼接执行器 ✅
 - [x] `executeImageMaterialTask` - 图片素材处理执行器 ✅
 - [x] `executeCoverFormatTask` - 封面格式转换执行器 ✅
+- [x] `executeLosslessGridTask` - 无损九宫格执行器 ✅
 
 ## 六、注意事项
 
@@ -843,3 +844,43 @@ const clearEditor = () => {
 3. **TaskList onLog 属性**
    - 问题：TaskList 组件不支持 `onLog` 属性
    - 解决：移除该属性，日志通过其他方式记录
+
+---
+
+### LosslessGridMode（专业无损九宫格）- 2024-02
+
+**改造内容：**
+
+**1. 主进程任务生成器** (`src/main/ipc/taskGenerator.ts`)
+- 添加 `LosslessGridTaskParams` 接口
+- 添加 `generateLosslessGridTasks` 函数，在主进程生成任务
+- 注册 `task:generate-lossless-grid` IPC 处理器
+- 任务无需额外配置参数
+
+**2. 图片处理子进程** (`src/main/workers/imageWorker.ts`)
+- 添加 `LosslessGridTask` 接口
+- 添加 `handleLosslessGridTask` 处理函数
+- 导入 `createGridImage` 函数
+- 通过 `taskType` 字段区分任务类型
+
+**3. 任务执行器** (`src/main/ipc/image.ts`)
+- 添加 `executeLosslessGridTask` 函数，供 TaskQueueManager 调用
+- 使用 `fork` 启动 `imageWorker.js` 子进程
+- 通过 `onPid` 回调报告 PID
+- 支持超时保护（5分钟）
+
+**4. 任务队列管理器** (`src/main/services/TaskQueueManager.ts`)
+- 导入 `executeLosslessGridTask`
+- 在 switch 语句中添加 `lossless_grid` 类型处理
+- 添加 `executeLosslessGridTaskMethod` 方法
+
+**5. Preload API 和类型声明** (`src/preload/index.ts`, `src/renderer/types/electron.d.ts`)
+- 添加 `generateLosslessGridTasks` API
+- 使用共享 `Task[]` 类型作为返回值
+
+**6. 前端模块** (`src/renderer/features/LosslessGridMode.tsx`)
+- 移除：`useImageProcessingEvents`、`isProcessing`、`ConcurrencySelector`
+- 移除：`useConcurrencyCache`、设置容器 UI
+- 添加：`isAdding`、`images` 状态，`generateTasks` IPC 调用
+- 添加 `TaskAddedDialog`、`TaskCountConfirmDialog` 组件
+- 保留：预览尺寸自适应逻辑

@@ -55,7 +55,7 @@ const TaskDetailPage: React.FC = () => {
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [previewFile, setPreviewFile] = useState<{ path: string; name: string; type: 'video' | 'image' } | null>(null);
-  const [outputPreview, setOutputPreview] = useState<{ path: string; url: string } | null>(null);
+  const [outputPreview, setOutputPreview] = useState<{ path: string; url: string; type: 'video' | 'image' } | null>(null);
   const [outputMeta, setOutputMeta] = useState<{ width: number; height: number; orientation: 'landscape' | 'portrait' | 'square' } | null>(null);
   const [generatingPreview, setGeneratingPreview] = useState(false);
 
@@ -248,7 +248,7 @@ const TaskDetailPage: React.FC = () => {
     return task.outputs.some(output => pathStatus.get(output.path) === true);
   }, [task?.outputs, pathStatus]);
 
-  // 生成预览视频
+  // 生成预览
   const generatePreviewVideo = useCallback(async () => {
     if (!task || generatingPreview) return;
     
@@ -263,21 +263,24 @@ const TaskDetailPage: React.FC = () => {
         setOutputPreview({
           path: output.path,
           url: previewUrl.url,
+          type: (output.type === 'image' ? 'image' : 'video') as 'video' | 'image',
         });
       }
 
-      // 获取视频元数据
-      try {
-        const meta = await window.api.getVideoDimensions(output.path);
-        if (meta) {
-          setOutputMeta({
-            width: meta.width,
-            height: meta.height,
-            orientation: meta.orientation,
-          });
+      // 获取视频元数据（仅视频类型）
+      if (output.type === 'video' || !output.type) {
+        try {
+          const meta = await window.api.getVideoDimensions(output.path);
+          if (meta) {
+            setOutputMeta({
+              width: meta.width,
+              height: meta.height,
+              orientation: meta.orientation,
+            });
+          }
+        } catch (metaErr) {
+          console.error('[TaskDetailPage] 获取视频元数据失败:', metaErr);
         }
-      } catch (metaErr) {
-        console.error('[TaskDetailPage] 获取视频元数据失败:', metaErr);
       }
     } catch (err) {
       console.error('[TaskDetailPage] 生成预览失败:', err);
@@ -646,12 +649,15 @@ const TaskDetailPage: React.FC = () => {
             </div>
           </section>
 
-          {/* 3. 产物预览 - 图片素材任务不显示 */}
-          {task.type !== 'image_material' && (
+          {/* 3. 产物预览 */}
           <section className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between">
               <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                <Video className="w-4 h-4 text-emerald-400" />
+                {task.type === 'image_material' || task.type === 'cover_format' || task.type === 'lossless_grid' ? (
+                  <ImageIcon className="w-4 h-4 text-emerald-400" />
+                ) : (
+                  <Video className="w-4 h-4 text-emerald-400" />
+                )}
                 产物预览
               </h3>
               {task.outputs && task.outputs.length > 0 && (
@@ -689,14 +695,22 @@ const TaskDetailPage: React.FC = () => {
                 ) : (
                   // 显示预览
                   <div className="w-full flex gap-4">
-                    <div className="flex-1 rounded-lg overflow-hidden" style={{ maxHeight: previewHeight.maxHeight }}>
-                      <VideoPlayer
-                        src={outputPreview.url}
-                        title={getFileName(outputPreview.path)}
-                        themeColor="violet"
-                        minimal
-                        className="h-full"
-                      />
+                    <div className="flex-1 rounded-lg overflow-hidden flex items-center justify-center" style={{ maxHeight: previewHeight.maxHeight }}>
+                      {outputPreview.type === 'image' ? (
+                        <img
+                          src={outputPreview.url}
+                          alt={getFileName(outputPreview.path)}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                      ) : (
+                        <VideoPlayer
+                          src={outputPreview.url}
+                          title={getFileName(outputPreview.path)}
+                          themeColor="violet"
+                          minimal
+                          className="h-full"
+                        />
+                      )}
                     </div>
                     {(task.outputs || []).length > 1 && (
                       <div className="w-48 flex flex-col gap-2 overflow-y-auto" style={{ maxHeight: previewHeight.maxHeight }}>
@@ -714,19 +728,22 @@ const TaskDetailPage: React.FC = () => {
                                   setOutputPreview({
                                     path: output.path,
                                     url: previewUrl.url,
+                                    type: (output.type === 'image' ? 'image' : 'video') as 'video' | 'image',
                                   });
-                                  // 获取新视频的元数据
-                                  try {
-                                    const meta = await window.api.getVideoDimensions(output.path);
-                                    if (meta) {
-                                      setOutputMeta({
-                                        width: meta.width,
-                                        height: meta.height,
-                                        orientation: meta.orientation,
-                                      });
+                                  // 获取新视频的元数据（仅视频类型）
+                                  if (output.type !== 'image') {
+                                    try {
+                                      const meta = await window.api.getVideoDimensions(output.path);
+                                      if (meta) {
+                                        setOutputMeta({
+                                          width: meta.width,
+                                          height: meta.height,
+                                          orientation: meta.orientation,
+                                        });
+                                      }
+                                    } catch (e) {
+                                      console.error(e);
                                     }
-                                  } catch (e) {
-                                    console.error(e);
                                   }
                                 }
                               }}
@@ -756,7 +773,6 @@ const TaskDetailPage: React.FC = () => {
               </div>
             </div>
           </section>
-          )}
 
           {/* 4. 日志区域 */}
           <section className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">

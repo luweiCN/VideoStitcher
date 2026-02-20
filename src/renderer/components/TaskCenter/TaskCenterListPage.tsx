@@ -120,30 +120,28 @@ const TaskCenterListPage: React.FC = () => {
   }, [tasks]);
 
   // 获取缩略图
-  const { getMaterial: getVideoMaterial } = useVideoMaterials(videoPaths, !loading, {
+  const { materials: videoMaterials } = useVideoMaterials(videoPaths, !loading, {
     thumbnailMaxSize: THUMBNAIL_SIZE,
   });
-  const { getMaterial: getImageMaterial } = useImageMaterials(imagePaths, !loading, {
+  const { materials: imageMaterials } = useImageMaterials(imagePaths, !loading, {
     thumbnailMaxSize: THUMBNAIL_SIZE,
   });
 
   // 合并缩略图映射
   const thumbnails = useMemo(() => {
     const map = new Map<string, string>();
-    videoPaths.forEach((path) => {
-      const material = getVideoMaterial(path);
+    videoMaterials.forEach((material) => {
       if (material?.thumbnailUrl) {
-        map.set(path, material.thumbnailUrl);
+        map.set(material.path, material.thumbnailUrl);
       }
     });
-    imagePaths.forEach((path) => {
-      const material = getImageMaterial(path);
+    imageMaterials.forEach((material) => {
       if (material?.thumbnailUrl) {
-        map.set(path, material.thumbnailUrl);
+        map.set(material.path, material.thumbnailUrl);
       }
     });
     return map;
-  }, [videoPaths, imagePaths, getVideoMaterial, getImageMaterial]);
+  }, [videoMaterials, imageMaterials]);
 
   // 更新 URL 参数
   const updateSearchParams = useCallback((updates: Record<string, string | number | null>) => {

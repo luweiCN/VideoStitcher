@@ -9,7 +9,7 @@
  */
 
 import sharp from 'sharp';
-import { processImageMaterial, convertCoverFormat } from '@shared/sharp';
+import { processImageMaterial, convertCoverFormat, createGridImage } from '@shared/sharp';
 import type { PreviewFitMode, LogoPosition, ExportOptions } from '@shared/sharp/types';
 
 interface ImageMaterialTask {
@@ -31,7 +31,14 @@ interface CoverFormatTask {
   quality: number;
 }
 
-type WorkerTask = ImageMaterialTask | CoverFormatTask;
+interface LosslessGridTask {
+  taskType: 'lossless_grid';
+  taskId: number;
+  imagePath: string;
+  outputDir: string;
+}
+
+type WorkerTask = ImageMaterialTask | CoverFormatTask | LosslessGridTask;
 
 interface TaskResult {
   success: boolean;
@@ -57,6 +64,12 @@ process.on('message', async (task: WorkerTask) => {
     return;
   }
 
+  // 无损九宫格任务
+  if ('taskType' in task && task.taskType === 'lossless_grid') {
+    await handleLosslessGridTask(task);
+    return;
+  }
+
   // 图片素材处理任务
   await handleImageMaterialTask(task as ImageMaterialTask);
 });
@@ -77,6 +90,32 @@ async function handleCoverFormatTask(task: CoverFormatTask): Promise<void> {
         success: true,
         outputs: [{ path: result.outputPath, type: 'image' }],
       });
+    } else {
+      sendResult(taskId, { success: false, error: '处理失败' });
+    }
+  } catch (err) {
+    const error = err as Error;
+    sendResult(taskId, { success: false, error: error.message });
+  }
+}
+
+/**
+ * 处理无损九宫格任务
+ */
+async function handleLosslessGridTask(task: LosslessGridTask): Promise<void> {
+  const { taskId, imagePath, outputDir } = task;
+
+  try {
+    sendLog(taskId, 'info', `处理图片: ${getFileName(imagePath)}`);
+
+    const result = await createGridImage(imagePath, outputDir);
+
+    if (result.success && result.grid) {
+      const outputs: { path: string; type: 'image' }[] = [];
+      for (const tile of result.grid) {
+        outputs.push({ path: tile.outputPath, type: 'image' });
+      }
+      sendResult(taskId, { success: true, outputs });
     } else {
       sendResult(taskId, { success: false, error: '处理失败' });
     }

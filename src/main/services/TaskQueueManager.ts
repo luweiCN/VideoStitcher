@@ -12,7 +12,7 @@ import { taskRepository } from '../database/repositories/task.repository';
 import { taskLogRepository } from '../database/repositories/task-log.repository';
 import { configRepository } from '../database/repositories/config.repository';
 import { executeSingleMergeTask, executeResizeTask, executeStitchTask } from '../ipc/video';
-import { executeImageMaterialTask, executeCoverFormatTask } from '../ipc/image';
+import { executeImageMaterialTask, executeCoverFormatTask, executeLosslessGridTask } from '../ipc/image';
 import type { Task, TaskCenterConfig, QueueStatus, TaskOutput, TaskStats } from '@shared/types/task';
 import { DEFAULT_TASK_CENTER_CONFIG } from '@shared/types/task';
 
@@ -499,9 +499,12 @@ export class TaskQueueManager {
         await this.executeCoverFormatTaskMethod(task, executor);
         break;
 
-      case 'cover_compress':
       case 'lossless_grid':
-        // TODO: 实现其他图片任务
+        await this.executeLosslessGridTaskMethod(task, executor);
+        break;
+
+      case 'cover_compress':
+        // TODO: 实现封面压缩任务
         this.addLog(task.id, 'info', `开始执行任务: ${type}`);
         this.handleTaskComplete(task.id, []);
         break;
@@ -764,6 +767,57 @@ export class TaskQueueManager {
           exec.pid = pid;
           taskRepository.updateTaskPid(task.id, pid);
           console.log(`[TaskQueueManager] 任务 ${task.id} 的封面格式转换进程 PID: ${pid}`);
+        }
+      }
+    );
+
+    if (result.success) {
+      const outputs: TaskOutput[] = (result.outputs || []).map((o) => ({
+        path: o.path,
+        type: 'image' as const,
+      }));
+      this.handleTaskComplete(task.id, outputs);
+    } else {
+      throw new Error(result.error || '任务执行失败');
+    }
+  }
+
+  /**
+   * 执行无损九宫格任务
+   */
+  private async executeLosslessGridTaskMethod(
+    task: Task,
+    executor: TaskExecutor
+  ): Promise<void> {
+    this.addLog(task.id, 'info', '开始执行无损九宫格任务');
+
+    const taskFiles = (task.files || []).map((f: any, idx: number) => ({
+      path: f.path,
+      index: f.index ?? idx,
+      category: f.category,
+      category_name: f.category_name || f.categoryLabel || f.category,
+    }));
+
+    const result = await executeLosslessGridTask(
+      {
+        id: task.id,
+        files: taskFiles,
+        config: task.config as any,
+        outputDir: task.outputDir || '',
+        threads: this.config!.threadsPerTask,
+      },
+      (message: string) => {
+        if (!this.runningTasks.has(task.id)) {
+          throw new TaskCancelledError();
+        }
+        this.addLog(task.id, 'info', message);
+      },
+      (pid: number) => {
+        const exec = this.runningTasks.get(task.id);
+        if (exec) {
+          exec.pid = pid;
+          taskRepository.updateTaskPid(task.id, pid);
+          console.log(`[TaskQueueManager] 任务 ${task.id} 的无损九宫格进程 PID: ${pid}`);
         }
       }
     );

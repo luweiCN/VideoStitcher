@@ -433,6 +433,13 @@ export interface ElectronAPI {
     success: boolean;
     tasks: Task[];
   }>;
+  generateLosslessGridTasks: (config: {
+    images: string[];
+    outputDir: string;
+  }) => Promise<{
+    success: boolean;
+    tasks: Task[];
+  }>;
 
   // === 任务中心 API ===
   createTask: (request: {

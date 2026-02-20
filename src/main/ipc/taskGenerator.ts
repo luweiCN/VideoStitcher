@@ -52,6 +52,11 @@ interface CoverFormatTaskParams {
   outputDir: string;
 }
 
+interface LosslessGridTaskParams {
+  images: string[];
+  outputDir: string;
+}
+
 interface TaskFile {
   path: string;
   index: number;
@@ -461,6 +466,32 @@ function generateCoverFormatTasks(_event: Electron.IpcMainInvokeEvent, params: C
 }
 
 /**
+ * 生成无损九宫格任务
+ */
+function generateLosslessGridTasks(_event: Electron.IpcMainInvokeEvent, params: LosslessGridTaskParams): { success: boolean; tasks: Task[] } {
+  const { images, outputDir } = params;
+
+  if (!images?.length) {
+    return { success: true, tasks: [] };
+  }
+
+  const tasks: Task[] = images.map((path, index) => ({
+    id: generateTempId(),
+    status: 'pending' as const,
+    files: [{
+      path,
+      index: index + 1,
+      category: 'image',
+      category_name: '图片',
+    }],
+    config: {},
+    outputDir,
+  }));
+
+  return { success: true, tasks };
+}
+
+/**
  * 注册任务生成器 IPC 处理器
  */
 export function registerTaskGeneratorHandlers(): void {
@@ -483,6 +514,10 @@ export function registerTaskGeneratorHandlers(): void {
   // 生成封面格式转换任务
   ipcMain.handle("task:generate-cover-format", generateCoverFormatTasks);
   console.log("[主进程] 任务生成器已注册: task:generate-cover-format");
+
+  // 生成无损九宫格任务
+  ipcMain.handle("task:generate-lossless-grid", generateLosslessGridTasks);
+  console.log("[主进程] 任务生成器已注册: task:generate-lossless-grid");
 }
 
 export {
@@ -491,4 +526,5 @@ export {
   generateResizeTasks,
   generateImageMaterialTasks,
   generateCoverFormatTasks,
+  generateLosslessGridTasks,
 };

@@ -382,6 +382,13 @@ export interface ElectronAPI {
     success: boolean;
     tasks: Task[];
   }>;
+  generateLosslessGridTasks: (config: {
+    images: string[];
+    outputDir: string;
+  }) => Promise<{
+    success: boolean;
+    tasks: Task[];
+  }>;
 
   // === 任务中心 API ===
   createTask: (request: {
@@ -590,6 +597,7 @@ const api: ElectronAPI = {
   generateResizeTasks: (config) => ipcRenderer.invoke("task:generate-resize", config),
   generateImageMaterialTasks: (config) => ipcRenderer.invoke("task:generate-image-material", config),
   generateCoverFormatTasks: (config) => ipcRenderer.invoke("task:generate-cover-format", config),
+  generateLosslessGridTasks: (config) => ipcRenderer.invoke("task:generate-lossless-grid", config),
 
   // 任务中心 API
   createTask: (request) => ipcRenderer.invoke("task:create", request),
