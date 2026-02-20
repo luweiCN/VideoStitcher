@@ -147,10 +147,9 @@ export function useTaskSubscription(options: UseTaskSubscriptionOptions) {
 
     // 任务删除
     if (onTaskDeleted) {
-      const cleanup = window.api.onTaskDeleted((id: string) => {
-        const numericId = parseInt(id, 10);
-        if (taskId === undefined || numericId === taskId) {
-          onTaskDeleted(numericId);
+      const cleanup = window.api.onTaskDeleted((id: number) => {
+        if (taskId === undefined || id === taskId) {
+          onTaskDeleted(id);
         }
       });
       cleanups.push(cleanup);
