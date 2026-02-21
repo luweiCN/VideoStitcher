@@ -1130,11 +1130,19 @@ export class TaskQueueManager {
     if (!this.mainWindow) return;
 
     try {
-      // 1. 获取系统状态
-      const [currentLoad, mem] = await Promise.all([
-        si.currentLoad(),
-        si.mem(),
-      ]);
+      // 1. 获取系统状态（添加失败降级处理）
+      let currentLoad: any = { currentLoad: 0, cpus: [] };
+      let mem: any = { total: 0, active: 0, used: 0 };
+
+      try {
+        [currentLoad, mem] = await Promise.all([
+          si.currentLoad(),
+          si.mem(),
+        ]);
+      } catch (sysInfoError) {
+        console.error('[TaskQueueManager] 获取系统信息失败（可能是打包后权限问题）:', sysInfoError);
+        // 使用默认值继续执行，至少保证基础状态能发送
+      }
 
       // 2. 获取运行中任务的 PID
       const runningPids = this.getRunningPids();
@@ -1143,59 +1151,76 @@ export class TaskQueueManager {
       let totalCpu = 0;
       let totalMemory = 0;
       const processes: Array<{ pid: number; name: string; cpu: number; memory: number; memoryMB: string }> = [];
-      
+
       if (runningPids.length > 0) {
-        // 批量获取所有任务进程的统计（包含子进程）
-        const taskStatsMap = await processMonitor.getBatchTaskProcessStats(runningPids);
-        
-        for (const [mainPid, stats] of taskStatsMap) {
-          totalCpu += stats.totalCpu;
-          totalMemory += stats.totalMemory;
-          
-          // 添加主进程信息
-          processes.push({
-            pid: mainPid,
-            name: 'ffmpeg',
-            cpu: stats.totalCpu,
-            memory: stats.totalMemory,
-            memoryMB: stats.totalMemoryMB.toFixed(1),
-          });
+        try {
+          // 批量获取所有任务进程的统计（包含子进程）
+          const taskStatsMap = await processMonitor.getBatchTaskProcessStats(runningPids);
+
+          for (const [mainPid, stats] of taskStatsMap) {
+            totalCpu += stats.totalCpu;
+            totalMemory += stats.totalMemory;
+
+            // 添加主进程信息
+            processes.push({
+              pid: mainPid,
+              name: 'ffmpeg',
+              cpu: stats.totalCpu,
+              memory: stats.totalMemory,
+              memoryMB: stats.totalMemoryMB.toFixed(1),
+            });
+          }
+        } catch (processMonitorError) {
+          console.error('[TaskQueueManager] 获取进程统计失败:', processMonitorError);
+          // 继续执行，只是没有进程数据
         }
       }
 
       // 4. 获取任务统计（从数据库）
-      const taskStats = taskRepository.getTaskStats();
+      let taskStats;
+      try {
+        taskStats = taskRepository.getTaskStats();
+      } catch (dbError) {
+        console.error('[TaskQueueManager] 获取任务统计失败:', dbError);
+        taskStats = { pending: 0, queued: 0, running: 0, paused: 0, completed: 0, failed: 0, cancelled: 0 };
+      }
 
       // 5. 获取任务列表（最多20条，优先显示运行中的任务）
       const runningTaskIds = Array.from(this.runningTasks.keys());
-      const runningTasks = runningTaskIds
-        .map(id => taskRepository.getTaskById(id))
-        .filter((t): t is Task => t !== null)
-        .map(t => ({
-          ...t,
-          files: taskRepository.getTaskFiles(t.id),
-        }));
-      
-      // 获取其他任务填充到20条
-      const runningCount = runningTasks.length;
-      const remainingSlots = Math.max(0, 20 - runningCount);
-      const excludeIds = runningTaskIds;
-      
-      let otherTasks: Task[] = [];
-      if (remainingSlots > 0) {
-        const result = taskRepository.getTasks({
-          filter: { status: ['pending'] },
-          sort: { field: 'createdAt', order: 'asc' },
-          pageSize: remainingSlots,
-        });
-        otherTasks = result.tasks
-          .filter(t => !excludeIds.includes(t.id))
+      let runningTasks: any[] = [];
+      let otherTasks: any[] = [];
+
+      try {
+        runningTasks = runningTaskIds
+          .map(id => taskRepository.getTaskById(id))
+          .filter((t): t is Task => t !== null)
           .map(t => ({
             ...t,
             files: taskRepository.getTaskFiles(t.id),
           }));
+
+        // 获取其他任务填充到20条
+        const runningCount = runningTasks.length;
+        const remainingSlots = Math.max(0, 20 - runningCount);
+        const excludeIds = runningTaskIds;
+
+        if (remainingSlots > 0) {
+          const result = taskRepository.getTasks({
+            filter: { status: ['pending'] },
+            sort: { field: 'createdAt', order: 'asc' },
+            pageSize: remainingSlots,
+          });
+          otherTasks = result.tasks
+            .filter(t => !excludeIds.includes(t.id))
+            .map(t => ({
+              ...t,
+              files: taskRepository.getTaskFiles(t.id),
+            }));
+        }
+      } catch (taskDbError) {
+        console.error('[TaskQueueManager] 获取任务列表失败:', taskDbError);
       }
-      
+
       const allTasks = [...runningTasks, ...otherTasks];
 
       // 6. 组装完整状态
@@ -1239,6 +1264,10 @@ export class TaskQueueManager {
       this.mainWindow.webContents.send('task-center:state', state);
     } catch (err) {
       console.error('[TaskQueueManager] 广播状态失败:', err);
+      // 输出更详细的错误信息
+      if (err instanceof Error) {
+        console.error('[TaskQueueManager] 错误堆栈:', err.stack);
+      }
     }
   }
 
