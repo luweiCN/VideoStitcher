@@ -688,7 +688,7 @@ async function handleMergePreviewFast(
     const args = buildMergeCommand({
       aPath: aVideo, bPath: bVideo, outPath: previewPath, bgImage, coverImage,
       aPosition, bPosition, coverPosition, orientation: orientation as 'vertical' | 'horizontal',
-      preview: previewConfig, trim, coverDuration: 1,
+      preview: previewConfig, trim, coverDuration: 0.3,
     });
 
     console.log('[预览] 生成极速合成预览:', previewPath);
