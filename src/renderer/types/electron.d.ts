@@ -248,6 +248,11 @@ export interface ElectronAPI {
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
 
+  // 日志管理
+  getLogFilePath: () => Promise<{ path: string }>;
+  getLogContent: (lines?: number) => Promise<{ success: boolean; content?: string; error?: string }>;
+  openLogDirectory: () => Promise<{ success: boolean; error?: string }>;
+
   // macOS 应用内更新 API
   macSetUpdateInfo: (updateInfo: {
     version: string;

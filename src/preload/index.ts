@@ -527,6 +527,11 @@ const api: ElectronAPI = {
   installUpdate: () => ipcRenderer.invoke("install-update"),
   openExternal: (url) => ipcRenderer.invoke("open-external", url),
 
+  // 日志管理
+  getLogFilePath: () => ipcRenderer.invoke("get-log-file-path"),
+  getLogContent: (lines?: number) => ipcRenderer.invoke("get-log-content", lines),
+  openLogDirectory: () => ipcRenderer.invoke("open-log-directory"),
+
   // macOS 应用内更新 API
   macSetUpdateInfo: (updateInfo) => ipcRenderer.invoke("mac-set-update-info", updateInfo),
   macCheckForUpdates: () => ipcRenderer.invoke("mac-check-for-updates"),

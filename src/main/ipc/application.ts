@@ -1,13 +1,14 @@
 /**
  * 应用信息与配置 IPC 处理器
- * 包含：应用版本、全局配置、自动更新
+ * 包含：应用版本、全局配置、自动更新、日志管理
  */
 
-import { ipcMain, app, BrowserWindow } from 'electron';
+import { ipcMain, app, BrowserWindow, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { getLogFilePath, getLogContent, getLogDirectory } from '@main/utils/logger';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -221,6 +222,39 @@ async function handleInstallUpdate(): Promise<{ success: boolean; error?: string
   }
 }
 
+// ==================== 日志管理 ====================
+
+/**
+ * 获取日志文件路径
+ */
+async function handleGetLogFilePath(): Promise<{ path: string }> {
+  return { path: getLogFilePath() };
+}
+
+/**
+ * 获取日志内容（最后 N 行）
+ */
+async function handleGetLogContent(_event: any, lines: number = 200): Promise<{ success: boolean; content?: string; error?: string }> {
+  try {
+    const content = getLogContent(lines);
+    return { success: true, content };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 打开日志文件所在目录
+ */
+async function handleOpenLogDirectory(): Promise<{ success: boolean; error?: string }> {
+  try {
+    await shell.openPath(getLogDirectory());
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 // ==================== 注册处理器 ====================
 
 /**
@@ -242,6 +276,11 @@ export function registerApplicationHandlers(win?: BrowserWindow): void {
   ipcMain.handle('check-for-updates', handleCheckForUpdates);
   ipcMain.handle('download-update', handleDownloadUpdate);
   ipcMain.handle('install-update', handleInstallUpdate);
+
+  // 日志管理
+  ipcMain.handle('get-log-file-path', handleGetLogFilePath);
+  ipcMain.handle('get-log-content', handleGetLogContent);
+  ipcMain.handle('open-log-directory', handleOpenLogDirectory);
 }
 
 export {

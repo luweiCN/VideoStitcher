@@ -2,6 +2,9 @@ import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 
+// 初始化日志模块（必须在其他模块之前导入）
+import '@main/utils/logger';
+
 // 导入启动初始化模块
 import { initStartup } from '@main/init';
 
