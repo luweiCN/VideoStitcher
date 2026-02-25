@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updatedAt": "2026-02-09T02:34:03Z",
+  "updatedAt": "2026-02-25T01:26:59Z",
   "specialKeys": [
     {
       "key": "VS-MASTER-2024-KEY01",
@@ -33,6 +33,12 @@
       "user": "c2800b841f691c08f3fda9eb7ed4e54fbd7fe5db50073a1215bd9982caec526a",
       "enabled": true,
       "createdAt": "2026-02-09T02:34:03Z"
+    },
+    {
+      "machineId": "62fd15e4f380f3c0530b980450ceeb4a381114aef57de6353ba3b86d5be3d62b",
+      "user": "62fd15e4f380f3c0530b980450ceeb4a381114aef57de6353ba3b86d5be3d62b",
+      "enabled": true,
+      "createdAt": "2026-02-25T01:26:59Z"
     }
   ]
 }
