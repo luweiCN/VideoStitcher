@@ -16,6 +16,7 @@ const UnauthorizedMode: React.FC = () => {
     reason?: string;
     offline?: boolean;
     developmentMode?: boolean;
+    needsOnlineVerification?: boolean;
   }>({
     authorized: false
   });
@@ -46,7 +47,8 @@ const UnauthorizedMode: React.FC = () => {
         authorized: result.authorized,
         reason: result.reason,
         offline: result.offline,
-        developmentMode: result.developmentMode
+        developmentMode: result.developmentMode,
+        needsOnlineVerification: result.needsOnlineVerification
       });
 
       // 如果授权成功，刷新页面让 App.tsx 处理跳转
@@ -119,9 +121,15 @@ const UnauthorizedMode: React.FC = () => {
 
         {/* 说明文字 */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 mb-6">
-          <p className="text-sm text-slate-300 leading-relaxed">
-            请联系软件管理员获取授权。管理员可通过设备 ID 为您开通使用权限。
-          </p>
+          {licenseStatus.needsOnlineVerification ? (
+            <p className="text-sm text-slate-300 leading-relaxed">
+              已超过 7 天未联网验证，请连接网络后点击下方按钮验证授权状态。
+            </p>
+          ) : (
+            <p className="text-sm text-slate-300 leading-relaxed">
+              请联系软件管理员获取授权。管理员可通过设备 ID 为您开通使用权限。
+            </p>
+          )}
         </div>
 
         {/* 重新检查按钮 */}
@@ -133,7 +141,12 @@ const UnauthorizedMode: React.FC = () => {
           {checking ? (
             <>
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>检查中...</span>
+              <span>验证中...</span>
+            </>
+          ) : licenseStatus.needsOnlineVerification ? (
+            <>
+              <RefreshCw className="w-4 h-4" />
+              <span>联网验证授权</span>
             </>
           ) : (
             <>
@@ -144,7 +157,12 @@ const UnauthorizedMode: React.FC = () => {
         </button>
 
         {/* 状态信息 */}
-        {licenseStatus.offline && (
+        {licenseStatus.needsOnlineVerification && (
+          <div className="mt-4 text-center text-sm text-amber-500">
+            ⚠️ 需要联网验证授权状态
+          </div>
+        )}
+        {licenseStatus.offline && !licenseStatus.needsOnlineVerification && (
           <div className="mt-4 text-center text-sm text-amber-500">
             ⚠️ 当前处于离线模式，使用缓存的授权信息
           </div>

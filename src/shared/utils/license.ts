@@ -63,6 +63,7 @@ interface LicenseStatus extends VerifyResult {
   licenseVersion?: string;
   updatedAt?: string;
   offline?: boolean;
+  needsOnlineVerification?: boolean;  // 需要联网验证（超过7天未联网）
 }
 
 /**
@@ -199,10 +200,10 @@ export function saveLicenseCache(licenseData: LicenseData): void {
 }
 
 /**
- * 从本地缓存读取授权文件（仅用于离线情况）
- * @returns 缓存的授权文件内容，如果不存在或超过宽限期则返回 null
+ * 从本地缓存读取授权文件
+ * @returns 缓存结果，包含数据和是否超过7天的标志
  */
-export function readLicenseCache(): LicenseData | null {
+export function readLicenseCache(): { data: LicenseData; expired: boolean } | null {
   try {
     const cachePath = getLicenseCachePath();
     if (!fs.existsSync(cachePath)) {
@@ -216,16 +217,17 @@ export function readLicenseCache(): LicenseData | null {
     const now = Date.now();
     const cacheAge = now - cachedAt;
 
-    console.log('[授权] 缓存年龄:', Math.floor(cacheAge / 1000 / 60), '分钟');
+    console.log('[授权] 缓存年龄:', Math.floor(cacheAge / 1000 / 60 / 60), '小时');
 
     // 检查是否超过离线宽限期
-    if (cacheAge > OFFLINE_GRACE_PERIOD_MS) {
-      console.log('[授权] 已超过离线宽限期 (7天)');
-      return null;
+    const expired = cacheAge > OFFLINE_GRACE_PERIOD_MS;
+    if (expired) {
+      console.log('[授权] 已超过离线宽限期 (7天)，需要联网验证');
+    } else {
+      console.log('[授权] 网络不可用，使用缓存的授权文件');
     }
 
-    console.log('[授权] 网络不可用，使用缓存的授权文件');
-    return cacheData;
+    return { data: cacheData, expired };
   } catch (error) {
     console.error('[授权] 读取授权文件缓存失败:', error);
     return null;
@@ -342,9 +344,19 @@ export async function getLicenseStatus(forceRefresh: boolean = false): Promise<L
     console.error('[授权] 从 GitHub 获取授权失败:', errorMessage);
 
     // 网络失败时，尝试使用本地缓存
-    const cachedData = readLicenseCache();
-    if (cachedData) {
-      licenseData = cachedData;
+    const cacheResult = readLicenseCache();
+    if (cacheResult) {
+      // 缓存超过7天，需要联网验证
+      if (cacheResult.expired) {
+        return {
+          authorized: false,
+          needsOnlineVerification: true,
+          offline: true,
+          reason: '已超过7天未联网，请连接网络验证授权状态'
+        };
+      }
+      // 缓存未过期，使用缓存验证
+      licenseData = cacheResult.data;
       usedCache = true;
       offlineMode = true;
       console.log('[授权] 网络不可用，使用本地缓存');

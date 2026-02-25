@@ -236,6 +236,7 @@ export interface ElectronAPI {
     licenseVersion?: string;
     updatedAt?: string;
     offline?: boolean;
+    needsOnlineVerification?: boolean;
   }>;
   getLicenseInfo: () => Promise<{
     authorized: boolean;
