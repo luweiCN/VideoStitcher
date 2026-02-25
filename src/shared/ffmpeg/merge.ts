@@ -39,7 +39,7 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
     orientation = 'horizontal',
     preview,
     trim,
-    coverDuration = 1,
+    coverDuration = 0.3,
     quality = 'medium',
     threads,
   } = config;

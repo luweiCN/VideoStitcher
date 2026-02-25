@@ -24,7 +24,8 @@ import {
   Trash2,
   AlertTriangle,
   Archive,
-  RotateCcw
+  RotateCcw,
+  FileText
 } from 'lucide-react';
 import ConcurrencySelector from '@/components/ConcurrencySelector';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
@@ -962,6 +963,40 @@ const AdminMode: React.FC<AdminModeProps> = ({
                           </li>
                         </ul>
                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 日志管理卡片 */}
+                <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-gradient-to-r from-slate-600/5 to-zinc-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="relative p-8">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-14 h-14 bg-gradient-to-br from-slate-600 to-zinc-600 rounded-2xl flex items-center justify-center shadow-xl shadow-slate-600/20">
+                        <FileText className="w-7 h-7 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl font-bold text-white">日志管理</h2>
+                        <p className="text-sm text-slate-500 mt-0.5">查看应用运行日志，排查问题</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await window.api.openLogDirectory?.();
+                          } catch (err) {
+                            console.error('打开日志目录失败:', err);
+                          }
+                        }}
+                        className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-xl transition-colors flex items-center gap-2"
+                      >
+                        <FolderOpen className="w-4 h-4" />
+                        打开日志目录
+                      </button>
+                      <p className="text-xs text-slate-500">
+                        日志文件位于应用数据目录，单文件最大 5MB，自动清理 7 天前的日志
+                      </p>
                     </div>
                   </div>
                 </div>
