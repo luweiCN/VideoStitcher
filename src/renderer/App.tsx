@@ -226,9 +226,9 @@ const HomePage: React.FC<{
                 <Grid3X3 className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-lg font-bold mb-1 text-white group-hover:text-cyan-400 transition-colors">专业无损九宫格</h2>
+                <h2 className="text-lg font-bold mb-1 text-white group-hover:text-cyan-400 transition-colors">专业无损多宫格</h2>
                 <p className="text-slate-400 text-sm leading-relaxed">
-                  1:1原图，无损无压缩九宫格切割
+                  自定义横竖线条，自由裁切图片，无损无压缩
                 </p>
               </div>
             </div>

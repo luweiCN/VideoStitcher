@@ -55,6 +55,10 @@ interface CoverFormatTaskParams {
 interface LosslessGridTaskParams {
   images: string[];
   outputDir: string;
+  config?: {
+    horizontalLines?: number[];
+    verticalLines?: number[];
+  };
 }
 
 interface TaskFile {
@@ -466,10 +470,10 @@ function generateCoverFormatTasks(_event: Electron.IpcMainInvokeEvent, params: C
 }
 
 /**
- * 生成无损九宫格任务
+ * 生成无损九宫格/多宫格任务
  */
 function generateLosslessGridTasks(_event: Electron.IpcMainInvokeEvent, params: LosslessGridTaskParams): { success: boolean; tasks: Task[] } {
-  const { images, outputDir } = params;
+  const { images, outputDir, config } = params;
 
   if (!images?.length) {
     return { success: true, tasks: [] };
@@ -484,7 +488,7 @@ function generateLosslessGridTasks(_event: Electron.IpcMainInvokeEvent, params: 
       category: 'image',
       category_name: '图片',
     }],
-    config: {},
+    config: config || {},
     outputDir,
   }));
 

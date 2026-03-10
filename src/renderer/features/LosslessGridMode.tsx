@@ -24,7 +24,9 @@ const LosslessGridMode: React.FC = () => {
   const [showCountConfirmDialog, setShowCountConfirmDialog] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [images, setImages] = useState<string[]>([]);
-  const [previewSize, setPreviewSize] = useState(400);
+  const [previewRect, setPreviewRect] = useState({ width: 400, height: 400 });
+  const [horizontalLines, setHorizontalLines] = useState<number[]>([1 / 3, 2 / 3]);
+  const [verticalLines, setVerticalLines] = useState<number[]>([1 / 3, 2 / 3]);
   const fileSelectorGroupRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -46,24 +48,47 @@ const LosslessGridMode: React.FC = () => {
     scrollToTop,
     onUserInteractStart,
   } = useOperationLogs({
-    moduleNameCN: "专业无损九宫格",
-    moduleNameEN: "LosslessGrid",
+    moduleNameCN: "专业无损多宫格",
+    moduleNameEN: "LosslessMultiGrid",
   });
 
-  // 计算预览尺寸
+  const currentImagePath = images[currentIndex] || "";
+
+  const { materials } = useImageMaterials(
+    [currentImagePath],
+    !!currentImagePath,
+  );
+  const currentMaterial = materials[0];
+
   useEffect(() => {
     const calculatePreviewSize = () => {
       if (!containerRef.current) return;
       const container = containerRef.current;
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
-      const padding = 32;
-      const infoHeight = 28;
-      const availableWidth = containerWidth - padding * 2;
-      const availableHeight = containerHeight - padding * 2 - infoHeight;
-      const maxSize = Math.min(availableWidth, availableHeight);
-      const size = Math.max(200, Math.min(800, maxSize));
-      setPreviewSize(size);
+      const padding = 64; 
+      const infoHeight = 40;
+      
+      const availableWidth = containerWidth - padding;
+      const availableHeight = containerHeight - padding - infoHeight;
+
+      if (currentMaterial?.width && currentMaterial?.height) {
+        const imgRatio = currentMaterial.width / currentMaterial.height;
+        const containerRatio = availableWidth / availableHeight;
+
+        let w, h;
+        if (imgRatio > containerRatio) {
+          w = availableWidth;
+          h = availableWidth / imgRatio;
+        } else {
+          h = availableHeight;
+          w = availableHeight * imgRatio;
+        }
+        setPreviewRect({ width: Math.max(100, w), height: Math.max(100, h) });
+      } else {
+        const size = Math.min(availableWidth, availableHeight, 400);
+        setPreviewRect({ width: size, height: size });
+      }
     };
 
     const timer = setTimeout(calculatePreviewSize, 100);
@@ -72,32 +97,28 @@ const LosslessGridMode: React.FC = () => {
       clearTimeout(timer);
       window.removeEventListener("resize", calculatePreviewSize);
     };
-  }, []);
+  }, [currentMaterial?.width, currentMaterial?.height]);
 
-  // 通过 IPC 生成任务
   const generateTasks = useCallback(async () => {
     if (images.length === 0 || !outputDir) {
       setTasks([]);
       return;
     }
 
-    addLog(`正在生成 ${images.length} 个任务...`, "info");
-
     const result = await window.api.generateLosslessGridTasks({
       images,
       outputDir,
+      config: {
+        horizontalLines,
+        verticalLines,
+      },
     });
 
     if (result.success && result.tasks) {
       setTasks(result.tasks as Task[]);
-      setCurrentIndex(0);
-      addLog(`已生成 ${result.tasks.length} 个任务`, "success");
-    } else {
-      addLog("生成任务失败", "error");
     }
-  }, [images, outputDir, addLog]);
+  }, [images, outputDir, horizontalLines, verticalLines]);
 
-  // 参数变化时重新生成任务
   useEffect(() => {
     generateTasks();
   }, [generateTasks]);
@@ -112,40 +133,90 @@ const LosslessGridMode: React.FC = () => {
     [addLog],
   );
 
-  const currentTask = tasks[currentIndex];
-  const currentImagePath = currentTask?.files?.[0]?.path || "";
-
-  const { materials } = useImageMaterials(
-    [currentImagePath],
-    !!currentImagePath,
-  );
-  const currentMaterial = materials[0];
-
   const imageInfo =
     currentImagePath && currentMaterial
       ? {
           path: currentImagePath,
           name: currentImagePath.split("/").pop() || currentImagePath,
-          thumbnailUrl: currentMaterial.thumbnailUrl,
+          thumbnailUrl: currentMaterial.previewUrl || currentMaterial.thumbnailUrl,
           width: currentMaterial.width,
           height: currentMaterial.height,
+          horizontalLines,
+          verticalLines,
         }
       : null;
 
+  const tileCount = (horizontalLines.length + 1) * (verticalLines.length + 1);
+  
   const resolution =
     currentMaterial?.width && currentMaterial?.height
-      ? `${Math.floor(currentMaterial.width / 3)}×${Math.floor(
-          currentMaterial.height / 3,
-        )} × 9张`
+      ? `多尺寸 × ${tileCount}张`
       : "自动";
 
   const outputConfig: OutputConfig = {
     resolution,
     format: "png",
-    nums: 9,
+    nums: tileCount,
   };
 
-  // 核心添加逻辑
+  // 添加横线并等距排列
+  const addHorizontalLine = () => {
+    const nextCount = horizontalLines.length + 1;
+    const newLines = [];
+    for (let i = 1; i <= nextCount; i++) {
+      newLines.push(i / (nextCount + 1));
+    }
+    setHorizontalLines(newLines);
+    addLog(`横向切割增加至 ${nextCount + 1} 段`, "info");
+  };
+
+  // 减少横线并等距排列
+  const removeHorizontalLine = () => {
+    if (horizontalLines.length === 0) return;
+    const nextCount = horizontalLines.length - 1;
+    const newLines = [];
+    for (let i = 1; i <= nextCount; i++) {
+      newLines.push(i / (nextCount + 1));
+    }
+    setHorizontalLines(newLines);
+    addLog(`横向切割减少至 ${nextCount + 1} 段`, "info");
+  };
+
+  // 添加竖线并等距排列
+  const addVerticalLine = () => {
+    const nextCount = verticalLines.length + 1;
+    const newLines = [];
+    for (let i = 1; i <= nextCount; i++) {
+      newLines.push(i / (nextCount + 1));
+    }
+    setVerticalLines(newLines);
+    addLog(`纵向切割增加至 ${nextCount + 1} 段`, "info");
+  };
+
+  // 减少竖线并等距排列
+  const removeVerticalLine = () => {
+    if (verticalLines.length === 0) return;
+    const nextCount = verticalLines.length - 1;
+    const newLines = [];
+    for (let i = 1; i <= nextCount; i++) {
+      newLines.push(i / (nextCount + 1));
+    }
+    setVerticalLines(newLines);
+    addLog(`纵向切割减少至 ${nextCount + 1} 段`, "info");
+  };
+
+  const clearLines = () => {
+    setHorizontalLines([]);
+    setVerticalLines([]);
+    addLog("已清空切割线", "info");
+  };
+
+  const resetToNineGrid = () => {
+    setHorizontalLines([1 / 3, 2 / 3]);
+    setVerticalLines([1 / 3, 2 / 3]);
+    addLog("已恢复九宫格设置", "info");
+  };
+
   const doAddToTaskCenter = async () => {
     setIsAdding(true);
     addLog(`正在添加 ${tasks.length} 个任务到任务中心...`, "info");
@@ -163,9 +234,6 @@ const LosslessGridMode: React.FC = () => {
         addLog(`成功添加 ${result.successCount} 个任务到任务中心`, "success");
         setShowConfirmDialog(true);
       }
-      if (result.failCount > 0) {
-        addLog(`${result.failCount} 个任务添加失败`, "warning");
-      }
     } catch (err: any) {
       addLog(`添加任务失败: ${err.message || err}`, "error");
     } finally {
@@ -173,9 +241,8 @@ const LosslessGridMode: React.FC = () => {
     }
   };
 
-  // 入口函数（含校验和二次确认）
   const addToTaskCenter = async () => {
-    if (tasks.length === 0) {
+    if (images.length === 0) {
       addLog("请先选择要处理的图片", "warning");
       return;
     }
@@ -184,7 +251,6 @@ const LosslessGridMode: React.FC = () => {
       return;
     }
 
-    // 任务数量超过100时显示确认弹窗
     if (tasks.length > 100) {
       setShowCountConfirmDialog(true);
     } else {
@@ -192,7 +258,6 @@ const LosslessGridMode: React.FC = () => {
     }
   };
 
-  // 清空编辑区域
   const clearEditor = () => {
     fileSelectorGroupRef.current?.clearAll();
     setImages([]);
@@ -204,16 +269,17 @@ const LosslessGridMode: React.FC = () => {
   return (
     <div className="h-screen bg-black text-slate-100 flex flex-col">
       <PageHeader
-        title="专业无损九宫格"
+        title="专业无损多宫格"
         icon={Grid3X3}
         iconColor="text-cyan-400"
-        description="1:1原图，无损无压缩九宫格切割"
+        description="自定义横竖线条，自由裁切图片"
         featureInfo={{
-          title: "专业无损九宫格",
-          description: "对原图进行无损 3×3 切割，保持原始分辨率和画质。",
+          title: "专业无损多宫格",
+          description: "根据自定义线条对原图进行无损切割，支持任意横竖线排列。",
           details: [
-            "自动进行 3×3 九宫格分割，输出 9 张图片",
-            "建议上传 1:1 正方形原图以获得最佳效果",
+            "支持自由添加横向和纵向切割线",
+            "自动计算每一块的像素尺寸",
+            "不局限于正方形，适配任意比例矩形图片",
             "支持批量处理，PNG 格式输出保证最佳画质",
           ],
           themeColor: "cyan",
@@ -235,6 +301,89 @@ const LosslessGridMode: React.FC = () => {
                 disabled={isAdding}
               />
             </FileSelectorGroup>
+
+            <div className="pt-4 border-t border-slate-800 space-y-3">
+              <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
+                切割线控制
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={addHorizontalLine}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    themeColor="cyan"
+                  >
+                    加横线
+                  </Button>
+                  <Button
+                    onClick={removeHorizontalLine}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    themeColor="cyan"
+                    disabled={horizontalLines.length === 0}
+                  >
+                    减横线
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={addVerticalLine}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    themeColor="cyan"
+                  >
+                    加竖线
+                  </Button>
+                  <Button
+                    onClick={removeVerticalLine}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    themeColor="cyan"
+                    disabled={verticalLines.length === 0}
+                  >
+                    减竖线
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  onClick={resetToNineGrid}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-slate-400"
+                  themeColor="cyan"
+                >
+                  恢复九宫格
+                </Button>
+                <Button
+                  onClick={clearLines}
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-red-400 border-red-900/30"
+                  themeColor="cyan"
+                >
+                  清空线段
+                </Button>
+              </div>
+              
+              <div className="bg-slate-900/30 rounded p-3 border border-slate-800/50">
+                <div className="text-[10px] text-slate-500 mb-1">当前切割</div>
+                <div className="text-sm font-bold text-cyan-400">
+                  {horizontalLines.length + 1} 行 × {verticalLines.length + 1} 列
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1">
+                  总计 {tileCount} 张图片
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -243,7 +392,7 @@ const LosslessGridMode: React.FC = () => {
           className="flex-1 bg-black flex flex-col overflow-hidden min-w-0"
         >
           <TaskList
-            tasks={tasks}
+            tasks={tasks.length > 0 ? tasks : (images.map((img, i) => ({ id: i, status: 'pending', files: [{ path: img, category: 'image', category_name: '图片' }], config: {}, outputDir: '' })) as any)}
             currentIndex={currentIndex}
             output={outputConfig}
             type="lossless_grid"
@@ -253,7 +402,12 @@ const LosslessGridMode: React.FC = () => {
             onTaskChange={setCurrentIndex}
           />
 
-          <GridPreview imageInfo={imageInfo} previewSize={previewSize} />
+          <GridPreview 
+            imageInfo={imageInfo} 
+            previewRect={previewRect} 
+            onHorizontalLinesChange={setHorizontalLines}
+            onVerticalLinesChange={setVerticalLines}
+          />
         </div>
 
         <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
@@ -287,7 +441,7 @@ const LosslessGridMode: React.FC = () => {
           <div className="p-4 border-t border-slate-800 bg-black/50">
             <Button
               onClick={addToTaskCenter}
-              disabled={tasks.length === 0 || !outputDir || isAdding}
+              disabled={images.length === 0 || !outputDir || isAdding}
               variant="primary"
               size="md"
               fullWidth
@@ -301,7 +455,6 @@ const LosslessGridMode: React.FC = () => {
         </div>
       </div>
 
-      {/* 任务添加成功弹窗 */}
       <TaskAddedDialog
         open={showConfirmDialog}
         taskCount={tasks.length}
@@ -316,7 +469,6 @@ const LosslessGridMode: React.FC = () => {
         }}
       />
 
-      {/* 任务数量确认弹窗（超过100个时） */}
       <TaskCountConfirmDialog
         open={showCountConfirmDialog}
         taskCount={tasks.length}

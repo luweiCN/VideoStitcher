@@ -728,14 +728,17 @@ export async function executeLosslessGridTask(
   task: {
     id: number;
     files: TaskFile[];
-    config?: Record<string, unknown>;
+    config?: {
+      horizontalLines?: number[];
+      verticalLines?: number[];
+    };
     outputDir: string;
     threads?: number;
   },
   onLog?: (message: string) => void,
   onPid?: (pid: number) => void
 ): Promise<{ success: boolean; outputs?: { path: string; type: 'image' }[]; error?: string }> {
-  const { outputDir, files, threads } = task;
+  const { outputDir, files, threads, config } = task;
 
   if (!outputDir) {
     return { success: false, error: '未设置输出目录' };
@@ -773,6 +776,7 @@ export async function executeLosslessGridTask(
           taskId: task.id,
           imagePath,
           outputDir,
+          config,
         });
       } else if (message.type === 'log') {
         onLog?.(message.message);

@@ -36,6 +36,10 @@ interface LosslessGridTask {
   taskId: number;
   imagePath: string;
   outputDir: string;
+  config?: {
+    horizontalLines?: number[];
+    verticalLines?: number[];
+  };
 }
 
 type WorkerTask = ImageMaterialTask | CoverFormatTask | LosslessGridTask;
@@ -100,15 +104,23 @@ async function handleCoverFormatTask(task: CoverFormatTask): Promise<void> {
 }
 
 /**
- * 处理无损九宫格任务
+ * 处理无损九宫格/多宫格任务
  */
 async function handleLosslessGridTask(task: LosslessGridTask): Promise<void> {
-  const { taskId, imagePath, outputDir } = task;
+  const { taskId, imagePath, outputDir, config } = task;
 
   try {
     sendLog(taskId, 'info', `处理图片: ${getFileName(imagePath)}`);
 
-    const result = await createGridImage(imagePath, outputDir);
+    const result = await createGridImage(
+      imagePath,
+      outputDir,
+      null,
+      undefined,
+      0,
+      config?.horizontalLines,
+      config?.verticalLines
+    );
 
     if (result.success && result.grid) {
       const outputs: { path: string; type: 'image' }[] = [];
