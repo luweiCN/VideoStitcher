@@ -11,6 +11,7 @@
     "repo": "VideoStitcher"
   },
   "scripts": {
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
     "build:icons": "node scripts/generate-icons.js",
     "build:icons:dev": "node scripts/generate-icons.js --dev",
     "dev": "npm run build:icons:dev && electron-vite dev",
