@@ -98,7 +98,7 @@ export async function createGridImage(
       // 避免无效切片
       if (tileWidth <= 0 || tileHeight <= 0) continue;
 
-      const rawName = getModifiedName(inputBaseName, `多宫格${tileIndex}`);
+      const rawName = getModifiedName(inputBaseName, `分镜${tileIndex}`);
       const outName = generateFileName(outputDir, rawName, {
         extension: maxSizeKB > 0 ? '.jpg' : '.png',
         reserveSuffixSpace: 5,
