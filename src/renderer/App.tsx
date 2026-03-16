@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Link, Download, AlertCircle, Bell } from 'lucide-react';
+import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Link, Download, AlertCircle, Bell, Sparkles } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { ToastProvider } from './components/Toast';
 import VideoMergeMode from './features/VideoMergeMode';
@@ -14,6 +14,7 @@ import ResizeMode from './features/ResizeMode';
 import VideoStitcherMode from './features/VideoStitcherMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
+import ASidePage from './pages/ASide';
 import { TaskCenterProvider } from './contexts/TaskContext';
 import { TaskCenterListPage, TaskCenterDashboard, HomeTaskIndicator, TaskDetailPage } from './components/TaskCenter';
 
@@ -253,6 +254,26 @@ const HomePage: React.FC<{
               </div>
             </div>
           </button>
+
+          <button
+            onClick={() => onNavigate('/aside')}
+            className="group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all hover:border-violet-500 hover:shadow-lg hover:shadow-violet-500/10 hover:-translate-y-0.5"
+          >
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
+              <Sparkles className="w-16 h-16" />
+            </div>
+            <div className="relative z-10 space-y-3">
+              <div className="w-12 h-12 bg-violet-500/10 rounded-xl flex items-center justify-center group-hover:bg-violet-500 group-hover:text-white transition-colors text-violet-400">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold mb-1 text-white group-hover:text-violet-400 transition-colors">A 面视频生产</h2>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  AI 驱动的营销视频批量生产工具
+                </p>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -411,6 +432,7 @@ const AppContent: React.FC = () => {
         <Route path="/losslessGrid" element={<LosslessGridMode />} />
         <Route path="/resize" element={<ResizeMode />} />
         <Route path="/videoStitcher" element={<VideoStitcherMode />} />
+        <Route path="/aside" element={<ASidePage />} />
         <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
         <Route path="/tasks" element={<TaskCenterListPage />} />

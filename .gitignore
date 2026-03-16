@@ -30,3 +30,9 @@ npm-debug.log*
 # OS generated files
 Thumbs.db
 *.tsbuildinfo
+
+# Test results
+test-results/
+playwright-report/
+coverage/
+.nyc_output/

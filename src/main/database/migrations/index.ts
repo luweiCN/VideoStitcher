@@ -27,30 +27,30 @@ const MIGRATIONS: Migration[] = [
         name TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
         priority INTEGER NOT NULL DEFAULT 0,
-        
+
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         started_at INTEGER,
         completed_at INTEGER,
-        
+
         execution_time INTEGER DEFAULT 0,
-        
+
         output_dir TEXT NOT NULL,
         params TEXT NOT NULL DEFAULT '{}',
-        
+
         progress INTEGER NOT NULL DEFAULT 0,
         current_step TEXT,
-        
+
         retry_count INTEGER NOT NULL DEFAULT 0,
         max_retry INTEGER NOT NULL DEFAULT 3,
-        
+
         error_code TEXT,
         error_message TEXT,
         error_stack TEXT,
-        
+
         pid INTEGER,
         pid_started_at INTEGER,
-        
+
         CHECK (status IN ('pending', 'running', 'completed', 'failed', 'cancelled')),
         CHECK (progress >= 0 AND progress <= 100)
       );
@@ -63,7 +63,7 @@ const MIGRATIONS: Migration[] = [
         category TEXT NOT NULL,
         category_label TEXT NOT NULL,
         sort_order INTEGER NOT NULL DEFAULT 0,
-        
+
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
       );
 
@@ -75,7 +75,7 @@ const MIGRATIONS: Migration[] = [
         type TEXT NOT NULL DEFAULT 'other',
         size INTEGER,
         created_at INTEGER NOT NULL,
-        
+
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
       );
 
@@ -87,9 +87,9 @@ const MIGRATIONS: Migration[] = [
         level TEXT NOT NULL DEFAULT 'info',
         message TEXT NOT NULL,
         raw TEXT,
-        
+
         FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-        
+
         CHECK (level IN ('info', 'warning', 'error', 'success', 'debug'))
       );
 
@@ -117,6 +117,67 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_task_outputs_task_id ON task_outputs(task_id);
       CREATE INDEX IF NOT EXISTS idx_task_logs_task_id ON task_logs(task_id);
       CREATE INDEX IF NOT EXISTS idx_task_logs_timestamp ON task_logs(timestamp);
+    `,
+  },
+  {
+    version: 2,
+    description: '添加 AI 视频生产相关表',
+    up: `
+      -- AI 脚本表
+      CREATE TABLE IF NOT EXISTS ai_scripts (
+        id TEXT PRIMARY KEY,
+        text TEXT NOT NULL,
+        style TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        selected INTEGER NOT NULL DEFAULT 0
+      );
+
+      -- AI 角色表
+      CREATE TABLE IF NOT EXISTS ai_characters (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        image_url TEXT,
+        created_at INTEGER NOT NULL
+      );
+
+      -- AI 分镜表
+      CREATE TABLE IF NOT EXISTS ai_storyboard_scenes (
+        id TEXT PRIMARY KEY,
+        scene_number INTEGER NOT NULL,
+        description TEXT NOT NULL,
+        image_url TEXT,
+        duration INTEGER,
+        created_at INTEGER NOT NULL
+      );
+
+      -- AI 视频输出表
+      CREATE TABLE IF NOT EXISTS ai_videos (
+        id TEXT PRIMARY KEY,
+        url TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        progress INTEGER NOT NULL DEFAULT 0,
+        task_id TEXT,
+        created_at INTEGER NOT NULL,
+
+        CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+        CHECK (progress >= 0 AND progress <= 100)
+      );
+
+      -- 知识库文档表
+      CREATE TABLE IF NOT EXISTS knowledge_documents (
+        id TEXT PRIMARY KEY,
+        content TEXT NOT NULL,
+        metadata TEXT,
+        created_at INTEGER NOT NULL
+      );
+
+      -- 创建索引
+      CREATE INDEX IF NOT EXISTS idx_ai_scripts_created_at ON ai_scripts(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_ai_characters_created_at ON ai_characters(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_ai_storyboard_scenes_scene_number ON ai_storyboard_scenes(scene_number);
+      CREATE INDEX IF NOT EXISTS idx_ai_videos_status ON ai_videos(status);
+      CREATE INDEX IF NOT EXISTS idx_knowledge_documents_created_at ON knowledge_documents(created_at DESC);
     `,
   },
 ];
