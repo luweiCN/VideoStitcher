@@ -31,12 +31,12 @@ export async function cameraDirectorNode(state: WorkflowState): Promise<Partial<
       throw new Error('[Agent 4: 摄像导演] 缺少分镜数据');
     }
 
-    const targetDuration = state.videoSpec.duration === 'short' ? 15 : 60; // 短视频15秒，长视频60秒
+    // 从 Agent 1 的输出中获取预估时长
+    const estimatedDuration = state.step1_script?.content?.estimatedDuration || 30;
+    console.log(`[Agent 4: 摄像导演] 目标时长: ${estimatedDuration}秒 (AI 预估), 分镜数: ${storyboard.length}`);
 
-    console.log(`[Agent 4: 摄像导演] 目标时长: ${targetDuration}秒, 分镜数: ${storyboard.length}`);
-
-    // 2. 智能选择分镜
-    const selectedFrames = selectFramesForDuration(storyboard, targetDuration);
+    // 2. 智能选择分镜（根据 AI 预估的时长）
+    const selectedFrames = selectFramesForDuration(storyboard, estimatedDuration);
     console.log(`[Agent 4: 摄像导演] 选中 ${selectedFrames.length}/${storyboard.length} 个分镜`);
 
     // 3. 创建输出目录
@@ -111,11 +111,12 @@ export async function cameraDirectorNode(state: WorkflowState): Promise<Partial<
 }
 
 /**
- * 智能选择分镜（根据目标时长）
+ * 智能选择分镜（根据 AI 预估的视频时长）
  *
  * 策略：
- * - 短视频（15秒）：选择关键帧，时长短
- * - 长视频（60秒）：使用所有分镜，时长长
+ * - 时长 <= 20秒：选择关键帧，每个帧时长短
+ * - 时长 20-40秒：选择大部分帧，中等时长
+ * - 时长 > 40秒：使用所有帧，时长较长
  */
 function selectFramesForDuration(
   frames: StoryboardFrame[],
@@ -131,8 +132,8 @@ function selectFramesForDuration(
     }));
   }
 
-  // 短视频策略：只选择关键帧
-  if (targetDuration <= 15) {
+  // 短视频策略（<= 20秒）：只选择关键帧
+  if (targetDuration <= 20) {
     const keyFrames = frames.filter(f => f.isKeyFrame);
 
     if (keyFrames.length === 0) {
@@ -153,7 +154,21 @@ function selectFramesForDuration(
     }));
   }
 
-  // 长视频策略：使用所有分镜，按比例缩放时长
+  // 中等视频策略（20-40秒）：选择部分帧
+  if (targetDuration <= 40) {
+    // 选择 70% 的帧
+    const selectRatio = 0.7;
+    const step = Math.ceil(1 / selectRatio);
+    const selected = frames.filter((_, i) => i % step === 0);
+
+    const scale = targetDuration / (totalFrameDuration * selectRatio);
+    return selected.map(f => ({
+      ...f,
+      duration: Math.round(f.duration * scale),
+    }));
+  }
+
+  // 长视频策略（> 40秒）：使用所有分镜，按比例缩放时长
   const scale = targetDuration / totalFrameDuration;
   return frames.map(f => ({
     ...f,

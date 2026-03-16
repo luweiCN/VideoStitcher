@@ -130,6 +130,9 @@ export interface Script {
   /** 脚本状态（草稿、已入库、生产中、已完成） */
   status: ScriptStatus;
 
+  /** 预估视频时长（秒，由 AI 根据剧情内容预估） */
+  estimatedDuration?: number;
+
   /** 创建时间（ISO 8601 格式） */
   createdAt: string;
 }

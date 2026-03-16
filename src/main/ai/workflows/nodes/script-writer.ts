@@ -39,13 +39,25 @@ export async function scriptWriterNode(state: WorkflowState): Promise<Partial<Wo
     console.log('[Agent 1: 脚本编写] 调用 LLM...');
     const result = await provider.generateText(userPrompt, options);
 
-    // 5. 构建输出
-    const output: StepOutput<string> = {
-      content: result.content,
+    // 5. 解析 LLM 输出（JSON 格式）
+    console.log('[Agent 1: 脚本编写] 解析 LLM 输出');
+    const parsed = parseScriptOutput(result.content);
+
+    // 6. 构建输出
+    const output: StepOutput<Script> = {
+      content: {
+        id: `script-${Date.now()}`,
+        projectId: state.projectId,
+        content: parsed.optimizedScript,
+        status: 'draft',
+        estimatedDuration: parsed.estimatedDuration,
+        createdAt: new Date().toISOString(),
+      },
       metadata: {
         timestamp: Date.now(),
         duration: Date.now() - startTime,
         model: 'volcengine-doubao',
+        tokens: result.usage.totalTokens,
       },
     };
 
@@ -83,10 +95,24 @@ ${creativeDirection ? `- 方向：${creativeDirection.name}
 1. 符合角色设定
 2. 符合创意方向
 3. 适合视频制作（包含场景描述、动作、对白）
-4. 控制在合适的长度（短视频<15s，长视频>15s）
+4. 根据剧情内容预估合理的视频时长（注意：不要过长，避免浪费 token）
 
-输出格式：
-直接输出优化后的脚本内容，不要包含额外的解释。`;
+输出格式（必须严格遵守 JSON 格式）：
+\`\`\`json
+{
+  "optimizedScript": "优化后的脚本内容",
+  "estimatedDuration": 30,
+  "reasoning": "预估时长理由（1-2句话）"
+}
+\`\`\`
+
+重要提示：
+- estimatedDuration 单位是秒
+- 根据剧情复杂度合理预估，一般建议 15-45 秒之间
+- 简单剧情（单个场景）预估 15-20 秒
+- 中等剧情（2-3个场景）预估 20-35 秒
+- 复杂剧情（多个场景、多人物）预估 35-45 秒
+- 不要超过 60 秒，避免浪费 token 和成本`;
 }
 
 /**
@@ -115,4 +141,42 @@ import { getGlobalProvider } from '../../provider-manager';
 
 function getProvider() {
   return getGlobalProvider();
+}
+
+/**
+ * 解析脚本输出
+ */
+function parseScriptOutput(llmOutput: string): {
+  optimizedScript: string;
+  estimatedDuration: number;
+  reasoning: string;
+} {
+  try {
+    // 尝试提取 JSON 代码块
+    const jsonMatch = llmOutput.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[1]);
+      return {
+        optimizedScript: parsed.optimizedScript || llmOutput,
+        estimatedDuration: parsed.estimatedDuration || 30,
+        reasoning: parsed.reasoning || 'AI 预估时长',
+      };
+    }
+
+    // 尝试直接解析整个输出
+    const parsed = JSON.parse(llmOutput);
+    return {
+      optimizedScript: parsed.optimizedScript || llmOutput,
+      estimatedDuration: parsed.estimatedDuration || 30,
+      reasoning: parsed.reasoning || 'AI 预估时长',
+    };
+  } catch (error) {
+    console.warn('[Agent 1: 脚本编写] JSON 解析失败，使用原始输出');
+    // 如果解析失败，返回原始内容
+    return {
+      optimizedScript: llmOutput,
+      estimatedDuration: 30, // 默认 30 秒
+      reasoning: '无法解析 JSON，使用默认时长',
+    };
+  }
 }
