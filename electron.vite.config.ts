@@ -5,7 +5,12 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [
+      externalizeDepsPlugin({
+        // 排除 ESM 包，让它们被打包而不是 externalize
+        exclude: ['uuid'],
+      }),
+    ],
     resolve: {
       alias: {
         '@main': resolve(__dirname, 'src/main'),
@@ -18,7 +23,7 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts'),
           imageWorker: resolve(__dirname, 'src/main/workers/imageWorker.ts'),
         },
-        external: ['ffmpeg-static', '@ffprobe-installer/ffprobe', 'uuid'],
+        external: ['ffmpeg-static', '@ffprobe-installer/ffprobe'],
       },
     },
   },
