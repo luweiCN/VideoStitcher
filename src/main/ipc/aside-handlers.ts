@@ -13,6 +13,8 @@ import log from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
+import { asideProjectRepository } from '../database/repositories/asideProjectRepository';
+import type { GameType } from '@shared/types/aside';
 
 // 使用 logger
 const logger = log;
@@ -461,6 +463,79 @@ async function handleKnowledgeStats(): Promise<{
   }
 }
 
+// ==================== 项目管理相关处理器 ====================
+
+/**
+ * 获取所有项目
+ */
+async function handleGetProjects(): Promise<{ success: boolean; projects?: any[]; error?: string }> {
+  logger.info('[项目管理处理器] 获取所有项目');
+
+  try {
+    const projects = asideProjectRepository.getProjects();
+    logger.info('[项目管理处理器] 项目列表获取成功', { count: projects.length });
+    return { success: true, projects };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[项目管理处理器] 获取项目列表失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 创建新项目
+ */
+async function handleCreateProject(
+  _event: any,
+  data: { name: string; gameType: GameType }
+): Promise<{ success: boolean; project?: any; error?: string }> {
+  logger.info('[项目管理处理器] 创建项目', data);
+
+  try {
+    // 参数验证
+    if (!data.name || data.name.trim() === '') {
+      return { success: false, error: '项目名称不能为空' };
+    }
+
+    const validGameTypes: GameType[] = ['麻将', '扑克', '赛车'];
+    if (!validGameTypes.includes(data.gameType)) {
+      return { success: false, error: `无效的游戏类型：${data.gameType}` };
+    }
+
+    const project = asideProjectRepository.createProject(data.name, data.gameType);
+    logger.info('[项目管理处理器] 项目创建成功', { projectId: project.id, name: project.name });
+    return { success: true, project };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[项目管理处理器] 创建项目失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 删除项目
+ */
+async function handleDeleteProject(
+  _event: any,
+  projectId: string
+): Promise<{ success: boolean; error?: string }> {
+  logger.info('[项目管理处理器] 删除项目', { projectId });
+
+  try {
+    if (!projectId || projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    asideProjectRepository.deleteProject(projectId);
+    logger.info('[项目管理处理器] 项目删除成功', { projectId });
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[项目管理处理器] 删除项目失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
 // ==================== 注册处理器 ====================
 
 /**
@@ -491,6 +566,11 @@ export function registerAsideHandlers(): void {
   ipcMain.handle('knowledge:upload', handleKnowledgeUpload);
   ipcMain.handle('knowledge:search', handleKnowledgeSearch);
   ipcMain.handle('knowledge:stats', handleKnowledgeStats);
+
+  // 项目管理相关
+  ipcMain.handle('aside:getProjects', handleGetProjects);
+  ipcMain.handle('aside:createProject', handleCreateProject);
+  ipcMain.handle('aside:deleteProject', handleDeleteProject);
 
   logger.info('[AI 处理器] IPC 处理器注册完成');
 }
