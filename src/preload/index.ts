@@ -449,6 +449,31 @@ export interface ElectronAPI {
   deleteDbBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
 
   // === A面视频生产 API ===
+  // 项目管理
+  asideGetProjects: () => Promise<{ success: boolean; projects?: any[]; error?: string }>;
+  asideCreateProject: (name: string, gameType: string) => Promise<{ success: boolean; project?: any; error?: string }>;
+  asideDeleteProject: (projectId: string) => Promise<{ success: boolean; error?: string }>;
+
+  // 创意方向
+  asideGetCreativeDirections: (projectId: string) => Promise<{ success: boolean; directions?: any[]; error?: string }>;
+  asideAddCreativeDirection: (data: { projectId: string; name: string; description?: string; iconName?: string }) => Promise<{ success: boolean; direction?: any; error?: string }>;
+  asideDeleteCreativeDirection: (directionId: string) => Promise<{ success: boolean; error?: string }>;
+
+  // 人设
+  asideGetPersonas: (projectId: string) => Promise<{ success: boolean; personas?: any[]; error?: string }>;
+  asideAddPersona: (data: { projectId: string; name: string; prompt: string }) => Promise<{ success: boolean; persona?: any; error?: string }>;
+  asideUpdatePersona: (personaId: string, data: { name?: string; prompt?: string }) => Promise<{ success: boolean; error?: string }>;
+  asideDeletePersona: (personaId: string) => Promise<{ success: boolean; error?: string }>;
+
+  // 脚本管理
+  asideGenerateScripts: (data: { projectId: string; creativeDirectionId: string; personaId: string; aiModel: string; count: number }) => Promise<{ success: boolean; scripts?: any[]; error?: string }>;
+  asideAddScriptToLibrary: (scriptId: string) => Promise<{ success: boolean; script?: any; newScript?: any; error?: string }>;
+  asideRemoveScriptFromLibrary: (scriptId: string) => Promise<{ success: boolean; error?: string }>;
+  asideGetLibraryScripts: (projectId: string) => Promise<{ success: boolean; scripts?: any[]; error?: string }>;
+  asideUpdateScriptContent: (scriptId: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  asideRegenerateScript: (scriptId: string) => Promise<{ success: boolean; script?: any; error?: string }>;
+
+  // 旧版 API（保留兼容）
   loadStyleTemplates: () => Promise<{
     success: boolean;
     templates?: any[];
@@ -676,6 +701,31 @@ const api: ElectronAPI = {
   deleteDbBackup: (backupPath) => ipcRenderer.invoke("db:delete-backup", backupPath),
 
   // A面视频生产 API
+  // 项目管理
+  asideGetProjects: () => ipcRenderer.invoke('aside:getProjects'),
+  asideCreateProject: (name, gameType) => ipcRenderer.invoke('aside:createProject', { name, gameType }),
+  asideDeleteProject: (projectId) => ipcRenderer.invoke('aside:deleteProject', projectId),
+
+  // 创意方向
+  asideGetCreativeDirections: (projectId) => ipcRenderer.invoke('aside:getCreativeDirections', projectId),
+  asideAddCreativeDirection: (data) => ipcRenderer.invoke('aside:addCreativeDirection', data),
+  asideDeleteCreativeDirection: (directionId) => ipcRenderer.invoke('aside:deleteCreativeDirection', directionId),
+
+  // 人设
+  asideGetPersonas: (projectId) => ipcRenderer.invoke('aside:getPersonas', projectId),
+  asideAddPersona: (data) => ipcRenderer.invoke('aside:addPersona', data),
+  asideUpdatePersona: (personaId, data) => ipcRenderer.invoke('aside:updatePersona', personaId, data),
+  asideDeletePersona: (personaId) => ipcRenderer.invoke('aside:deletePersona', personaId),
+
+  // 脚本管理
+  asideGenerateScripts: (data) => ipcRenderer.invoke('aside:generateScripts', data),
+  asideAddScriptToLibrary: (scriptId) => ipcRenderer.invoke('aside:addScriptToLibrary', scriptId),
+  asideRemoveScriptFromLibrary: (scriptId) => ipcRenderer.invoke('aside:removeScriptFromLibrary', scriptId),
+  asideGetLibraryScripts: (projectId) => ipcRenderer.invoke('aside:getLibraryScripts', projectId),
+  asideUpdateScriptContent: (scriptId, content) => ipcRenderer.invoke('aside:updateScriptContent', scriptId, content),
+  asideRegenerateScript: (scriptId) => ipcRenderer.invoke('aside:regenerateScript', scriptId),
+
+  // 旧版 API（保留兼容）
   loadStyleTemplates: () => ipcRenderer.invoke("aside:load-styles"),
   generateScripts: (request) => ipcRenderer.invoke("aside:generate-scripts", request),
   regenerateScript: (request) => ipcRenderer.invoke("aside:regenerate-script", request),

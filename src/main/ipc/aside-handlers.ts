@@ -14,7 +14,10 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs';
 import * as path from 'path';
 import { asideProjectRepository } from '../database/repositories/asideProjectRepository';
-import type { GameType } from '@shared/types/aside';
+import { asideCreativeDirectionRepository } from '../database/repositories/asideCreativeDirectionRepository';
+import { asidePersonaRepository } from '../database/repositories/asidePersonaRepository';
+import { asideScriptRepository } from '../database/repositories/asideScriptRepository';
+import type { GameType, AIModel } from '@shared/types/aside';
 
 // 使用 logger
 const logger = log;
@@ -106,55 +109,6 @@ function getSessionFilePath(sessionId: string): string {
 }
 
 // ==================== IPC 处理器 ====================
-
-/**
- * 生成脚本
- * TODO: 集成豆包 LLM API
- */
-async function handleGenerateScripts(
-  _event: any,
-  request: GenerateScriptsRequest
-): Promise<{ success: boolean; scripts?: Script[]; error?: string }> {
-  logger.info('[AI 处理器] 开始生成脚本', request);
-
-  try {
-    // 验证输入
-    if (!request.userRequirement || request.userRequirement.trim().length === 0) {
-      throw new Error('用户需求不能为空');
-    }
-
-    if (!request.selectedStyle || request.selectedStyle.trim().length === 0) {
-      throw new Error('脚本风格不能为空');
-    }
-
-    if (request.batchSize < 1 || request.batchSize > 10) {
-      throw new Error('批量生成数量必须在 1-10 之间');
-    }
-
-    // TODO: 调用豆包 LLM API 生成脚本
-    // 这里先用模拟数据
-    const scripts: Script[] = [];
-
-    for (let i = 0; i < request.batchSize; i++) {
-      scripts.push({
-        id: uuidv4(),
-        text: `这是第 ${i + 1} 条模拟脚本，风格：${request.selectedStyle}，需求：${request.userRequirement}`,
-        style: request.selectedStyle,
-        createdAt: Date.now(),
-        selected: false,
-      });
-    }
-
-    logger.info('[AI 处理器] 脚本生成完成', { count: scripts.length });
-
-    return { success: true, scripts };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : '未知错误';
-    logger.error('[AI 处理器] 脚本生成失败', errorMessage);
-
-    return { success: false, error: errorMessage };
-  }
-}
 
 /**
  * 加载风格模板
@@ -536,6 +490,368 @@ async function handleDeleteProject(
   }
 }
 
+// ==================== 创意方向处理器 ====================
+
+/**
+ * 获取创意方向列表
+ */
+async function handleGetCreativeDirections(
+  _event: any,
+  projectId: string
+): Promise<{ success: boolean; directions?: any[]; error?: string }> {
+  logger.info('[创意方向处理器] 获取创意方向', { projectId });
+
+  try {
+    if (!projectId || projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    const directions = asideCreativeDirectionRepository.getCreativeDirections(projectId);
+    logger.info('[创意方向处理器] 创意方向列表获取成功', { count: directions.length });
+    return { success: true, directions };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[创意方向处理器] 获取创意方向失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 添加创意方向
+ */
+async function handleAddCreativeDirection(
+  _event: any,
+  data: { projectId: string; name: string; description?: string; iconName?: string }
+): Promise<{ success: boolean; direction?: any; error?: string }> {
+  logger.info('[创意方向处理器] 添加创意方向', data);
+
+  try {
+    if (!data.projectId || data.projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    if (!data.name || data.name.trim() === '') {
+      return { success: false, error: '创意方向名称不能为空' };
+    }
+
+    const direction = asideCreativeDirectionRepository.addCreativeDirection(data);
+    logger.info('[创意方向处理器] 创意方向添加成功', { directionId: direction.id });
+    return { success: true, direction };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[创意方向处理器] 添加创意方向失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 删除创意方向
+ */
+async function handleDeleteCreativeDirection(
+  _event: any,
+  directionId: string
+): Promise<{ success: boolean; error?: string }> {
+  logger.info('[创意方向处理器] 删除创意方向', { directionId });
+
+  try {
+    if (!directionId || directionId.trim() === '') {
+      return { success: false, error: '创意方向 ID 不能为空' };
+    }
+
+    asideCreativeDirectionRepository.deleteCreativeDirection(directionId);
+    logger.info('[创意方向处理器] 创意方向删除成功', { directionId });
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[创意方向处理器] 删除创意方向失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+// ==================== 人设处理器 ====================
+
+/**
+ * 获取人设列表
+ */
+async function handleGetPersonas(
+  _event: any,
+  projectId: string
+): Promise<{ success: boolean; personas?: any[]; error?: string }> {
+  logger.info('[人设处理器] 获取人设', { projectId });
+
+  try {
+    if (!projectId || projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    const personas = asidePersonaRepository.getPersonas(projectId);
+    logger.info('[人设处理器] 人设列表获取成功', { count: personas.length });
+    return { success: true, personas };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[人设处理器] 获取人设失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 添加人设
+ */
+async function handleAddPersona(
+  _event: any,
+  data: { projectId: string; name: string; prompt: string }
+): Promise<{ success: boolean; persona?: any; error?: string }> {
+  logger.info('[人设处理器] 添加人设', data);
+
+  try {
+    if (!data.projectId || data.projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    if (!data.name || data.name.trim() === '') {
+      return { success: false, error: '人设名称不能为空' };
+    }
+
+    if (!data.prompt || data.prompt.trim() === '') {
+      return { success: false, error: '人设提示词不能为空' };
+    }
+
+    const persona = asidePersonaRepository.addPersona(data);
+    logger.info('[人设处理器] 人设添加成功', { personaId: persona.id });
+    return { success: true, persona };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[人设处理器] 添加人设失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 更新人设
+ */
+async function handleUpdatePersona(
+  _event: any,
+  personaId: string,
+  data: { name?: string; prompt?: string }
+): Promise<{ success: boolean; error?: string }> {
+  logger.info('[人设处理器] 更新人设', { personaId, data });
+
+  try {
+    if (!personaId || personaId.trim() === '') {
+      return { success: false, error: '人设 ID 不能为空' };
+    }
+
+    asidePersonaRepository.updatePersona(personaId, data);
+    logger.info('[人设处理器] 人设更新成功', { personaId });
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[人设处理器] 更新人设失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 删除人设
+ */
+async function handleDeletePersona(
+  _event: any,
+  personaId: string
+): Promise<{ success: boolean; error?: string }> {
+  logger.info('[人设处理器] 删除人设', { personaId });
+
+  try {
+    if (!personaId || personaId.trim() === '') {
+      return { success: false, error: '人设 ID 不能为空' };
+    }
+
+    asidePersonaRepository.deletePersona(personaId);
+    logger.info('[人设处理器] 人设删除成功', { personaId });
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[人设处理器] 删除人设失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+// ==================== 脚本处理器 ====================
+
+/**
+ * 生成脚本
+ */
+async function handleGenerateScripts(
+  _event: any,
+  data: {
+    projectId: string;
+    creativeDirectionId: string;
+    personaId: string;
+    aiModel: AIModel;
+    count: number;
+  }
+): Promise<{ success: boolean; scripts?: any[]; error?: string }> {
+  logger.info('[脚本处理器] 生成脚本', data);
+
+  try {
+    // 参数验证
+    if (!data.projectId || data.projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    if (!data.creativeDirectionId || data.creativeDirectionId.trim() === '') {
+      return { success: false, error: '创意方向 ID 不能为空' };
+    }
+
+    if (!data.personaId || data.personaId.trim() === '') {
+      return { success: false, error: '人设 ID 不能为空' };
+    }
+
+    if (!data.aiModel || data.aiModel.trim() === '') {
+      return { success: false, error: 'AI 模型不能为空' };
+    }
+
+    if (data.count < 1 || data.count > 10) {
+      return { success: false, error: '生成数量必须在 1-10 之间' };
+    }
+
+    const scripts = asideScriptRepository.generateScripts(data);
+    logger.info('[脚本处理器] 脚本生成成功', { count: scripts.length });
+    return { success: true, scripts };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[脚本处理器] 生成脚本失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 添加脚本到待产库
+ */
+async function handleAddScriptToLibrary(
+  _event: any,
+  scriptId: string
+): Promise<{ success: boolean; script?: any; newScript?: any; error?: string }> {
+  logger.info('[脚本处理器] 添加脚本到待产库', { scriptId });
+
+  try {
+    if (!scriptId || scriptId.trim() === '') {
+      return { success: false, error: '脚本 ID 不能为空' };
+    }
+
+    const result = asideScriptRepository.addScriptToLibrary(scriptId);
+    logger.info('[脚本处理器] 脚本已添加到待产库', {
+      scriptId,
+      newScriptGenerated: !!result.newScript,
+    });
+    return { success: true, script: result.script, newScript: result.newScript };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[脚本处理器] 添加脚本到待产库失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 从待产库移除脚本
+ */
+async function handleRemoveScriptFromLibrary(
+  _event: any,
+  scriptId: string
+): Promise<{ success: boolean; error?: string }> {
+  logger.info('[脚本处理器] 从待产库移除脚本', { scriptId });
+
+  try {
+    if (!scriptId || scriptId.trim() === '') {
+      return { success: false, error: '脚本 ID 不能为空' };
+    }
+
+    asideScriptRepository.removeScriptFromLibrary(scriptId);
+    logger.info('[脚本处理器] 脚本已从待产库移除', { scriptId });
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[脚本处理器] 从待产库移除脚本失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 获取待产库脚本列表
+ */
+async function handleGetLibraryScripts(
+  _event: any,
+  projectId: string
+): Promise<{ success: boolean; scripts?: any[]; error?: string }> {
+  logger.info('[脚本处理器] 获取待产库脚本', { projectId });
+
+  try {
+    if (!projectId || projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    const scripts = asideScriptRepository.getLibraryScripts(projectId);
+    logger.info('[脚本处理器] 待产库脚本获取成功', { count: scripts.length });
+    return { success: true, scripts };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[脚本处理器] 获取待产库脚本失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 更新脚本内容
+ */
+async function handleUpdateScriptContent(
+  _event: any,
+  scriptId: string,
+  content: string
+): Promise<{ success: boolean; error?: string }> {
+  logger.info('[脚本处理器] 更新脚本内容', { scriptId });
+
+  try {
+    if (!scriptId || scriptId.trim() === '') {
+      return { success: false, error: '脚本 ID 不能为空' };
+    }
+
+    if (!content || content.trim() === '') {
+      return { success: false, error: '脚本内容不能为空' };
+    }
+
+    asideScriptRepository.updateScriptContent(scriptId, content);
+    logger.info('[脚本处理器] 脚本内容更新成功', { scriptId });
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[脚本处理器] 更新脚本内容失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 重新生成脚本
+ */
+async function handleRegenerateScript(
+  _event: any,
+  scriptId: string
+): Promise<{ success: boolean; script?: any; error?: string }> {
+  logger.info('[脚本处理器] 重新生成脚本', { scriptId });
+
+  try {
+    if (!scriptId || scriptId.trim() === '') {
+      return { success: false, error: '脚本 ID 不能为空' };
+    }
+
+    const script = asideScriptRepository.regenerateScript(scriptId);
+    logger.info('[脚本处理器] 脚本重新生成成功', { scriptId });
+    return { success: true, script };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[脚本处理器] 重新生成脚本失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
 // ==================== 注册处理器 ====================
 
 /**
@@ -544,10 +860,7 @@ async function handleDeleteProject(
 export function registerAsideHandlers(): void {
   logger.info('[AI 处理器] 开始注册 IPC 处理器');
 
-  // 生成脚本
-  ipcMain.handle('aside:generate-scripts', handleGenerateScripts);
-
-  // 加载风格模板
+  // 加载风格模板（旧版，保留兼容）
   ipcMain.handle('aside:load-styles', handleLoadStyles);
 
   // 保存会话
@@ -567,10 +880,29 @@ export function registerAsideHandlers(): void {
   ipcMain.handle('knowledge:search', handleKnowledgeSearch);
   ipcMain.handle('knowledge:stats', handleKnowledgeStats);
 
-  // 项目管理相关
+  // 项目管理
   ipcMain.handle('aside:getProjects', handleGetProjects);
   ipcMain.handle('aside:createProject', handleCreateProject);
   ipcMain.handle('aside:deleteProject', handleDeleteProject);
+
+  // 创意方向
+  ipcMain.handle('aside:getCreativeDirections', handleGetCreativeDirections);
+  ipcMain.handle('aside:addCreativeDirection', handleAddCreativeDirection);
+  ipcMain.handle('aside:deleteCreativeDirection', handleDeleteCreativeDirection);
+
+  // 人设
+  ipcMain.handle('aside:getPersonas', handleGetPersonas);
+  ipcMain.handle('aside:addPersona', handleAddPersona);
+  ipcMain.handle('aside:updatePersona', handleUpdatePersona);
+  ipcMain.handle('aside:deletePersona', handleDeletePersona);
+
+  // 脚本管理
+  ipcMain.handle('aside:generateScripts', handleGenerateScripts);
+  ipcMain.handle('aside:addScriptToLibrary', handleAddScriptToLibrary);
+  ipcMain.handle('aside:removeScriptFromLibrary', handleRemoveScriptFromLibrary);
+  ipcMain.handle('aside:getLibraryScripts', handleGetLibraryScripts);
+  ipcMain.handle('aside:updateScriptContent', handleUpdateScriptContent);
+  ipcMain.handle('aside:regenerateScript', handleRegenerateScript);
 
   logger.info('[AI 处理器] IPC 处理器注册完成');
 }
