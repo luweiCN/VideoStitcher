@@ -180,6 +180,67 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_knowledge_documents_created_at ON knowledge_documents(created_at DESC);
     `,
   },
+  {
+    version: 3,
+    description: 'A 面视频生产功能表',
+    up: `
+      -- 1. 项目表
+      CREATE TABLE IF NOT EXISTS aside_projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        game_type TEXT NOT NULL,
+        region TEXT DEFAULT 'universal',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      -- 2. 创意方向表（项目级别）
+      CREATE TABLE IF NOT EXISTS aside_creative_directions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        icon_name TEXT,
+        is_preset INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES aside_projects(id) ON DELETE CASCADE
+      );
+
+      -- 3. 人设表（项目级别）
+      CREATE TABLE IF NOT EXISTS aside_personas (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        is_preset INTEGER DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES aside_projects(id) ON DELETE CASCADE
+      );
+
+      -- 4. 脚本表
+      CREATE TABLE IF NOT EXISTS aside_scripts (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        creative_direction_id TEXT,
+        persona_id TEXT,
+        ai_model TEXT,
+        status TEXT DEFAULT 'draft',
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (project_id) REFERENCES aside_projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (creative_direction_id) REFERENCES aside_creative_directions(id),
+        FOREIGN KEY (persona_id) REFERENCES aside_personas(id),
+
+        CHECK (status IN ('draft', 'library', 'producing', 'completed'))
+      );
+
+      -- 创建索引
+      CREATE INDEX IF NOT EXISTS idx_aside_creative_directions_project ON aside_creative_directions(project_id);
+      CREATE INDEX IF NOT EXISTS idx_aside_personas_project ON aside_personas(project_id);
+      CREATE INDEX IF NOT EXISTS idx_aside_scripts_project ON aside_scripts(project_id);
+      CREATE INDEX IF NOT EXISTS idx_aside_scripts_status ON aside_scripts(status);
+    `,
+  },
 ];
 
 /**
