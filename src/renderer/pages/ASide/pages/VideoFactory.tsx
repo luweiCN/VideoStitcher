@@ -57,13 +57,54 @@ export function VideoFactory() {
         model: selectedModel,
       });
 
-      // TODO: 调用视频生成 IPC
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 获取选中的脚本内容
+      const scriptsToGenerate = libraryScripts.filter(s => selectedScripts.includes(s.id));
 
-      alert(`已开始生成 ${selectedScripts.length} 个视频`);
+      // 批量启动工作流（快速模式）
+      const results = await Promise.all(
+        scriptsToGenerate.map(async (script) => {
+          try {
+            const result = await window.api.aiStartWorkflow(script.content, {
+              executionMode: 'fast', // 快速模式：自动执行所有步骤
+              videoSpec: {
+                duration: 'short',
+                aspectRatio: '16:9',
+              },
+              projectId: currentProject!.id,
+            });
+
+            return {
+              scriptId: script.id,
+              success: result.success,
+              error: result.error,
+            };
+          } catch (error) {
+            return {
+              scriptId: script.id,
+              success: false,
+              error: error instanceof Error ? error.message : '未知错误',
+            };
+          }
+        })
+      );
+
+      // 统计结果
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+
+      console.log('[VideoFactory] 批量生成完成', { successCount, failCount, results });
+
+      if (failCount > 0) {
+        alert(
+          `生成完成：${successCount} 个成功，${failCount} 个失败\n` +
+          `失败原因：${results.filter(r => !r.success).map(r => r.error).join(', ')}`
+        );
+      } else {
+        alert(`已成功开始生成 ${successCount} 个视频`);
+      }
     } catch (error) {
       console.error('[VideoFactory] 生成视频失败:', error);
-      alert('生成失败，请重试');
+      alert(`生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
     } finally {
       setIsGenerating(false);
     }

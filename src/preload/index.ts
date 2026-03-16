@@ -473,6 +473,21 @@ export interface ElectronAPI {
   asideUpdateScriptContent: (scriptId: string, content: string) => Promise<{ success: boolean; error?: string }>;
   asideRegenerateScript: (scriptId: string) => Promise<{ success: boolean; script?: any; error?: string }>;
 
+  // AI 工作流 API
+  aiStartWorkflow: (
+    scriptContent: string,
+    options: {
+      executionMode: 'fast' | 'director';
+      videoSpec: { duration: 'short' | 'long'; aspectRatio: '16:9' | '9:16' };
+      projectId: string;
+      creativeDirectionId?: string;
+      personaId?: string;
+    }
+  ) => Promise<{ success: boolean; state?: any; error?: string }>;
+  aiResumeWorkflow: (currentState: any) => Promise<{ success: boolean; state?: any; error?: string }>;
+  aiRegenerateStep: (currentState: any, targetStep: number) => Promise<{ success: boolean; state?: any; error?: string }>;
+  aiApplyUserModifications: (currentState: any, targetStep: number, modifications: any) => Promise<{ success: boolean; state?: any; error?: string }>;
+
   // 旧版 API（保留兼容）
   loadStyleTemplates: () => Promise<{
     success: boolean;
@@ -724,6 +739,16 @@ const api: ElectronAPI = {
   asideGetLibraryScripts: (projectId) => ipcRenderer.invoke('aside:getLibraryScripts', projectId),
   asideUpdateScriptContent: (scriptId, content) => ipcRenderer.invoke('aside:updateScriptContent', scriptId, content),
   asideRegenerateScript: (scriptId) => ipcRenderer.invoke('aside:regenerateScript', scriptId),
+
+  // AI 工作流 API
+  aiStartWorkflow: (scriptContent, options) =>
+    ipcRenderer.invoke('ai:startWorkflow', scriptContent, options),
+  aiResumeWorkflow: (currentState) =>
+    ipcRenderer.invoke('ai:resumeWorkflow', currentState),
+  aiRegenerateStep: (currentState, targetStep) =>
+    ipcRenderer.invoke('ai:regenerateStep', currentState, targetStep),
+  aiApplyUserModifications: (currentState, targetStep, modifications) =>
+    ipcRenderer.invoke('ai:applyUserModifications', currentState, targetStep, modifications),
 
   // 旧版 API（保留兼容）
   loadStyleTemplates: () => ipcRenderer.invoke("aside:load-styles"),

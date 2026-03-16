@@ -48,17 +48,68 @@ export function DirectorMode() {
 
       console.log('[DirectorMode] Agent 开始工作:', AGENTS[currentAgent].name);
 
-      // TODO: 调用 Agent IPC
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 获取选中的脚本内容
+      const script = libraryScripts.find(s => s.id === selectedScript);
+      if (!script) {
+        throw new Error('未找到选中的脚本');
+      }
 
-      // 模拟 Agent 输出
-      const output = `${AGENTS[currentAgent].name} 完成！输出内容...`;
-      setAgentOutputs(prev => [...prev, output]);
+      // 第一次启动工作流
+      if (currentAgent === 0 && agentOutputs.length === 0) {
+        console.log('[DirectorMode] 启动工作流');
+
+        const result = await window.api.aiStartWorkflow(script.content, {
+          executionMode: 'director',
+          videoSpec: {
+            duration: 'short',
+            aspectRatio: '16:9',
+          },
+          projectId: currentProject!.id,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || '启动工作流失败');
+        }
+
+        console.log('[DirectorMode] 工作流步骤完成:', result.state?.currentStep);
+
+        // 更新 Agent 输出
+        const stepOutput = result.state?.step1_script?.content || '脚本优化完成';
+        setAgentOutputs(prev => [...prev, stepOutput]);
+      } else {
+        // 恢复工作流（后续步骤）
+        console.log('[DirectorMode] 恢复工作流，当前步骤:', currentAgent + 1);
+
+        // 这里需要从 store 或 state 中获取当前工作流状态
+        // 简化处理：重新启动工作流并执行到当前步骤
+        const result = await window.api.aiStartWorkflow(script.content, {
+          executionMode: 'fast', // 内部步骤使用快速模式
+          videoSpec: {
+            duration: 'short',
+            aspectRatio: '16:9',
+          },
+          projectId: currentProject!.id,
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || '恢复工作流失败');
+        }
+
+        // 根据当前 Agent 获取对应的输出
+        const outputs = [
+          result.state?.step1_script?.content || '脚本优化完成',
+          result.state?.step2_characters?.map(c => c.name).join(', ') || '角色生成完成',
+          result.state?.step3_storyboard?.map(f => f.description).join('\n') || '分镜设计完成',
+          result.state?.step4_video?.videoUrl || '视频生成完成',
+        ];
+
+        setAgentOutputs(prev => [...prev, outputs[currentAgent]]);
+      }
 
       console.log('[DirectorMode] Agent 工作完成');
     } catch (error) {
       console.error('[DirectorMode] Agent 工作失败:', error);
-      alert('Agent 工作失败，请重试');
+      alert(`Agent 工作失败: ${error instanceof Error ? error.message : '未知错误'}`);
     } finally {
       setIsAgentWorking(false);
     }
