@@ -18,7 +18,7 @@ export default defineConfig({
           index: resolve(__dirname, 'src/main/index.ts'),
           imageWorker: resolve(__dirname, 'src/main/workers/imageWorker.ts'),
         },
-        external: ['ffmpeg-static', '@ffprobe-installer/ffprobe'],
+        external: ['ffmpeg-static', '@ffprobe-installer/ffprobe', 'uuid'],
       },
     },
   },
