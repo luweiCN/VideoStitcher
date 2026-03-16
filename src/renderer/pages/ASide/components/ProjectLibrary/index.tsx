@@ -31,7 +31,7 @@ export function ProjectLibrary() {
   const loadProjects = async () => {
     try {
       setIsLoading(true);
-      const result = await window.api.getProjects();
+      const result = await window.api.asideGetProjects();
       if (result.success && result.projects) {
         setProjects(result.projects);
       }
@@ -45,13 +45,18 @@ export function ProjectLibrary() {
   /**
    * 创建新项目
    */
-  const handleCreateProject = async (name: string, gameType: GameType, region?: string) => {
+  const handleCreateProject = async (name: string, gameType: GameType) => {
     try {
-      const result = await window.api.createProject({ name, gameType, region });
+      const result = await window.api.asideCreateProject(name, gameType);
       if (result.success && result.project) {
         setProjects([...projects, result.project]);
         setIsCreateModalOpen(false);
         console.log('[ProjectLibrary] 创建项目成功:', result.project.name);
+
+        // 自动选择该项目并跳转到 Step 1
+        selectProject(result.project);
+        setCurrentView('step1-direction');
+        console.log('[ProjectLibrary] 已自动选择项目并跳转到创意方向选择');
       }
     } catch (error) {
       console.error('[ProjectLibrary] 创建项目失败:', error);
@@ -67,7 +72,7 @@ export function ProjectLibrary() {
     }
 
     try {
-      const result = await window.api.deleteProject(projectId);
+      const result = await window.api.asideDeleteProject(projectId);
       if (result.success) {
         setProjects(projects.filter(p => p.id !== projectId));
         console.log('[ProjectLibrary] 删除项目成功');

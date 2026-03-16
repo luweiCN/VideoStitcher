@@ -11,7 +11,7 @@ interface CreateProjectModalProps {
   /** 关闭弹窗回调 */
   onClose: () => void;
   /** 创建项目回调 */
-  onCreate: (name: string, gameType: GameType, region?: string) => void;
+  onCreate: (name: string, gameType: GameType) => void;
 }
 
 /**
@@ -20,18 +20,19 @@ interface CreateProjectModalProps {
 export function CreateProjectModal({ onClose, onCreate }: CreateProjectModalProps) {
   const [name, setName] = useState('');
   const [gameType, setGameType] = useState<GameType>('麻将');
-  const [region, setRegion] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   /**
    * 处理表单提交
    */
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       alert('请输入项目名称');
       return;
     }
-    onCreate(name.trim(), gameType, region.trim() || undefined);
+    setIsLoading(true);
+    onCreate(name.trim(), gameType);
   };
 
   return (
@@ -60,6 +61,7 @@ export function CreateProjectModal({ onClose, onCreate }: CreateProjectModalProp
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="例如：广东麻将推广"
+              maxLength={20}
               className="w-full px-3 py-2 bg-black/50 border border-slate-800 rounded-lg text-slate-100 placeholder-slate-600 focus:outline-none focus:border-slate-700"
               autoFocus
             />
@@ -81,34 +83,22 @@ export function CreateProjectModal({ onClose, onCreate }: CreateProjectModalProp
             </select>
           </div>
 
-          {/* 区域（可选） */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              区域 <span className="text-slate-500 text-xs">(可选)</span>
-            </label>
-            <input
-              type="text"
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-              placeholder="例如：广东省"
-              className="w-full px-3 py-2 bg-black/50 border border-slate-800 rounded-lg text-slate-100 placeholder-slate-600 focus:outline-none focus:border-slate-700"
-            />
-          </div>
-
           {/* 按钮 */}
           <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
+              disabled={isLoading}
+              className="flex-1 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               取消
             </button>
             <button
               type="submit"
-              className="flex-1 py-2 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:opacity-90 transition-opacity"
+              disabled={isLoading}
+              className="flex-1 py-2 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              创建
+              {isLoading ? '创建中...' : '创建'}
             </button>
           </div>
         </form>

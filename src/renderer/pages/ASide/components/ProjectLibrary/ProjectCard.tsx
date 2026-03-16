@@ -20,15 +20,33 @@ interface ProjectCardProps {
  */
 export function ProjectCard({ project, onEnter, onDelete }: ProjectCardProps) {
   /**
-   * 格式化日期
+   * 格式化相对时间
+   * 例如："2 天前"、"3 小时前"、"刚刚"
    */
-  const formatDate = (dateString: string) => {
+  const formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+    const now = new Date();
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInSeconds = Math.floor(diffInMs / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInSeconds < 60) {
+      return '刚刚';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes} 分钟前`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} 小时前`;
+    } else if (diffInDays < 30) {
+      return `${diffInDays} 天前`;
+    } else {
+      // 超过 30 天显示具体日期
+      return date.toLocaleDateString('zh-CN', {
+        month: 'long',
+        day: 'numeric',
+      });
+    }
   };
 
   /**
@@ -85,7 +103,7 @@ export function ProjectCard({ project, onEnter, onDelete }: ProjectCardProps) {
           {/* 创建时间 */}
           <div className="flex items-center gap-2 text-slate-500">
             <Clock className="w-3 h-3" />
-            <span className="text-xs">{formatDate(project.createdAt)}</span>
+            <span className="text-xs">{formatRelativeTime(project.createdAt)}</span>
           </div>
         </div>
       </div>
