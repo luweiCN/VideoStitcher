@@ -447,6 +447,41 @@ export interface ElectronAPI {
   listDbBackups: () => Promise<Array<{ name: string; path: string; size: number; time: number }>>;
   restoreDbBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
   deleteDbBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
+
+  // === A面视频生产 API ===
+  loadStyleTemplates: () => Promise<{
+    success: boolean;
+    templates?: any[];
+    error?: string;
+  }>;
+  generateScripts: (request: {
+    style: any;
+    config: any;
+  }) => Promise<{
+    success: boolean;
+    scripts?: any[];
+    error?: string;
+  }>;
+  regenerateScript: (request: {
+    scriptId: string;
+  }) => Promise<{
+    success: boolean;
+    script?: any;
+    error?: string;
+  }>;
+  addToProductionQueue: (request: {
+    scriptIds: string[];
+  }) => Promise<{
+    success: boolean;
+    queueItems?: any[];
+    error?: string;
+  }>;
+  startProduction: (request: {
+    queueItemIds: string[];
+  }) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
 }
 
 const api: ElectronAPI = {
@@ -639,6 +674,13 @@ const api: ElectronAPI = {
   listDbBackups: () => ipcRenderer.invoke("db:list-backups"),
   restoreDbBackup: (backupPath) => ipcRenderer.invoke("db:restore-backup", backupPath),
   deleteDbBackup: (backupPath) => ipcRenderer.invoke("db:delete-backup", backupPath),
+
+  // A面视频生产 API
+  loadStyleTemplates: () => ipcRenderer.invoke("aside:load-styles"),
+  generateScripts: (request) => ipcRenderer.invoke("aside:generate-scripts", request),
+  regenerateScript: (request) => ipcRenderer.invoke("aside:regenerate-script", request),
+  addToProductionQueue: (request) => ipcRenderer.invoke("aside:add-to-queue", request),
+  startProduction: (request) => ipcRenderer.invoke("aside:start-production", request),
 };
 
 contextBridge.exposeInMainWorld("api", api);

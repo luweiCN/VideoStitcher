@@ -22,6 +22,18 @@ vi.mock('../../../../src/main/utils/logger', () => ({
   },
 }));
 
+// Mock VolcanoClient
+vi.mock('../../../../src/main/api/volcano-client', () => ({
+  VolcanoClient: vi.fn().mockImplementation(() => ({
+    generateVideo: vi.fn().mockResolvedValue('volcano-task-123'),
+    queryVideoTask: vi.fn().mockResolvedValue({
+      status: 'completed',
+      progress: 100,
+      video_url: 'https://example.com/video.mp4',
+    }),
+  })),
+}));
+
 // Mock uuid
 vi.mock('uuid', () => ({
   v4: vi.fn(() => 'video-uuid-1234'),
@@ -59,6 +71,7 @@ describe('视频生成节点 (videoNode)', () => {
             sceneNumber: 1,
             description: '开场镜头',
             duration: 3,
+            imageUrl: 'https://example.com/scene1.png',
             createdAt: Date.now(),
           },
           {
@@ -66,6 +79,7 @@ describe('视频生成节点 (videoNode)', () => {
             sceneNumber: 2,
             description: '发展镜头',
             duration: 4,
+            imageUrl: 'https://example.com/scene2.png',
             createdAt: Date.now(),
           },
         ],

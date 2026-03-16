@@ -57,34 +57,14 @@ const ASidePage: React.FC = () => {
       setIsLoadingStyles(true);
       setLoadError(null);
 
-      // TODO: 替换为真实的 IPC 调用
-      // const templates = await window.api.loadStyleTemplates();
-      // setStyleTemplates(templates);
+      // 调用后端 IPC 接口
+      const response = await window.api.loadStyleTemplates();
 
-      // 临时使用 Mock 数据
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const mockTemplates: StyleTemplate[] = [
-        {
-          id: 'humor-1',
-          name: '幽默搞笑',
-          description: '轻松幽默的风格，适合娱乐内容',
-          thumbnail: 'https://via.placeholder.com/400x225?text=Humor',
-          category: '热门',
-          tags: ['搞笑', '轻松', '娱乐'],
-          config: {
-            colorTone: 'vibrant',
-            transitionStyle: 'dynamic',
-            textAnimation: 'bounce',
-            cameraMovement: 'dynamic',
-            shotDuration: 3,
-            bgmStyle: 'funny',
-            bgmVolume: 70,
-            voiceVolume: 100,
-          },
-        },
-      ];
+      if (!response.success) {
+        throw new Error(response.error || '加载风格模板失败');
+      }
 
-      setStyleTemplates(mockTemplates);
+      setStyleTemplates(response.templates || []);
     } catch (error) {
       console.error('加载风格模板失败:', error);
       const errorMessage = error instanceof Error ? error.message : '加载风格模板失败';
@@ -106,31 +86,17 @@ const ASidePage: React.FC = () => {
       setCurrentStep('scripts');
       setLoadError(null);
 
-      // TODO: 替换为真实的 IPC 调用
-      // const newScripts = await window.api.generateScripts({
-      //   style: selectedStyle,
-      //   config: config
-      // });
-      // setScripts([...scripts, ...newScripts]);
+      // 调用后端 IPC 接口生成脚本
+      const response = await window.api.generateScripts({
+        style: selectedStyle,
+        config: config,
+      });
 
-      // 临时使用 Mock 数据
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (!response.success) {
+        throw new Error(response.error || '生成脚本失败');
+      }
 
-      const newScripts = Array.from({ length: config.batchSize }, (_, index) => ({
-        id: `script-${Date.now()}-${index}`,
-        title: `${config.productName} - ${selectedStyle!.name}风格 #${index + 1}`,
-        scenes: [
-          {
-            id: `scene-${Date.now()}-${index}-1`,
-            sequence: 1,
-            content: `开场：介绍${config.productName}`,
-            duration: 5,
-          },
-        ],
-        totalDuration: 15,
-        createdAt: new Date(),
-      }));
-
+      const newScripts = response.scripts || [];
       setScripts([...scripts, ...newScripts]);
       toast.success(`成功生成 ${newScripts.length} 条脚本`, '生成完成');
     } catch (error) {
