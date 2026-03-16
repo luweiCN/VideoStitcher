@@ -3,9 +3,10 @@
  * 负责调用火山视频 API 生成最终视频
  */
 
-import { GraphStateType, NodeNames } from '../state';
+import { GraphStateType, NodeNames, VideoOutput } from '../state';
 import log from '../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
+import { VolcanoClient } from '../../api/volcano-client';
 
 // 使用 logger
 const logger = log;
@@ -50,36 +51,98 @@ export async function videoNode(
     // 通知进度：准备生成视频
     config?.onProgress?.(5, '正在准备视频生成任务...');
 
-    // 模拟准备延迟
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    // 创建火山引擎客户端
+    const client = new VolcanoClient();
+
+    // 收集分镜图片 URL
+    const imageUrls = state.storyboard
+      .filter((scene) => scene.imageUrl)
+      .map((scene) => scene.imageUrl!);
+
+    if (imageUrls.length === 0) {
+      throw new Error('没有有效的分镜图片');
+    }
 
     // 通知进度：提交任务到火山引擎
     config?.onProgress?.(10, '正在提交任务到火山引擎...');
 
-    // TODO: 调用火山视频 API 生成视频
-    // 这里先用模拟数据
-    const taskId = `volcano-task-${Date.now()}`;
+    // 调用火山视频 API 生成视频
+    const taskId = await client.generateVideo({
+      images: imageUrls,
+      duration: state.videoConfig.length,
+      ratio: state.videoConfig.ratio,
+      resolution: state.videoConfig.resolution,
+    });
 
-    // 模拟任务处理过程
-    const progressSteps = [
-      { progress: 20, message: '火山引擎已接受任务...' },
-      { progress: 40, message: '正在合成视频...' },
-      { progress: 60, message: '正在添加特效...' },
-      { progress: 80, message: '正在渲染视频...' },
-      { progress: 90, message: '正在上传视频...' },
-    ];
+    logger.info('[视频节点] 视频生成任务已提交', { taskId });
 
-    for (const step of progressSteps) {
-      config?.onProgress?.(step.progress, step.message);
-      await new Promise((resolve) => setTimeout(resolve, 800));
+    // 通知进度：开始处理
+    config?.onProgress?.(15, '视频生成任务已提交，等待处理...');
+
+    // 轮询任务状态
+    let videoUrl: string | undefined;
+    let lastProgress = 15;
+    const maxPollingTime = 10 * 60 * 1000; // 最多轮询 10 分钟
+    const pollingInterval = 3000; // 每 3 秒查询一次
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < maxPollingTime) {
+      try {
+        // 查询任务状态
+        const taskStatus = await client.queryVideoTask(taskId);
+
+        logger.info('[视频节点] 任务状态查询', {
+          taskId,
+          status: taskStatus.status,
+          progress: taskStatus.progress,
+        });
+
+        // 更新进度
+        if (taskStatus.progress > lastProgress) {
+          const progressDiff = taskStatus.progress - lastProgress;
+          lastProgress = taskStatus.progress;
+          config?.onProgress?.(
+            taskStatus.progress,
+            `正在生成视频... ${taskStatus.progress}%`
+          );
+        }
+
+        // 检查任务状态
+        if (taskStatus.status === 'completed') {
+          videoUrl = taskStatus.video_url;
+          logger.info('[视频节点] 视频生成完成', { taskId, videoUrl });
+          break;
+        }
+
+        if (taskStatus.status === 'failed') {
+          throw new Error(taskStatus.error || '视频生成失败');
+        }
+
+        // 等待一段时间后继续轮询
+        await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : '未知错误';
+        logger.error('[视频节点] 任务状态查询失败', {
+          taskId,
+          error: errorMessage,
+        });
+
+        // 如果是查询失败，继续重试
+        await new Promise((resolve) => setTimeout(resolve, pollingInterval));
+      }
+    }
+
+    // 检查是否超时
+    if (!videoUrl) {
+      throw new Error('视频生成超时（超过 10 分钟）');
     }
 
     // 生成视频数据
-    const videos = [
+    const videos: VideoOutput[] = [
       {
         id: uuidv4(),
-        url: 'https://example.com/video.mp4',
-        status: 'completed' as const,
+        url: videoUrl,
+        status: 'completed',
         progress: 100,
         taskId: taskId,
         createdAt: Date.now(),

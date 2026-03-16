@@ -7,6 +7,12 @@ import { videoNode } from '../../../../src/main/langgraph/nodes/videoNode';
 import { GraphStateType, NodeNames } from '../../../../src/main/langgraph/state';
 import * as logger from '../../../../src/main/utils/logger';
 
+// 设置测试超时时间
+vi.setConfig({
+  testTimeout: 60000, // 视频生成需要更长时间
+  hookTimeout: 30000,
+});
+
 // Mock logger
 vi.mock('../../../../src/main/utils/logger', () => ({
   default: {

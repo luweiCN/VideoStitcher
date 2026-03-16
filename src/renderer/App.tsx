@@ -15,6 +15,7 @@ import VideoStitcherMode from './features/VideoStitcherMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
 import ASidePage from './pages/ASide';
+import DirectorMode from './pages/DirectorMode';
 import { TaskCenterProvider } from './contexts/TaskContext';
 import { TaskCenterListPage, TaskCenterDashboard, HomeTaskIndicator, TaskDetailPage } from './components/TaskCenter';
 
@@ -274,6 +275,26 @@ const HomePage: React.FC<{
               </div>
             </div>
           </button>
+
+          <button
+            onClick={() => onNavigate('/director')}
+            className="group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/10 hover:-translate-y-0.5"
+          >
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
+              <Monitor className="w-16 h-16" />
+            </div>
+            <div className="relative z-10 space-y-3">
+              <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors text-blue-400">
+                <Monitor className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold mb-1 text-white group-hover:text-blue-400 transition-colors">导演模式</h2>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  AI 辅助视频创作，从剧本到成片
+                </p>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -433,6 +454,7 @@ const AppContent: React.FC = () => {
         <Route path="/resize" element={<ResizeMode />} />
         <Route path="/videoStitcher" element={<VideoStitcherMode />} />
         <Route path="/aside" element={<ASidePage />} />
+        <Route path="/director" element={<DirectorMode />} />
         <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
         <Route path="/tasks" element={<TaskCenterListPage />} />

@@ -203,7 +203,10 @@ ${knowledgeContext}
     // 通知进度：生成完成
     config?.onProgress?.(100, '脚本生成完成');
 
-    logger.info('[脚本节点] 生成完成', { count: scripts.length });
+    logger.info('[脚本节点] 生成完成', {
+      count: scripts.length,
+      usedKnowledge: knowledgeContext.length > 0,
+    });
 
     return {
       scripts,

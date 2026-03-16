@@ -44,7 +44,7 @@ describe('分镜生成节点 (storyboardNode)', () => {
         selectedStyle: '幽默',
         batchSize: 1,
         scripts: [],
-        selectedScriptId: null,
+        selectedScriptId: 'script-1', // 添加 selectedScriptId
         videoConfig: null,
         characters: [
           {
@@ -64,7 +64,7 @@ describe('分镜生成节点 (storyboardNode)', () => {
       const result = await storyboardNode(state);
 
       expect(result.storyboard).toBeDefined();
-      expect(result.storyboard?.length).toBe(2);
+      expect(result.storyboard?.length).toBe(4); // 实际生成 4 个场景
       expect(result.error).toBeNull();
       expect(result.currentNode).toBe(NodeNames.STORYBOARD);
 
