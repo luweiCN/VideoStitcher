@@ -109,11 +109,10 @@ ${scriptContent}
 }
 
 /**
- * 获取 AI 提供商（临时实现）
- * TODO: 从全局获取已初始化的提供商实例
+ * 获取 AI 提供商
  */
-function getProvider(): AIProvider | null {
-  // 这里应该从全局状态或依赖注入获取
-  // 暂时返回 null，后续集成时实现
-  return null;
+import { getGlobalProvider } from '../../provider-manager';
+
+function getProvider() {
+  return getGlobalProvider();
 }

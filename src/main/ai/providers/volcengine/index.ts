@@ -22,6 +22,7 @@ import type {
 } from '../interface';
 import { VolcEngineLLM } from './llm';
 import { VolcEngineImage } from './image';
+import { VolcEngineVideo } from './video';
 
 /**
  * 火山引擎 AI 提供商
@@ -37,6 +38,9 @@ export class VolcEngineProvider implements AIProvider {
 
   /** 图片生成客户端 */
   private image: VolcEngineImage | null = null;
+
+  /** 视频生成客户端 */
+  private video: VolcEngineVideo | null = null;
 
   /** 提供商配置 */
   private config: ProviderConfig;
@@ -73,6 +77,18 @@ export class VolcEngineProvider implements AIProvider {
       console.log('[VolcEngineProvider] 图片生成初始化成功');
     } else {
       console.log('[VolcEngineProvider] 图片生成功能未启用');
+    }
+
+    // 初始化视频生成
+    if (config.features.videoGeneration) {
+      this.video = new VolcEngineVideo({
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
+        model: config.model,
+      });
+      console.log('[VolcEngineProvider] 视频生成初始化成功');
+    } else {
+      console.log('[VolcEngineProvider] 视频生成功能未启用');
     }
 
     console.log('[VolcEngineProvider] 提供商初始化完成', {
@@ -222,7 +238,7 @@ export class VolcEngineProvider implements AIProvider {
   /**
    * 生成视频（可选）
    *
-   * @param prompt 提示词
+   * @param prompt 提示词或图片 URL
    * @param options 生成选项
    * @returns 生成结果
    */
@@ -235,10 +251,22 @@ export class VolcEngineProvider implements AIProvider {
       throw new Error('[VolcEngineProvider] 视频生成功能未启用');
     }
 
-    console.log('[VolcEngineProvider] 视频生成功能暂未实现');
+    if (!this.video) {
+      throw new Error('[VolcEngineProvider] 视频生成模块未初始化,请检查配置');
+    }
 
-    // TODO: Task #43 - 实现火山引擎视频生成
-    throw new Error('[VolcEngineProvider] 视频生成功能暂未实现，请等待后续版本');
+    console.log('[VolcEngineProvider] 开始生成视频');
+
+    // 检查是否是图片 URL（以 http 开头）
+    const isImageUrl = prompt.startsWith('http://') || prompt.startsWith('https://');
+
+    if (isImageUrl) {
+      // 图生视频
+      return await this.video.generateVideoFromImage(prompt, undefined, options);
+    } else {
+      // 文生视频（暂不支持）
+      throw new Error('[VolcEngineProvider] 暂不支持文生视频，请使用图生视频');
+    }
   }
 
   /**

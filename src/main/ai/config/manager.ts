@@ -249,7 +249,7 @@ export class AIConfigManager {
             textGeneration: true,
             imageGeneration: true,
             speechSynthesis: false,
-            videoGeneration: false,
+            videoGeneration: true,
           },
         } as VolcEngineConfig,
       },
