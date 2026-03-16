@@ -1,0 +1,75 @@
+/**
+ * 创意方向卡片组件
+ * 显示单个创意方向的信息
+ */
+
+import { Trash2 } from 'lucide-react';
+import * as Icons from 'lucide-react';
+import type { CreativeDirection } from '@shared/types/aside';
+
+interface DirectionCardProps {
+  /** 创意方向数据 */
+  direction: CreativeDirection;
+  /** 选择回调 */
+  onSelect: () => void;
+  /** 删除回调 */
+  onDelete: () => void;
+}
+
+/**
+ * 创意方向卡片组件
+ */
+export function DirectionCard({ direction, onSelect, onDelete }: DirectionCardProps) {
+  /**
+   * 获取图标组件
+   */
+  const getIcon = (iconName?: string) => {
+    if (!iconName) return null;
+
+    const IconComponent = (Icons as any)[iconName];
+    if (!IconComponent) return null;
+
+    return <IconComponent className="w-8 h-8 text-violet-400" />;
+  };
+
+  return (
+    <div
+      onClick={onSelect}
+      className="group bg-black/50 border border-slate-800 rounded-xl p-4 hover:border-violet-600 hover:bg-violet-600/5 cursor-pointer transition-all"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="w-12 h-12 flex items-center justify-center bg-violet-600/10 rounded-lg">
+          {getIcon(direction.iconName) || (
+            <div className="w-8 h-8 flex items-center justify-center text-violet-400 text-2xl">
+              💡
+            </div>
+          )}
+        </div>
+        {!direction.isPreset && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+            title="删除"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      <h3 className="text-lg font-semibold text-slate-100 mb-2">{direction.name}</h3>
+
+      {direction.description && (
+        <p className="text-sm text-slate-400 line-clamp-2">{direction.description}</p>
+      )}
+
+      {direction.isPreset && (
+        <div className="mt-3 inline-block px-2 py-1 bg-violet-600/20 text-violet-400 text-xs rounded">
+          预设
+        </div>
+      )}
+    </div>
+  );
+}

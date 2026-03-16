@@ -1,0 +1,140 @@
+/**
+ * 项目库组件
+ * 显示所有项目列表，支持创建、删除项目
+ */
+
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, Folder } from 'lucide-react';
+import { useASideStore } from '@renderer/stores/asideStore';
+import type { Project, GameType } from '@shared/types/aside';
+import { ProjectCard } from './ProjectCard';
+import { CreateProjectModal } from './CreateProjectModal';
+
+/**
+ * 项目库主组件
+ */
+export function ProjectLibrary() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const { selectProject, setCurrentView } = useASideStore();
+
+  // 加载项目列表
+  useEffect(() => {
+    loadProjects();
+  }, []);
+
+  /**
+   * 加载项目列表
+   */
+  const loadProjects = async () => {
+    try {
+      setIsLoading(true);
+      const result = await window.api.getProjects();
+      if (result.success && result.projects) {
+        setProjects(result.projects);
+      }
+    } catch (error) {
+      console.error('[ProjectLibrary] 加载项目列表失败:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * 创建新项目
+   */
+  const handleCreateProject = async (name: string, gameType: GameType, region?: string) => {
+    try {
+      const result = await window.api.createProject({ name, gameType, region });
+      if (result.success && result.project) {
+        setProjects([...projects, result.project]);
+        setIsCreateModalOpen(false);
+        console.log('[ProjectLibrary] 创建项目成功:', result.project.name);
+      }
+    } catch (error) {
+      console.error('[ProjectLibrary] 创建项目失败:', error);
+    }
+  };
+
+  /**
+   * 删除项目
+   */
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('确定要删除此项目吗？所有相关数据将被删除。')) {
+      return;
+    }
+
+    try {
+      const result = await window.api.deleteProject(projectId);
+      if (result.success) {
+        setProjects(projects.filter(p => p.id !== projectId));
+        console.log('[ProjectLibrary] 删除项目成功');
+      }
+    } catch (error) {
+      console.error('[ProjectLibrary] 删除项目失败:', error);
+    }
+  };
+
+  /**
+   * 进入项目（跳转到 Step 1）
+   */
+  const handleEnterProject = (project: Project) => {
+    selectProject(project);
+    setCurrentView('step1-direction');
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-black text-slate-100">
+      {/* 头部 */}
+      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+        <div>
+          <h1 className="text-2xl font-bold">项目库</h1>
+          <p className="text-sm text-slate-500 mt-1">选择或创建一个项目开始生产视频</p>
+        </div>
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:opacity-90 transition-opacity"
+        >
+          <Plus className="w-4 h-4" />
+          <span>创建项目</span>
+        </button>
+      </header>
+
+      {/* 项目列表 */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-slate-500">加载中...</div>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <Folder className="w-16 h-16 text-slate-700 mb-4" />
+            <p className="text-slate-500 mb-2">还没有任何项目</p>
+            <p className="text-sm text-slate-600">点击右上角按钮创建第一个项目</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {projects.map(project => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onEnter={() => handleEnterProject(project)}
+                onDelete={() => handleDeleteProject(project.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 创建项目弹窗 */}
+      {isCreateModalOpen && (
+        <CreateProjectModal
+          onClose={() => setIsCreateModalOpen(false)}
+          onCreate={handleCreateProject}
+        />
+      )}
+    </div>
+  );
+}
