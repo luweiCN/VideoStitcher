@@ -57,7 +57,7 @@ interface StyleCardProps {
 
 const StyleCard: React.FC<StyleCardProps> = ({ style, isSelected, onClick }) => {
   return (
-    <button
+    <button data-testid="style-option"
       onClick={onClick}
       className={`
         relative group overflow-hidden rounded-xl border-2 transition-all duration-300
