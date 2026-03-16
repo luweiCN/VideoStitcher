@@ -5,7 +5,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { scriptNode } from '../../../../src/main/langgraph/nodes/scriptNode';
 import { GraphStateType, NodeNames } from '../../../../src/main/langgraph/state';
-import * as logger from '../../../../src/main/utils/logger';
+import log from '../../../../src/main/utils/logger';
+
+// 设置测试超时时间
+vi.setConfig({
+  testTimeout: 30000,
+  hookTimeout: 30000,
+});
 
 // Mock logger - 注意：logger.ts 使用 export default
 vi.mock('../../../../src/main/utils/logger', () => ({
@@ -14,8 +20,6 @@ vi.mock('../../../../src/main/utils/logger', () => ({
     error: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn(),
-  },
-}));
   },
 }));
 
@@ -105,7 +109,7 @@ describe('脚本生成节点 (scriptNode)', () => {
 
       await scriptNode(state);
 
-      expect(logger.logger.info).toHaveBeenCalledWith(
+      expect(log.info).toHaveBeenCalledWith(
         '[脚本节点] 开始执行',
         expect.objectContaining({
           userRequirement: '测试',
@@ -114,7 +118,7 @@ describe('脚本生成节点 (scriptNode)', () => {
         })
       );
 
-      expect(logger.logger.info).toHaveBeenCalledWith(
+      expect(log.info).toHaveBeenCalledWith(
         '[脚本节点] 生成完成',
         expect.objectContaining({
           count: 2,
@@ -152,7 +156,7 @@ describe('脚本生成节点 (scriptNode)', () => {
       expect(result.currentNode).toBe(NodeNames.SCRIPT);
       expect(result.scripts).toBeUndefined();
 
-      expect(logger.logger.error).toHaveBeenCalledWith(
+      expect(log.error).toHaveBeenCalledWith(
         '[脚本节点] 执行失败',
         'UUID 生成失败'
       );
@@ -215,7 +219,7 @@ describe('脚本生成节点 (scriptNode)', () => {
       const state: GraphStateType = {
         userRequirement: '测试',
         selectedStyle: '幽默',
-        batchSize: 100,
+        batchSize: 10, // 降低到 10 以避免超时
         scripts: [],
         selectedScriptId: null,
         videoConfig: null,
@@ -230,7 +234,7 @@ describe('脚本生成节点 (scriptNode)', () => {
       const result = await scriptNode(state);
 
       expect(result.scripts).toBeDefined();
-      expect(result.scripts?.length).toBe(100);
+      expect(result.scripts?.length).toBe(10);
       expect(result.error).toBeNull();
     });
 

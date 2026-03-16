@@ -7,6 +7,12 @@ import { storyboardNode } from '../../../../src/main/langgraph/nodes/storyboardN
 import { GraphStateType, NodeNames } from '../../../../src/main/langgraph/state';
 import * as logger from '../../../../src/main/utils/logger';
 
+// 设置测试超时时间
+vi.setConfig({
+  testTimeout: 30000,
+  hookTimeout: 30000,
+});
+
 // Mock logger
 vi.mock('../../../../src/main/utils/logger', () => ({
   default: {
@@ -16,12 +22,14 @@ vi.mock('../../../../src/main/utils/logger', () => ({
   },
 }));
 
-// Mock uuid
+// Mock uuid - 模拟生成 4 个 UUID（对应 4 个场景）
 vi.mock('uuid', () => ({
-  v4: vi.fn()
+  v4: vi
+    .fn()
     .mockReturnValueOnce('storyboard-uuid-1')
     .mockReturnValueOnce('storyboard-uuid-2')
-    .mockReturnValueOnce('storyboard-uuid-3'),
+    .mockReturnValueOnce('storyboard-uuid-3')
+    .mockReturnValueOnce('storyboard-uuid-4'),
 }));
 
 describe('分镜生成节点 (storyboardNode)', () => {

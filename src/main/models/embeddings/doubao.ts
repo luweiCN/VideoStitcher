@@ -4,7 +4,7 @@
  */
 
 import { Embeddings, type EmbeddingsParams } from '@langchain/core/embeddings';
-import { logger } from '../../utils/logger';
+import logger from '../../utils/logger';
 
 /**
  * 火山引擎 Embeddings 配置

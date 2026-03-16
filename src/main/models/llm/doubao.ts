@@ -5,7 +5,7 @@
 
 import { BaseLLM, type BaseLLMParams } from '@langchain/core/language_models/llms';
 import { CallbackManagerForLLMRun } from '@langchain/core/callbacks/manager';
-import { logger } from '../../utils/logger';
+import logger from '../../utils/logger';
 
 /**
  * 火山引擎 API 配置

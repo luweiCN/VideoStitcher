@@ -362,6 +362,105 @@ async function handleDeleteSession(
   }
 }
 
+// ==================== 知识库相关处理器 ====================
+
+/**
+ * 上传素材到知识库
+ */
+async function handleKnowledgeUpload(
+  _event: any,
+  params: {
+    type: 'video' | 'script' | 'image' | 'text';
+    content: string;
+    metadata?: Record<string, unknown>;
+  }
+): Promise<{ success: boolean; materialId?: string; error?: string }> {
+  logger.info('[知识库处理器] 上传素材', { type: params.type });
+
+  try {
+    // 动态导入 KnowledgeBase
+    const { knowledgeBase } = await import('../services/KnowledgeBase');
+
+    const materialId = await knowledgeBase.uploadMaterial(params);
+
+    logger.info('[知识库处理器] 素材上传成功', { materialId });
+
+    return { success: true, materialId };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[知识库处理器] 素材上传失败', errorMessage);
+
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 知识库相似度检索
+ */
+async function handleKnowledgeSearch(
+  _event: any,
+  query: string,
+  topK?: number
+): Promise<{
+  success: boolean;
+  results?: Array<{
+    materialId: string;
+    content: string;
+    score: number;
+    metadata?: Record<string, unknown>;
+    chunkIndex?: number;
+  }>;
+  error?: string;
+}> {
+  logger.info('[知识库处理器] 相似度检索', { query: query.substring(0, 50) });
+
+  try {
+    // 动态导入 KnowledgeBase
+    const { knowledgeBase } = await import('../services/KnowledgeBase');
+
+    const results = await knowledgeBase.searchSimilar(query, topK);
+
+    logger.info('[知识库处理器] 检索完成', { resultCount: results.length });
+
+    return { success: true, results };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[知识库处理器] 检索失败', errorMessage);
+
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 获取知识库统计信息
+ */
+async function handleKnowledgeStats(): Promise<{
+  success: boolean;
+  stats?: {
+    totalDocuments: number;
+    totalMaterials: number;
+  };
+  error?: string;
+}> {
+  logger.info('[知识库处理器] 获取统计信息');
+
+  try {
+    // 动态导入 KnowledgeBase
+    const { knowledgeBase } = await import('../services/KnowledgeBase');
+
+    const stats = await knowledgeBase.getStats();
+
+    logger.info('[知识库处理器] 统计信息获取成功', stats);
+
+    return { success: true, stats };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[知识库处理器] 获取统计信息失败', errorMessage);
+
+    return { success: false, error: errorMessage };
+  }
+}
+
 // ==================== 注册处理器 ====================
 
 /**
@@ -387,6 +486,11 @@ export function registerAsideHandlers(): void {
 
   // 删除会话
   ipcMain.handle('aside:delete-session', handleDeleteSession);
+
+  // 知识库相关
+  ipcMain.handle('knowledge:upload', handleKnowledgeUpload);
+  ipcMain.handle('knowledge:search', handleKnowledgeSearch);
+  ipcMain.handle('knowledge:stats', handleKnowledgeStats);
 
   logger.info('[AI 处理器] IPC 处理器注册完成');
 }

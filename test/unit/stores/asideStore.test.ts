@@ -441,8 +441,13 @@ describe('A面视频生产 Store (asideStore)', () => {
       updateQueuePriority(item1.id, 'high');
       updateQueuePriority(item2.id, 'low');
 
-      expect(useASideStore.getState().queueItems[0].priority).toBe('high');
-      expect(useASideStore.getState().queueItems[1].priority).toBe('low');
+      // 重新获取更新后的项
+      const updatedItems = useASideStore.getState().queueItems;
+      const updatedItem1 = updatedItems.find(i => i.id === item1.id);
+      const updatedItem2 = updatedItems.find(i => i.id === item2.id);
+
+      expect(updatedItem1?.priority).toBe('high');
+      expect(updatedItem2?.priority).toBe('low');
 
       // 移除一个项目
       const item3 = useASideStore.getState().queueItems[2];

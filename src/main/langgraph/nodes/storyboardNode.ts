@@ -3,9 +3,10 @@
  * 负责调用豆包 Vision API 生成分镜图像
  */
 
-import { GraphStateType, NodeNames } from '../state';
+import { GraphStateType, NodeNames, StoryboardScene } from '../state';
 import log from '../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
+import { VolcanoClient } from '../../api/volcano-client';
 
 // 使用 logger
 const logger = log;

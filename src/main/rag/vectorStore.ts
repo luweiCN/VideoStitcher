@@ -4,7 +4,7 @@
  */
 
 import { getDatabase } from '../database/index';
-import { logger } from '../utils/logger';
+import logger from '../utils/logger';
 import { createDoubaoEmbeddings } from '../models/embeddings/doubao';
 import type { Database } from 'better-sqlite3';
 
