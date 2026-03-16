@@ -520,3 +520,26 @@ export interface ElectronAPI {
   restoreDbBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
   deleteDbBackup: (backupPath: string) => Promise<{ success: boolean; error?: string }>;
 }
+
+  // === A 面视频生产 API ===
+  getProjects: () => Promise<{ success: boolean; projects: import('@shared/types/aside').Project[]; error?: string }>;
+  createProject: (name: string, gameType: import('@shared/types/aside').GameType) => Promise<{ success: boolean; project: import('@shared/types/aside').Project; error?: string }>;
+  deleteProject: (projectId: string) => Promise<{ success: boolean; error?: string }>;
+
+  getCreativeDirections: (projectId: string) => Promise<{ success: boolean; directions: import('@shared/types/aside').CreativeDirection[]; error?: string }>;
+  createCreativeDirection: (projectId: string, name: string, description?: string, iconName?: string) => Promise<{ success: boolean; direction: import('@shared/types/aside').CreativeDirection; error?: string }>;
+  deleteCreativeDirection: (directionId: string) => Promise<{ success: boolean; error?: string }>;
+
+  getPersonas: (projectId: string) => Promise<{ success: boolean; personas: import('@shared/types/aside').Persona[]; error?: string }>;
+  createPersona: (projectId: string, name: string, prompt: string) => Promise<{ success: boolean; persona: import('@shared/types/aside').Persona; error?: string }>;
+  updatePersona: (personaId: string, data: { name?: string; prompt?: string }) => Promise<{ success: boolean; error?: string }>;
+  deletePersona: (personaId: string) => Promise<{ success: boolean; error?: string }>;
+
+  createScript: (projectId: string, content: string, creativeDirectionId?: string, personaId?: string, aiModel?: import('@shared/types/aside').AIModel) => Promise<{ success: boolean; script: import('@shared/types/aside').Script; error?: string }>;
+  getScripts: (projectId: string, status?: import('@shared/types/aside').ScriptStatus) => Promise<{ success: boolean; scripts: import('@shared/types/aside').Script[]; error?: string }>;
+  updateScript: (scriptId: string, data: { content?: string; status?: import('@shared/types/aside').ScriptStatus }) => Promise<{ success: boolean; error?: string }>;
+  deleteScript: (scriptId: string) => Promise<{ success: boolean; error?: string }>;
+  regenerateScript: (scriptId: string) => Promise<{ success: boolean; script: import('@shared/types/aside').Script; error?: string }>;
+  addScriptToLibrary: (scriptId: string) => Promise<{ success: boolean; script: import('@shared/types/aside').Script; newScript?: import('@shared/types/aside').Script; error?: string }>;
+  removeScriptFromLibrary: (scriptId: string) => Promise<{ success: boolean; error?: string }>;
+}
