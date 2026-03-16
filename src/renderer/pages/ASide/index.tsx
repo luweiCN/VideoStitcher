@@ -4,39 +4,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Sparkles, ListOrdered, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Sparkles, ListOrdered, ChevronRight, AlertCircle } from 'lucide-react';
 import { useASideStore } from '../../stores/asideStore';
+import { useToastMessages } from '../../components/Toast/Toast';
 import PageHeader from '../../components/PageHeader';
 import { StyleSelector } from './components/StyleSelector';
 import { ConfigPanel } from './components/ConfigPanel';
 import { ScriptList } from './components/ScriptList';
 import { ProductionQueue } from './components/ProductionQueue';
+import { StyleSelectorSkeleton } from '../../components/Skeleton/Skeleton';
 import type { StyleTemplate } from './types';
-
-// Mock 数据：风格模板
-const MOCK_STYLE_TEMPLATES: StyleTemplate[] = [
-  {
-    id: 'humor-1',
-    name: '幽默搞笑',
-    description: '轻松幽默的风格，适合娱乐内容',
-    thumbnail: 'https://via.placeholder.com/400x225?text=Humor',
-    category: '热门',
-    tags: ['搞笑', '轻松', '娱乐'],
-    config: {
-      colorTone: 'vibrant',
-      transitionStyle: 'dynamic',
-      textAnimation: 'bounce',
-      cameraMovement: 'dynamic',
-      shotDuration: 3,
-      bgmStyle: 'funny',
-      bgmVolume: 70,
-      voiceVolume: 100,
-    },
-  },
-];
 
 const ASidePage: React.FC = () => {
   const navigate = useNavigate();
+  const toast = useToastMessages();
+
+  // 状态管理
   const {
     currentStep,
     selectedStyle,
@@ -58,33 +41,106 @@ const ASidePage: React.FC = () => {
     setGeneratingScripts,
   } = useASideStore();
 
+  // 本地状态
+  const [styleTemplates, setStyleTemplates] = useState<StyleTemplate[]>([]);
+  const [isLoadingStyles, setIsLoadingStyles] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // 加载风格模板
+  useEffect(() => {
+    loadStyleTemplates();
+  }, []);
+
+  // 从后端加载风格模板
+  const loadStyleTemplates = async () => {
+    try {
+      setIsLoadingStyles(true);
+      setLoadError(null);
+
+      // TODO: 替换为真实的 IPC 调用
+      // const templates = await window.api.loadStyleTemplates();
+      // setStyleTemplates(templates);
+
+      // 临时使用 Mock 数据
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const mockTemplates: StyleTemplate[] = [
+        {
+          id: 'humor-1',
+          name: '幽默搞笑',
+          description: '轻松幽默的风格，适合娱乐内容',
+          thumbnail: 'https://via.placeholder.com/400x225?text=Humor',
+          category: '热门',
+          tags: ['搞笑', '轻松', '娱乐'],
+          config: {
+            colorTone: 'vibrant',
+            transitionStyle: 'dynamic',
+            textAnimation: 'bounce',
+            cameraMovement: 'dynamic',
+            shotDuration: 3,
+            bgmStyle: 'funny',
+            bgmVolume: 70,
+            voiceVolume: 100,
+          },
+        },
+      ];
+
+      setStyleTemplates(mockTemplates);
+    } catch (error) {
+      console.error('加载风格模板失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '加载风格模板失败';
+      setLoadError(errorMessage);
+      toast.error(errorMessage, '加载失败');
+    } finally {
+      setIsLoadingStyles(false);
+    }
+  };
+
   const canGenerate = selectedStyle && config.region && config.productName;
 
+  // 生成脚本
   const handleGenerateScripts = async () => {
     if (!canGenerate) return;
-    
-    setGeneratingScripts(true);
-    setCurrentStep('scripts');
-    
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    const newScripts = Array.from({ length: config.batchSize }, (_, index) => ({
-      id: `script-${Date.now()}-${index}`,
-      title: `${config.productName} - ${selectedStyle!.name}风格 #${index + 1}`,
-      scenes: [
-        {
-          id: `scene-${Date.now()}-${index}-1`,
-          sequence: 1,
-          content: `开场：介绍${config.productName}`,
-          duration: 5,
-        },
-      ],
-      totalDuration: 15,
-      createdAt: new Date(),
-    }));
-    
-    setScripts([...scripts, ...newScripts]);
-    setGeneratingScripts(false);
+
+    try {
+      setGeneratingScripts(true);
+      setCurrentStep('scripts');
+      setLoadError(null);
+
+      // TODO: 替换为真实的 IPC 调用
+      // const newScripts = await window.api.generateScripts({
+      //   style: selectedStyle,
+      //   config: config
+      // });
+      // setScripts([...scripts, ...newScripts]);
+
+      // 临时使用 Mock 数据
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const newScripts = Array.from({ length: config.batchSize }, (_, index) => ({
+        id: `script-${Date.now()}-${index}`,
+        title: `${config.productName} - ${selectedStyle!.name}风格 #${index + 1}`,
+        scenes: [
+          {
+            id: `scene-${Date.now()}-${index}-1`,
+            sequence: 1,
+            content: `开场：介绍${config.productName}`,
+            duration: 5,
+          },
+        ],
+        totalDuration: 15,
+        createdAt: new Date(),
+      }));
+
+      setScripts([...scripts, ...newScripts]);
+      toast.success(`成功生成 ${newScripts.length} 条脚本`, '生成完成');
+    } catch (error) {
+      console.error('生成脚本失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '生成脚本失败';
+      setLoadError(errorMessage);
+      toast.error(errorMessage, '生成失败');
+    } finally {
+      setGeneratingScripts(false);
+    }
   };
 
   return (
@@ -147,14 +203,37 @@ const ASidePage: React.FC = () => {
         {/* 风格选择 */}
         {currentStep === 'style' && (
           <div data-testid="style-selector" className="p-8">
-            <StyleSelector
-              styles={MOCK_STYLE_TEMPLATES}
-              selectedStyle={selectedStyle}
-              onSelect={(template) => {
-                selectStyle(template);
-                setCurrentStep('config');
-              }}
-            />
+            {/* 加载状态 - 骨架屏 */}
+            {isLoadingStyles && <StyleSelectorSkeleton />}
+
+            {/* 错误提示 */}
+            {loadError && !isLoadingStyles && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-red-400 font-medium mb-1">加载失败</h3>
+                  <p className="text-red-300 text-sm">{loadError}</p>
+                  <button
+                    onClick={loadStyleTemplates}
+                    className="mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-sm transition-colors"
+                  >
+                    重试
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 风格列表 */}
+            {!isLoadingStyles && !loadError && (
+              <StyleSelector
+                styles={styleTemplates}
+                selectedStyle={selectedStyle}
+                onSelect={(template) => {
+                  selectStyle(template);
+                  setCurrentStep('config');
+                }}
+              />
+            )}
           </div>
         )}
 

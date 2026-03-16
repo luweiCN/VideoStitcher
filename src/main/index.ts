@@ -21,6 +21,7 @@ import { registerApplicationHandlers, isDevelopment } from '@main/ipc/applicatio
 import { registerSystemHandlers } from '@main/ipc/system';
 import { registerTaskHandlers, setTaskQueueMainWindow, stopTaskQueueManager } from '@main/ipc/task';
 import { registerDatabaseIpc } from '@main/ipc/database';
+import { registerAsideHandlers } from '@main/ipc/aside-handlers';
 import { taskQueueManager, TaskCancelledError } from '@main/services/TaskQueueManager';
 
 // 导入自动更新模块
@@ -166,12 +167,15 @@ function registerAllHandlers(): void {
   registerAuthHandlers();
   registerTaskGeneratorHandlers();
   registerSystemHandlers();
-  
+
   // 任务中心处理器
   registerTaskHandlers();
-  
+
   // 数据库管理处理器
   registerDatabaseIpc();
+
+  // AI 视频生产处理器
+  registerAsideHandlers();
 
   console.log('[主进程] IPC 处理器注册完成');
 }
