@@ -25,6 +25,9 @@ import { registerAsideHandlers } from '@main/ipc/aside-handlers';
 import { registerAIWorkflowHandlers } from '@main/ipc/ai-workflow-handlers';
 import { taskQueueManager, TaskCancelledError } from '@main/services/TaskQueueManager';
 
+// 导入 AI 提供商初始化
+import { initializeGlobalProvider } from '@main/ai/provider-manager';
+
 // 导入自动更新模块
 import { setupAutoUpdater, setMainWindow as setAutoUpdaterWindow, setDevelopmentMode } from '@main/autoUpdater';
 
@@ -199,6 +202,15 @@ app.whenReady().then(() => {
     console.log('[主进程] 任务队列管理器初始化完成');
   } catch (err) {
     console.error('[主进程] 数据库初始化失败:', err);
+  }
+
+  // 初始化全局 AI 提供商
+  try {
+    console.log('[主进程] 初始化全局 AI 提供商...');
+    initializeGlobalProvider();
+    console.log('[主进程] 全局 AI 提供商初始化完成');
+  } catch (err) {
+    console.error('[主进程] 全局 AI 提供商初始化失败:', err);
   }
 
   // electron-toolkit 工具初始化
