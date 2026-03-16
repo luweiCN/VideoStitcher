@@ -85,6 +85,14 @@
 - [x] 测试搭建测试框架
 - [x] E2E 测试修复（13 通过，5 跳过）
 
+### 第二轮（已完成）
+- [x] 完善 LangGraph 节点实现
+- [x] 实现 IPC 通信处理器
+- [x] 前端连接真实数据源
+- [x] 添加错误处理和加载状态
+- [x] 创建 UI 组件（ErrorBoundary, Skeleton, ConfirmDialog）
+- [x] 编写单元测试（scriptNode, characterNode, storyboardNode）
+
 ---
 
 ## 🚀 下一步

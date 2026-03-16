@@ -7,12 +7,15 @@ import { scriptNode } from '../../../../src/main/langgraph/nodes/scriptNode';
 import { GraphStateType, NodeNames } from '../../../../src/main/langgraph/state';
 import * as logger from '../../../../src/main/utils/logger';
 
-// Mock logger
+// Mock logger - 注意：logger.ts 使用 export default
 vi.mock('../../../../src/main/utils/logger', () => ({
-  logger: {
+  default: {
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
   },
 }));
 

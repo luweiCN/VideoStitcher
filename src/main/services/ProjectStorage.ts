@@ -8,10 +8,13 @@
  * 4. 删除项目
  */
 
-import { logger } from '../utils/logger';
-import fs from 'fs';
-import path from 'path';
+import log from '../utils/logger';
+import * as fs from 'fs';
+import * as path from 'path';
 import { app } from 'electron';
+
+// 使用 logger
+const logger = log;
 
 // ==================== 类型定义 ====================
 

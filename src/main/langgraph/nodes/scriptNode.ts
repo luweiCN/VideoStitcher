@@ -4,8 +4,11 @@
  */
 
 import { GraphStateType, NodeNames } from '../state';
-import { logger } from '../../utils/logger';
+import log from '../../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
+
+// 使用 logger
+const logger = log;
 
 /**
  * 进度回调函数类型

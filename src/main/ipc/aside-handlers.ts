@@ -8,12 +8,14 @@
  * 4. 加载会话
  */
 
-import { ipcMain } from 'electron';
-import { logger } from '../utils/logger';
+import { ipcMain, app } from 'electron';
+import log from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
-import path from 'path';
-import { app } from 'electron';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// 使用 logger
+const logger = log;
 
 // ==================== 类型定义 ====================
 

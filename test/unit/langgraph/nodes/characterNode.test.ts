@@ -9,7 +9,7 @@ import * as logger from '../../../../src/main/utils/logger';
 
 // Mock logger
 vi.mock('../../../../src/main/utils/logger', () => ({
-  logger: {
+  default: {
     info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
