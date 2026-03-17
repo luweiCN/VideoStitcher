@@ -541,3 +541,12 @@ export interface ElectronAPI {
   asideUpdateScreenplayContent: (screenplayId: string, content: string) => Promise<{ success: boolean; error?: string }>;
   asideRegenerateScreenplay: (screenplayId: string) => Promise<{ success: boolean; screenplay: import('@shared/types/aside').Screenplay; error?: string }>;
 }
+  // === 导演模式 API ===
+  asideGenerateCharacters: (screenplayId: string) => Promise<{ success: boolean; characters?: import('@shared/types/aside').Character[]; error?: string }>;
+  asideAddCharacter: (data: { screenplayId: string; name: string; description: string }) => Promise<{ success: boolean; character?: import('@shared/types/aside').Character; error?: string }>;
+  asideEditCharacter: (data: { characterId: string; name: string; description: string }) => Promise<{ success: boolean; error?: string }>;
+  asideRegenerateCharacter: (characterId: string) => Promise<{ success: boolean; character?: import('@shared/types/aside').Character; error?: string }>;
+  asideGenerateStoryboard: (screenplayId: string) => Promise<{ success: boolean; storyboard?: import('@shared/types/aside').Storyboard; error?: string }>;
+  asideRegenerateStoryboard: (storyboardId: string) => Promise<{ success: boolean; storyboard?: import('@shared/types/aside').Storyboard; error?: string }>;
+  asideComposeVideo: (screenplayId: string) => Promise<{ success: boolean; videoUrl?: string; error?: string }>;
+}

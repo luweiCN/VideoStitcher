@@ -157,3 +157,60 @@ export interface Region {
   /** 区域分组（华北、东北、华东等） */
   group: string;
 }
+
+/**
+ * 角色
+ * 导演模式中的角色定义
+ */
+export interface Character {
+  /** 角色唯一标识符 */
+  id: string;
+
+  /** 角色名称 */
+  name: string;
+
+  /** 角色描述 */
+  description: string;
+
+  /** 角色图片 URL（AI 生成或用户上传） */
+  imageUrl?: string;
+}
+
+/**
+ * 分镜场景
+ * 单个分镜镜头
+ */
+export interface Scene {
+  /** 场景唯一标识符 */
+  id: string;
+
+  /** 场景序号（1-9） */
+  index: number;
+
+  /** 场景描述 */
+  description: string;
+
+  /** 场景图片 URL（AI 生成） */
+  imageUrl?: string;
+}
+
+/**
+ * 分镜图
+ * 包含多个分镜场景的完整分镜图
+ */
+export interface Storyboard {
+  /** 分镜图唯一标识符 */
+  id: string;
+
+  /** 行数 */
+  rows: number;
+
+  /** 列数 */
+  cols: number;
+
+  /** 所有场景 */
+  scenes: Scene[];
+
+  /** 完整分镜图 URL（包含所有场景的大图） */
+  imageUrl?: string;
+}

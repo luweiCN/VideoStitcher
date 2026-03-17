@@ -22,6 +22,7 @@ import { registerSystemHandlers } from '@main/ipc/system';
 import { registerTaskHandlers, setTaskQueueMainWindow, stopTaskQueueManager } from '@main/ipc/task';
 import { registerDatabaseIpc } from '@main/ipc/database';
 import { registerAsideHandlers } from '@main/ipc/aside-handlers';
+import { registerDirectorModeHandlers } from '@main/ipc/director-mode-handlers';
 import { registerAIWorkflowHandlers } from '@main/ipc/ai-workflow-handlers';
 import { taskQueueManager, TaskCancelledError } from '@main/services/TaskQueueManager';
 
@@ -180,6 +181,9 @@ function registerAllHandlers(): void {
 
   // AI 视频生产处理器
   registerAsideHandlers();
+
+  // 导演模式处理器
+  registerDirectorModeHandlers();
 
   // AI 工作流处理器
   registerAIWorkflowHandlers();
