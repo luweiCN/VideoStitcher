@@ -133,6 +133,9 @@ export interface Screenplay {
   /** 预估视频时长（秒，由 AI 根据剧情内容预估） */
   estimatedDuration?: number;
 
+  /** 生成的视频 URL（已完成状态时） */
+  videoUrl?: string;
+
   /** 创建时间（ISO 8601 格式） */
   createdAt: string;
 }

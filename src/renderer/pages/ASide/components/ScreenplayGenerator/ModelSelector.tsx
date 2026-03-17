@@ -26,19 +26,16 @@ const MODEL_OPTIONS: { value: AIModel; label: string; description: string }[] = 
  */
 export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorProps) {
   return (
-    <div className="flex items-center gap-2">
-      <label className="text-sm text-slate-400">AI 模型：</label>
-      <select
-        value={selectedModel}
-        onChange={(e) => onModelChange(e.target.value as AIModel)}
-        className="px-3 py-1.5 bg-black/50 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-slate-700"
-      >
-        {MODEL_OPTIONS.map(option => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
+    <select
+      value={selectedModel}
+      onChange={(e) => onModelChange(e.target.value as AIModel)}
+      className="w-full px-3 py-1.5 bg-black/50 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-slate-700"
+    >
+      {MODEL_OPTIONS.map(option => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }

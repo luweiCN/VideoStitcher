@@ -4,12 +4,13 @@
  */
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import type { Screenplay, AIModel } from '@shared/types/aside';
 import { ModelSelector } from './ModelSelector';
 import { ScriptCard } from './ScriptCard';
 import { PersonaManager } from '../PersonaManager';
+import { StepLayout } from '../StepLayout';
 
 /**
  * 剧本生成器主组件
@@ -152,80 +153,84 @@ export function ScreenplayGenerator() {
   }
 
   return (
-    <div className="h-full flex bg-black text-slate-100">
-      {/* 左侧：人设管理 */}
-      <div className="w-80 border-r border-slate-800 overflow-hidden">
-        <PersonaManager />
-      </div>
-
-      {/* 右侧：脚本生成 */}
-      <div className="flex-1 flex flex-col">
-        {/* 头部 */}
-        <header className="px-6 py-4 border-b border-slate-800">
-          <div className="flex items-center gap-4 mb-3">
-            <button
-              onClick={handleBack}
-              className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold">Step 3: 生成剧本</h1>
-              <p className="text-sm text-slate-500 mt-1">
-                项目：{currentProject.name} / 创意方向：{selectedDirection.name}
-              </p>
+    <StepLayout
+      title="生成剧本"
+      stepNumber={3}
+      totalSteps={3}
+      onPrev={handleBack}
+      nextButtons={
+        <>
+          <button
+            onClick={() => setCurrentView('quick-compose')}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
+          >
+            <span>⚡ 快速合成</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('director-mode')}
+            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:from-pink-700 hover:to-violet-700 transition-all"
+          >
+            <span>🎬 导演模式</span>
+          </button>
+        </>
+      }
+    >
+      <div className="h-full flex flex-col bg-black text-slate-100">
+        {/* 上半部分：控制区 + 人设管理 */}
+        <div className="flex gap-6 h-1/2 p-6 border-b border-slate-800">
+          {/* 左侧控制栏 - 窄栏 */}
+          <div className="w-48 flex flex-col gap-4">
+            <div>
+              <label className="text-sm text-slate-400 mb-1 block">AI 模型：</label>
+              <ModelSelector
+                selectedModel={selectedModel}
+                onModelChange={setModel}
+              />
             </div>
-          </div>
-
-          {/* 模型选择器 */}
-          <div className="flex gap-4">
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={setModel}
-            />
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-slate-400">生成数量：</label>
+            <div>
+              <label className="text-sm text-slate-400 mb-1 block">生成数量：</label>
               <input
                 type="number"
                 value={scriptCount}
                 onChange={(e) => setScriptCount(Math.max(1, parseInt(e.target.value) || 1))}
                 min="1"
                 max="20"
-                className="w-20 px-3 py-1.5 bg-black/50 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-slate-700"
+                className="w-full px-3 py-1.5 bg-black/50 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-slate-700"
               />
             </div>
+            <button
+              onClick={handleGenerate}
+              disabled={isGenerating || !selectedPersona}
+              className={`
+                flex items-center justify-center gap-2 w-full py-3 rounded-lg transition-all mt-2
+                ${
+                  isGenerating || !selectedPersona
+                    ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-pink-600 to-violet-600 text-white hover:opacity-90'
+                }
+              `}
+            >
+              <Sparkles className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
+              <span>{isGenerating ? '生成中...' : '✨ 生成剧本'}</span>
+            </button>
+            {!selectedPersona && (
+              <p className="text-xs text-slate-500 text-center">请先选择人设</p>
+            )}
           </div>
-        </header>
 
-        {/* 生成按钮 */}
-        <div className="px-6 py-4 border-b border-slate-800">
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating || !selectedPersona}
-            className={`
-              flex items-center justify-center gap-2 w-full py-3 rounded-lg transition-all
-              ${
-                isGenerating || !selectedPersona
-                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-pink-600 to-violet-600 text-white hover:opacity-90'
-              }
-            `}
-          >
-            <Sparkles className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
-            <span>{isGenerating ? '生成中...' : '生成剧本'}</span>
-          </button>
-          {!selectedPersona && (
-            <p className="text-xs text-slate-500 mt-2 text-center">请先在左侧选择一个人设</p>
-          )}
+          {/* 右侧人设管理 - 宽区 */}
+          <div className="flex-1 overflow-hidden">
+            <PersonaManager />
+          </div>
         </div>
 
-        {/* 剧本列表 */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* 下半部分：生成的剧本列表 */}
+        <div className="h-1/2 overflow-y-auto p-6">
           {generatedScripts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center">
               <Sparkles className="w-16 h-16 text-slate-700 mb-4" />
               <p className="text-slate-500 mb-2">还没有生成任何剧本</p>
-              <p className="text-sm text-slate-600">选择人设后点击上方按钮生成剧本</p>
+              <p className="text-sm text-slate-600">选择人设后点击左侧按钮生成剧本</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -242,31 +247,7 @@ export function ScreenplayGenerator() {
             </div>
           )}
         </div>
-
-        {/* 底部工具栏 */}
-        <div className="px-6 py-4 border-t border-slate-800 space-y-3">
-          {/* 清空按钮 */}
-          {generatedScripts.length > 0 && (
-            <button
-              onClick={clearGeneratedScripts}
-              className="w-full py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
-            >
-              清空所有剧本
-            </button>
-          )}
-
-          {/* 下一步按钮 */}
-          <button
-            onClick={() => setCurrentView('director-mode')}
-            className="w-full py-3 bg-gradient-to-r from-violet-600 to-pink-600 text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
-          >
-            下一步：进入导演模式
-          </button>
-          <p className="text-xs text-slate-500 text-center">
-            待产库中有 {libraryScripts.length} 个剧本待生成视频
-          </p>
-        </div>
       </div>
-    </div>
+    </StepLayout>
   );
 }

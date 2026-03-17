@@ -116,34 +116,34 @@ export function PersonaManager() {
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100">
-      {/* 头部 */}
-      <header className="px-6 py-4 border-b border-slate-800">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">人设管理</h2>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:opacity-90 transition-opacity"
-          >
-            <Plus className="w-4 h-4" />
-            <span>添加人设</span>
-          </button>
+      {/* 头部 - 简化版 */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">人设管理</h2>
+          <p className="text-xs text-slate-500 mt-0.5">选择角色人设生成剧本</p>
         </div>
-        <p className="text-sm text-slate-500 mt-1">选择一个角色人设来生成脚本</p>
-      </header>
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
+        >
+          <Plus className="w-4 h-4" />
+          <span>添加人设</span>
+        </button>
+      </div>
 
       {/* 人设列表 */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center h-64">
+          <div className="flex items-center justify-center h-32">
             <div className="text-slate-500">加载中...</div>
           </div>
         ) : personas.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <p className="text-slate-500 mb-2">还没有任何人设</p>
-            <p className="text-sm text-slate-600">点击右上角按钮添加人设</p>
+          <div className="flex flex-col items-center justify-center h-32 text-center">
+            <p className="text-slate-500 mb-1">还没有任何人设</p>
+            <p className="text-xs text-slate-600">点击右上角按钮添加</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {personas.map(persona => (
               <PersonaCard
                 key={persona.id}
