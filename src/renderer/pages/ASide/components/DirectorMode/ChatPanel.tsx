@@ -1,110 +1,355 @@
 /**
- * 聊天面板组件
- * 与 Agent 交互的聊天界面
+ * 聊天面板组件 - 导演模式 Agent 工作流
+ * 支持群聊式 Agent 交互：艺术总监、选角导演、分镜师、摄像导演
  */
 
-import { Send } from 'lucide-react';
-import { useState } from 'react';
+import { Send, User, Film, Palette, Video } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 
-interface ChatPanelProps {
-  /** Agent 信息 */
-  agent: { id: string; name: string; icon: string; description: string };
-  /** 是否正在工作 */
-  isWorking: boolean;
-  /** 开始回调 */
-  onStart: () => void;
-  /** 确认回调 */
-  onConfirm: () => void;
+// Agent 类型定义
+interface Agent {
+  id: string;
+  name: string;
+  icon: React.ReactNode;
+  description: string;
 }
 
-/**
- * 聊天面板组件
- */
-export function ChatPanel({ agent, isWorking, onStart, onConfirm }: ChatPanelProps) {
-  const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
-  const [input, setInput] = useState('');
+// 工作流步骤
+type WorkflowStep =
+  | 'art-director'      // 艺术总监
+  | 'casting-director'   // 选角导演
+  | 'storyboard-artist'  // 分镜师
+  | 'camera-director';   // 摄像导演
 
-  /**
-   * 发送消息
-   */
-  const handleSend = () => {
-    if (!input.trim()) return;
+// 消息类型
+interface Message {
+  id: string;
+  agentId: string;
+  type: 'text' | 'options' | 'upload' | 'action';
+  content: string;
+  options?: { label: string; value: string }[];
+  timestamp: Date;
+}
 
-    setMessages(prev => [
-      ...prev,
-      { role: 'user', content: input.trim() },
+interface ChatPanelProps {
+  /** 当前剧本 */
+  screenplayId: string;
+  /** 工作流完成回调 */
+  onComplete?: () => void;
+}
+
+// Agent 配置
+const AGENTS: Agent[] = [
+  {
+    id: 'art-director',
+    name: '艺术总监',
+    icon: <Film className="w-5 h-5" />,
+    description: '确认视频长度和方向',
+  },
+  {
+    id: 'casting-director',
+    name: '选角导演',
+    icon: <User className="w-5 h-5" />,
+    description: '根据剧本生成角色',
+  },
+  {
+    id: 'storyboard-artist',
+    name: '分镜师',
+    icon: <Palette className="w-5 h-5" />,
+    description: '生成关键帧分镜图',
+  },
+  {
+    id: 'camera-director',
+    name: '摄像导演',
+    icon: <Video className="w-5 h-5" />,
+    description: '生成分镜视频',
+  },
+];
+
+export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>('art-director');
+  const [inputValue, setInputValue] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 自动滚动到最新消息
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // 添加初始 Agent 消息
+  useEffect(() => {
+    addAgentMessage('art-director', '欢迎来到导演模式！我会引导你完成视频创作。');
+    addAgentMessage('art-director', '首先，请确认视频的长度：', [
+      { label: '长视频 (1-3分钟)', value: 'long' },
+      { label: '短视频 (15-60秒)', value: 'short' },
     ]);
-    setInput('');
+  }, []);
+
+  // 添加 Agent 消息
+  const addAgentMessage = (
+    agentId: string,
+    content: string,
+    options?: { label: string; value: string }[]
+  ) => {
+    const newMessage: Message = {
+      id: `${Date.now()}-${Math.random()}`,
+      agentId,
+      type: options ? 'options' : 'text',
+      content,
+      options,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, newMessage]);
   };
+
+  // 处理用户选择选项
+  const handleSelectOption = async (value: string) => {
+    if (currentStep === 'art-director') {
+      if (value === 'long' || value === 'short') {
+        // 用户选择了视频长度
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-user`,
+            agentId: 'user',
+            type: 'text',
+            content: value === 'long' ? '长视频 (1-3分钟)' : '短视频 (15-60秒)',
+            timestamp: new Date(),
+          },
+        ]);
+
+        addAgentMessage('art-director', '接下来，请确认视频方向：', [
+          { label: '横版 (16:9)', value: 'landscape' },
+          { label: '竖版 (9:16)', value: 'portrait' },
+        ]);
+      } else if (value === 'landscape' || value === 'portrait') {
+        // 用户选择了视频方向
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-user`,
+            agentId: 'user',
+            type: 'text',
+            content: value === 'landscape' ? '横版 (16:9)' : '竖版 (9:16)',
+            timestamp: new Date(),
+          },
+        ]);
+
+        // 进入下一步：选角导演
+        setTimeout(() => {
+          addAgentMessage(
+            'casting-director',
+            '收到！现在开始选角工作。请选择：'
+          );
+          addAgentMessage('casting-director', '你想如何生成角色？', [
+            { label: '上传参考图', value: 'upload' },
+            { label: '自由发挥', value: 'free' },
+          ]);
+          setCurrentStep('casting-director');
+        }, 1000);
+      }
+    } else if (currentStep === 'casting-director') {
+      if (value === 'upload') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-user`,
+            agentId: 'user',
+            type: 'text',
+            content: '上传参考图',
+            timestamp: new Date(),
+          },
+        ]);
+        // TODO: 触发文件上传对话框
+        setIsProcessing(true);
+        setTimeout(() => {
+          addAgentMessage('casting-director', '正在根据参考图生成角色...');
+          setTimeout(() => {
+            addAgentMessage('casting-director', '✅ 角色生成完成！请查看右侧画板。');
+            setIsProcessing(false);
+            // 进入下一步：分镜师
+            setTimeout(() => {
+              addAgentMessage(
+                'storyboard-artist',
+                '角色已就位。现在开始生成分镜图...'
+              );
+              setCurrentStep('storyboard-artist');
+              setIsProcessing(true);
+              setTimeout(() => {
+                addAgentMessage('storyboard-artist', '✅ 分镜图生成完成！请查看右侧画板。');
+                setIsProcessing(false);
+                // 进入最后一步：摄像导演
+                setTimeout(() => {
+                  addAgentMessage('camera-director', '分镜图已确认。现在开始生成分镜视频...');
+                  setCurrentStep('camera-director');
+                  setIsProcessing(true);
+                  setTimeout(() => {
+                    addAgentMessage('camera-director', '✅ 所有分镜视频已生成！');
+                    addAgentMessage('camera-director', '可以合成最终视频了。', [
+                      { label: '✓ 确认并合成', value: 'compose' },
+                    ]);
+                    setIsProcessing(false);
+                  }, 3000);
+                }, 1000);
+              }, 3000);
+            }, 1000);
+          }, 2000);
+        }, 1000);
+      } else if (value === 'free') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-user`,
+            agentId: 'user',
+            type: 'text',
+            content: '自由发挥',
+            timestamp: new Date(),
+          },
+        ]);
+        setIsProcessing(true);
+        setTimeout(() => {
+          addAgentMessage('casting-director', '正在根据剧本自由创作角色...');
+          setTimeout(() => {
+            addAgentMessage('casting-director', '✅ 角色生成完成！请查看右侧画板。');
+            setIsProcessing(false);
+            // 进入下一步：分镜师（同上）
+            setTimeout(() => {
+              addAgentMessage('storyboard-artist', '角色已就位。现在开始生成分镜图...');
+              setCurrentStep('storyboard-artist');
+              setIsProcessing(true);
+              setTimeout(() => {
+                addAgentMessage('storyboard-artist', '✅ 分镜图生成完成！');
+                setIsProcessing(false);
+                setTimeout(() => {
+                  addAgentMessage('camera-director', '分镜图已确认。开始生成分镜视频...');
+                  setCurrentStep('camera-director');
+                  setIsProcessing(true);
+                  setTimeout(() => {
+                    addAgentMessage('camera-director', '✅ 所有分镜视频已生成！');
+                    addAgentMessage('camera-director', '可以合成最终视频了。', [
+                      { label: '✓ 确认并合成', value: 'compose' },
+                    ]);
+                    setIsProcessing(false);
+                  }, 3000);
+                }, 1000);
+              }, 3000);
+            }, 1000);
+          }, 2000);
+        }, 1000);
+      }
+    } else if (currentStep === 'camera-director' && value === 'compose') {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-user`,
+          agentId: 'user',
+          type: 'text',
+          content: '确认并合成',
+          timestamp: new Date(),
+        },
+      ]);
+      setIsProcessing(true);
+      addAgentMessage('camera-director', '正在合成最终视频...');
+      setTimeout(() => {
+        addAgentMessage('camera-director', '🎉 视频合成完成！');
+        setIsProcessing(false);
+        onComplete?.();
+      }, 3000);
+    }
+  };
+
+  // 处理文本输入（保留但不使用）
+  const handleSend = () => {
+    if (!inputValue.trim()) return;
+    setInputValue('');
+  };
+
+  // 获取当前 Agent
+  const currentAgent = AGENTS.find((a) => a.id === currentStep);
 
   return (
     <div className="h-full flex flex-col bg-black text-slate-100">
-      {/* Agent 信息 */}
-      <div className="px-6 py-4 border-b border-slate-800">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 bg-violet-600/20 rounded-lg flex items-center justify-center text-2xl">
-            {agent.icon}
+      {/* 顶部 Agent 信息栏 */}
+      <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-pink-600 rounded-lg flex items-center justify-center">
+            {currentAgent?.icon}
           </div>
           <div>
-            <h3 className="font-semibold">{agent.name}</h3>
-            <p className="text-xs text-slate-500">{agent.description}</p>
+            <h3 className="font-semibold">{currentAgent?.name}</h3>
+            <p className="text-xs text-slate-500">{currentAgent?.description}</p>
           </div>
         </div>
       </div>
 
       {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto p-6">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="text-4xl mb-4">{agent.icon}</div>
-            <p className="text-slate-500 mb-4">准备好开始 {agent.name}</p>
-            <button
-              onClick={onStart}
-              disabled={isWorking}
-              className={`
-                px-6 py-3 rounded-lg transition-all
-                ${
-                  isWorking
-                    ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-pink-600 to-violet-600 text-white hover:opacity-90'
-                }
-              `}
-            >
-              {isWorking ? '工作中...' : '开始工作'}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`
-                    max-w-[70%] px-4 py-2 rounded-lg
-                    ${
-                      message.role === 'user'
-                        ? 'bg-violet-600 text-white'
-                        : 'bg-slate-800 text-slate-300'
-                    }
-                  `}
-                >
-                  {message.content}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {messages.map((message) => {
+          const agent = AGENTS.find((a) => a.id === message.agentId);
+          const isUser = message.agentId === 'user';
+
+          return (
+            <div key={message.id} className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
+              {/* Agent 头像 */}
+              {!isUser && (
+                <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-pink-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  {agent?.icon}
                 </div>
+              )}
+
+              {/* 消息内容 */}
+              <div className={`flex-1 ${isUser ? 'text-right' : ''}`}>
+                {!isUser && (
+                  <p className="text-xs text-slate-500 mb-1">{agent?.name}</p>
+                )}
+                <div
+                  className={`inline-block px-4 py-2 rounded-lg ${
+                    isUser
+                      ? 'bg-violet-600 text-white'
+                      : 'bg-slate-800 text-slate-100'
+                  }`}
+                >
+                  <p>{message.content}</p>
+                </div>
+
+                {/* 选项按钮 */}
+                {message.type === 'options' && message.options && (
+                  <div className="mt-3 space-y-2">
+                    {message.options.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleSelectOption(option.value)}
+                        disabled={isProcessing}
+                        className="block w-full text-left px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+
+              {/* 用户头像 */}
+              {isUser && (
+                <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <User className="w-4 h-4" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+        <div ref={messagesEndRef} />
       </div>
 
-      {/* 输入框 */}
+      {/* 输入框（保留但不使用） */}
       <div className="px-6 py-4 border-t border-slate-800">
         <div className="flex gap-2">
           <input
             type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder="输入指令或反馈..."
             className="flex-1 px-4 py-2 bg-black/50 border border-slate-800 rounded-lg text-slate-100 placeholder-slate-600 focus:outline-none focus:border-slate-700"
@@ -114,12 +359,6 @@ export function ChatPanel({ agent, isWorking, onStart, onConfirm }: ChatPanelPro
             className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
           >
             <Send className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            确认
           </button>
         </div>
       </div>
