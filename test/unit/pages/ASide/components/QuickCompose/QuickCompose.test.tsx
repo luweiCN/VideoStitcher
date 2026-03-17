@@ -18,11 +18,15 @@ vi.mock('@renderer/stores/asideStore', () => ({
 const mockAsideGetLibraryScreenplays = vi.fn();
 const mockAsideUpdateScreenplayStatus = vi.fn();
 const mockAsideGenerateVideoFromScreenplay = vi.fn();
+const mockPickOutDir = vi.fn();
+const mockAsideSaveVideo = vi.fn();
 
 window.api = {
   asideGetLibraryScreenplays: mockAsideGetLibraryScreenplays,
   asideUpdateScreenplayStatus: mockAsideUpdateScreenplayStatus,
   asideGenerateVideoFromScreenplay: mockAsideGenerateVideoFromScreenplay,
+  pickOutDir: mockPickOutDir,
+  asideSaveVideo: mockAsideSaveVideo,
 };
 
 describe('QuickCompose 组件', () => {
@@ -424,6 +428,137 @@ describe('QuickCompose 组件', () => {
       });
 
       expect(mockStore.setCurrentView).toHaveBeenCalledWith('step3-scripts');
+    });
+  });
+
+  describe('取消生成功能', () => {
+    it('生成中点击取消应该停止生成', async () => {
+      mockAsideGenerateVideoFromScreenplay.mockImplementation(() =>
+        new Promise(() => {
+          // 永不返回,模拟长时间生成
+        })
+      );
+
+      render(<QuickCompose />);
+
+      await waitFor(() => {
+        const generateButtons = screen.getAllByRole('button', { name: /生成视频/ });
+        fireEvent.click(generateButtons[0]);
+      });
+
+      // 等待进度条出现
+      await waitFor(() => {
+        const cancelButton = screen.getByRole('button', { name: /取消/ });
+        expect(cancelButton).toBeDefined();
+
+        // 点击取消
+        fireEvent.click(cancelButton);
+      });
+
+      // 应该停止生成
+      expect(mockAsideGenerateVideoFromScreenplay).toHaveBeenCalled();
+    });
+  });
+
+  describe('保存视频功能', () => {
+    it('点击保存按钮应该调用保存 API', async () => {
+      const completedStore = {
+        ...mockStore,
+        libraryScripts: [
+          {
+            ...mockScreenplays[0],
+            status: 'completed',
+            videoUrl: 'https://example.com/video.mp4',
+          },
+        ],
+      };
+
+      (useASideStore as any).mockImplementation((selector) => {
+        if (typeof selector === 'function') {
+          return selector(completedStore);
+        }
+        return completedStore;
+      });
+
+      mockPickOutDir.mockResolvedValue('/path/to/save');
+
+      render(<QuickCompose />);
+
+      await waitFor(() => {
+        const saveButton = screen.getByRole('button', { name: /保存/ });
+        fireEvent.click(saveButton);
+      });
+
+      await waitFor(() => {
+        expect(mockPickOutDir).toHaveBeenCalled();
+      });
+    });
+
+  });
+
+  describe('批量生成错误处理', () => {
+    it('批量生成中部分失败应该不影响其他生成', async () => {
+      // 第一个成功,第二个失败,第三个成功
+      mockAsideGenerateVideoFromScreenplay
+        .mockResolvedValueOnce({ success: true, videoUrl: 'url1' })
+        .mockRejectedValueOnce(new Error('生成失败'))
+        .mockResolvedValueOnce({ success: true, videoUrl: 'url3' });
+
+      render(<QuickCompose />);
+
+      await waitFor(() => {
+        const batchButton = screen.getByRole('button', { name: /批量生成全部/ });
+        fireEvent.click(batchButton);
+      });
+
+      // 等待所有生成完成
+      await waitFor(() => {
+        // 应该调用了3次生成
+        expect(mockAsideGenerateVideoFromScreenplay).toHaveBeenCalledTimes(3);
+      }, { timeout: 3000 });
+    });
+  });
+
+  describe('预览模态框关闭', () => {
+    it('点击关闭按钮应该关闭预览模态框', async () => {
+      const completedStore = {
+        ...mockStore,
+        libraryScripts: [
+          {
+            ...mockScreenplays[0],
+            status: 'completed',
+            videoUrl: 'https://example.com/video.mp4',
+          },
+        ],
+      };
+
+      (useASideStore as any).mockImplementation((selector) => {
+        if (typeof selector === 'function') {
+          return selector(completedStore);
+        }
+        return completedStore;
+      });
+
+      render(<QuickCompose />);
+
+      await waitFor(() => {
+        const previewButton = screen.getByRole('button', { name: /预览/ });
+        fireEvent.click(previewButton);
+      });
+
+      // 等待模态框打开
+      await waitFor(() => {
+        expect(screen.getByRole('dialog')).toBeDefined();
+
+        // 点击关闭按钮
+        const closeButton = screen.getByRole('button', { name: /关闭/ });
+        fireEvent.click(closeButton);
+      });
+
+      // 模态框应该关闭
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).toBeNull();
+      });
     });
   });
 });

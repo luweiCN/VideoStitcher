@@ -123,7 +123,7 @@ export function QuickComposeCard({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-slate-700 transition-all">
+    <div data-testid="screenplay-card" className="bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-slate-700 transition-all">
       {/* 头部:剧本名称 */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -196,7 +196,7 @@ export function QuickComposeCard({
               >
                 取消
               </button>
-            </>
+            </div>
           </>
         )}
         {/* 已完成状态 */}
