@@ -1,9 +1,9 @@
 /**
  * 聊天面板组件 - 导演模式 Agent 工作流
- * 支持群聊式 Agent 交互：艺术总监、选角导演、分镜师、摄像导演
+ * 綈息气泡布局 + Agent 交互
  */
 
-import { Send, User, Film, Palette, Video } from 'lucide-react';
+import { Send, User, Film, Palette, Video, from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 // Agent 类型定义
@@ -25,7 +25,7 @@ type WorkflowStep =
 interface Message {
   id: string;
   agentId: string;
-  type: 'text' | 'options' | 'upload' | 'action';
+  type: 'text' | 'options';
   content: string;
   options?: { label: string; value: string }[];
   timestamp: Date;
@@ -139,10 +139,7 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
 
         // 进入下一步：选角导演
         setTimeout(() => {
-          addAgentMessage(
-            'casting-director',
-            '收到！现在开始选角工作。请选择：'
-          );
+          addAgentMessage('casting-director', '收到！现在开始选角工作。请选择：');
           addAgentMessage('casting-director', '你想如何生成角色？', [
             { label: '上传参考图', value: 'upload' },
             { label: '自由发挥', value: 'free' },
@@ -151,30 +148,29 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
         }, 1000);
       }
     } else if (currentStep === 'casting-director') {
-      if (value === 'upload') {
+      if (value === 'upload' || value === 'free') {
         setMessages((prev) => [
           ...prev,
           {
             id: `${Date.now()}-user`,
             agentId: 'user',
             type: 'text',
-            content: '上传参考图',
+            content: value === 'upload' ? '上传参考图' : '自由发挥',
             timestamp: new Date(),
           },
         ]);
-        // TODO: 触发文件上传对话框
         setIsProcessing(true);
         setTimeout(() => {
-          addAgentMessage('casting-director', '正在根据参考图生成角色...');
+          addAgentMessage(
+            'casting-director',
+            value === 'upload' ? '正在根据参考图生成角色...' : '正在根据剧本自由创作角色...'
+          );
           setTimeout(() => {
             addAgentMessage('casting-director', '✅ 角色生成完成！请查看右侧画板。');
             setIsProcessing(false);
             // 进入下一步：分镜师
             setTimeout(() => {
-              addAgentMessage(
-                'storyboard-artist',
-                '角色已就位。现在开始生成分镜图...'
-              );
+              addAgentMessage('storyboard-artist', '角色已就位。现在开始生成分镜图...');
               setCurrentStep('storyboard-artist');
               setIsProcessing(true);
               setTimeout(() => {
@@ -183,47 +179,6 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
                 // 进入最后一步：摄像导演
                 setTimeout(() => {
                   addAgentMessage('camera-director', '分镜图已确认。现在开始生成分镜视频...');
-                  setCurrentStep('camera-director');
-                  setIsProcessing(true);
-                  setTimeout(() => {
-                    addAgentMessage('camera-director', '✅ 所有分镜视频已生成！');
-                    addAgentMessage('camera-director', '可以合成最终视频了。', [
-                      { label: '✓ 确认并合成', value: 'compose' },
-                    ]);
-                    setIsProcessing(false);
-                  }, 3000);
-                }, 1000);
-              }, 3000);
-            }, 1000);
-          }, 2000);
-        }, 1000);
-      } else if (value === 'free') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `${Date.now()}-user`,
-            agentId: 'user',
-            type: 'text',
-            content: '自由发挥',
-            timestamp: new Date(),
-          },
-        ]);
-        setIsProcessing(true);
-        setTimeout(() => {
-          addAgentMessage('casting-director', '正在根据剧本自由创作角色...');
-          setTimeout(() => {
-            addAgentMessage('casting-director', '✅ 角色生成完成！请查看右侧画板。');
-            setIsProcessing(false);
-            // 进入下一步：分镜师（同上）
-            setTimeout(() => {
-              addAgentMessage('storyboard-artist', '角色已就位。现在开始生成分镜图...');
-              setCurrentStep('storyboard-artist');
-              setIsProcessing(true);
-              setTimeout(() => {
-                addAgentMessage('storyboard-artist', '✅ 分镜图生成完成！');
-                setIsProcessing(false);
-                setTimeout(() => {
-                  addAgentMessage('camera-director', '分镜图已确认。开始生成分镜视频...');
                   setCurrentStep('camera-director');
                   setIsProcessing(true);
                   setTimeout(() => {
@@ -270,48 +225,53 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
   const currentAgent = AGENTS.find((a) => a.id === currentStep);
 
   return (
-    <div className="h-full flex flex-col bg-black text-slate-100">
+    <div className="h-full flex flex-col bg-gradient-to-br from-slate-900 to-black text-slate-100">
       {/* 顶部 Agent 信息栏 */}
-      <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-pink-600 rounded-lg flex items-center justify-center">
+      <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-pink-600 rounded-lg flex items-center justify-center">
             {currentAgent?.icon}
           </div>
           <div>
-            <h3 className="font-semibold">{currentAgent?.name}</h3>
+            <h3 className="font-semibold text-sm">{currentAgent?.name}</h3>
             <p className="text-xs text-slate-500">{currentAgent?.description}</p>
           </div>
         </div>
       </div>
 
       {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.map((message) => {
           const agent = AGENTS.find((a) => a.id === message.agentId);
           const isUser = message.agentId === 'user';
 
           return (
-            <div key={message.id} className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
+            <div key={message.id} className={`flex gap-2 ${isUser ? 'flex-row-reverse' : ''}`}>
               {/* Agent 头像 */}
               {!isUser && (
-                <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-pink-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  {agent?.icon}
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-pink-600 rounded-lg flex items-center justify-center">
+                    {agent?.icon}
+                  </div>
                 </div>
               )}
 
               {/* 消息内容 */}
               <div className={`flex-1 ${isUser ? 'text-right' : ''}`}>
                 {!isUser && (
-                  <p className="text-xs text-slate-500 mb-1">{agent?.name}</p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-semibold text-slate-400">{agent?.name}</span>
+                    <span className="text-xs text-slate-600">• {agent?.description}</span>
+                  </div>
                 )}
                 <div
-                  className={`inline-block px-4 py-2 rounded-lg ${
+                  className={`inline-block px-4 py-3 rounded-xl ${
                     isUser
                       ? 'bg-violet-600 text-white'
-                      : 'bg-slate-800 text-slate-100'
+                      : 'bg-slate-800 text-slate-100 border border-slate-700'
                   }`}
                 >
-                  <p>{message.content}</p>
+                  <p className="text-sm">{message.content}</p>
                 </div>
 
                 {/* 选项按钮 */}
@@ -322,7 +282,7 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
                         key={option.value}
                         onClick={() => handleSelectOption(option.value)}
                         disabled={isProcessing}
-                        className="block w-full text-left px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full text-left px-4 py-2.5 bg-gradient-to-r from-slate-700 to-slate-600 hover:from-slate-600 to-slate-500 rounded-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed border border-slate-600"
                       >
                         {option.label}
                       </button>
@@ -333,8 +293,10 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
 
               {/* 用户头像 */}
               {isUser && (
-                <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <User className="w-4 h-4" />
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center">
+                    <User className="w-4 h-4" />
+                  </div>
                 </div>
               )}
             </div>
@@ -344,7 +306,7 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
       </div>
 
       {/* 输入框（保留但不使用） */}
-      <div className="px-6 py-4 border-t border-slate-800">
+      <div className="px-4 py-3 border-t border-slate-700 bg-slate-800/50">
         <div className="flex gap-2">
           <input
             type="text"
@@ -352,7 +314,7 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder="输入指令或反馈..."
-            className="flex-1 px-4 py-2 bg-black/50 border border-slate-800 rounded-lg text-slate-100 placeholder-slate-600 focus:outline-none focus:border-slate-700"
+            className="flex-1 px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-600 focus:outline-none focus:border-slate-600"
           />
           <button
             onClick={handleSend}
