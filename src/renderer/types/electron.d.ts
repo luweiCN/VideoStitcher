@@ -534,10 +534,10 @@ export interface ElectronAPI {
   asideUpdatePersona: (personaId: string, data: { name?: string; prompt?: string }) => Promise<{ success: boolean; error?: string }>;
   asideDeletePersona: (personaId: string) => Promise<{ success: boolean; error?: string }>;
 
-  asideGenerateScripts: (data: { projectId: string; creativeDirectionId: string; personaId: string; aiModel: string; count: number }) => Promise<{ success: boolean; scripts: import('@shared/types/aside').Script[]; error?: string }>;
-  asideAddScriptToLibrary: (scriptId: string) => Promise<{ success: boolean; script: import('@shared/types/aside').Script; newScript?: import('@shared/types/aside').Script; error?: string }>;
-  asideRemoveScriptFromLibrary: (scriptId: string) => Promise<{ success: boolean; error?: string }>;
-  asideGetLibraryScripts: (projectId: string) => Promise<{ success: boolean; scripts: import('@shared/types/aside').Script[]; error?: string }>;
-  asideUpdateScriptContent: (scriptId: string, content: string) => Promise<{ success: boolean; error?: string }>;
-  asideRegenerateScript: (scriptId: string) => Promise<{ success: boolean; script: import('@shared/types/aside').Script; error?: string }>;
+  asideGenerateScreenplays: (data: { projectId: string; creativeDirectionId: string; personaId: string; aiModel: string; count: number }) => Promise<{ success: boolean; screenplays: import('@shared/types/aside').Screenplay[]; error?: string }>;
+  asideAddScreenplayToLibrary: (screenplayId: string) => Promise<{ success: boolean; screenplay: import('@shared/types/aside').Screenplay; newScreenplay?: import('@shared/types/aside').Screenplay; error?: string }>;
+  asideRemoveScreenplayFromLibrary: (screenplayId: string) => Promise<{ success: boolean; error?: string }>;
+  asideGetLibraryScreenplays: (projectId: string) => Promise<{ success: boolean; screenplays: import('@shared/types/aside').Screenplay[]; error?: string }>;
+  asideUpdateScreenplayContent: (screenplayId: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  asideRegenerateScreenplay: (screenplayId: string) => Promise<{ success: boolean; screenplay: import('@shared/types/aside').Screenplay; error?: string }>;
 }

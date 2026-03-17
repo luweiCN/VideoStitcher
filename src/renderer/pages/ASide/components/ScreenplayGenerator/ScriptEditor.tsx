@@ -1,14 +1,14 @@
 /**
- * 脚本编辑器组件
+ * 剧本编辑器组件
  */
 
 import { useState } from 'react';
 import { X, Save } from 'lucide-react';
-import type { Script } from '@shared/types/aside';
+import type { Screenplay } from '@shared/types/aside';
 
 interface ScriptEditorProps {
-  /** 脚本数据 */
-  script: Script;
+  /** 剧本数据 */
+  screenplay: Screenplay;
   /** 关闭回调 */
   onClose: () => void;
   /** 保存回调 */
@@ -16,17 +16,17 @@ interface ScriptEditorProps {
 }
 
 /**
- * 脚本编辑器组件
+ * 剧本编辑器组件
  */
-export function ScriptEditor({ script, onClose, onSave }: ScriptEditorProps) {
-  const [content, setContent] = useState(script.content);
+export function ScriptEditor({ screenplay, onClose, onSave }: ScriptEditorProps) {
+  const [content, setContent] = useState(screenplay.content);
 
   /**
    * 处理保存
    */
   const handleSave = () => {
     if (!content.trim()) {
-      alert('脚本内容不能为空');
+      alert('剧本内容不能为空');
       return;
     }
     onSave(content.trim());
@@ -37,7 +37,7 @@ export function ScriptEditor({ script, onClose, onSave }: ScriptEditorProps) {
       <div className="w-full max-w-3xl h-[80vh] bg-neutral-900 border border-slate-800 rounded-xl shadow-2xl flex flex-col">
         {/* 头部 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <h2 className="text-xl font-semibold">编辑脚本</h2>
+          <h2 className="text-xl font-semibold">编辑剧本</h2>
           <button
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
@@ -51,7 +51,7 @@ export function ScriptEditor({ script, onClose, onSave }: ScriptEditorProps) {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="在此输入脚本内容..."
+            placeholder="在此输入剧本内容..."
             className="w-full h-full px-4 py-3 bg-black/50 border border-slate-800 rounded-lg text-slate-100 placeholder-slate-600 focus:outline-none focus:border-slate-700 resize-none"
           />
         </div>

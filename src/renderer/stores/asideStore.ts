@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import type { Project, CreativeDirection, Persona, Script, AIModel } from '@shared/types/aside';
+import type { Project, CreativeDirection, Persona, Screenplay, AIModel } from '@shared/types/aside';
 
 /**
  * 视图类型
@@ -13,7 +13,8 @@ export type ASideView =
   | 'library' // 项目库
   | 'step1-direction' // 第一步：创意方向
   | 'step2-region' // 第二步：区域选择
-  | 'step3-scripts'; // 第三步：脚本生成
+  | 'step3-scripts' // 第三步：剧本生成
+  | 'director-mode'; // 导演模式：视频生成
 
 /**
  * A面 Store 接口
@@ -39,14 +40,14 @@ interface ASideStore {
   /** 当前选择的 AI 模型 */
   selectedModel: AIModel;
 
-  /** 要生成的脚本数量 */
+  /** 要生成的剧本数量 */
   scriptCount: number;
 
-  /** 已生成的脚本列表 */
-  generatedScripts: Script[];
+  /** 已生成的剧本列表 */
+  generatedScripts: Screenplay[];
 
-  /** 待产库脚本列表 */
-  libraryScripts: Script[];
+  /** 待产库剧本列表 */
+  libraryScripts: Screenplay[];
 
   /** 是否正在加载 */
   isLoading: boolean;
@@ -93,34 +94,34 @@ interface ASideStore {
   /** 设置 AI 模型 */
   setModel: (model: AIModel) => void;
 
-  /** 设置脚本数量 */
+  /** 设置剧本数量 */
   setScriptCount: (count: number) => void;
 
-  // ==================== 脚本 Actions ====================
+  // ==================== 剧本 Actions ====================
 
-  /** 设置生成的脚本列表 */
-  setGeneratedScripts: (scripts: Script[]) => void;
+  /** 设置生成的剧本列表 */
+  setGeneratedScripts: (screenplays: Screenplay[]) => void;
 
-  /** 添加生成的脚本 */
-  addGeneratedScript: (script: Script) => void;
+  /** 添加生成的剧本 */
+  addGeneratedScript: (screenplay: Screenplay) => void;
 
-  /** 移除生成的脚本 */
-  removeGeneratedScript: (scriptId: string) => void;
+  /** 移除生成的剧本 */
+  removeGeneratedScript: (screenplayId: string) => void;
 
-  /** 清空生成的脚本 */
+  /** 清空生成的剧本 */
   clearGeneratedScripts: () => void;
 
-  /** 设置待产库脚本列表 */
-  setLibraryScripts: (scripts: Script[]) => void;
+  /** 设置待产库剧本列表 */
+  setLibraryScripts: (screenplays: Screenplay[]) => void;
 
-  /** 添加脚本到待产库 */
-  addLibraryScript: (script: Script) => void;
+  /** 添加剧本到待产库 */
+  addLibraryScript: (screenplay: Screenplay) => void;
 
-  /** 从待产库移除脚本 */
-  removeLibraryScript: (scriptId: string) => void;
+  /** 从待产库移除剧本 */
+  removeLibraryScript: (screenplayId: string) => void;
 
-  /** 更新待产库中的脚本 */
-  updateLibraryScript: (scriptId: string, updates: Partial<Script>) => void;
+  /** 更新待产库中的剧本 */
+  updateLibraryScript: (screenplayId: string, updates: Partial<Screenplay>) => void;
 
   // ==================== 加载状态 Actions ====================
 
@@ -224,60 +225,60 @@ export const useASideStore = create<ASideStore>((set, get) => ({
   },
 
   setScriptCount: (count) => {
-    console.log('[ASideStore] 设置脚本数量:', count);
+    console.log('[ASideStore] 设置剧本数量:', count);
     set({ scriptCount: count });
   },
 
-  // ==================== 脚本 Actions ====================
+  // ==================== 剧本 Actions ====================
 
-  setGeneratedScripts: (scripts) => {
-    console.log('[ASideStore] 设置生成的脚本列表，数量:', scripts.length);
-    set({ generatedScripts: scripts });
+  setGeneratedScripts: (screenplays) => {
+    console.log('[ASideStore] 设置生成的剧本列表，数量:', screenplays.length);
+    set({ generatedScripts: screenplays });
   },
 
-  addGeneratedScript: (script) => {
-    console.log('[ASideStore] 添加生成的脚本:', script.id);
+  addGeneratedScript: (screenplay) => {
+    console.log('[ASideStore] 添加生成的剧本:', screenplay.id);
     set((state) => ({
-      generatedScripts: [...state.generatedScripts, script],
+      generatedScripts: [...state.generatedScripts, screenplay],
     }));
   },
 
-  removeGeneratedScript: (scriptId) => {
-    console.log('[ASideStore] 移除生成的脚本:', scriptId);
+  removeGeneratedScript: (screenplayId) => {
+    console.log('[ASideStore] 移除生成的剧本:', screenplayId);
     set((state) => ({
-      generatedScripts: state.generatedScripts.filter((s) => s.id !== scriptId),
+      generatedScripts: state.generatedScripts.filter((s) => s.id !== screenplayId),
     }));
   },
 
   clearGeneratedScripts: () => {
-    console.log('[ASideStore] 清空生成的脚本');
+    console.log('[ASideStore] 清空生成的剧本');
     set({ generatedScripts: [] });
   },
 
-  setLibraryScripts: (scripts) => {
-    console.log('[ASideStore] 设置待产库脚本列表，数量:', scripts.length);
-    set({ libraryScripts: scripts });
+  setLibraryScripts: (screenplays) => {
+    console.log('[ASideStore] 设置待产库剧本列表，数量:', screenplays.length);
+    set({ libraryScripts: screenplays });
   },
 
-  addLibraryScript: (script) => {
-    console.log('[ASideStore] 添加脚本到待产库:', script.id);
+  addLibraryScript: (screenplay) => {
+    console.log('[ASideStore] 添加剧本到待产库:', screenplay.id);
     set((state) => ({
-      libraryScripts: [...state.libraryScripts, script],
+      libraryScripts: [...state.libraryScripts, screenplay],
     }));
   },
 
-  removeLibraryScript: (scriptId) => {
-    console.log('[ASideStore] 从待产库移除脚本:', scriptId);
+  removeLibraryScript: (screenplayId) => {
+    console.log('[ASideStore] 从待产库移除剧本:', screenplayId);
     set((state) => ({
-      libraryScripts: state.libraryScripts.filter((s) => s.id !== scriptId),
+      libraryScripts: state.libraryScripts.filter((s) => s.id !== screenplayId),
     }));
   },
 
-  updateLibraryScript: (scriptId, updates) => {
-    console.log('[ASideStore] 更新待产库脚本:', scriptId, updates);
+  updateLibraryScript: (screenplayId, updates) => {
+    console.log('[ASideStore] 更新待产库剧本:', screenplayId, updates);
     set((state) => ({
       libraryScripts: state.libraryScripts.map((s) =>
-        s.id === scriptId ? { ...s, ...updates } : s
+        s.id === screenplayId ? { ...s, ...updates } : s
       ),
     }));
   },

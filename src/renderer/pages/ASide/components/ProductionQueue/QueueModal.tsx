@@ -4,16 +4,16 @@
 
 import { useState } from 'react';
 import { X, Trash2 } from 'lucide-react';
-import type { Script } from '@shared/types/aside';
+import type { Screenplay } from '@shared/types/aside';
 import { QueueItem } from './QueueItem';
 
 interface QueueModalProps {
-  /** 脚本列表 */
-  scripts: Script[];
+  /** 剧本列表 */
+  screenplays: Screenplay[];
   /** 关闭回调 */
   onClose: () => void;
   /** 删除回调 */
-  onDelete: (scriptId: string) => void;
+  onDelete: (screenplayId: string) => void;
   /** 清空回调 */
   onClearAll: () => void;
 }
@@ -21,8 +21,8 @@ interface QueueModalProps {
 /**
  * 待产库弹窗组件
  */
-export function QueueModal({ scripts, onClose, onDelete, onClearAll }: QueueModalProps) {
-  const [orderedScripts, setOrderedScripts] = useState(scripts);
+export function QueueModal({ screenplays, onClose, onDelete, onClearAll }: QueueModalProps) {
+  const [orderedScreenplays, setOrderedScreenplays] = useState(screenplays);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   /**
@@ -48,11 +48,11 @@ export function QueueModal({ scripts, onClose, onDelete, onClearAll }: QueueModa
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === dropIndex) return;
 
-    const newScripts = [...orderedScripts];
-    const [draggedScript] = newScripts.splice(draggedIndex, 1);
-    newScripts.splice(dropIndex, 0, draggedScript);
+    const newScreenplays = [...orderedScreenplays];
+    const [draggedScreenplay] = newScreenplays.splice(draggedIndex, 1);
+    newScreenplays.splice(dropIndex, 0, draggedScreenplay);
 
-    setOrderedScripts(newScripts);
+    setOrderedScreenplays(newScreenplays);
     setDraggedIndex(null);
   };
 
@@ -63,10 +63,10 @@ export function QueueModal({ scripts, onClose, onDelete, onClearAll }: QueueModa
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
           <div>
             <h2 className="text-xl font-semibold">待产库</h2>
-            <p className="text-sm text-slate-500 mt-1">拖拽脚本调整顺序</p>
+            <p className="text-sm text-slate-500 mt-1">拖拽剧本调整顺序</p>
           </div>
           <div className="flex items-center gap-2">
-            {scripts.length > 0 && (
+            {screenplays.length > 0 && (
               <button
                 onClick={onClearAll}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
@@ -86,19 +86,19 @@ export function QueueModal({ scripts, onClose, onDelete, onClearAll }: QueueModa
 
         {/* 列表 */}
         <div className="flex-1 overflow-y-auto p-6">
-          {orderedScripts.length === 0 ? (
+          {orderedScreenplays.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 text-center">
               <p className="text-slate-500">待产库为空</p>
-              <p className="text-sm text-slate-600 mt-1">从脚本生成器添加脚本</p>
+              <p className="text-sm text-slate-600 mt-1">从剧本生成器添加剧本</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {orderedScripts.map((script, index) => (
+              {orderedScreenplays.map((screenplay, index) => (
                 <QueueItem
-                  key={script.id}
-                  script={script}
+                  key={screenplay.id}
+                  screenplay={screenplay}
                   index={index}
-                  onDelete={() => onDelete(script.id)}
+                  onDelete={() => onDelete(screenplay.id)}
                   onDragStart={handleDragStart}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}

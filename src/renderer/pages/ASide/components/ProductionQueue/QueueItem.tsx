@@ -1,14 +1,14 @@
 /**
  * 待产库项组件
- * 显示单个待产脚本的信息
+ * 显示单个待产剧本的信息
  */
 
 import { GripVertical, Trash2 } from 'lucide-react';
-import type { Script } from '@shared/types/aside';
+import type { Screenplay } from '@shared/types/aside';
 
 interface QueueItemProps {
-  /** 脚本数据 */
-  script: Script;
+  /** 剧本数据 */
+  screenplay: Screenplay;
   /** 序号 */
   index: number;
   /** 删除回调 */
@@ -24,7 +24,7 @@ interface QueueItemProps {
 /**
  * 待产库项组件
  */
-export function QueueItem({ script, index, onDelete, onDragStart, onDragOver, onDrop }: QueueItemProps) {
+export function QueueItem({ screenplay, index, onDelete, onDragStart, onDragOver, onDrop }: QueueItemProps) {
   return (
     <div
       draggable
@@ -46,9 +46,9 @@ export function QueueItem({ script, index, onDelete, onDragStart, onDragOver, on
 
         {/* 内容 */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-slate-300 line-clamp-2">{script.content}</p>
+          <p className="text-sm text-slate-300 line-clamp-2">{screenplay.content}</p>
           <p className="text-xs text-slate-500 mt-1">
-            {new Date(script.createdAt).toLocaleString('zh-CN')}
+            {new Date(screenplay.createdAt).toLocaleString('zh-CN')}
           </p>
         </div>
 

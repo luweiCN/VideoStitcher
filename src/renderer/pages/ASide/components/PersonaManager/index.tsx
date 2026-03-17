@@ -37,7 +37,7 @@ export function PersonaManager() {
 
     try {
       setIsLoading(true);
-      const result = await window.api.getPersonas(currentProject.id);
+      const result = await window.api.asideGetPersonas(currentProject.id);
       if (result.success && result.personas) {
         setPersonas(result.personas);
       }
@@ -55,11 +55,10 @@ export function PersonaManager() {
     if (!currentProject) return;
 
     try {
-      const result = await window.api.createPersona({
+      const result = await window.api.asideAddPersona({
         projectId: currentProject.id,
         name,
         prompt,
-        isPreset: false,
       });
       if (result.success && result.persona) {
         setPersonas([...personas, result.persona]);
@@ -76,11 +75,12 @@ export function PersonaManager() {
    */
   const handleEditPersona = async (personaId: string, name: string, prompt: string) => {
     try {
-      const result = await window.api.updatePersona(personaId, { name, prompt });
-      if (result.success && result.persona) {
-        setPersonas(personas.map(p => (p.id === personaId ? result.persona! : p)));
+      const result = await window.api.asideUpdatePersona(personaId, { name, prompt });
+      if (result.success) {
+        // 重新加载列表
+        await loadPersonas();
         setEditingPersona(null);
-        console.log('[PersonaManager] 编辑人设成功:', result.persona.name);
+        console.log('[PersonaManager] 编辑人设成功');
       }
     } catch (error) {
       console.error('[PersonaManager] 编辑人设失败:', error);
@@ -96,7 +96,7 @@ export function PersonaManager() {
     }
 
     try {
-      const result = await window.api.deletePersona(personaId);
+      const result = await window.api.asideDeletePersona(personaId);
       if (result.success) {
         setPersonas(personas.filter(p => p.id !== personaId));
         console.log('[PersonaManager] 删除人设成功');

@@ -35,7 +35,7 @@ export function CreativeDirectionSelector() {
 
     try {
       setIsLoading(true);
-      const result = await window.api.getCreativeDirections(currentProject.id);
+      const result = await window.api.asideGetCreativeDirections(currentProject.id);
       if (result.success && result.directions) {
         setDirections(result.directions);
       }
@@ -53,12 +53,11 @@ export function CreativeDirectionSelector() {
     if (!currentProject) return;
 
     try {
-      const result = await window.api.createCreativeDirection({
+      const result = await window.api.asideAddCreativeDirection({
         projectId: currentProject.id,
         name,
         description,
         iconName,
-        isPreset: false,
       });
       if (result.success && result.direction) {
         setDirections([...directions, result.direction]);
@@ -79,7 +78,7 @@ export function CreativeDirectionSelector() {
     }
 
     try {
-      const result = await window.api.deleteCreativeDirection(directionId);
+      const result = await window.api.asideDeleteCreativeDirection(directionId);
       if (result.success) {
         setDirections(directions.filter(d => d.id !== directionId));
         console.log('[CreativeDirectionSelector] 删除创意方向成功');

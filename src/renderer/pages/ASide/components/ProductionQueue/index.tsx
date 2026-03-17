@@ -1,12 +1,12 @@
 /**
  * 待产库组件
- * 显示待产库脚本列表，支持拖拽排序、删除、清空
+ * 显示待产库剧本列表，支持拖拽排序、删除、清空
  */
 
 import { useState, useEffect } from 'react';
 import { Inbox, Trash2 } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
-import type { Script } from '@shared/types/aside';
+import type { Screenplay } from '@shared/types/aside';
 import { QueueItem } from './QueueItem';
 import { QueueModal } from './QueueModal';
 
@@ -32,9 +32,9 @@ export function ProductionQueue() {
     if (!currentProject) return;
 
     try {
-      const result = await window.api.getScripts(currentProject.id, 'library');
-      if (result.success && result.scripts) {
-        setLibraryScripts(result.scripts);
+      const result = await window.api.asideGetLibraryScreenplays(currentProject.id);
+      if (result.success && result.screenplays) {
+        setLibraryScripts(result.screenplays);
       }
     } catch (error) {
       console.error('[ProductionQueue] 加载待产库失败:', error);
@@ -42,21 +42,21 @@ export function ProductionQueue() {
   };
 
   /**
-   * 删除脚本
+   * 删除剧本
    */
-  const handleDeleteScript = async (scriptId: string) => {
-    if (!confirm('确定要删除此脚本吗？')) {
+  const handleDeleteScreenplay = async (screenplayId: string) => {
+    if (!confirm('确定要删除此剧本吗？')) {
       return;
     }
 
     try {
-      const result = await window.api.deleteScript(scriptId);
+      const result = await window.api.asideRemoveScreenplayFromLibrary(screenplayId);
       if (result.success) {
-        removeLibraryScript(scriptId);
-        console.log('[ProductionQueue] 删除脚本成功');
+        removeLibraryScript(screenplayId);
+        console.log('[ProductionQueue] 删除剧本成功');
       }
     } catch (error) {
-      console.error('[ProductionQueue] 删除脚本失败:', error);
+      console.error('[ProductionQueue] 删除剧本失败:', error);
     }
   };
 
@@ -69,9 +69,9 @@ export function ProductionQueue() {
     }
 
     try {
-      // 删除所有脚本
+      // 删除所有剧本
       await Promise.all(
-        libraryScripts.map(script => window.api.deleteScript(script.id))
+        libraryScripts.map(screenplay => window.api.asideRemoveScreenplayFromLibrary(screenplay.id))
       );
       setLibraryScripts([]);
       console.log('[ProductionQueue] 清空待产库成功');
@@ -84,7 +84,10 @@ export function ProductionQueue() {
     <>
       {/* 待产库按钮 */}
       <button
-        onClick={() => setIsModalOpen(true)}
+        onClick={() => {
+          setIsModalOpen(true);
+          loadLibraryScripts(); // 🔥 打开时刷新数据
+        }}
         className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors relative"
       >
         <Inbox className="w-4 h-4" />
@@ -99,9 +102,9 @@ export function ProductionQueue() {
       {/* 待产库弹窗 */}
       {isModalOpen && (
         <QueueModal
-          scripts={libraryScripts}
+          screenplays={libraryScripts}
           onClose={() => setIsModalOpen(false)}
-          onDelete={handleDeleteScript}
+          onDelete={handleDeleteScreenplay}
           onClearAll={handleClearAll}
         />
       )}

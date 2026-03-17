@@ -8,7 +8,8 @@ import { useASideStore } from '../../stores/asideStore';
 import { ProjectLibrary } from './components/ProjectLibrary';
 import { CreativeDirectionSelector } from './components/CreativeDirectionSelector';
 import { RegionSelector } from './components/RegionSelector';
-import { ScriptGenerator } from './components/ScriptGenerator';
+import { ScreenplayGenerator } from './components/ScreenplayGenerator';
+import { DirectorMode } from './pages/DirectorMode';
 import { ProductionQueue } from './components/ProductionQueue';
 
 /**
@@ -40,7 +41,8 @@ const ASidePage: React.FC = () => {
         {currentView === 'library' && <ProjectLibrary />}
         {currentView === 'step1-direction' && <CreativeDirectionSelector />}
         {currentView === 'step2-region' && <RegionSelector />}
-        {currentView === 'step3-scripts' && <ScriptGenerator />}
+        {currentView === 'step3-scripts' && <ScreenplayGenerator />}
+        {currentView === 'director-mode' && <DirectorMode />}
       </div>
     </div>
   );

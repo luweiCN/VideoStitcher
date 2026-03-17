@@ -20,7 +20,7 @@ export interface VolcEngineLLMConfig {
   apiKey: string;
   /** 基础 URL */
   baseUrl?: string;
-  /** 模型名称（默认：doubao-pro-32k） */
+  /** 模型名称（默认：doubao-1-5-pro-32k-250115） */
   model?: string;
 }
 
@@ -47,7 +47,7 @@ export class VolcEngineLLM implements Pick<AIProvider, 'generateText' | 'generat
     this.config = {
       apiKey: config.apiKey,
       baseUrl: config.baseUrl || 'https://ark.cn-beijing.volces.com/api/v3',
-      model: config.model || 'doubao-pro-32k',
+      model: config.model || 'doubao-1-5-pro-32k-250115',
     };
 
     this.client = this.createClient();
@@ -59,9 +59,15 @@ export class VolcEngineLLM implements Pick<AIProvider, 'generateText' | 'generat
    * @returns ChatOpenAI 客户端
    */
   private createClient(options?: TextGenerationOptions): ChatOpenAI {
+    console.log('[VolcEngineLLM] 创建客户端配置:', {
+      model: this.config.model,
+      baseUrl: this.config.baseUrl,
+      apiKeyPrefix: this.config.apiKey.substring(0, 8) + '...',
+    });
+
     return new ChatOpenAI({
-      modelName: this.config.model,
-      openAIApiKey: this.config.apiKey,
+      model: this.config.model,
+      apiKey: this.config.apiKey,
       configuration: {
         baseURL: this.config.baseUrl,
       },

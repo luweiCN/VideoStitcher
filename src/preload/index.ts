@@ -466,12 +466,12 @@ export interface ElectronAPI {
   asideDeletePersona: (personaId: string) => Promise<{ success: boolean; error?: string }>;
 
   // 脚本管理
-  asideGenerateScripts: (data: { projectId: string; creativeDirectionId: string; personaId: string; aiModel: string; count: number }) => Promise<{ success: boolean; scripts?: any[]; error?: string }>;
-  asideAddScriptToLibrary: (scriptId: string) => Promise<{ success: boolean; script?: any; newScript?: any; error?: string }>;
-  asideRemoveScriptFromLibrary: (scriptId: string) => Promise<{ success: boolean; error?: string }>;
-  asideGetLibraryScripts: (projectId: string) => Promise<{ success: boolean; scripts?: any[]; error?: string }>;
-  asideUpdateScriptContent: (scriptId: string, content: string) => Promise<{ success: boolean; error?: string }>;
-  asideRegenerateScript: (scriptId: string) => Promise<{ success: boolean; script?: any; error?: string }>;
+  asideGenerateScreenplays: (data: { projectId: string; creativeDirectionId: string; personaId: string; aiModel: string; count: number }) => Promise<{ success: boolean; scripts?: any[]; error?: string }>;
+  asideAddScreenplayToLibrary: (scriptId: string) => Promise<{ success: boolean; script?: any; newScript?: any; error?: string }>;
+  asideRemoveScreenplayFromLibrary: (scriptId: string) => Promise<{ success: boolean; error?: string }>;
+  asideGetLibraryScreenplays: (projectId: string) => Promise<{ success: boolean; scripts?: any[]; error?: string }>;
+  asideUpdateScreenplayContent: (scriptId: string, content: string) => Promise<{ success: boolean; error?: string }>;
+  asideRegenerateScreenplay: (scriptId: string) => Promise<{ success: boolean; script?: any; error?: string }>;
 
   // AI 工作流 API
   aiStartWorkflow: (
@@ -733,12 +733,12 @@ const api: ElectronAPI = {
   asideDeletePersona: (personaId) => ipcRenderer.invoke('aside:deletePersona', personaId),
 
   // 脚本管理
-  asideGenerateScripts: (data) => ipcRenderer.invoke('aside:generateScripts', data),
-  asideAddScriptToLibrary: (scriptId) => ipcRenderer.invoke('aside:addScriptToLibrary', scriptId),
-  asideRemoveScriptFromLibrary: (scriptId) => ipcRenderer.invoke('aside:removeScriptFromLibrary', scriptId),
-  asideGetLibraryScripts: (projectId) => ipcRenderer.invoke('aside:getLibraryScripts', projectId),
-  asideUpdateScriptContent: (scriptId, content) => ipcRenderer.invoke('aside:updateScriptContent', scriptId, content),
-  asideRegenerateScript: (scriptId) => ipcRenderer.invoke('aside:regenerateScript', scriptId),
+  asideGenerateScreenplays: (data) => ipcRenderer.invoke('aside:generateScreenplays', data),
+  asideAddScreenplayToLibrary: (scriptId) => ipcRenderer.invoke('aside:addScreenplayToLibrary', scriptId),
+  asideRemoveScreenplayFromLibrary: (scriptId) => ipcRenderer.invoke('aside:removeScreenplayFromLibrary', scriptId),
+  asideGetLibraryScreenplays: (projectId) => ipcRenderer.invoke('aside:getLibraryScreenplays', projectId),
+  asideUpdateScreenplayContent: (scriptId, content) => ipcRenderer.invoke('aside:updateScreenplayContent', scriptId, content),
+  asideRegenerateScreenplay: (scriptId) => ipcRenderer.invoke('aside:regenerateScreenplay', scriptId),
 
   // AI 工作流 API
   aiStartWorkflow: (scriptContent, options) =>

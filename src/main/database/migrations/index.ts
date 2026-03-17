@@ -217,8 +217,8 @@ const MIGRATIONS: Migration[] = [
         FOREIGN KEY (project_id) REFERENCES aside_projects(id) ON DELETE CASCADE
       );
 
-      -- 4. 脚本表
-      CREATE TABLE IF NOT EXISTS aside_scripts (
+      -- 4. 剧本表
+      CREATE TABLE IF NOT EXISTS aside_screenplays (
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL,
         content TEXT NOT NULL,
@@ -237,8 +237,24 @@ const MIGRATIONS: Migration[] = [
       -- 创建索引
       CREATE INDEX IF NOT EXISTS idx_aside_creative_directions_project ON aside_creative_directions(project_id);
       CREATE INDEX IF NOT EXISTS idx_aside_personas_project ON aside_personas(project_id);
-      CREATE INDEX IF NOT EXISTS idx_aside_scripts_project ON aside_scripts(project_id);
-      CREATE INDEX IF NOT EXISTS idx_aside_scripts_status ON aside_scripts(status);
+      CREATE INDEX IF NOT EXISTS idx_aside_screenplays_project ON aside_screenplays(project_id);
+      CREATE INDEX IF NOT EXISTS idx_aside_screenplays_status ON aside_screenplays(status);
+    `,
+  },
+  {
+    version: 4,
+    description: '修复表名：aside_scripts → aside_screenplays（开发阶段修复）',
+    up: `
+      -- 重命名表（如果旧表存在）
+      ALTER TABLE aside_scripts RENAME TO aside_screenplays;
+
+      -- 删除旧索引
+      DROP INDEX IF EXISTS idx_aside_scripts_project;
+      DROP INDEX IF EXISTS idx_aside_scripts_status;
+
+      -- 创建新索引
+      CREATE INDEX IF NOT EXISTS idx_aside_screenplays_project ON aside_screenplays(project_id);
+      CREATE INDEX IF NOT EXISTS idx_aside_screenplays_status ON aside_screenplays(status);
     `,
   },
 ];
@@ -247,6 +263,8 @@ const MIGRATIONS: Migration[] = [
  * 运行数据库迁移
  */
 export function runMigrations(db: Database.Database): void {
+  console.log('[数据库迁移] 开始执行迁移...');
+
   // 创建版本表
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_version (
@@ -262,35 +280,48 @@ export function runMigrations(db: Database.Database): void {
   };
   const currentVersion = row?.version ?? 0;
 
+  console.log(`[数据库迁移] 当前版本: v${currentVersion}`);
+
   // 获取待执行的迁移
   const pendingMigrations = MIGRATIONS.filter((m) => m.version > currentVersion).sort(
     (a, b) => a.version - b.version
   );
 
   if (pendingMigrations.length === 0) {
-    console.log(`[数据库迁移] 当前版本 v${currentVersion}，无需迁移`);
+    console.log(`[数据库迁移] 已是最新版本，无需迁移`);
     return;
   }
 
+  console.log(`[数据库迁移] 发现 ${pendingMigrations.length} 个待执行迁移`);
+
   // 执行迁移
   for (const migration of pendingMigrations) {
+    console.log(`[数据库迁移] 开始执行 v${migration.version}: ${migration.description}`);
+
     try {
-      db.transaction(() => {
+      // 使用事务确保：迁移 SQL 和版本记录要么都成功，要么都失败
+      const transaction = db.transaction(() => {
         db.exec(migration.up);
         db.prepare(`
           INSERT INTO schema_version (version, applied_at, description)
           VALUES (?, ?, ?)
         `).run(migration.version, Date.now(), migration.description);
-      })();
+      });
 
-      console.log(`[数据库迁移] v${migration.version} ${migration.description} - 成功`);
+      // 执行事务
+      transaction();
+
+      console.log(`[数据库迁移] ✅ v${migration.version} ${migration.description} - 成功`);
     } catch (err) {
-      console.error(`[数据库迁移] v${migration.version} 失败:`, err);
-      throw err;
+      // 迁移失败，立即终止
+      console.error(`[数据库迁移] ❌ v${migration.version} 失败:`, err);
+      console.error(`[数据库迁移] 迁移已终止，数据库版本保持在 v${currentVersion}`);
+      throw new Error(`数据库迁移 v${migration.version} 失败: ${(err as Error).message}`);
     }
   }
 
-  console.log(`[数据库迁移] 完成，当前版本 v${pendingMigrations[pendingMigrations.length - 1].version}`);
+  const finalVersion = pendingMigrations[pendingMigrations.length - 1].version;
+  console.log(`[数据库迁移] ✅ 所有迁移完成，当前版本 v${finalVersion}`);
 }
 
 /**

@@ -16,7 +16,7 @@ import * as path from 'path';
 import { asideProjectRepository } from '../database/repositories/asideProjectRepository';
 import { asideCreativeDirectionRepository } from '../database/repositories/asideCreativeDirectionRepository';
 import { asidePersonaRepository } from '../database/repositories/asidePersonaRepository';
-import { asideScriptRepository } from '../database/repositories/asideScriptRepository';
+import { asideScreenplayRepository } from '../database/repositories/asideScreenplayRepository';
 import type { GameType, AIModel } from '@shared/types/aside';
 
 // 使用 logger
@@ -675,12 +675,12 @@ async function handleDeletePersona(
   }
 }
 
-// ==================== 脚本处理器 ====================
+// ==================== 剧本处理器 ====================
 
 /**
  * 生成脚本
  */
-async function handleGenerateScripts(
+async function handleGenerateScreenplays(
   _event: any,
   data: {
     projectId: string;
@@ -689,8 +689,8 @@ async function handleGenerateScripts(
     aiModel: AIModel;
     count: number;
   }
-): Promise<{ success: boolean; scripts?: any[]; error?: string }> {
-  logger.info('[脚本处理器] 生成脚本', data);
+): Promise<{ success: boolean; screenplays: any[]; error?: string }> {
+  logger.info('[剧本处理器] 生成剧本', data);
 
   try {
     // 参数验证
@@ -714,140 +714,140 @@ async function handleGenerateScripts(
       return { success: false, error: '生成数量必须在 1-10 之间' };
     }
 
-    const scripts = asideScriptRepository.generateScripts(data);
-    logger.info('[脚本处理器] 脚本生成成功', { count: scripts.length });
-    return { success: true, scripts };
+    const screenplays = await asideScreenplayRepository.generateScreenplaysAsync(data);
+    logger.info('[剧本处理器] 剧本生成成功', { count: screenplays.length });
+    return { success: true, screenplays };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
-    logger.error('[脚本处理器] 生成脚本失败', errorMessage);
+    logger.error('[剧本处理器] 生成剧本失败', errorMessage);
     return { success: false, error: errorMessage };
   }
 }
 
 /**
- * 添加脚本到待产库
+ * 添加剧本到待产库
  */
-async function handleAddScriptToLibrary(
+async function handleAddScreenplayToLibrary(
   _event: any,
-  scriptId: string
-): Promise<{ success: boolean; script?: any; newScript?: any; error?: string }> {
-  logger.info('[脚本处理器] 添加脚本到待产库', { scriptId });
+  screenplayId: string
+): Promise<{ success: boolean; screenplay?: any; newScreenplay?: any; error?: string }> {
+  logger.info('[剧本处理器] 添加剧本到待产库', { screenplayId });
 
   try {
-    if (!scriptId || scriptId.trim() === '') {
-      return { success: false, error: '脚本 ID 不能为空' };
+    if (!screenplayId || screenplayId.trim() === '') {
+      return { success: false, error: '剧本 ID 不能为空' };
     }
 
-    const result = asideScriptRepository.addScriptToLibrary(scriptId);
-    logger.info('[脚本处理器] 脚本已添加到待产库', {
-      scriptId,
-      newScriptGenerated: !!result.newScript,
+    const result = asideScreenplayRepository.addScreenplayToLibrary(screenplayId);
+    logger.info('[剧本处理器] 剧本已添加到待产库', {
+      screenplayId,
+      newScreenplayGenerated: !!result.newScreenplay,
     });
-    return { success: true, script: result.script, newScript: result.newScript };
+    return { success: true, screenplay: result.screenplay, newScreenplay: result.newScreenplay };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
-    logger.error('[脚本处理器] 添加脚本到待产库失败', errorMessage);
+    logger.error('[剧本处理器] 添加剧本到待产库失败', errorMessage);
     return { success: false, error: errorMessage };
   }
 }
 
 /**
- * 从待产库移除脚本
+ * 从待产库移除剧本
  */
-async function handleRemoveScriptFromLibrary(
+async function handleRemoveScreenplayFromLibrary(
   _event: any,
-  scriptId: string
+  screenplayId: string
 ): Promise<{ success: boolean; error?: string }> {
-  logger.info('[脚本处理器] 从待产库移除脚本', { scriptId });
+  logger.info('[剧本处理器] 从待产库移除剧本', { screenplayId });
 
   try {
-    if (!scriptId || scriptId.trim() === '') {
-      return { success: false, error: '脚本 ID 不能为空' };
+    if (!screenplayId || screenplayId.trim() === '') {
+      return { success: false, error: '剧本 ID 不能为空' };
     }
 
-    asideScriptRepository.removeScriptFromLibrary(scriptId);
-    logger.info('[脚本处理器] 脚本已从待产库移除', { scriptId });
+    asideScreenplayRepository.removeScreenplayFromLibrary(screenplayId);
+    logger.info('[剧本处理器] 剧本已从待产库移除', { screenplayId });
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
-    logger.error('[脚本处理器] 从待产库移除脚本失败', errorMessage);
+    logger.error('[剧本处理器] 从待产库移除剧本失败', errorMessage);
     return { success: false, error: errorMessage };
   }
 }
 
 /**
- * 获取待产库脚本列表
+ * 获取待产库剧本列表
  */
-async function handleGetLibraryScripts(
+async function handleGetLibraryScreenplays(
   _event: any,
   projectId: string
-): Promise<{ success: boolean; scripts?: any[]; error?: string }> {
-  logger.info('[脚本处理器] 获取待产库脚本', { projectId });
+): Promise<{ success: boolean; screenplays: any[]; error?: string }> {
+  logger.info('[剧本处理器] 获取待产库剧本', { projectId });
 
   try {
     if (!projectId || projectId.trim() === '') {
       return { success: false, error: '项目 ID 不能为空' };
     }
 
-    const scripts = asideScriptRepository.getLibraryScripts(projectId);
-    logger.info('[脚本处理器] 待产库脚本获取成功', { count: scripts.length });
-    return { success: true, scripts };
+    const screenplays = asideScreenplayRepository.getLibraryScreenplays(projectId);
+    logger.info('[剧本处理器] 待产库剧本获取成功', { count: screenplays.length });
+    return { success: true, screenplays };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
-    logger.error('[脚本处理器] 获取待产库脚本失败', errorMessage);
-    return { success: false, error: errorMessage };
+    logger.error('[剧本处理器] 获取待产库剧本失败', errorMessage);
+    return { success: false, screenplays: [], error: errorMessage };
   }
 }
 
 /**
- * 更新脚本内容
+ * 更新剧本内容
  */
-async function handleUpdateScriptContent(
+async function handleUpdateScreenplayContent(
   _event: any,
-  scriptId: string,
+  screenplayId: string,
   content: string
 ): Promise<{ success: boolean; error?: string }> {
-  logger.info('[脚本处理器] 更新脚本内容', { scriptId });
+  logger.info('[剧本处理器] 更新剧本内容', { screenplayId });
 
   try {
-    if (!scriptId || scriptId.trim() === '') {
-      return { success: false, error: '脚本 ID 不能为空' };
+    if (!screenplayId || screenplayId.trim() === '') {
+      return { success: false, error: '剧本 ID 不能为空' };
     }
 
     if (!content || content.trim() === '') {
-      return { success: false, error: '脚本内容不能为空' };
+      return { success: false, error: '剧本内容不能为空' };
     }
 
-    asideScriptRepository.updateScriptContent(scriptId, content);
-    logger.info('[脚本处理器] 脚本内容更新成功', { scriptId });
+    asideScreenplayRepository.updateScreenplayContent(screenplayId, content);
+    logger.info('[剧本处理器] 剧本内容更新成功', { screenplayId });
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
-    logger.error('[脚本处理器] 更新脚本内容失败', errorMessage);
+    logger.error('[剧本处理器] 更新剧本内容失败', errorMessage);
     return { success: false, error: errorMessage };
   }
 }
 
 /**
- * 重新生成脚本
+ * 重新生成剧本
  */
-async function handleRegenerateScript(
+async function handleRegenerateScreenplay(
   _event: any,
-  scriptId: string
-): Promise<{ success: boolean; script?: any; error?: string }> {
-  logger.info('[脚本处理器] 重新生成脚本', { scriptId });
+  screenplayId: string
+): Promise<{ success: boolean; screenplay?: any; error?: string }> {
+  logger.info('[剧本处理器] 重新生成剧本', { screenplayId });
 
   try {
-    if (!scriptId || scriptId.trim() === '') {
-      return { success: false, error: '脚本 ID 不能为空' };
+    if (!screenplayId || screenplayId.trim() === '') {
+      return { success: false, error: '剧本 ID 不能为空' };
     }
 
-    const script = asideScriptRepository.regenerateScript(scriptId);
-    logger.info('[脚本处理器] 脚本重新生成成功', { scriptId });
-    return { success: true, script };
+    const screenplay = asideScreenplayRepository.regenerateScreenplay(screenplayId);
+    logger.info('[剧本处理器] 剧本重新生成成功', { screenplayId });
+    return { success: true, screenplay };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
-    logger.error('[脚本处理器] 重新生成脚本失败', errorMessage);
+    logger.error('[剧本处理器] 重新生成剧本失败', errorMessage);
     return { success: false, error: errorMessage };
   }
 }
@@ -897,12 +897,12 @@ export function registerAsideHandlers(): void {
   ipcMain.handle('aside:deletePersona', handleDeletePersona);
 
   // 脚本管理
-  ipcMain.handle('aside:generateScripts', handleGenerateScripts);
-  ipcMain.handle('aside:addScriptToLibrary', handleAddScriptToLibrary);
-  ipcMain.handle('aside:removeScriptFromLibrary', handleRemoveScriptFromLibrary);
-  ipcMain.handle('aside:getLibraryScripts', handleGetLibraryScripts);
-  ipcMain.handle('aside:updateScriptContent', handleUpdateScriptContent);
-  ipcMain.handle('aside:regenerateScript', handleRegenerateScript);
+  ipcMain.handle('aside:generateScreenplays', handleGenerateScreenplays);
+  ipcMain.handle('aside:addScreenplayToLibrary', handleAddScreenplayToLibrary);
+  ipcMain.handle('aside:removeScreenplayFromLibrary', handleRemoveScreenplayFromLibrary);
+  ipcMain.handle('aside:getLibraryScreenplays', handleGetLibraryScreenplays);
+  ipcMain.handle('aside:updateScreenplayContent', handleUpdateScreenplayContent);
+  ipcMain.handle('aside:regenerateScreenplay', handleRegenerateScreenplay);
 
   logger.info('[AI 处理器] IPC 处理器注册完成');
 }

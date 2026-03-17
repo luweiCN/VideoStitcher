@@ -23,6 +23,8 @@ export interface ProviderConfig {
  * 癏山引擎配置
  */
 export interface VolcEngineConfig extends ProviderConfig {
+  /** 推理接入点 ID（文本生成） */
+  endpoint?: string;
   /** 图片生成模型（Seedream） */
   imageModel?: string;
   /** 语音合成模型（可选） */

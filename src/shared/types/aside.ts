@@ -19,19 +19,19 @@ export type GameType = '麻将' | '扑克' | '赛车';
 export type AIModel = 'gemini' | 'doubao' | 'qwen' | 'chatgpt';
 
 /**
- * 脚本状态
+ * 剧本状态
  * - draft: 草稿
  * - library: 已入库
  * - producing: 生产中
  * - completed: 已完成
  */
-export type ScriptStatus = 'draft' | 'library' | 'producing' | 'completed';
+export type ScreenplayStatus = 'draft' | 'library' | 'producing' | 'completed';
 
 // ==================== 核心实体类型 ====================
 
 /**
  * 项目
- * 顶级的组织单元，包含相关的创意方向、人设和脚本
+ * 顶级的组织单元，包含相关的创意方向、人设和剧本
  */
 export interface Project {
   /** 项目唯一标识符 */
@@ -105,17 +105,17 @@ export interface Persona {
 }
 
 /**
- * 脚本
- * 存储生成的脚本内容和元数据
+ * 剧本
+ * 存储生成的剧本内容和元数据
  */
-export interface Script {
-  /** 脚本唯一标识符 */
+export interface Screenplay {
+  /** 剧本唯一标识符 */
   id: string;
 
   /** 所属项目 ID */
   projectId: string;
 
-  /** 脚本内容 */
+  /** 剧本内容 */
   content: string;
 
   /** 关联的创意方向 ID（可选） */
@@ -127,8 +127,8 @@ export interface Script {
   /** 使用的 AI 模型（可选） */
   aiModel?: AIModel;
 
-  /** 脚本状态（草稿、已入库、生产中、已完成） */
-  status: ScriptStatus;
+  /** 剧本状态（草稿、已入库、生产中、已完成） */
+  status: ScreenplayStatus;
 
   /** 预估视频时长（秒，由 AI 根据剧情内容预估） */
   estimatedDuration?: number;
