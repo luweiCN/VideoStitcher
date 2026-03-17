@@ -3,8 +3,9 @@
  * 綈息气泡布局 + Agent 交互
  */
 
-import { Send, User, Film, Palette, Video, from 'lucide-react';
+import { Send, User, Film, Palette, Video } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useDirectorMode } from '@renderer/pages/ASide/hooks/useDirectorMode';
 
 // Agent 类型定义
 interface Agent {
