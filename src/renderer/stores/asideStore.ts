@@ -14,6 +14,7 @@ export type ASideView =
   | 'step1-direction' // 第一步：创意方向
   | 'step2-region' // 第二步：区域选择
   | 'step3-scripts' // 第三步：剧本生成
+  | 'quick-compose' // 快速合成
   | 'director-mode'; // 导演模式：视频生成
 
 /**
@@ -59,6 +60,12 @@ interface ASideStore {
 
   /** 设置当前视图 */
   setCurrentView: (view: ASideView) => void;
+
+  /** 跳转到下一步 */
+  goToNextStep: () => void;
+
+  /** 返回上一步 */
+  goToPrevStep: () => void;
 
   /** 重置到初始状态 */
   reset: () => void;
@@ -165,6 +172,37 @@ export const useASideStore = create<ASideStore>((set, get) => ({
   setCurrentView: (view) => {
     console.log('[ASideStore] 切换视图:', view);
     set({ currentView: view });
+  },
+
+  goToNextStep: () => {
+    const { currentView } = get();
+    const stepOrder: ASideView[] = ['step1-direction', 'step2-region', 'step3-scripts'];
+    const currentIndex = stepOrder.indexOf(currentView);
+
+    if (currentIndex >= 0 && currentIndex < stepOrder.length - 1) {
+      const nextView = stepOrder[currentIndex + 1];
+      console.log('[ASideStore] 跳转到下一步:', nextView);
+      set({ currentView: nextView });
+    } else {
+      console.log('[ASideStore] 已在最后一步或不在步骤视图中，无法继续');
+    }
+  },
+
+  goToPrevStep: () => {
+    const { currentView } = get();
+    const stepOrder: ASideView[] = ['step1-direction', 'step2-region', 'step3-scripts'];
+    const currentIndex = stepOrder.indexOf(currentView);
+
+    if (currentIndex > 0) {
+      const prevView = stepOrder[currentIndex - 1];
+      console.log('[ASideStore] 返回上一步:', prevView);
+      set({ currentView: prevView });
+    } else if (currentIndex === 0) {
+      console.log('[ASideStore] 在第一步，返回项目库');
+      set({ currentView: 'library' });
+    } else {
+      console.log('[ASideStore] 不在步骤视图中，无法返回');
+    }
   },
 
   reset: () => {
