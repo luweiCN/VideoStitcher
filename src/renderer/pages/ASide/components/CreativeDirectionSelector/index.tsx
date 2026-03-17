@@ -4,11 +4,13 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Plus, ArrowLeft } from 'lucide-react';
+import { Plus, LayoutGrid, List } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import type { CreativeDirection } from '@shared/types/aside';
 import { DirectionCard } from './DirectionCard';
 import { AddDirectionModal } from './AddDirectionModal';
+import { ConveyorBelt } from './ConveyorBelt';
+import { StepLayout } from '../StepLayout';
 
 /**
  * 创意方向选择器主组件
@@ -17,8 +19,15 @@ export function CreativeDirectionSelector() {
   const [directions, setDirections] = useState<CreativeDirection[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
-  const { currentProject, selectDirection, setCurrentView } = useASideStore();
+  const {
+    currentProject,
+    selectedDirection,
+    selectDirection,
+    setCurrentView,
+    goToNextStep
+  } = useASideStore();
 
   // 加载创意方向列表
   useEffect(() => {
@@ -89,18 +98,26 @@ export function CreativeDirectionSelector() {
   };
 
   /**
-   * 选择创意方向（跳转到 Step 2）
+   * 选择创意方向
    */
   const handleSelectDirection = (direction: CreativeDirection) => {
     selectDirection(direction);
-    setCurrentView('step2-region');
   };
 
   /**
    * 返回项目库
    */
-  const handleBack = () => {
+  const handleBackToLibrary = () => {
     setCurrentView('library');
+  };
+
+  /**
+   * 进入下一步
+   */
+  const handleGoToNextStep = () => {
+    if (selectedDirection) {
+      goToNextStep();
+    }
   };
 
   if (!currentProject) {
@@ -112,25 +129,61 @@ export function CreativeDirectionSelector() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-black text-slate-100">
-      {/* 头部 */}
-      <header className="px-6 py-4 border-b border-slate-800">
-        <div className="flex items-center gap-4 mb-2">
-          <button
-            onClick={handleBack}
-            className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold">Step 1: 选择创意方向</h1>
-            <p className="text-sm text-slate-500 mt-1">项目：{currentProject.name}</p>
-          </div>
+    <StepLayout
+      title="选择创意方向"
+      stepNumber={1}
+      totalSteps={4}
+      showLibrary={false}
+      onPrev={handleBackToLibrary}
+      onNext={selectedDirection ? handleGoToNextStep : undefined}
+    >
+      {/* 工具栏 */}
+      <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-100">项目：{currentProject.name}</h2>
+          <p className="text-sm text-slate-500 mt-1">选择或添加创意方向来开始</p>
         </div>
-      </header>
 
-      {/* 创意方向列表 */}
-      <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex items-center gap-3">
+          {/* 视图切换按钮 */}
+          <div className="flex items-center bg-slate-800 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('card')}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === 'card'
+                  ? 'bg-violet-600 text-white'
+                  : 'text-slate-400 hover:text-slate-100'
+              }`}
+              title="卡片视图"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-md transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-violet-600 text-white'
+                  : 'text-slate-400 hover:text-slate-100'
+              }`}
+              title="列表视图"
+            >
+              <List className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* 添加按钮 */}
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>添加方向</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 内容区 */}
+      <div className="flex-1 overflow-hidden p-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-slate-500">加载中...</div>
@@ -138,31 +191,30 @@ export function CreativeDirectionSelector() {
         ) : directions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <p className="text-slate-500 mb-2">还没有任何创意方向</p>
-            <p className="text-sm text-slate-600">点击下方按钮添加创意方向</p>
+            <p className="text-sm text-slate-600">点击上方按钮添加创意方向</p>
           </div>
+        ) : viewMode === 'card' ? (
+          /* 卡片视图 - 传送带动画 */
+          <ConveyorBelt
+            directions={directions}
+            selectedId={selectedDirection?.id || null}
+            onSelect={handleSelectDirection}
+            onDelete={handleDeleteDirection}
+          />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          /* 列表视图 - 静态网格 */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto h-full">
             {directions.map(direction => (
               <DirectionCard
                 key={direction.id}
                 direction={direction}
+                isSelected={selectedDirection?.id === direction.id}
                 onSelect={() => handleSelectDirection(direction)}
                 onDelete={() => handleDeleteDirection(direction.id)}
               />
             ))}
           </div>
         )}
-      </div>
-
-      {/* 底部添加按钮 */}
-      <div className="px-6 py-4 border-t border-slate-800">
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center justify-center gap-2 w-full py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>添加自定义创意方向</span>
-        </button>
       </div>
 
       {/* 添加创意方向弹窗 */}
@@ -172,6 +224,6 @@ export function CreativeDirectionSelector() {
           onAdd={handleAddDirection}
         />
       )}
-    </div>
+    </StepLayout>
   );
 }

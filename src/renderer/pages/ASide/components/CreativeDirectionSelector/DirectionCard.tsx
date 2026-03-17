@@ -10,6 +10,8 @@ import type { CreativeDirection } from '@shared/types/aside';
 interface DirectionCardProps {
   /** 创意方向数据 */
   direction: CreativeDirection;
+  /** 是否选中 */
+  isSelected?: boolean;
   /** 选择回调 */
   onSelect: () => void;
   /** 删除回调 */
@@ -19,7 +21,7 @@ interface DirectionCardProps {
 /**
  * 创意方向卡片组件
  */
-export function DirectionCard({ direction, onSelect, onDelete }: DirectionCardProps) {
+export function DirectionCard({ direction, isSelected = false, onSelect, onDelete }: DirectionCardProps) {
   /**
    * 获取图标组件
    */
@@ -35,7 +37,11 @@ export function DirectionCard({ direction, onSelect, onDelete }: DirectionCardPr
   return (
     <div
       onClick={onSelect}
-      className="group bg-black/50 border border-slate-800 rounded-xl p-4 hover:border-violet-600 hover:bg-violet-600/5 cursor-pointer transition-all"
+      className={`group border rounded-xl p-4 cursor-pointer transition-all min-w-[280px] ${
+        isSelected
+          ? 'bg-violet-600/20 border-violet-600 shadow-lg shadow-violet-600/20'
+          : 'bg-black/50 border-slate-800 hover:border-violet-600 hover:bg-violet-600/5'
+      }`}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="w-12 h-12 flex items-center justify-center bg-violet-600/10 rounded-lg">
