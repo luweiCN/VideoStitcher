@@ -147,12 +147,69 @@ export class AsideProjectRepository {
     }
   }
 
+  // ==================== 更新 ====================
+
+  updateProject(id: string, data: { name?: string; gameType?: GameType; region?: string }): Project {
+    // 参数验证
+    if (data.name !== undefined && data.name.trim() === '') {
+      throw new Error('项目名称不能为空');
+    }
+    if (data.gameType !== undefined) {
+      const validGameTypes: GameType[] = ['麻将', '扑克', '赛车'];
+      if (!validGameTypes.includes(data.gameType)) {
+        throw new Error(`无效的游戏类型：${data.gameType}`);
+      }
+    }
+
+    const db = getDatabase();
+    const now = Date.now();
+
+    try {
+      // 检查项目是否存在
+      const existingProject = this.getProjectById(id);
+      if (!existingProject) {
+        throw new Error('项目不存在');
+      }
+
+      // 更新项目
+      const updateStatement = db.prepare(`
+        UPDATE aside_projects
+        SET name = ?, game_type = ?, region = ?, updated_at = ?
+        WHERE id = ?
+      `);
+      const result = updateStatement.run(
+        data.name ?? existingProject.name,
+        data.gameType ?? existingProject.gameType,
+        data.region ?? existingProject.region,
+        now,
+        id
+      );
+
+      if (result.changes === 0) {
+        throw new Error('更新项目失败：没有修改任何行');
+      }
+
+      // 查询并返回更新后的项目
+      const row = db.prepare(`
+        SELECT id, name, game_type, region, created_at, updated_at
+        FROM aside_projects
+        WHERE id = ?
+      `).get(id) as ProjectRow | undefined;
+
+      if (!row) {
+        throw new Error(`更新项目失败：无法找到项目 ID ${id}`);
+      }
+
+      console.log(`[AsideProjectRepository] 成功更新项目: ${data.name || existingProject.name}`);
+      return this.mapRowToProject(row);
+    } catch (error) {
+      console.error('[AsideProjectRepository] 更新项目失败:', error);
+      throw error;
+    }
+  }
+
   // ==================== 删除 ====================
 
-  /**
-   * 删除项目
-   * 级联删除所有关联数据（创意方向、人设、脚本）
-   */
   deleteProject(id: string): void {
     try {
       const db = getDatabase();

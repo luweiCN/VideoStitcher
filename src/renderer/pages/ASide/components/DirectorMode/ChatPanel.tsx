@@ -1,6 +1,6 @@
 /**
  * 聊天面板组件 - 导演模式 Agent 工作流
- * 綈息气泡布局 + Agent 交互
+ * 消息气泡布局 + Agent 交互
  */
 
 import { Send, User, Film, Palette, Video } from 'lucide-react';
@@ -73,6 +73,8 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const directorMode = useDirectorMode(screenplayId);
 
   // 自动滚动到最新消息
   useEffect(() => {
@@ -160,29 +162,35 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
             timestamp: new Date(),
           },
         ]);
+
+        // 调用真实 API 生成角色
         setIsProcessing(true);
-        setTimeout(() => {
-          addAgentMessage(
-            'casting-director',
-            value === 'upload' ? '正在根据参考图生成角色...' : '正在根据剧本自由创作角色...'
-          );
-          setTimeout(() => {
+        addAgentMessage('casting-director', value === 'upload' ? '正在根据参考图生成角色...' : '正在根据剧本自由创作角色...');
+
+        try {
+          setTimeout(async () => {
+            await directorMode.generateCharacters();
             addAgentMessage('casting-director', '✅ 角色生成完成！请查看右侧画板。');
             setIsProcessing(false);
+
             // 进入下一步：分镜师
             setTimeout(() => {
               addAgentMessage('storyboard-artist', '角色已就位。现在开始生成分镜图...');
               setCurrentStep('storyboard-artist');
               setIsProcessing(true);
-              setTimeout(() => {
+
+              setTimeout(async () => {
+                await directorMode.generateStoryboard();
                 addAgentMessage('storyboard-artist', '✅ 分镜图生成完成！请查看右侧画板。');
                 setIsProcessing(false);
+
                 // 进入最后一步：摄像导演
                 setTimeout(() => {
                   addAgentMessage('camera-director', '分镜图已确认。现在开始生成分镜视频...');
                   setCurrentStep('camera-director');
                   setIsProcessing(true);
-                  setTimeout(() => {
+
+                  setTimeout(async () => {
                     addAgentMessage('camera-director', '✅ 所有分镜视频已生成！');
                     addAgentMessage('camera-director', '可以合成最终视频了。', [
                       { label: '✓ 确认并合成', value: 'compose' },
@@ -193,7 +201,10 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
               }, 3000);
             }, 1000);
           }, 2000);
-        }, 1000);
+        } catch (error) {
+          addAgentMessage('casting-director', `❌ 生成失败: ${(error as Error).message}`);
+          setIsProcessing(false);
+        }
       }
     } else if (currentStep === 'camera-director' && value === 'compose') {
       setMessages((prev) => [
@@ -206,13 +217,22 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
           timestamp: new Date(),
         },
       ]);
+
+      // 调用真实 API 合成视频
       setIsProcessing(true);
       addAgentMessage('camera-director', '正在合成最终视频...');
-      setTimeout(() => {
-        addAgentMessage('camera-director', '🎉 视频合成完成！');
+
+      try {
+        setTimeout(async () => {
+          await directorMode.composeVideo();
+          addAgentMessage('camera-director', '🎉 视频合成完成！');
+          setIsProcessing(false);
+          onComplete?.();
+        }, 3000);
+      } catch (error) {
+        addAgentMessage('camera-director', `❌ 合成失败: ${(error as Error).message}`);
         setIsProcessing(false);
-        onComplete?.();
-      }, 3000);
+      }
     }
   };
 
@@ -247,7 +267,7 @@ export function ChatPanel({ screenplayId, onComplete }: ChatPanelProps) {
           const isUser = message.agentId === 'user';
 
           return (
-            <div key={message.id} className={`flex gap-2 ${isUser ? 'flex-row-reverse' : ''}`}>
+            <div key={message.id} className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
               {/* Agent 头像 */}
               {!isUser && (
                 <div className="flex-shrink-0">
