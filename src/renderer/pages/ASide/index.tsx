@@ -9,7 +9,8 @@ import { ProjectLibrary } from './components/ProjectLibrary';
 import { CreativeDirectionSelector } from './components/CreativeDirectionSelector';
 import { RegionSelector } from './components/RegionSelector';
 import { ScreenplayGenerator } from './components/ScreenplayGenerator';
-import { DirectorMode } from './pages/DirectorMode';
+import { QuickCompose } from './components/QuickCompose';
+import { DirectorMode } from './components/DirectorMode';
 import { ProductionQueue } from './components/ProductionQueue';
 
 /**
@@ -42,7 +43,8 @@ const ASidePage: React.FC = () => {
         {currentView === 'step1-direction' && <CreativeDirectionSelector />}
         {currentView === 'step2-region' && <RegionSelector />}
         {currentView === 'step3-scripts' && <ScreenplayGenerator />}
-        {currentView === 'director-mode' && <DirectorMode />}
+        {currentView === 'quick-compose' && <QuickCompose />}
+        {currentView === 'director-mode' && <DirectorMode screenplayId="" />}
       </div>
     </div>
   );
