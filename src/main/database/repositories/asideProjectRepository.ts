@@ -15,7 +15,7 @@ interface ProjectRow {
   id: string;
   name: string;
   game_type: string;
-  region: string;
+  selling_point: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -27,7 +27,7 @@ export class AsideProjectRepository {
    * 创建新项目
    * 自动插入预设的创意方向和人设
    */
-  createProject(name: string, gameType: GameType): Project {
+  createProject(name: string, gameType: GameType, sellingPoint?: string): Project {
     // 参数验证
     if (!name || name.trim() === '') {
       throw new Error('项目名称不能为空');
@@ -36,6 +36,11 @@ export class AsideProjectRepository {
     const validGameTypes: GameType[] = ['麻将', '扑克', '赛车'];
     if (!validGameTypes.includes(gameType)) {
       throw new Error(`无效的游戏类型：${gameType}`);
+    }
+
+    // 新增:卖点长度验证
+    if (sellingPoint && sellingPoint.length > 200) {
+      throw new Error('卖点不能超过200字符');
     }
 
     const db = getDatabase();
@@ -47,10 +52,10 @@ export class AsideProjectRepository {
       const transaction = db.transaction(() => {
         // 插入项目
         const insertProject = db.prepare(`
-          INSERT INTO aside_projects (id, name, game_type, region, created_at, updated_at)
+          INSERT INTO aside_projects (id, name, game_type, selling_point, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?)
         `);
-        insertProject.run(id, name, gameType, 'universal', now, now);
+        insertProject.run(id, name, gameType, sellingPoint || null, now, now);
 
         // 插入预设创意方向（5个）
         const insertDirection = db.prepare(`
@@ -113,7 +118,7 @@ export class AsideProjectRepository {
     try {
       const db = getDatabase();
       const rows = db.prepare(`
-        SELECT id, name, game_type, region, created_at, updated_at
+        SELECT id, name, game_type, selling_point, created_at, updated_at
         FROM aside_projects
         ORDER BY created_at DESC
       `).all() as ProjectRow[];
@@ -133,7 +138,7 @@ export class AsideProjectRepository {
     try {
       const db = getDatabase();
       const row = db.prepare(`
-        SELECT id, name, game_type, region, created_at, updated_at
+        SELECT id, name, game_type, selling_point, created_at, updated_at
         FROM aside_projects
         WHERE id = ?
       `).get(id) as ProjectRow | undefined;
@@ -149,7 +154,7 @@ export class AsideProjectRepository {
 
   // ==================== 更新 ====================
 
-  updateProject(id: string, data: { name?: string; gameType?: GameType; region?: string }): Project {
+  updateProject(id: string, data: { name?: string; gameType?: GameType; sellingPoint?: string }): Project {
     // 参数验证
     if (data.name !== undefined && data.name.trim() === '') {
       throw new Error('项目名称不能为空');
@@ -159,6 +164,9 @@ export class AsideProjectRepository {
       if (!validGameTypes.includes(data.gameType)) {
         throw new Error(`无效的游戏类型：${data.gameType}`);
       }
+    }
+    if (data.sellingPoint !== undefined && data.sellingPoint.length > 200) {
+      throw new Error('卖点不能超过200字符');
     }
 
     const db = getDatabase();
@@ -174,13 +182,13 @@ export class AsideProjectRepository {
       // 更新项目
       const updateStatement = db.prepare(`
         UPDATE aside_projects
-        SET name = ?, game_type = ?, region = ?, updated_at = ?
+        SET name = ?, game_type = ?, selling_point = ?, updated_at = ?
         WHERE id = ?
       `);
       const result = updateStatement.run(
         data.name ?? existingProject.name,
         data.gameType ?? existingProject.gameType,
-        data.region ?? existingProject.region,
+        data.sellingPoint !== undefined ? (data.sellingPoint || null) : (existingProject.sellingPoint || null),
         now,
         id
       );
@@ -191,7 +199,7 @@ export class AsideProjectRepository {
 
       // 查询并返回更新后的项目
       const row = db.prepare(`
-        SELECT id, name, game_type, region, created_at, updated_at
+        SELECT id, name, game_type, selling_point, created_at, updated_at
         FROM aside_projects
         WHERE id = ?
       `).get(id) as ProjectRow | undefined;
@@ -231,7 +239,7 @@ export class AsideProjectRepository {
       id: row.id,
       name: row.name,
       gameType: row.game_type as GameType,
-      region: row.region,
+      sellingPoint: row.selling_point || undefined,
       createdAt: new Date(row.created_at).toISOString(),
       updatedAt: new Date(row.updated_at).toISOString(),
     };
