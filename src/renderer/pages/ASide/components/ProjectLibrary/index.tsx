@@ -9,6 +9,7 @@ import { useASideStore } from '@renderer/stores/asideStore';
 import type { Project, GameType } from '@shared/types/aside';
 import { ProjectCard } from './ProjectCard';
 import { CreateProjectModal } from './CreateProjectModal';
+import { EditProjectModal } from './EditProjectModal';
 
 /**
  * 项目库主组件
@@ -16,6 +17,7 @@ import { CreateProjectModal } from './CreateProjectModal';
 export function ProjectLibrary() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const { selectProject, setCurrentView } = useASideStore();
@@ -45,9 +47,9 @@ export function ProjectLibrary() {
   /**
    * 创建新项目
    */
-  const handleCreateProject = async (name: string, gameType: GameType) => {
+  const handleCreateProject = async (name: string, gameType: GameType, sellingPoint?: string) => {
     try {
-      const result = await window.api.asideCreateProject(name, gameType);
+      const result = await window.api.asideCreateProject(name, gameType, sellingPoint);
       if (result.success && result.project) {
         setProjects([...projects, result.project]);
         setIsCreateModalOpen(false);
@@ -79,6 +81,22 @@ export function ProjectLibrary() {
       }
     } catch (error) {
       console.error('[ProjectLibrary] 删除项目失败:', error);
+    }
+  };
+
+  /**
+   * 更新项目
+   */
+  const handleUpdateProject = async (id: string, data: { name: string; gameType: GameType; sellingPoint?: string }) => {
+    try {
+      const result = await window.api.asideUpdateProject(id, data);
+      if (result.success && result.project) {
+        setProjects(projects.map(p => p.id === id ? result.project : p));
+        setEditingProject(null);
+        console.log('[ProjectLibrary] 更新项目成功:', result.project.name);
+      }
+    } catch (error) {
+      console.error('[ProjectLibrary] 更新项目失败:', error);
     }
   };
 
@@ -126,6 +144,7 @@ export function ProjectLibrary() {
                 key={project.id}
                 project={project}
                 onEnter={() => handleEnterProject(project)}
+                onEdit={() => setEditingProject(project)}
                 onDelete={() => handleDeleteProject(project.id)}
               />
             ))}
@@ -138,6 +157,15 @@ export function ProjectLibrary() {
         <CreateProjectModal
           onClose={() => setIsCreateModalOpen(false)}
           onCreate={handleCreateProject}
+        />
+      )}
+
+      {/* 编辑项目弹窗 */}
+      {editingProject && (
+        <EditProjectModal
+          project={editingProject}
+          onClose={() => setEditingProject(null)}
+          onUpdate={handleUpdateProject}
         />
       )}
     </div>
