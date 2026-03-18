@@ -45,11 +45,15 @@ export function saveRecentRegion(regionId: string): void {
 
 /**
  * 最近选择地区组件
- * 显示为标签列表，按选择时间排序
+ * 显示为标签列表，按选择时间排序（最新的在最前面）
  */
 export function RecentRegions({ regions, onSelect }: RecentRegionsProps) {
   const recentIds = getRecentRegions();
-  const recentRegions = regions.filter(r => recentIds.includes(r.id));
+
+  // 按照 recentIds 的顺序排列地区（最新的在最前面）
+  const recentRegions = recentIds
+    .map(id => regions.find(r => r.id === id))
+    .filter((region): region is Region => region !== undefined);
 
   // 没有最近选择时不显示
   if (recentRegions.length === 0) return null;

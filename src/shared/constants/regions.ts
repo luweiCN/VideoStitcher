@@ -29,7 +29,7 @@ export const REGIONS: Region[] = [
   { id: 'shanghai', name: '上海', emoji: '🌃', group: '华东' },
   { id: 'jiangsu', name: '江苏', emoji: '🌸', group: '华东' },
   { id: 'zhejiang', name: '浙江', emoji: '🍵', group: '华东' },
-  { id: 'anhui', name: '安徽', emoji: ' Huangshan', group: '华东' },
+  { id: 'anhui', name: '安徽', emoji: '🏔️', group: '华东' },
   { id: 'fujian', name: '福建', emoji: '🫖', group: '华东' },
   { id: 'jiangxi', name: '江西', emoji: '🌄', group: '华东' },
   { id: 'shandong', name: '山东', emoji: '⛽', group: '华东' },
