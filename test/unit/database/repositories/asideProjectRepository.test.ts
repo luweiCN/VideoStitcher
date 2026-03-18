@@ -2,11 +2,21 @@
  * 项目仓库测试
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from 'vitest';
 import { asideProjectRepository } from '../../../../src/main/database/repositories/asideProjectRepository';
-import { getDatabase } from '../../../../src/main/database/index';
+import { getDatabase, initTestDatabase, closeDatabase } from '../../../../src/main/database/index';
 
 describe('AsideProjectRepository', () => {
+  beforeAll(() => {
+    // 初始化测试数据库(使用内存数据库)
+    initTestDatabase();
+  });
+
+  afterAll(() => {
+    // 关闭数据库连接
+    closeDatabase();
+  });
+
   beforeEach(() => {
     // 重置数据库
     const db = getDatabase();
@@ -42,6 +52,34 @@ describe('AsideProjectRepository', () => {
       expect(() => {
         asideProjectRepository.createProject('测试项目', '无效游戏' as any);
       }).toThrow('无效的游戏类型');
+    });
+
+    it('应该成功创建项目并设置卖点', () => {
+      const sellingPoint = '快速上手、刺激有趣、画面精美';
+      const project = asideProjectRepository.createProject('测试项目', '麻将', sellingPoint);
+
+      expect(project).toBeDefined();
+      expect(project.name).toBe('测试项目');
+      expect(project.gameType).toBe('麻将');
+      expect(project.sellingPoint).toBe(sellingPoint);
+      expect(project.id).toBeDefined();
+    });
+
+    it('应该成功创建项目而不填写卖点', () => {
+      const project = asideProjectRepository.createProject('测试项目', '麻将');
+
+      expect(project).toBeDefined();
+      expect(project.name).toBe('测试项目');
+      expect(project.gameType).toBe('麻将');
+      expect(project.sellingPoint).toBeUndefined();
+    });
+
+    it('应该拒绝超过200字符的卖点', () => {
+      const longSellingPoint = 'a'.repeat(201);
+
+      expect(() => {
+        asideProjectRepository.createProject('测试项目', '麻将', longSellingPoint);
+      }).toThrow('卖点不能超过200字符');
     });
   });
 
