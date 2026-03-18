@@ -18,6 +18,8 @@ export interface StepLayoutProps {
   onPrev?: () => void;
   onNext?: () => void;
   nextButtons?: ReactNode; // 支持自定义下一步按钮
+  leftContent?: ReactNode; // 头部左侧自定义内容
+  rightContent?: ReactNode; // 头部右侧自定义内容
   children: ReactNode;
 }
 
@@ -32,6 +34,8 @@ export function StepLayout({
   onPrev,
   onNext,
   nextButtons,
+  leftContent,
+  rightContent,
   children,
 }: StepLayoutProps) {
   return (
@@ -43,6 +47,8 @@ export function StepLayout({
           stepNumber={stepNumber}
           totalSteps={totalSteps}
           showLibrary={showLibrary}
+          leftContent={leftContent}
+          rightContent={rightContent}
         />
       </header>
 
@@ -58,7 +64,11 @@ export function StepLayout({
           <button
             onClick={onPrev}
             disabled={stepNumber === 1}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-800"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
+              stepNumber === 1
+                ? 'bg-slate-900 text-slate-600 cursor-not-allowed'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+            }`}
           >
             <ArrowLeft className="w-4 h-4" />
             <span>上一步</span>
@@ -72,7 +82,12 @@ export function StepLayout({
           ) : (
             <button
               onClick={onNext}
-              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:from-pink-700 hover:to-violet-700 transition-all"
+              disabled={!onNext}
+              className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-all ${
+                onNext
+                  ? 'bg-gradient-to-r from-pink-600 to-violet-600 text-white hover:from-pink-700 hover:to-violet-700'
+                  : 'bg-slate-900 text-slate-600 cursor-not-allowed'
+              }`}
             >
               <span>下一步</span>
               <ArrowRight className="w-4 h-4" />

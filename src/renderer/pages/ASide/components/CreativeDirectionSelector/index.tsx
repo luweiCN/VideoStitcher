@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Plus, LayoutGrid, List } from 'lucide-react';
+import { Plus, LayoutGrid, List, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import type { CreativeDirection } from '@shared/types/aside';
 import { DirectionCard } from './DirectionCard';
@@ -128,60 +128,64 @@ export function CreativeDirectionSelector() {
     );
   }
 
+  // 头部左侧内容：项目信息 + 步骤信息
+  const leftContent = (
+    <div>
+      <h1 className="text-2xl font-bold text-slate-100">选择创意方向</h1>
+      <p className="text-sm text-slate-500 mt-1">Step 1 / 4</p>
+    </div>
+  );
+
+  // 头部右侧内容：布局切换 + 添加按钮
+  const rightContent = (
+    <div className="flex items-center gap-3">
+      {/* 视图切换按钮 */}
+      <div className="flex items-center bg-slate-800 rounded-lg p-1">
+        <button
+          onClick={() => setViewMode('card')}
+          className={`p-2 rounded-md transition-colors ${
+            viewMode === 'card'
+              ? 'bg-violet-600 text-white'
+              : 'text-slate-400 hover:text-slate-100'
+          }`}
+          title="卡片视图"
+        >
+          <LayoutGrid className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => setViewMode('list')}
+          className={`p-2 rounded-md transition-colors ${
+            viewMode === 'list'
+              ? 'bg-violet-600 text-white'
+              : 'text-slate-400 hover:text-slate-100'
+          }`}
+          title="列表视图"
+        >
+          <List className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* 添加按钮 */}
+      <button
+        onClick={() => setIsAddModalOpen(true)}
+        className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
+      >
+        <Plus className="w-4 h-4" />
+        <span>添加方向</span>
+      </button>
+    </div>
+  );
+
   return (
     <StepLayout
-      title="选择创意方向"
       stepNumber={1}
       totalSteps={4}
       showLibrary={false}
       onPrev={handleBackToLibrary}
       onNext={selectedDirection ? handleGoToNextStep : undefined}
+      leftContent={leftContent}
+      rightContent={rightContent}
     >
-      {/* 工具栏 */}
-      <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-100">项目：{currentProject.name}</h2>
-          <p className="text-sm text-slate-500 mt-1">选择或添加创意方向来开始</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* 视图切换按钮 */}
-          <div className="flex items-center bg-slate-800 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'card'
-                  ? 'bg-violet-600 text-white'
-                  : 'text-slate-400 hover:text-slate-100'
-              }`}
-              title="卡片视图"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-md transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-violet-600 text-white'
-                  : 'text-slate-400 hover:text-slate-100'
-              }`}
-              title="列表视图"
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* 添加按钮 */}
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>添加方向</span>
-          </button>
-        </div>
-      </div>
-
       {/* 内容区 */}
       <div className="flex-1 overflow-hidden p-6">
         {isLoading ? (

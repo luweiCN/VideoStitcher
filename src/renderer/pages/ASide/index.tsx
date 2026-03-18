@@ -4,6 +4,8 @@
  */
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { useASideStore } from '../../stores/asideStore';
 import { ProjectLibrary } from './components/ProjectLibrary';
 import { CreativeDirectionSelector } from './components/CreativeDirectionSelector';
@@ -17,7 +19,21 @@ import { ProductionQueue } from './components/ProductionQueue';
  * A面主页面组件
  */
 const ASidePage: React.FC = () => {
-  const { currentView, currentProject, selectedScreenplay, setCurrentView } = useASideStore();
+  const navigate = useNavigate();
+  const { currentView, currentProject, selectedScreenplay, setCurrentView, goToPrevStep } = useASideStore();
+
+  /**
+   * 返回上一步或项目库
+   */
+  const handleBack = () => {
+    if (currentView === 'director-mode') {
+      setCurrentView('step3-scripts');
+    } else if (currentView === 'step1-direction') {
+      setCurrentView('library');
+    } else {
+      goToPrevStep();
+    }
+  };
 
   const handleBackFromDirectorMode = () => {
     setCurrentView('step3-scripts');
@@ -29,15 +45,15 @@ const ASidePage: React.FC = () => {
       {currentProject && currentView !== 'library' && (
         <header className="flex items-center justify-between px-6 py-3 border-b border-slate-800 bg-black/50">
           <div className="flex items-center gap-3">
-            {/* 导演模式时显示返回按钮 */}
-            {currentView === 'director-mode' && (
-              <button
-                onClick={handleBackFromDirectorMode}
-                className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors"
-              >
-                ← 返回
-              </button>
-            )}
+            {/* 返回按钮 - 所有步骤都显示 */}
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-2 text-slate-400 hover:text-slate-100 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm">返回</span>
+            </button>
+            <div className="h-5 w-px bg-slate-700" />
             <div className="w-8 h-8 bg-violet-600/20 text-violet-400 rounded-lg flex items-center justify-center">
               🎬
             </div>
@@ -46,7 +62,8 @@ const ASidePage: React.FC = () => {
               <p className="text-xs text-slate-500">{currentProject.gameType}</p>
             </div>
           </div>
-          <ProductionQueue />
+          {/* 只有步骤3-4和导演模式才显示待产库 */}
+          {(currentView === 'step3-scripts' || currentView === 'director-mode') && <ProductionQueue />}
         </header>
       )}
 

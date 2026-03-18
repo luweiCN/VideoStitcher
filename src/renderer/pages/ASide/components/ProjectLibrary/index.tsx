@@ -4,7 +4,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Folder } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Trash2, Folder, ArrowLeft } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import type { Project, GameType } from '@shared/types/aside';
 import { ProjectCard } from './ProjectCard';
@@ -20,6 +21,7 @@ export function ProjectLibrary() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const navigate = useNavigate();
   const { selectProject, setCurrentView } = useASideStore();
 
   // 加载项目列表
@@ -101,6 +103,13 @@ export function ProjectLibrary() {
   };
 
   /**
+   * 返回首页
+   */
+  const handleBackToHome = () => {
+    navigate('/');
+  };
+
+  /**
    * 进入项目（跳转到 Step 1）
    */
   const handleEnterProject = (project: Project) => {
@@ -112,9 +121,19 @@ export function ProjectLibrary() {
     <div className="h-full flex flex-col bg-black text-slate-100">
       {/* 头部 */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-        <div>
-          <h1 className="text-2xl font-bold">项目库</h1>
-          <p className="text-sm text-slate-500 mt-1">选择或创建一个项目开始生产视频</p>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleBackToHome}
+            className="flex items-center gap-2 text-slate-400 hover:text-slate-100 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-sm">返回</span>
+          </button>
+          <div className="h-6 w-px bg-slate-700" />
+          <div>
+            <h1 className="text-2xl font-bold">项目库</h1>
+            <p className="text-sm text-slate-500 mt-1">选择或创建一个项目开始生产视频</p>
+          </div>
         </div>
         <button
           onClick={() => setIsCreateModalOpen(true)}
