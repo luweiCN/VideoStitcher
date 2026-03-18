@@ -25,6 +25,12 @@ export async function cameraDirectorNode(state: WorkflowState): Promise<Partial<
   const startTime = Date.now();
 
   try {
+    // 0. 检查是否已完成（用于恢复工作流时跳过已完成的步骤）
+    if (state.step4_video) {
+      console.log('[Agent 4: 摄像导演] 步骤已完成，跳过执行');
+      return {};
+    }
+
     // 1. 获取分镜和目标时长
     const storyboard = state.step3_storyboard;
     if (!storyboard || storyboard.length === 0) {
@@ -103,6 +109,8 @@ export async function cameraDirectorNode(state: WorkflowState): Promise<Partial<
         fileSize: videoStats.size,
       },
       currentStep: 5, // 完成
+      // 导演模式最后一个步骤也设置 humanApproval = false
+      ...(state.executionMode === 'director' && { humanApproval: false }),
     };
   } catch (error) {
     console.error('[Agent 4: 摄像导演] 执行失败:', error);

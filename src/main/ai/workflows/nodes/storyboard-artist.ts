@@ -26,18 +26,25 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
   const startTime = Date.now();
 
   try {
+    // 0. 检查是否已完成（用于恢复工作流时跳过已完成的步骤）
+    if (state.step3_storyboard) {
+      console.log('[Agent 3: 分镜师] 步骤已完成，跳过执行');
+      return {};
+    }
+
     // 1. 获取 AI 提供商
     const provider = getGlobalProvider();
 
     // 2. 获取脚本和人物
-    const scriptContent = state.step1_script?.content;
-    const characters = state.step2_characters;
+    const scriptContent = state.step1_script?.content?.content; // ← 修正路径
+    const characters = state.step2_characters?.content; // ← 修正：提取 content 数组
 
     if (!scriptContent) {
       throw new Error('[Agent 3: 分镜师] 缺少脚本内容');
     }
 
     console.log('[Agent 3: 分镜师] 开始拆分场景');
+    console.log('[Agent 3: 分镜师] 可用人物:', characters?.length || 0);
 
     // 3. 调用 LLM 拆分场景
     const splitPrompt = buildSplitScenesPrompt(scriptContent, characters);
@@ -62,7 +69,7 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
         const imageResult = await provider.generateImage(scene.visualPrompt, {
           size: '1024x1024',
           style: 'cinematic',
-          quality: 'high',
+          quality: 'hd', // 火山引擎支持 "standard" 和 "hd"
         });
 
         storyboardFrames.push({
@@ -101,10 +108,17 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
     const duration = Date.now() - startTime;
     console.log(`[Agent 3: 分镜师] 完成，生成 ${storyboardFrames.length} 个分镜，耗时 ${duration}ms`);
 
-    return {
+    // 导演模式：步骤完成后设置 humanApproval = false，让条件边暂停
+    const updates: Partial<WorkflowState> = {
       step3_storyboard: storyboardFrames,
       currentStep: 4,
     };
+
+    if (state.executionMode === 'director') {
+      updates.humanApproval = false;
+    }
+
+    return updates;
   } catch (error) {
     console.error('[Agent 3: 分镜师] 执行失败:', error);
     throw error;
@@ -115,6 +129,7 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
  * 构建拆分场景提示词
  */
 function buildSplitScenesPrompt(scriptContent: string, characters: any[]): string {
+  // 提取角色名称列表
   const characterList = characters?.map(c => c.name).join(', ') || '无特定人物';
 
   return `你是一位专业的分镜师。请将以下视频脚本拆分为详细的场景（分镜）。

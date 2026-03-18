@@ -11,6 +11,7 @@ import { ModelSelector } from './ModelSelector';
 import { ScriptCard } from './ScriptCard';
 import { PersonaManager } from '../PersonaManager';
 import { StepLayout } from '../StepLayout';
+import { ScreenplaySelector } from './ScreenplaySelector';
 
 /**
  * 剧本生成器主组件
@@ -18,6 +19,10 @@ import { StepLayout } from '../StepLayout';
 export function ScreenplayGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [addedScreenplayIds, setAddedScreenplayIds] = useState<Set<string>>(new Set()); // 跟踪已添加的剧本
+  const [activeTab, setActiveTab] = useState<'generated' | 'library'>('generated'); // 标签页状态
+  const [showSelector, setShowSelector] = useState(false); // 显示选择弹窗
+  const [selectorMode, setSelectorMode] = useState<'single' | 'multiple'>('single'); // 选择模式
+  const [showScreenplaySelector, setShowScreenplaySelector] = useState(false); // 剧本选择对话框
 
   const {
     currentProject,
@@ -36,6 +41,7 @@ export function ScreenplayGenerator() {
     clearGeneratedScripts,
     setCurrentView,
     setLibraryScripts,
+    selectScreenplay,
   } = useASideStore();
 
   /**
@@ -43,6 +49,50 @@ export function ScreenplayGenerator() {
    */
   const handleBack = () => {
     setCurrentView('step2-region');
+  };
+
+  /**
+   * 打开导演模式选择弹窗
+   */
+  const handleOpenDirectorModeSelector = () => {
+    if (libraryScripts.length === 0) {
+      alert('请先将剧本添加到待产库');
+      return;
+    }
+    setSelectorMode('single');
+    setShowScreenplaySelector(true);
+  };
+
+  /**
+   * 打开快速合成选择弹窗
+   */
+  const handleOpenQuickComposeSelector = () => {
+    if (libraryScripts.length === 0) {
+      alert('请先将剧本添加到待产库');
+      return;
+    }
+    setSelectorMode('multiple');
+    setShowScreenplaySelector(true);
+  };
+
+  /**
+   * 确认选择
+   */
+  const handleSelectorConfirm = (selected: Screenplay | Screenplay[]) => {
+    setShowScreenplaySelector(false);
+
+    if (selectorMode === 'single') {
+      // 导演模式：单选
+      const screenplay = selected as Screenplay;
+      selectScreenplay(screenplay);
+      setCurrentView('director-mode');
+    } else {
+      // 快速合成：多选
+      const screenplays = selected as Screenplay[];
+      console.log('[快速合成] 选中的剧本:', screenplays.map(s => s.id));
+      setCurrentView('quick-compose');
+      // TODO: 将选中的剧本传递给快速合成页面
+    }
   };
 
   /**
@@ -161,13 +211,13 @@ export function ScreenplayGenerator() {
       nextButtons={
         <>
           <button
-            onClick={() => setCurrentView('quick-compose')}
+            onClick={handleOpenQuickComposeSelector}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
           >
             <span>⚡ 快速合成</span>
           </button>
           <button
-            onClick={() => setCurrentView('director-mode')}
+            onClick={handleOpenDirectorModeSelector}
             className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:from-pink-700 hover:to-violet-700 transition-all"
           >
             <span>🎬 导演模式</span>
@@ -224,30 +274,96 @@ export function ScreenplayGenerator() {
           </div>
         </div>
 
-        {/* 下半部分：生成的剧本列表 */}
-        <div className="h-1/2 overflow-y-auto p-6">
-          {generatedScripts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-center">
-              <Sparkles className="w-16 h-16 text-slate-700 mb-4" />
-              <p className="text-slate-500 mb-2">还没有生成任何剧本</p>
-              <p className="text-sm text-slate-600">选择人设后点击左侧按钮生成剧本</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {generatedScripts.map((screenplay, index) => (
-                <ScriptCard
-                  key={screenplay.id}
-                  screenplay={screenplay}
-                  index={index + 1}
-                  isAdded={addedScreenplayIds.has(screenplay.id)}
-                  onAddToLibrary={() => handleAddToLibrary(screenplay)}
-                  onDelete={() => removeGeneratedScript(screenplay.id)}
-                />
-              ))}
-            </div>
-          )}
+        {/* 下半部分：剧本列表（标签页切换） */}
+        <div className="h-1/2 flex flex-col p-6">
+          {/* 标签页切换 */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setActiveTab('generated')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeTab === 'generated'
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              生成的剧本 ({generatedScripts.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('library')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                activeTab === 'library'
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              待产库 ({libraryScripts.length})
+            </button>
+          </div>
+
+          {/* 标签页内容 */}
+          <div className="flex-1 overflow-y-auto">
+            {activeTab === 'generated' && (
+              <>
+                {generatedScripts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <Sparkles className="w-16 h-16 text-slate-700 mb-4" />
+                    <p className="text-slate-500 mb-2">还没有生成任何剧本</p>
+                    <p className="text-sm text-slate-600">选择人设后点击左侧按钮生成剧本</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {generatedScripts.map((screenplay, index) => (
+                      <ScriptCard
+                        key={screenplay.id}
+                        screenplay={screenplay}
+                        index={index + 1}
+                        isAdded={addedScreenplayIds.has(screenplay.id)}
+                        onAddToLibrary={() => handleAddToLibrary(screenplay)}
+                        onDelete={() => removeGeneratedScript(screenplay.id)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {activeTab === 'library' && (
+              <>
+                {libraryScripts.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-center">
+                    <Sparkles className="w-16 h-16 text-slate-700 mb-4" />
+                    <p className="text-slate-500 mb-2">待产库为空</p>
+                    <p className="text-sm text-slate-600">先生成剧本，然后添加到待产库</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {libraryScripts.map((screenplay, index) => (
+                      <ScriptCard
+                        key={screenplay.id}
+                        screenplay={screenplay}
+                        index={index + 1}
+                        isAdded={true}
+                        onAddToLibrary={() => {}}
+                        onDelete={() => {}}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* 剧本选择弹窗 */}
+      {showScreenplaySelector && (
+        <ScreenplaySelector
+          screenplays={libraryScripts}
+          mode={selectorMode}
+          onConfirm={handleSelectorConfirm}
+          onCancel={() => setShowScreenplaySelector(false)}
+        />
+      )}
     </StepLayout>
   );
 }

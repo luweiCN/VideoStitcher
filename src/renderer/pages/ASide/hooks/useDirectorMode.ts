@@ -3,7 +3,7 @@
  * 封装与导演模式相关的状态和 API 调用
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Character, Storyboard } from '@shared/types/aside';
 import {
   generateCharacters as apiGenerateCharacters,
@@ -34,23 +34,44 @@ export function useDirectorMode(screenplayId: string) {
     error: null,
   });
 
+  // 调试:每次 state 变化时打印
+  useEffect(() => {
+    console.log('[useDirectorMode] state 变化:', {
+      charactersCount: state.characters.length,
+      characters: state.characters,
+    });
+  }, [state]);
+
   // 生成角色
   const generateCharacters = useCallback(async () => {
+    console.log('[useDirectorMode] 开始生成角色');
     setState((prev) => ({ ...prev, isGeneratingCharacters: true, error: null }));
 
     try {
       const result = await apiGenerateCharacters(screenplayId);
+      console.log('[useDirectorMode] API 返回结果:', result);
+
       if (result.success && result.characters) {
-        setState((prev) => ({
-          ...prev,
-          characters: result.characters!,
-          isGeneratingCharacters: false,
-        }));
+        console.log('[useDirectorMode] 成功获取角色:', result.characters.length, '个');
+
+        const newCharacters = [...result.characters]; // 创建新数组
+        console.log('[useDirectorMode] 新数组长度:', newCharacters.length);
+
+        setState((prev) => {
+          const newState = {
+            ...prev,
+            characters: newCharacters,
+            isGeneratingCharacters: false,
+          };
+          console.log('[useDirectorMode] 更新后的状态，角色数量:', newState.characters.length);
+          return newState;
+        });
         return result.characters;
       } else {
         throw new Error(result.error || '生成角色失败');
       }
     } catch (error) {
+      console.error('[useDirectorMode] 生成角色失败:', error);
       setState((prev) => ({
         ...prev,
         isGeneratingCharacters: false,
@@ -58,7 +79,7 @@ export function useDirectorMode(screenplayId: string) {
       }));
       throw error;
     }
-  }, [screenplayId]);
+  }, [screenplayId]); // 移除 state.characters 依赖
 
   // 添加角色
   const addCharacter = useCallback(async (name: string, description: string) => {
@@ -205,11 +226,11 @@ export function useDirectorMode(screenplayId: string) {
   return {
     ...state,
     generateCharacters,
-    addCharacter
-    editCharacter,
     regenerateCharacter,
     generateStoryboard,
     regenerateStoryboard,
     composeVideo,
+    editCharacter,
+    addCharacter,
   };
 }

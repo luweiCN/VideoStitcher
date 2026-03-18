@@ -3,7 +3,7 @@
  * 显示单个剧本的信息和操作按钮
  */
 
-import { Plus, Trash2, Edit3, Check } from 'lucide-react';
+import { Plus, Trash2, Edit3, Check, Video } from 'lucide-react';
 import type { Screenplay } from '@shared/types/aside';
 
 interface ScriptCardProps {
@@ -24,7 +24,7 @@ interface ScriptCardProps {
  */
 export function ScriptCard({ screenplay, index, isAdded = false, onAddToLibrary, onDelete }: ScriptCardProps) {
   return (
-    <div className={`bg-black/50 border rounded-xl p-4 transition-all ${isAdded ? 'border-green-600/50 opacity-60' : 'border-slate-800'}`}>
+    <div className={`bg-black/50 border rounded-xl p-4 transition-all ${isAdded ? 'border-green-600/50' : 'border-slate-800'}`}>
       {/* 头部 */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -41,32 +41,28 @@ export function ScriptCard({ screenplay, index, isAdded = false, onAddToLibrary,
             </p>
           </div>
         </div>
+
+        {/* 操作按钮 */}
         <div className="flex gap-2">
-          <button
-            onClick={onAddToLibrary}
-            disabled={isAdded}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
-              isAdded
-                ? 'bg-green-600/20 text-green-400 cursor-not-allowed'
-                : 'bg-violet-600/20 text-violet-400 hover:bg-violet-600/30'
-            }`}
-            title={isAdded ? '已添加到待产库' : '添加到待产库'}
-          >
-            {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-            <span className="text-sm">{isAdded ? '已添加' : '待产库'}</span>
-          </button>
-          <button
-            onClick={onDelete}
-            disabled={isAdded}
-            className={`p-1.5 rounded-lg transition-all ${
-              isAdded
-                ? 'text-slate-700 cursor-not-allowed'
-                : 'text-slate-600 hover:text-red-400 hover:bg-red-400/10'
-            }`}
-            title={isAdded ? '已添加无法删除' : '删除'}
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {!isAdded && (
+            <>
+              <button
+                onClick={onAddToLibrary}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors bg-violet-600/20 text-violet-400 hover:bg-violet-600/30"
+                title="添加到待产库"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm">待产库</span>
+              </button>
+              <button
+                onClick={onDelete}
+                className="p-1.5 rounded-lg transition-all text-slate-600 hover:text-red-400 hover:bg-red-400/10"
+                title="删除"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 

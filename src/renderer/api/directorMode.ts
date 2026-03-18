@@ -3,7 +3,6 @@
  * 封装与导演模式相关的 IPC 调用
  */
 
-import { ipcRenderer } from 'electron';
 import type { Character, Storyboard } from '@shared/types/aside';
 
 /**
@@ -14,7 +13,7 @@ export async function generateCharacters(screenplayId: string): Promise<{
   characters?: Character[];
   error?: string;
 }> {
-  return ipcRenderer.invoke('aside:generate-characters', screenplayId);
+  return window.api.asideGenerateCharacters(screenplayId);
 }
 
 /**
@@ -29,7 +28,7 @@ export async function addCharacter(data: {
   character?: Character;
   error?: string;
 }> {
-  return ipcRenderer.invoke('aside:add-character', data);
+  return window.api.asideAddCharacter(data);
 }
 
 /**
@@ -43,7 +42,7 @@ export async function editCharacter(data: {
   success: boolean;
   error?: string;
 }> {
-  return ipcRenderer.invoke('aside:edit-character', data);
+  return window.api.asideEditCharacter(data);
 }
 
 /**
@@ -54,7 +53,7 @@ export async function regenerateCharacter(characterId: string): Promise<{
   character?: Character;
   error?: string;
 }> {
-  return ipcRenderer.invoke('aside:regenerate-character', characterId);
+  return window.api.asideRegenerateCharacter(characterId);
 }
 
 /**
@@ -65,7 +64,7 @@ export async function generateStoryboard(screenplayId: string): Promise<{
   storyboard?: Storyboard;
   error?: string;
 }> {
-  return ipcRenderer.invoke('aside:generate-storyboard', screenplayId);
+  return window.api.asideGenerateStoryboard(screenplayId);
 }
 
 /**
@@ -76,7 +75,7 @@ export async function regenerateStoryboard(storyboardId: string): Promise<{
   storyboard?: Storyboard;
   error?: string;
 }> {
-  return ipcRenderer.invoke('aside:regenerate-storyboard', storyboardId);
+  return window.api.asideRegenerateStoryboard(storyboardId);
 }
 
 /**
@@ -87,5 +86,5 @@ export async function composeVideo(screenplayId: string): Promise<{
   videoUrl?: string;
   error?: string;
 }> {
-  return ipcRenderer.invoke('aside:compose-video', screenplayId);
+  return window.api.asideComposeVideo(screenplayId);
 }

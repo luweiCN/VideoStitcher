@@ -50,6 +50,9 @@ interface ASideStore {
   /** 待产库剧本列表 */
   libraryScripts: Screenplay[];
 
+  /** 当前选中的剧本（用于导演模式） */
+  selectedScreenplay: Screenplay | null;
+
   /** 是否正在加载 */
   isLoading: boolean;
 
@@ -130,6 +133,9 @@ interface ASideStore {
   /** 更新待产库中的剧本 */
   updateLibraryScript: (screenplayId: string, updates: Partial<Screenplay>) => void;
 
+  /** 选择剧本（用于导演模式） */
+  selectScreenplay: (screenplay: Screenplay | null) => void;
+
   // ==================== 加载状态 Actions ====================
 
   /** 设置加载状态 */
@@ -155,6 +161,7 @@ const initialState = {
   scriptCount: 5,
   generatedScripts: [],
   libraryScripts: [],
+  selectedScreenplay: null,
   isLoading: false,
   error: null,
 };
@@ -319,6 +326,11 @@ export const useASideStore = create<ASideStore>((set, get) => ({
         s.id === screenplayId ? { ...s, ...updates } : s
       ),
     }));
+  },
+
+  selectScreenplay: (screenplay) => {
+    console.log('[ASideStore] 选择剧本:', screenplay?.id || 'null');
+    set({ selectedScreenplay: screenplay });
   },
 
   // ==================== 加载状态 Actions ====================

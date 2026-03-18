@@ -271,7 +271,7 @@ export function createInitialWorkflowState(params: {
 
     // 控制状态
     currentStep: 1,
-    humanApproval: params.executionMode === 'director',
+    humanApproval: false, // 初始未批准，Agent 执行后根据模式决定是否暂停
     userModifications: {},
     needsRegeneration: false,
 

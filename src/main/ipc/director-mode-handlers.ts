@@ -19,19 +19,48 @@ const workflowStates = new Map<string, WorkflowState>();
 /**
  * 将工作流角色转换为前端 Character 类型
  */
-function convertToCharacter(cards: any[]): Character[] {
-  return cards.map((card) => ({
-    id: card.id,
-    name: card.name,
-    description: card.description,
-    imageUrl: card.imageUrl,
-  }));
+function convertToCharacter(cards: any[] | undefined): Character[] {
+  if (!cards || !Array.isArray(cards)) {
+    console.warn('[DirectorMode] 角色数据为空或格式错误');
+    return [];
+  }
+
+  console.log('[DirectorMode] convertToCharacter 输入数据:', cards);
+
+  const result = cards.map((card) => {
+    console.log('[DirectorMode] 转换角色:', {
+      id: card.id,
+      name: card.name,
+      hasImageUrl: !!card.imageUrl,
+      imageUrl: card.imageUrl,
+    });
+
+    return {
+      id: card.id,
+      name: card.name,
+      description: card.description,
+      imageUrl: card.imageUrl,
+    };
+  });
+
+  console.log('[DirectorMode] convertToCharacter 输出数据:', result);
+  return result;
 }
 
 /**
  * 将工作流分镜图转换为前端 Storyboard 类型
  */
-function convertToStoryboard(frames: any[]): Storyboard {
+function convertToStoryboard(frames: any[] | undefined): Storyboard {
+  if (!frames || !Array.isArray(frames)) {
+    console.warn('[DirectorMode] 分镜数据为空或格式错误');
+    return {
+      id: `storyboard-${Date.now()}`,
+      rows: 0,
+      cols: 3,
+      scenes: [],
+    };
+  }
+
   // 计算 3x3 网格
   const cols = 3;
   const rows = Math.ceil(frames.length / cols);
@@ -64,19 +93,46 @@ export function registerDirectorModeHandlers() {
         throw new Error('工作流状态不存在');
       }
 
-      // 执行步骤 2: 选角导演
-      const result = await regenerateStep(state, 2);
-
-      if (!result.success || !result.state?.step2_characters) {
-        throw new Error(result.error || '角色生成失败');
+      // 确保步骤 1 已完成
+      if (!state.step1_script) {
+        throw new Error('步骤 1（脚本编写）尚未完成');
       }
+
+      // 恢复工作流执行（步骤 1 后会继续执行步骤 2）
+      const result = await resumeWorkflow(state);
+
+      if (!result.success) {
+        throw new Error(result.error || '工作流恢复失败');
+      }
+
+      if (!result.state?.step2_characters?.content) {
+        console.error('[DirectorMode] 角色生成结果:', result.state?.step2_characters);
+        throw new Error('角色生成失败：未生成任何角色');
+      }
+
+      const characters = result.state.step2_characters.content;
+
+      if (!Array.isArray(characters) || characters.length === 0) {
+        console.warn('[DirectorMode] 角色数量为 0，可能是 LLM 解析失败');
+        // 返回空数组而不是报错，让用户可以看到结果
+      }
+
+      // 调试：打印每个角色的完整数据
+      characters.forEach((char, i) => {
+        console.log(`[DirectorMode] 角色 ${i + 1}:`, {
+          id: char.id,
+          name: char.name,
+          hasImageUrl: !!char.imageUrl,
+          imageUrl: char.imageUrl,
+        });
+      });
 
       // 更新缓存
       workflowStates.set(screenplayId, result.state);
 
       return {
         success: true,
-        characters: convertToCharacter(result.state.step2_characters.content),
+        characters: convertToCharacter(characters),
       };
     } catch (error) {
       console.error('[DirectorMode] 生成角色失败:', error);
@@ -200,11 +256,21 @@ export function registerDirectorModeHandlers() {
         throw new Error('工作流状态不存在');
       }
 
-      // 执行步骤 3: 分镜师
-      const result = await regenerateStep(state, 3);
+      // 确保步骤 1 和 2 已完成
+      if (!state.step1_script || !state.step2_characters) {
+        throw new Error('步骤 1 和 2 尚未完成');
+      }
 
-      if (!result.success || !result.state?.step3_storyboard) {
+      // 恢复工作流执行（从步骤 2 继续执行步骤 3）
+      const result = await resumeWorkflow(state);
+
+      if (!result.success) {
         throw new Error(result.error || '分镜图生成失败');
+      }
+
+      if (!result.state?.step3_storyboard?.content) {
+        console.error('[DirectorMode] 分镜生成结果:', result.state?.step3_storyboard);
+        throw new Error('分镜图生成失败：未生成任何分镜');
       }
 
       // 更新缓存
@@ -247,8 +313,13 @@ export function registerDirectorModeHandlers() {
       // 重新生成分镜图
       const result = await regenerateStep(targetState, 3);
 
-      if (!result.success || !result.state?.step3_storyboard) {
+      if (!result.success) {
         throw new Error(result.error || '重新生成分镜图失败');
+      }
+
+      if (!result.state?.step3_storyboard?.content) {
+        console.error('[DirectorMode] 分镜重新生成结果:', result.state?.step3_storyboard);
+        throw new Error('重新生成分镜图失败：未生成任何分镜');
       }
 
       // 更新缓存
@@ -305,14 +376,38 @@ export function registerDirectorModeHandlers() {
     screenplayId: string;
     scriptContent: string;
     videoSpec: { duration: 'short' | 'long'; aspectRatio: '16:9' | '9:16' };
+    projectId: string;
+    creativeDirectionId?: string;
+    personaId?: string;
   }) => {
-    console.log('[DirectorMode] 初始化工作流');
+    console.log('[DirectorMode] 初始化工作流，剧本 ID:', data.screenplayId);
 
     try {
+      // 强制重置工作流图实例，确保使用最新配置
+      const { resetVideoProductionGraph } = await import('@main/ai/workflows/graph');
+      resetVideoProductionGraph();
+      console.log('[DirectorMode] 工作流图实例已重置');
+
+      // 从数据库加载创意方向和人设（如果提供）
+      let creativeDirection = undefined;
+      let persona = undefined;
+
+      if (data.creativeDirectionId) {
+        // TODO: 从数据库加载创意方向
+        console.log('[DirectorMode] 需要加载创意方向:', data.creativeDirectionId);
+      }
+
+      if (data.personaId) {
+        // TODO: 从数据库加载人设
+        console.log('[DirectorMode] 需要加载人设:', data.personaId);
+      }
+
       const options: WorkflowExecutionOptions = {
         executionMode: 'director',
         videoSpec: data.videoSpec,
-        projectId: screenplayId, // 使用 screenplayId 作为 projectId
+        projectId: data.projectId, // 使用正确的 projectId
+        creativeDirectionId: data.creativeDirectionId,
+        personaId: data.personaId,
       };
 
       const result = await startWorkflow(data.scriptContent, options);
@@ -321,8 +416,18 @@ export function registerDirectorModeHandlers() {
         throw new Error(result.error || '初始化工作流失败');
       }
 
+      // 如果加载了创意方向和人设，添加到状态中
+      if (creativeDirection) {
+        result.state.creativeDirection = creativeDirection;
+      }
+      if (persona) {
+        result.state.persona = persona;
+      }
+
       // 缓存工作流状态
       workflowStates.set(data.screenplayId, result.state);
+
+      console.log('[DirectorMode] 工作流已缓存，当前缓存数量:', workflowStates.size);
 
       return {
         success: true,

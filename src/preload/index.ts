@@ -1,6 +1,7 @@
 import { contextBridge } from 'electron';
 import { electronAPI } from '@electron-toolkit/preload';
 import type { Task } from '../shared/types/task';
+import type { Character, Storyboard } from '../shared/types/aside';
 
 const ipcRenderer = electronAPI.ipcRenderer;
 
@@ -522,6 +523,62 @@ export interface ElectronAPI {
     success: boolean;
     error?: string;
   }>;
+
+  // 导演模式 API
+  asideGenerateCharacters: (screenplayId: string) => Promise<{
+    success: boolean;
+    characters?: Character[];
+    error?: string;
+  }>;
+  asideAddCharacter: (data: {
+    screenplayId: string;
+    name: string;
+    description: string;
+  }) => Promise<{
+    success: boolean;
+    character?: Character;
+    error?: string;
+  }>;
+  asideEditCharacter: (data: {
+    characterId: string;
+    name: string;
+    description: string;
+  }) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  asideRegenerateCharacter: (characterId: string) => Promise<{
+    success: boolean;
+    character?: Character;
+    error?: string;
+  }>;
+  asideGenerateStoryboard: (screenplayId: string) => Promise<{
+    success: boolean;
+    storyboard?: Storyboard;
+    error?: string;
+  }>;
+  asideRegenerateStoryboard: (storyboardId: string) => Promise<{
+    success: boolean;
+    storyboard?: Storyboard;
+    error?: string;
+  }>;
+  asideComposeVideo: (screenplayId: string) => Promise<{
+    success: boolean;
+    videoUrl?: string;
+    error?: string;
+  }>;
+  asideInitDirectorWorkflow: (data: {
+    screenplayId: string;
+    scriptContent: string;
+    videoSpec: { duration: 'short' | 'long'; aspectRatio: '16:9' | '9:16' };
+    projectId: string;
+    creativeDirectionId?: string;
+    personaId?: string;
+  }) => Promise<{
+    success: boolean;
+    state?: any;
+    error?: string;
+  }>;
 }
 
 const api: ElectronAPI = {
@@ -756,6 +813,16 @@ const api: ElectronAPI = {
   regenerateScript: (request) => ipcRenderer.invoke("aside:regenerate-script", request),
   addToProductionQueue: (request) => ipcRenderer.invoke("aside:add-to-queue", request),
   startProduction: (request) => ipcRenderer.invoke("aside:start-production", request),
+
+  // 导演模式 API
+  asideGenerateCharacters: (screenplayId) => ipcRenderer.invoke('aside:generate-characters', screenplayId),
+  asideAddCharacter: (data) => ipcRenderer.invoke('aside:add-character', data),
+  asideEditCharacter: (data) => ipcRenderer.invoke('aside:edit-character', data),
+  asideRegenerateCharacter: (characterId) => ipcRenderer.invoke('aside:regenerate-character', characterId),
+  asideGenerateStoryboard: (screenplayId) => ipcRenderer.invoke('aside:generate-storyboard', screenplayId),
+  asideRegenerateStoryboard: (storyboardId) => ipcRenderer.invoke('aside:regenerate-storyboard', storyboardId),
+  asideComposeVideo: (screenplayId) => ipcRenderer.invoke('aside:compose-video', screenplayId),
+  asideInitDirectorWorkflow: (data) => ipcRenderer.invoke('aside:init-director-workflow', data),
 };
 
 contextBridge.exposeInMainWorld("api", api);

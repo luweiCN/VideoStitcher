@@ -17,6 +17,12 @@ export async function scriptWriterNode(state: WorkflowState): Promise<Partial<Wo
   const startTime = Date.now();
 
   try {
+    // 0. 检查是否已完成（用于恢复工作流时跳过已完成的步骤）
+    if (state.step1_script) {
+      console.log('[Agent 1: 脚本编写] 步骤已完成，跳过执行');
+      return {}; // 返回空对象，不更新状态
+    }
+
     // 1. 获取 AI 提供商
     const provider = getProvider();
     if (!provider) {
@@ -65,10 +71,17 @@ export async function scriptWriterNode(state: WorkflowState): Promise<Partial<Wo
     console.log(`[Agent 1: 脚本编写] 完成，耗时 ${endTime - startTime}ms`);
 
     // 6. 返回状态更新
-    return {
+    // 导演模式：步骤完成后设置 humanApproval = false，让条件边暂停
+    const updates: Partial<WorkflowState> = {
       step1_script: output,
       currentStep: 2,
     };
+
+    if (state.executionMode === 'director') {
+      updates.humanApproval = false;
+    }
+
+    return updates;
   } catch (error) {
     console.error('[Agent 1: 脚本编写] 失败:', error);
     throw error;
@@ -79,7 +92,7 @@ export async function scriptWriterNode(state: WorkflowState): Promise<Partial<Wo
  * 构建系统提示词
  */
 function buildSystemPrompt(state: WorkflowState): string {
-  const { creativeDirection, persona } = state.context;
+  const { creativeDirection, persona } = state;
 
   return `你是一位专业的视频脚本编写专家。
 

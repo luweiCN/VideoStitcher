@@ -59,6 +59,16 @@
   animation: scaleIn 0.2s ease-out;
 }
 
+/* 流动虚线动画 (用于连线) */
+@keyframes flow {
+  from {
+    stroke-dashoffset: 16;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* ============================================
    自定义滚动条样式
    ============================================ */

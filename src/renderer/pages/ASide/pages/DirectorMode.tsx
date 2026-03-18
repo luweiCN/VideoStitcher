@@ -67,8 +67,22 @@ export function DirectorMode() {
           projectId: currentProject!.id,
         });
 
-        if (!result.success) {
+        if (!result.success || !result.state) {
           throw new Error(result.error || '启动工作流失败');
+        }
+
+        // 初始化导演模式工作流状态（用于后续的角色生成分镜等操作）
+        const initResult = await window.api.asideInitDirectorWorkflow({
+          screenplayId: script.id,
+          scriptContent: script.content,
+          videoSpec: {
+            duration: 'short',
+            aspectRatio: '16:9',
+          },
+        });
+
+        if (!initResult.success) {
+          console.error('[DirectorMode] 初始化导演模式工作流失败:', initResult.error);
         }
 
         console.log('[DirectorMode] 工作流步骤完成:', result.state?.currentStep);

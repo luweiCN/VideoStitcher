@@ -17,7 +17,11 @@ import { ProductionQueue } from './components/ProductionQueue';
  * A面主页面组件
  */
 const ASidePage: React.FC = () => {
-  const { currentView, currentProject } = useASideStore();
+  const { currentView, currentProject, selectedScreenplay, setCurrentView } = useASideStore();
+
+  const handleBackFromDirectorMode = () => {
+    setCurrentView('step3-scripts');
+  };
 
   return (
     <div className="h-screen flex flex-col bg-black text-slate-100">
@@ -25,6 +29,15 @@ const ASidePage: React.FC = () => {
       {currentProject && currentView !== 'library' && (
         <header className="flex items-center justify-between px-6 py-3 border-b border-slate-800 bg-black/50">
           <div className="flex items-center gap-3">
+            {/* 导演模式时显示返回按钮 */}
+            {currentView === 'director-mode' && (
+              <button
+                onClick={handleBackFromDirectorMode}
+                className="flex items-center gap-2 px-3 py-1.5 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors"
+              >
+                ← 返回
+              </button>
+            )}
             <div className="w-8 h-8 bg-violet-600/20 text-violet-400 rounded-lg flex items-center justify-center">
               🎬
             </div>
@@ -44,7 +57,9 @@ const ASidePage: React.FC = () => {
         {currentView === 'step2-region' && <RegionSelector />}
         {currentView === 'step3-scripts' && <ScreenplayGenerator />}
         {currentView === 'quick-compose' && <QuickCompose />}
-        {currentView === 'director-mode' && <DirectorMode screenplayId="" />}
+        {currentView === 'director-mode' && (
+          <DirectorMode screenplayId={selectedScreenplay?.id || ''} />
+        )}
       </div>
     </div>
   );

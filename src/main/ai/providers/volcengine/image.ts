@@ -1,7 +1,7 @@
 /**
  * 火山引擎 - 图片生成实现
  *
- * 使用 Seedream 3.0 模型生成图片
+ * 使用 Doubao Seedream 5.0 模型生成图片
  */
 
 import type { AIProvider, ImageGenerationOptions, ImageGenerationResult } from '../interface';
@@ -14,7 +14,7 @@ export interface VolcEngineImageConfig {
   apiKey: string;
   /** 基础 URL */
   baseUrl?: string;
-  /** 模型名称（默认：seedream-3.0） */
+  /** 模型名称（默认：doubao-seedream-5-0-260128） */
   model?: string;
 }
 
@@ -61,9 +61,11 @@ const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY = 1000; // 1 秒
 
 /**
- * 支持的图片尺寸
+ * 支持的图片尺寸（火山引擎 Seedream 5.0）
  */
 const SUPPORTED_SIZES = [
+  '1K',
+  '2K',
   '512x512',
   '768x768',
   '1024x1024',
@@ -96,7 +98,7 @@ export class VolcEngineImage implements Pick<AIProvider, 'generateImage' | 'heal
     this.config = {
       apiKey: config.apiKey,
       baseUrl: config.baseUrl || 'https://ark.cn-beijing.volces.com/api/v3',
-      model: config.model || 'seedream-3.0',
+      model: config.model || 'doubao-seedream-5-0-260128',
     };
   }
 
@@ -153,8 +155,11 @@ export class VolcEngineImage implements Pick<AIProvider, 'generateImage' | 'heal
       await this.callAPI({
         model: this.config.model,
         prompt: 'test',
-        size: '1024x1024',
-        n: 1,
+        size: '2K',
+        sequential_image_generation: 'disabled',
+        response_format: 'url',
+        stream: false,
+        watermark: true,
       });
 
       console.log('[VolcEngineImage] 健康检查成功');
@@ -209,17 +214,29 @@ export class VolcEngineImage implements Pick<AIProvider, 'generateImage' | 'heal
     const body: Record<string, unknown> = {
       model: this.config.model,
       prompt: prompt,
-      size: options?.size || '1024x1024',
-      n: options?.numberOfImages || 1,
+      // 火山引擎特定参数
+      sequential_image_generation: 'disabled',
+      response_format: 'url', // 返回格式：url 或 b64_json
+      stream: false,
+      watermark: true, // 是否添加水印
+      output_format: 'png', // 输出格式：png 或 jpeg（Seedream 5.0 lite 支持）
     };
 
-    // 添加可选参数
-    if (options?.style) {
-      body.style = options.style;
+    // 处理尺寸参数
+    if (options?.size) {
+      // 如果是 1024x1024 格式，转换为 2K
+      if (options.size === '1024x1024') {
+        body.size = '2K';
+      } else {
+        body.size = options.size;
+      }
+    } else {
+      body.size = '2K'; // 默认尺寸
     }
 
-    if (options?.quality) {
-      body.quality = options.quality;
+    // 添加可选参数（风格和质量暂时不支持，火山引擎有自己的参数）
+    if (options?.style) {
+      body.style = options.style;
     }
 
     return body;

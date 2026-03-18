@@ -95,8 +95,9 @@ export async function resumeWorkflow(
   console.log(`[WorkflowExecutor] 从步骤 ${currentState.currentStep} 继续`);
 
   try {
-    // 1. 清除暂停标记
-    currentState.humanApproval = false;
+    // 1. 临时设置 humanApproval = true，让工作流继续执行下一步
+    // 这一步执行完后，条件边会根据导演模式重新设置暂停
+    currentState.humanApproval = true;
 
     // 2. 获取工作流图
     const graph = getVideoProductionGraph();
