@@ -441,7 +441,7 @@ async function handleGetProjects(): Promise<{ success: boolean; projects?: any[]
  */
 async function handleCreateProject(
   _event: any,
-  data: { name: string; gameType: GameType }
+  data: { name: string; gameType: GameType; sellingPoint?: string }
 ): Promise<{ success: boolean; project?: any; error?: string }> {
   logger.info('[项目管理处理器] 创建项目', data);
 
@@ -456,7 +456,7 @@ async function handleCreateProject(
       return { success: false, error: `无效的游戏类型：${data.gameType}` };
     }
 
-    const project = asideProjectRepository.createProject(data.name, data.gameType);
+    const project = asideProjectRepository.createProject(data.name, data.gameType, data.sellingPoint);
     logger.info('[项目管理处理器] 项目创建成功', { projectId: project.id, name: project.name });
     return { success: true, project };
   } catch (error) {
