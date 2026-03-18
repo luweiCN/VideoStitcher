@@ -189,7 +189,7 @@ const MIGRATIONS: Migration[] = [
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         game_type TEXT NOT NULL,
-        region TEXT DEFAULT 'universal',
+        selling_point TEXT,  -- 新增:项目卖点(可选,最多200字符)
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
@@ -224,6 +224,7 @@ const MIGRATIONS: Migration[] = [
         content TEXT NOT NULL,
         creative_direction_id TEXT,
         persona_id TEXT,
+        region TEXT DEFAULT 'universal',  -- 移到剧本表
         ai_model TEXT,
         status TEXT DEFAULT 'draft',
         created_at INTEGER NOT NULL,
