@@ -91,9 +91,38 @@ export function closeDatabase(): void {
 }
 
 /**
+ * 初始化测试数据库(使用内存数据库)
+ */
+export function initTestDatabase(): Database.Database {
+  if (db) return db;
+
+  // 使用内存数据库
+  db = new Database(':memory:');
+
+  // 性能优化配置
+  db.pragma('journal_mode = WAL');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('cache_size = -64000'); // 64MB
+  db.pragma('temp_store = MEMORY');
+
+  // 启用外键约束
+  db.pragma('foreign_keys = ON');
+
+  // 运行迁移
+  runMigrations(db);
+
+  // 初始化默认配置
+  initDefaultConfig(db);
+
+  console.log('[测试数据库] 内存数据库初始化完成');
+
+  return db;
+}
+
+/**
  * 初始化默认配置
  */
-function initDefaultConfig(db: Database.Database): void {
+export function initDefaultConfig(db: Database.Database): void {
   const now = Date.now();
   const defaults: [string, string][] = [
     ['maxConcurrentTasks', '2'],

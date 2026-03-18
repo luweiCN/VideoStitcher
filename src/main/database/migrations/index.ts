@@ -246,16 +246,13 @@ const MIGRATIONS: Migration[] = [
     version: 4,
     description: '修复表名：aside_scripts → aside_screenplays（开发阶段修复）',
     up: `
-      -- 重命名表（如果旧表存在）
-      ALTER TABLE aside_scripts RENAME TO aside_screenplays;
-
-      -- 删除旧索引
-      DROP INDEX IF EXISTS idx_aside_scripts_project;
-      DROP INDEX IF EXISTS idx_aside_scripts_status;
-
-      -- 创建新索引
-      CREATE INDEX IF NOT EXISTS idx_aside_screenplays_project ON aside_screenplays(project_id);
-      CREATE INDEX IF NOT EXISTS idx_aside_screenplays_status ON aside_screenplays(status);
+      -- 空迁移: v3 已经使用了正确的表名 aside_screenplays
+      -- 此迁移保留用于版本控制，但不需要执行任何操作
+      SELECT 1;
+    `,
+    down: `
+      -- 空迁移回滚
+      SELECT 1;
     `,
   },
 ];
