@@ -11,9 +11,11 @@ import { ChatPanel } from './components/ChatPanel';
 import { Toolbar } from './components/Toolbar';
 import { PropertyPanel } from './components/PropertyPanel';
 import type { Script, Character, Scene, Message, SelectedItem, ExportConfig } from './types';
+import { useToastMessages } from '@renderer/components/Toast';
 
 const DirectorMode: React.FC = () => {
   const navigate = useNavigate();
+  const toast = useToastMessages();
 
   // 状态管理
   const [script, setScript] = useState<Script | null>(null);
@@ -121,7 +123,7 @@ const DirectorMode: React.FC = () => {
     try {
       // TODO: 调用后端 API
       console.log('导出配置:', config);
-      alert('导出功能开发中...');
+      toast.info('导出功能开发中...');
     } catch (error) {
       console.error('导出失败:', error);
     } finally {

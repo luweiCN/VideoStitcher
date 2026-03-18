@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Folder, ArrowLeft } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
+import { useConfirm } from '@renderer/hooks/useConfirm';
 import type { Project, GameType } from '@shared/types/aside';
 import { ProjectCard } from './ProjectCard';
 import { CreateProjectModal } from './CreateProjectModal';
@@ -23,6 +24,7 @@ export function ProjectLibrary() {
 
   const navigate = useNavigate();
   const { selectProject, setCurrentView } = useASideStore();
+  const confirm = useConfirm();
 
   // 加载项目列表
   useEffect(() => {
@@ -70,15 +72,21 @@ export function ProjectLibrary() {
   /**
    * 删除项目
    */
-  const handleDeleteProject = async (projectId: string) => {
-    if (!confirm('确定要删除此项目吗？所有相关数据将被删除。')) {
-      return;
-    }
+  const handleDeleteProject = async (project: Project) => {
+    const confirmed = await confirm({
+      title: '确认删除项目',
+      message: `确定要删除项目「${project.name}」吗？此操作将删除所有相关的创意方向、人设和剧本数据，且无法恢复。`,
+      confirmText: '确认删除',
+      cancelText: '取消',
+      variant: 'danger',
+    });
+
+    if (!confirmed) return;
 
     try {
-      const result = await window.api.asideDeleteProject(projectId);
+      const result = await window.api.asideDeleteProject(project.id);
       if (result.success) {
-        setProjects(projects.filter(p => p.id !== projectId));
+        setProjects(projects.filter(p => p.id !== project.id));
         console.log('[ProjectLibrary] 删除项目成功');
       }
     } catch (error) {
@@ -164,7 +172,7 @@ export function ProjectLibrary() {
                 project={project}
                 onEnter={() => handleEnterProject(project)}
                 onEdit={() => setEditingProject(project)}
-                onDelete={() => handleDeleteProject(project.id)}
+                onDelete={() => handleDeleteProject(project)}
               />
             ))}
           </div>

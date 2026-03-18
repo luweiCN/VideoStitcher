@@ -452,12 +452,14 @@ export interface ElectronAPI {
   // === A面视频生产 API ===
   // 项目管理
   asideGetProjects: () => Promise<{ success: boolean; projects?: any[]; error?: string }>;
-  asideCreateProject: (name: string, gameType: string) => Promise<{ success: boolean; project?: any; error?: string }>;
+  asideCreateProject: (name: string, gameType: string, sellingPoint?: string) => Promise<{ success: boolean; project?: any; error?: string }>;
+  asideUpdateProject: (projectId: string, data: { name?: string; gameType?: string; sellingPoint?: string }) => Promise<{ success: boolean; project?: any; error?: string }>;
   asideDeleteProject: (projectId: string) => Promise<{ success: boolean; error?: string }>;
 
   // 创意方向
   asideGetCreativeDirections: (projectId: string) => Promise<{ success: boolean; directions?: any[]; error?: string }>;
   asideAddCreativeDirection: (data: { projectId: string; name: string; description?: string; iconName?: string }) => Promise<{ success: boolean; direction?: any; error?: string }>;
+  asideUpdateCreativeDirection: (directionId: string, data: { name?: string; description?: string; iconName?: string }) => Promise<{ success: boolean; error?: string }>;
   asideDeleteCreativeDirection: (directionId: string) => Promise<{ success: boolean; error?: string }>;
 
   // 人设
@@ -775,12 +777,14 @@ const api: ElectronAPI = {
   // A面视频生产 API
   // 项目管理
   asideGetProjects: () => ipcRenderer.invoke('aside:getProjects'),
-  asideCreateProject: (name, gameType) => ipcRenderer.invoke('aside:createProject', { name, gameType }),
+  asideCreateProject: (name, gameType, sellingPoint) => ipcRenderer.invoke('aside:createProject', { name, gameType, sellingPoint }),
+  asideUpdateProject: (projectId, data) => ipcRenderer.invoke('aside:updateProject', projectId, data),
   asideDeleteProject: (projectId) => ipcRenderer.invoke('aside:deleteProject', projectId),
 
   // 创意方向
   asideGetCreativeDirections: (projectId) => ipcRenderer.invoke('aside:getCreativeDirections', projectId),
   asideAddCreativeDirection: (data) => ipcRenderer.invoke('aside:addCreativeDirection', data),
+  asideUpdateCreativeDirection: (directionId, data) => ipcRenderer.invoke('aside:updateCreativeDirection', directionId, data),
   asideDeleteCreativeDirection: (directionId) => ipcRenderer.invoke('aside:deleteCreativeDirection', directionId),
 
   // 人设
@@ -796,6 +800,13 @@ const api: ElectronAPI = {
   asideGetLibraryScreenplays: (projectId) => ipcRenderer.invoke('aside:getLibraryScreenplays', projectId),
   asideUpdateScreenplayContent: (scriptId, content) => ipcRenderer.invoke('aside:updateScreenplayContent', scriptId, content),
   asideRegenerateScreenplay: (scriptId) => ipcRenderer.invoke('aside:regenerateScreenplay', scriptId),
+
+  // AI 提供商
+  asideGetAIProviders: () => ipcRenderer.invoke('aside:getAIProviders'),
+
+  // AI 模型（按类型）
+  getAIModels: (type: 'text' | 'image' | 'video') =>
+    ipcRenderer.invoke('getAIModels', type),
 
   // AI 工作流 API
   aiStartWorkflow: (scriptContent, options) =>

@@ -9,6 +9,7 @@
   import type { Screenplay, AIModel } from '@shared/types/aside';
   import { QuickComposeCard } from './QuickComposeCard';
   import { StepLayout } from '../StepLayout';
+  import { useToastMessages } from '@renderer/components/Toast';
 
   /**
    * 预览模态框状态
@@ -50,6 +51,9 @@
 
     // 使用 ref 存储 interval IDs 以便清理
     const progressIntervalsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+    // Toast 通知
+    const toast = useToastMessages();
 
     // 组件卸载时清理所有 intervals
     useEffect(() => {
@@ -334,7 +338,7 @@
         });
         console.log('[QuickCompose] 打开预览模态框,剧本ID:', screenplayId);
       } else {
-        alert('暂无视频可预览');
+        toast.warning('暂无视频可预览');
       }
     };
 
@@ -344,7 +348,7 @@
     const handleSave = async (screenplayId: string) => {
       const screenplay = libraryScripts.find((s) => s.id === screenplayId);
       if (!screenplay || !screenplay.videoUrl) {
-        alert('视频尚未生成,无法保存');
+        toast.warning('视频尚未生成,无法保存');
         return;
       }
 
@@ -358,8 +362,8 @@
 
         console.log('[QuickCompose] 保存视频到目录:', result);
         // 这里需要调用保存视频的 API
-        // 由于当前 API 中没有 asideSaveVideo,暂时使用 alert 提示
-        alert(`视频保存功能开发中...\n保存路径: ${result}\n视频URL: ${screenplay.videoUrl}`);
+        // 由于当前 API 中没有 asideSaveVideo,暂时使用 toast 提示
+        toast.info(`视频保存功能开发中...`, `保存路径: ${result}`);
       } catch (err) {
         console.error('[QuickCompose] 保存视频失败:', err);
         setError(`保存失败: ${(err as Error).message}`);

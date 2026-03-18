@@ -1,0 +1,363 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VideoStitcher AI Configuration - 完整配置（4 种类型，10 个模型）",
+  "description": "包含所有模型详细信息（包括价格、限制等）",
+
+  "defaultProvider": "volcengine",
+
+  "providers": {
+    "volcengine": {
+      "enabled": true,
+      "apiKey": "${VOLCENGINE_API_KEY}",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+
+      "models": {
+        "text": [
+          {
+            "id": "doubao-1-5-lite-32k-250115",
+            "name": "Doubao 1.5 Lite 32K",
+            "description": "Doubao 1.5 lite 全新一代轻量版模型，极致响应速度，效果与时延均达到全球一流水平",
+            "version": "250115",
+            "inputTypes": ["text"],
+            "outputTypes": ["text"],
+            "features": [
+              "function_calling",
+              "streaming",
+              "structured_output",
+              "deep_reasoning",
+              "web_search"
+            ],
+            "contextWindow": 32768,
+            "maxOutputTokens": 12288,
+            "enabled": true,
+            "pricing": {
+              "inputTokens": 0.3,
+              "outputTokens": 0.6,
+              "cachedTokens": 0.06,
+              "cachedStorage": 0.017,
+              "unit": "CNY/million_tokens",
+              "currency": "CNY"
+            },
+            "limits": {
+              "TPM": 5000000,
+              "RPM": 30000
+            }
+          },
+          {
+            "id": "doubao-1-5-pro-32k-250115",
+            "name": "Doubao 1.5 Pro 32K",
+            "description": "扩展至128k上下文窗口。在多项公开测评基准上达到全球领先水平，特别在知识、代码、推理、中文权威测评基准上获得最佳成绩，综合得分优于GPT4o、Claude 3.5 Sonnet等业界一流模型",
+            "version": "250115",
+            "inputTypes": ["text"],
+            "outputTypes": ["text"],
+            "features": [
+              "function_calling",
+              "streaming",
+              "structured_output",
+              "deep_reasoning",
+              "web_search"
+            ],
+            "contextWindow": 131072,
+            "maxOutputTokens": 12288,
+            "enabled": true,
+            "pricing": {
+              "inputTokens": 0.8,
+              "outputTokens": 2.0,
+              "cachedTokens": 0.16,
+              "cachedStorage": 0.017,
+              "unit": "CNY/million_tokens",
+              "currency": "CNY"
+            },
+            "limits": {
+              "TPM": 5000000,
+              "RPM": 30000
+            }
+          },
+          {
+            "id": "deepseek-v3-1-terminus",
+            "name": "DeepSeek-V3.1",
+            "description": "相比上一版解决了语言一致性、Agent 能力优化等问题，进一步优化了 Code Agent 与 Search Agent 的表现",
+            "version": "terminus",
+            "inputTypes": ["text"],
+            "outputTypes": ["text"],
+            "features": [
+              "function_calling",
+              "streaming",
+              "structured_output",
+              "deep_reasoning",
+              "web_search",
+              "batch_inference",
+              "context_cache",
+              "mcp"
+            ],
+            "contextWindow": 131072,
+            "maxOutputTokens": 32768,
+            "enabled": true,
+            "pricing": {
+              "inputTokens": 4.0,
+              "outputTokens": 12.0,
+              "cachedTokens": 0.8,
+              "cachedStorage": 0.017,
+              "batchInputTokens": 2.0,
+              "batchOutputTokens": 6.0,
+              "batchCachedTokens": 0.8,
+              "unit": "CNY/million_tokens",
+              "currency": "CNY"
+            },
+            "limits": {
+              "TPM": 5000000,
+              "RPM": 30000
+            },
+            "capabilities": {
+              "maxInputTokens": 98304,
+              "maxThinkingTokens": 32768,
+              "supportsBatchInference": true,
+              "supportsContextCache": true,
+              "supportsMCP": true
+            }
+          }
+        ],
+        "image": [
+          {
+            "id": "doubao-seedream-5-0-260128",
+            "name": "Doubao Seedream 5.0 Lite",
+            "description": "支持文本、单图和多图输入，支持生成组图",
+            "version": "260128",
+            "inputTypes": ["text", "image"],
+            "outputTypes": ["image"],
+            "features": [
+              "text_to_image",
+              "image_to_image",
+              "multi_image_input",
+              "batch_generation"
+            ],
+            "enabled": true,
+            "pricing": {
+              "textToImage": 0.22,
+              "imageToImage": 0.22,
+              "unit": "CNY/per_image",
+              "currency": "CNY",
+              "note": "图片生成按张计费"
+            },
+            "limits": {
+              "IPM": 500
+            },
+            "capabilities": {
+              "textToImage": true,
+              "imageToImage": true,
+              "multiImageInput": true,
+              "batchGeneration": true
+            }
+          },
+          {
+            "id": "doubao-seedream-4-5-251128",
+            "name": "Doubao Seedream 4.5",
+            "description": "支持文本、单图和多图输入，支持生成组图（高清版）",
+            "version": "251128",
+            "inputTypes": ["text", "image"],
+            "outputTypes": ["image"],
+            "features": [
+              "text_to_image",
+              "image_to_image",
+              "multi_image_input",
+              "batch_generation",
+              "hd_quality"
+            ],
+            "enabled": true,
+            "pricing": {
+              "textToImage": 0.25,
+              "imageToImage": 0.25,
+              "unit": "CNY/per_image",
+              "currency": "CNY",
+              "note": "高清版图片生成按张计费"
+            },
+            "limits": {
+              "resolution": ["2560x1440", "4096x4096"],
+              "IPM": 500
+            },
+            "capabilities": {
+              "textToImage": true,
+              "imageToImage": true,
+              "multiImageInput": true,
+              "batchGeneration": true,
+              "hdQuality": true
+            }
+          },
+          {
+            "id": "doubao-seedream-4-0-250828",
+            "name": "Doubao Seedream 4.0",
+            "description": "支持文本、单图和多图输入，支持生成组图（经济版）",
+            "version": "250828",
+            "inputTypes": ["text", "image"],
+            "outputTypes": ["image"],
+            "features": [
+              "text_to_image",
+              "image_to_image",
+              "multi_image_input",
+              "batch_generation"
+            ],
+            "enabled": true,
+            "pricing": {
+              "textToImage": 0.2,
+              "imageToImage": 0.2,
+              "unit": "CNY/per_image",
+              "currency": "CNY",
+              "note": "经济版图片生成按张计费"
+            },
+            "limits": {
+              "resolution": ["1280x720", "4096x4096"],
+              "IPM": 500
+            },
+            "capabilities": {
+              "textToImage": true,
+              "imageToImage": true,
+              "multiImageInput": true,
+              "batchGeneration": true
+            }
+          },
+          {
+            "id": "doubao-seedream-3-0-t2i-250415",
+            "name": "Doubao Seedream 3.0 t2i",
+            "description": "基于文本提示词生成图片（仅支持文生图）",
+            "version": "250415",
+            "inputTypes": ["text"],
+            "outputTypes": ["image"],
+            "features": [
+              "text_to_image",
+              "batch_generation"
+            ],
+            "enabled": true,
+            "pricing": {
+              "textToImage": 0.259,
+              "unit": "CNY/per_image",
+              "currency": "CNY",
+              "note": "仅支持文生图，按张计费"
+            },
+            "limits": {
+              "resolution": ["512x512", "2048x2048"],
+              "IPM": 500
+            },
+            "capabilities": {
+              "textToImage": true,
+              "imageToImage": false
+            }
+          }
+        ],
+        "video": [
+          {
+            "id": "doubao-seedance-1-0-pro-250528",
+            "name": "Doubao Seedance 1.0 Pro",
+            "description": "支持文生视频、首帧图生视频、首尾帧图生视频（纯视频版本，不支持音频）",
+            "version": "250528",
+            "inputTypes": ["text", "image"],
+            "outputTypes": ["video"],
+            "features": [
+              "text_to_video",
+              "image_to_video"
+            ],
+            "enabled": true,
+            "pricing": {
+              "imageToVideo": 15.0,
+              "textToVideo": 15.0,
+              "batchImageToVideo": 7.5,
+              "batchTextToVideo": 7.5,
+              "finetunedImageToVideo": 30.0,
+              "unit": "CNY/million_tokens",
+              "currency": "CNY",
+              "note": "纯视频版本，不支持音频生成"
+            },
+            "limits": {
+              "resolution": ["480P", "720P", "1080P"],
+              "duration": "2-12s",
+              "fps": 24,
+              "concurrency": 10,
+              "RPM": 600
+            },
+            "capabilities": {
+              "textToVideo": true,
+              "imageToVideo": true,
+              "supportsAudio": false
+            }
+          },
+          {
+            "id": "doubao-seedance-1-0-pro-fast-251015",
+            "name": "Doubao Seedance 1.0 Pro Fast",
+            "description": "支持文生视频、首帧图生视频（快速版本，极致性价比，比标准版便宜 72%）",
+            "version": "251015",
+            "inputTypes": ["text", "image"],
+            "outputTypes": ["video"],
+            "features": [
+              "text_to_video",
+              "image_to_video"
+            ],
+            "enabled": true,
+            "pricing": {
+              "imageToVideo": 4.2,
+              "textToVideo": 4.2,
+              "batchImageToVideo": 2.1,
+              "batchTextToVideo": 2.1,
+              "finetunedImageToVideo": 8.4,
+              "unit": "CNY/million_tokens",
+              "currency": "CNY",
+              "note": "快速版本，极致性价比（比标准版便宜 72%）"
+            },
+            "limits": {
+              "resolution": ["480P", "720P", "1080P"],
+              "duration": "2-12s",
+              "fps": 24,
+              "concurrency": 10,
+              "RPM": 600
+            },
+            "capabilities": {
+              "textToVideo": true,
+              "imageToVideo": true,
+              "supportsAudio": false,
+              "isFastVersion": true
+            }
+          },
+          {
+            "id": "doubao-seedance-1-5-pro-251215",
+            "name": "Doubao Seedance 1.5 Pro",
+            "description": "支持文生音画、首帧图生音画、首尾帧图生音画（音画一体版本，支持音频生成）",
+            "version": "251215",
+            "inputTypes": ["text", "image"],
+            "outputTypes": ["video"],
+            "features": [
+              "text_to_video_with_audio",
+              "image_to_video_with_audio"
+            ],
+            "enabled": true,
+            "pricing": {
+              "videoWithAudio": 16.0,
+              "videoWithoutAudio": 8.0,
+              "batchVideoWithAudio": 8.0,
+              "batchVideoWithoutAudio": 4.0,
+              "unit": "CNY/million_tokens",
+              "currency": "CNY",
+              "note": "音画一体版本，支持音频生成"
+            },
+            "limits": {
+              "resolution": ["480P", "720P", "1080P"],
+              "duration": "4-12s",
+              "fps": 24,
+              "concurrency": 10,
+              "RPM": 600
+            },
+            "capabilities": {
+              "textToVideo": true,
+              "imageToVideo": true,
+              "supportsAudio": true
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  "features": {
+    "textGeneration": true,
+    "imageGeneration": true,
+    "speechSynthesis": false,
+    "videoGeneration": true
+  }
+}

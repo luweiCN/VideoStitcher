@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useToastMessages } from '@renderer/components/Toast';
 
 interface GlobalSettings {
   defaultOutputDir: string;
@@ -25,6 +26,8 @@ interface UseGlobalSettingsResult {
  * 3. 提供保存、重置等功能
  */
 export function useGlobalSettings(): UseGlobalSettingsResult {
+  const toast = useToastMessages();
+
   // 应用当前状态
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
     defaultOutputDir: '',
@@ -98,15 +101,16 @@ export function useGlobalSettings(): UseGlobalSettingsResult {
       if (result.success) {
         // 更新已保存状态
         setSavedSettings({ ...globalSettings });
+        toast.success('设置已保存');
       } else {
-        alert(`保存失败: ${result.error}`);
+        toast.error(`保存失败: ${result.error}`);
       }
     } catch (err: any) {
-      alert(`保存失败: ${err.message}`);
+      toast.error(`保存失败: ${err.message}`);
     } finally {
       setIsSaving(false);
     }
-  }, [globalSettings, savedSettings]);
+  }, [globalSettings, savedSettings, toast]);
 
   // 重置到已保存的值
   const resetToSaved = useCallback(() => {

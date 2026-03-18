@@ -3,7 +3,7 @@
  * 显示单个创意方向的信息
  */
 
-import { Trash2 } from 'lucide-react';
+import { Trash2, Edit2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import type { CreativeDirection } from '@shared/types/aside';
 
@@ -14,6 +14,8 @@ interface DirectionCardProps {
   isSelected?: boolean;
   /** 选择回调 */
   onSelect: () => void;
+  /** 编辑回调 */
+  onEdit?: () => void;
   /** 删除回调 */
   onDelete: () => void;
 }
@@ -21,7 +23,7 @@ interface DirectionCardProps {
 /**
  * 创意方向卡片组件
  */
-export function DirectionCard({ direction, isSelected = false, onSelect, onDelete }: DirectionCardProps) {
+export function DirectionCard({ direction, isSelected = false, onSelect, onEdit, onDelete }: DirectionCardProps) {
   /**
    * 获取图标组件
    */
@@ -52,29 +54,44 @@ export function DirectionCard({ direction, isSelected = false, onSelect, onDelet
           )}
         </div>
         {!direction.isPreset && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-            title="删除"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+            {onEdit && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="p-1.5 text-slate-600 hover:text-violet-400 hover:bg-violet-400/10 rounded-lg transition-all"
+                title="编辑"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+              title="删除"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         )}
       </div>
 
-      <h3 className="text-lg font-semibold text-slate-100 mb-2">{direction.name}</h3>
+      <div className="flex items-center gap-2 mb-2">
+        <h3 className="text-lg font-semibold text-slate-100">{direction.name}</h3>
+        {direction.isPreset && (
+          <span className="px-2 py-0.5 bg-violet-600/20 text-violet-400 text-xs rounded">
+            预设
+          </span>
+        )}
+      </div>
 
       {direction.description && (
         <p className="text-sm text-slate-400 line-clamp-2">{direction.description}</p>
-      )}
-
-      {direction.isPreset && (
-        <div className="mt-3 inline-block px-2 py-1 bg-violet-600/20 text-violet-400 text-xs rounded">
-          预设
-        </div>
       )}
     </div>
   );

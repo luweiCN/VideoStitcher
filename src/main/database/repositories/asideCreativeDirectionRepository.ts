@@ -150,6 +150,78 @@ export class AsideCreativeDirectionRepository {
     }
   }
 
+  // ==================== 更新 ====================
+
+  /**
+   * 更新创意方向
+   * 只能更新非预设的创意方向（is_preset = 0）
+   * @param id 创意方向 ID
+   * @param data 更新数据
+   */
+  updateCreativeDirection(id: string, data: { name?: string; description?: string; iconName?: string }): void {
+    // 参数验证
+    if (!id || id.trim() === '') {
+      throw new Error('创意方向 ID 不能为空');
+    }
+
+    try {
+      const db = getDatabase();
+
+      // 检查是否为预设
+      const row = db.prepare(`
+        SELECT is_preset FROM aside_creative_directions WHERE id = ?
+      `).get(id) as { is_preset: number } | undefined;
+
+      if (!row) {
+        throw new Error(`创意方向不存在：ID ${id}`);
+      }
+
+      if (row.is_preset === 1) {
+        throw new Error('无法编辑预设创意方向');
+      }
+
+      // 构建更新语句
+      const updates: string[] = [];
+      const values: any[] = [];
+
+      if (data.name !== undefined) {
+        if (data.name.trim() === '') {
+          throw new Error('创意方向名称不能为空');
+        }
+        updates.push('name = ?');
+        values.push(data.name);
+      }
+
+      if (data.description !== undefined) {
+        updates.push('description = ?');
+        values.push(data.description || null);
+      }
+
+      if (data.iconName !== undefined) {
+        updates.push('icon_name = ?');
+        values.push(data.iconName || null);
+      }
+
+      if (updates.length === 0) {
+        throw new Error('没有提供要更新的数据');
+      }
+
+      values.push(id);
+
+      const updateStatement = db.prepare(`
+        UPDATE aside_creative_directions
+        SET ${updates.join(', ')}
+        WHERE id = ?
+      `);
+
+      const result = updateStatement.run(...values);
+      console.log(`[AsideCreativeDirectionRepository] 成功更新创意方向 ID: ${id}，影响行数: ${result.changes}`);
+    } catch (error) {
+      console.error('[AsideCreativeDirectionRepository] 更新创意方向失败:', error);
+      throw error;
+    }
+  }
+
   // ==================== 工具方法 ====================
 
   /**

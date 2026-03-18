@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, ArrowLeft } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
+import { useConfirm } from '@renderer/hooks/useConfirm';
 import type { Persona } from '@shared/types/aside';
 import { PersonaCard } from './PersonaCard';
 import { AddPersonaModal } from './AddPersonaModal';
@@ -21,6 +22,7 @@ export function PersonaManager() {
   const [isLoading, setIsLoading] = useState(true);
 
   const { currentProject, selectedPersona, selectPersona } = useASideStore();
+  const confirm = useConfirm();
 
   // 加载人设列表
   useEffect(() => {
@@ -91,9 +93,15 @@ export function PersonaManager() {
    * 删除人设
    */
   const handleDeletePersona = async (personaId: string) => {
-    if (!confirm('确定要删除此人设吗？')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: '确认删除人设',
+      message: '确定要删除此人设吗？此操作无法撤销。',
+      confirmText: '确认删除',
+      cancelText: '取消',
+      variant: 'danger',
+    });
+
+    if (!confirmed) return;
 
     try {
       const result = await window.api.asideDeletePersona(personaId);
@@ -115,65 +123,67 @@ export function PersonaManager() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-black text-slate-100">
-      {/* 头部 - 简化版 */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-lg font-semibold">人设管理</h2>
-          <p className="text-xs text-slate-500 mt-0.5">选择角色人设生成剧本</p>
+    <Tooltip.Provider delayDuration={200}>
+      <div className="h-full flex flex-col bg-black text-slate-100">
+        {/* 头部 - 简化版 */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold">人设管理</h2>
+            <p className="text-xs text-slate-500 mt-0.5">选择角色人设生成剧本</p>
+          </div>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>添加人设</span>
+          </button>
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          <span>添加人设</span>
-        </button>
-      </div>
 
-      {/* 人设列表 */}
-      <div className="flex-1 overflow-y-auto">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="text-slate-500">加载中...</div>
-          </div>
-        ) : personas.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 text-center">
-            <p className="text-slate-500 mb-1">还没有任何人设</p>
-            <p className="text-xs text-slate-600">点击右上角按钮添加</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {personas.map(persona => (
-              <PersonaCard
-                key={persona.id}
-                persona={persona}
-                isSelected={selectedPersona?.id === persona.id}
-                onSelect={() => selectPersona(persona)}
-                onEdit={() => setEditingPersona(persona)}
-                onDelete={() => handleDeletePersona(persona.id)}
-              />
-            ))}
-          </div>
+        {/* 人设列表 */}
+        <div className="flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="text-slate-500">加载中...</div>
+            </div>
+          ) : personas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-center">
+              <p className="text-slate-500 mb-1">还没有任何人设</p>
+              <p className="text-xs text-slate-600">点击右上角按钮添加</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {personas.map(persona => (
+                <PersonaCard
+                  key={persona.id}
+                  persona={persona}
+                  isSelected={selectedPersona?.id === persona.id}
+                  onSelect={() => selectPersona(persona)}
+                  onEdit={() => setEditingPersona(persona)}
+                  onDelete={() => handleDeletePersona(persona.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 添加人设弹窗 */}
+        {isAddModalOpen && (
+          <AddPersonaModal
+            onClose={() => setIsAddModalOpen(false)}
+            onAdd={handleAddPersona}
+          />
+        )}
+
+        {/* 编辑人设弹窗 */}
+        {editingPersona && (
+          <EditPersonaModal
+            persona={editingPersona}
+            onClose={() => setEditingPersona(null)}
+            onSave={(name, prompt) => handleEditPersona(editingPersona.id, name, prompt)}
+          />
         )}
       </div>
-
-      {/* 添加人设弹窗 */}
-      {isAddModalOpen && (
-        <AddPersonaModal
-          onClose={() => setIsAddModalOpen(false)}
-          onAdd={handleAddPersona}
-        />
-      )}
-
-      {/* 编辑人设弹窗 */}
-      {editingPersona && (
-        <EditPersonaModal
-          persona={editingPersona}
-          onClose={() => setEditingPersona(null)}
-          onSave={(name, prompt) => handleEditPersona(editingPersona.id, name, prompt)}
-        />
-      )}
-    </div>
+    </Tooltip.Provider>
   );
 }

@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { useToastMessages } from '@renderer/components/Toast';
 
 interface AddDirectionModalProps {
   /** 关闭弹窗回调 */
@@ -18,6 +19,7 @@ interface AddDirectionModalProps {
 export function AddDirectionModal({ onClose, onAdd }: AddDirectionModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const toast = useToastMessages();
 
   /**
    * 处理表单提交
@@ -25,7 +27,7 @@ export function AddDirectionModal({ onClose, onAdd }: AddDirectionModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert('请输入创意方向名称');
+      toast.warning('请输入创意方向名称');
       return;
     }
     onAdd(name.trim(), description.trim() || undefined);

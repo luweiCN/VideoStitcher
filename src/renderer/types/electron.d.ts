@@ -527,6 +527,7 @@ export interface ElectronAPI {
 
   asideGetCreativeDirections: (projectId: string) => Promise<{ success: boolean; directions: import('@shared/types/aside').CreativeDirection[]; error?: string }>;
   asideAddCreativeDirection: (data: { projectId: string; name: string; description?: string; iconName?: string }) => Promise<{ success: boolean; direction: import('@shared/types/aside').CreativeDirection; error?: string }>;
+  asideUpdateCreativeDirection: (directionId: string, data: { name?: string; description?: string; iconName?: string }) => Promise<{ success: boolean; error?: string }>;
   asideDeleteCreativeDirection: (directionId: string) => Promise<{ success: boolean; error?: string }>;
 
   asideGetPersonas: (projectId: string) => Promise<{ success: boolean; personas: import('@shared/types/aside').Persona[]; error?: string }>;
@@ -540,6 +541,31 @@ export interface ElectronAPI {
   asideGetLibraryScreenplays: (projectId: string) => Promise<{ success: boolean; screenplays: import('@shared/types/aside').Screenplay[]; error?: string }>;
   asideUpdateScreenplayContent: (screenplayId: string, content: string) => Promise<{ success: boolean; error?: string }>;
   asideRegenerateScreenplay: (screenplayId: string) => Promise<{ success: boolean; screenplay: import('@shared/types/aside').Screenplay; error?: string }>;
+
+  // === AI 模型 API ===
+  asideGetAIProviders: () => Promise<{
+    success: boolean;
+    providers?: Array<{
+      id: string;
+      name: string;
+      provider: string;
+      enabled: boolean;
+    }>;
+    error?: string;
+  }>;
+  getAIModels: (type: 'text' | 'image' | 'video') => Promise<{
+    success: boolean;
+    models?: Array<{
+      id: string;
+      name: string;
+      provider: string;
+      enabled: boolean;
+      description?: string;
+      pricing?: any;
+      limits?: any;
+    }>;
+    error?: string;
+  }>;
 }
   // === 导演模式 API ===
   asideGenerateCharacters: (screenplayId: string) => Promise<{ success: boolean; characters?: import('@shared/types/aside').Character[]; error?: string }>;

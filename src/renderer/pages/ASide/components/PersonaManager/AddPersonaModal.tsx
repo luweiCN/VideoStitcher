@@ -1,9 +1,10 @@
 /**
- * 添加人设弹窗组件
+ * 添加编剧弹窗组件
  */
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { useToastMessages } from '@renderer/components/Toast';
 
 interface AddPersonaModalProps {
   /** 关闭弹窗回调 */
@@ -13,11 +14,12 @@ interface AddPersonaModalProps {
 }
 
 /**
- * 添加人设弹窗组件
+ * 添加编剧弹窗组件
  */
 export function AddPersonaModal({ onClose, onAdd }: AddPersonaModalProps) {
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
+  const toast = useToastMessages();
 
   /**
    * 处理表单提交
@@ -25,7 +27,7 @@ export function AddPersonaModal({ onClose, onAdd }: AddPersonaModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !prompt.trim()) {
-      alert('请填写人设名称和提示词');
+      toast.warning('请填写编剧人设和编剧设定');
       return;
     }
     onAdd(name.trim(), prompt.trim());
@@ -36,7 +38,7 @@ export function AddPersonaModal({ onClose, onAdd }: AddPersonaModalProps) {
       <div className="w-full max-w-md bg-neutral-900 border border-slate-800 rounded-xl shadow-2xl">
         {/* 头部 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <h2 className="text-xl font-semibold">添加人设</h2>
+          <h2 className="text-xl font-semibold">添加编剧</h2>
           <button
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
@@ -50,7 +52,7 @@ export function AddPersonaModal({ onClose, onAdd }: AddPersonaModalProps) {
           {/* 名称 */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              人设名称 <span className="text-red-400">*</span>
+              编剧人设 <span className="text-red-400">*</span>
             </label>
             <input
               type="text"
@@ -65,7 +67,7 @@ export function AddPersonaModal({ onClose, onAdd }: AddPersonaModalProps) {
           {/* 提示词 */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              提示词 <span className="text-red-400">*</span>
+              编剧设定 <span className="text-red-400">*</span>
             </label>
             <textarea
               value={prompt}

@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import type { GameType } from '@shared/types/aside';
+import { useToastMessages } from '@renderer/components/Toast';
 
 interface CreateProjectModalProps {
   /** 关闭弹窗回调 */
@@ -22,6 +23,7 @@ export function CreateProjectModal({ onClose, onCreate }: CreateProjectModalProp
   const [gameType, setGameType] = useState<GameType>('麻将');
   const [sellingPoint, setSellingPoint] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const toast = useToastMessages();
 
   /**
    * 处理表单提交
@@ -29,12 +31,12 @@ export function CreateProjectModal({ onClose, onCreate }: CreateProjectModalProp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert('请输入项目名称');
+      toast.warning('请输入项目名称');
       return;
     }
     // 新增:卖点长度验证
     if (sellingPoint && sellingPoint.length > 200) {
-      alert('卖点不能超过200字符');
+      toast.warning('卖点不能超过200字符');
       return;
     }
     setIsLoading(true);

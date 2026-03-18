@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import type { Project, GameType } from '@shared/types/aside';
+import { useToastMessages } from '@renderer/components/Toast';
 
 interface EditProjectModalProps {
   /** 项目数据 */
@@ -24,6 +25,7 @@ export function EditProjectModal({ project, onClose, onUpdate }: EditProjectModa
   const [gameType, setGameType] = useState<GameType>(project.gameType);
   const [sellingPoint, setSellingPoint] = useState(project.sellingPoint || '');
   const [isLoading, setIsLoading] = useState(false);
+  const toast = useToastMessages();
 
   /**
    * 处理表单提交
@@ -32,12 +34,12 @@ export function EditProjectModal({ project, onClose, onUpdate }: EditProjectModa
     e.preventDefault();
 
     if (!name.trim()) {
-      alert('请输入项目名称');
+      toast.warning('请输入项目名称');
       return;
     }
 
     if (sellingPoint && sellingPoint.length > 200) {
-      alert('卖点不能超过200字符');
+      toast.warning('卖点不能超过200字符');
       return;
     }
 

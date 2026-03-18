@@ -7,12 +7,14 @@ import React, { useState } from 'react';
 import { Zap, Check, Play } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import type { AIModel } from '@shared/types/aside';
+import { useToastMessages } from '@renderer/components/Toast';
 
 /**
  * 视频工厂页面组件
  */
 export function VideoFactory() {
   const { libraryScripts, currentProject } = useASideStore();
+  const toast = useToastMessages();
 
   const [selectedScripts, setSelectedScripts] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<AIModel>('gemini');
@@ -45,7 +47,7 @@ export function VideoFactory() {
    */
   const handleGenerate = async () => {
     if (selectedScripts.length === 0) {
-      alert('请选择至少一个脚本');
+      toast.warning('请选择至少一个脚本');
       return;
     }
 
@@ -95,16 +97,17 @@ export function VideoFactory() {
       console.log('[VideoFactory] 批量生成完成', { successCount, failCount, results });
 
       if (failCount > 0) {
-        alert(
-          `生成完成：${successCount} 个成功，${failCount} 个失败\n` +
-          `失败原因：${results.filter(r => !r.success).map(r => r.error).join(', ')}`
+        toast.warning(
+          `生成完成：${successCount} 个成功，${failCount} 个失败`,
+          '部分任务失败',
+          5000
         );
       } else {
-        alert(`已成功开始生成 ${successCount} 个视频`);
+        toast.success(`已成功开始生成 ${successCount} 个视频`);
       }
     } catch (error) {
       console.error('[VideoFactory] 生成视频失败:', error);
-      alert(`生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast.error(`生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
     } finally {
       setIsGenerating(false);
     }

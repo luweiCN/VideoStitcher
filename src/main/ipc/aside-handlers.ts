@@ -490,6 +490,31 @@ async function handleDeleteProject(
   }
 }
 
+/**
+ * 更新项目
+ */
+async function handleUpdateProject(
+  _event: any,
+  projectId: string,
+  data: { name?: string; gameType?: GameType; sellingPoint?: string }
+): Promise<{ success: boolean; project?: any; error?: string }> {
+  logger.info('[项目管理处理器] 更新项目', { projectId, data });
+
+  try {
+    if (!projectId || projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    const project = asideProjectRepository.updateProject(projectId, data);
+    logger.info('[项目管理处理器] 项目更新成功', { projectId, name: project.name });
+    return { success: true, project };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[项目管理处理器] 更新项目失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
 // ==================== 创意方向处理器 ====================
 
 /**
@@ -564,6 +589,31 @@ async function handleDeleteCreativeDirection(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
     logger.error('[创意方向处理器] 删除创意方向失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 更新创意方向
+ */
+async function handleUpdateCreativeDirection(
+  _event: any,
+  directionId: string,
+  data: { name?: string; description?: string; iconName?: string }
+): Promise<{ success: boolean; error?: string }> {
+  logger.info('[创意方向处理器] 更新创意方向', { directionId, data });
+
+  try {
+    if (!directionId || directionId.trim() === '') {
+      return { success: false, error: '创意方向 ID 不能为空' };
+    }
+
+    asideCreativeDirectionRepository.updateCreativeDirection(directionId, data);
+    logger.info('[创意方向处理器] 创意方向更新成功', { directionId });
+    return { success: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[创意方向处理器] 更新创意方向失败', errorMessage);
     return { success: false, error: errorMessage };
   }
 }
@@ -852,6 +902,184 @@ async function handleRegenerateScreenplay(
   }
 }
 
+/**
+ * 获取 AI 提供商列表
+ * 返回当前配置的提供商和模型信息
+ */
+async function handleGetAIProviders(): Promise<{
+  success: boolean;
+  providers?: Array<{
+    id: string;
+    name: string;
+    provider: string;
+    enabled: boolean;
+  }>;
+  error?: string;
+}> {
+  try {
+    const { AIConfigManager } = await import('../ai/config/manager');
+    const configManager = new AIConfigManager();
+    const config = configManager.loadConfig();
+
+    // 构建提供商列表（只包含实际配置的提供商）
+    const providers: Array<{
+      id: string;
+      name: string;
+      provider: string;
+      enabled: boolean;
+    }> = [];
+
+    // 火山引擎
+    if (config.providers.volcengine && config.providers.volcengine.enabled) {
+      // 优先使用新的 models 配置格式
+      if (config.providers.volcengine.models?.text) {
+        // 从 models.text 数组中读取所有启用的文本模型
+        config.providers.volcengine.models.text.forEach((model) => {
+          if (model.enabled !== false) { // 默认为启用
+            providers.push({
+              id: model.id,
+              name: model.name,
+              provider: '火山引擎',
+              enabled: true,
+            });
+          }
+        });
+      } else if (config.providers.volcengine.model) {
+        // 向后兼容旧格式
+        providers.push({
+          id: 'doubao',
+          name: config.providers.volcengine.model,
+          provider: '火山引擎',
+          enabled: true,
+        });
+      } else {
+        // 默认模型
+        providers.push({
+          id: 'doubao-1-5-pro-32k-250115',
+          name: 'Doubao 1.5 Pro 32K',
+          provider: '火山引擎',
+          enabled: true,
+        });
+      }
+    }
+
+    // OpenAI（仅在配置时添加）
+    if (config.providers.openai && config.providers.openai.enabled) {
+      const modelName = config.providers.openai.model || 'GPT-4o';
+      providers.push({
+        id: 'openai',
+        name: modelName,
+        provider: 'OpenAI',
+        enabled: true,
+      });
+    }
+
+    logger.info('[AI 提供商] 获取提供商列表成功', { count: providers.length });
+    return { success: true, providers };
+  } catch (error: any) {
+    const errorMessage = error.message || '获取 AI 提供商列表失败';
+    logger.error('[AI 提供商] 获取提供商列表失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * 获取 AI 模型列表
+ * 按类型返回可用的 AI 模型
+ */
+async function handleGetAIModels(
+  _event: any,
+  type: 'text' | 'image' | 'video'
+): Promise<{
+  success: boolean;
+  models?: Array<{
+    id: string;
+    name: string;
+    provider: string;
+    enabled: boolean;
+    description?: string;
+    pricing?: any;
+    limits?: any;
+  }>;
+  error?: string;
+}> {
+  try {
+    const { AIConfigManager } = await import('../ai/config/manager');
+
+    // 确定配置文件路径
+    const isDev = !app.isPackaged;
+    let configPath: string;
+
+    if (isDev) {
+      // 开发环境：从项目根目录读取 config/ai-config.current.json
+      // __dirname 在开发环境是 out/main/
+      configPath = path.join(__dirname, '../../config/ai-config.current.json');
+      logger.info('[AI 模型] 开发环境，使用项目配置', { configPath });
+    } else {
+      // 生产环境：使用用户数据目录
+      configPath = undefined as any; // 让 AIConfigManager 使用默认路径
+      logger.info('[AI 模型] 生产环境，使用用户数据目录');
+    }
+
+    const configManager = new AIConfigManager(configPath);
+    const config = configManager.loadConfig();
+
+    logger.info('[AI 模型] 开始获取模型列表', {
+      type,
+      hasVolcengine: !!config.providers.volcengine,
+      volcengineEnabled: config.providers.volcengine?.enabled,
+      hasModels: !!config.providers.volcengine?.models,
+      modelsKeys: config.providers.volcengine?.models ? Object.keys(config.providers.volcengine.models) : [],
+    });
+
+    const models: Array<{
+      id: string;
+      name: string;
+      provider: string;
+      enabled: boolean;
+      description?: string;
+      pricing?: any;
+      limits?: any;
+    }> = [];
+
+    // 火山引擎模型
+    if (config.providers.volcengine?.enabled && config.providers.volcengine.models?.[type]) {
+      logger.info('[AI 模型] 找到火山引擎模型', {
+        type,
+        count: config.providers.volcengine.models[type].length
+      });
+
+      config.providers.volcengine.models[type].forEach((model) => {
+        if (model.enabled !== false) {
+          models.push({
+            id: model.id,
+            name: model.name,
+            provider: '火山引擎',
+            enabled: true,
+            description: model.description,
+            pricing: model.pricing,
+            limits: model.limits,
+          });
+        }
+      });
+    } else {
+      logger.warn('[AI 模型] 未找到火山引擎模型', {
+        type,
+        volcengineEnabled: config.providers.volcengine?.enabled,
+        hasModelsField: !!config.providers.volcengine?.models,
+        hasTypeField: !!config.providers.volcengine?.models?.[type],
+      });
+    }
+
+    logger.info(`[AI 模型] 获取 ${type} 模型列表成功`, { count: models.length });
+    return { success: true, models };
+  } catch (error: any) {
+    const errorMessage = error.message || `获取 AI ${type} 模型列表失败`;
+    logger.error(`[AI 模型] 获取 ${type} 模型列表失败`, errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
 // ==================== 注册处理器 ====================
 
 /**
@@ -883,11 +1111,13 @@ export function registerAsideHandlers(): void {
   // 项目管理
   ipcMain.handle('aside:getProjects', handleGetProjects);
   ipcMain.handle('aside:createProject', handleCreateProject);
+  ipcMain.handle('aside:updateProject', handleUpdateProject);
   ipcMain.handle('aside:deleteProject', handleDeleteProject);
 
   // 创意方向
   ipcMain.handle('aside:getCreativeDirections', handleGetCreativeDirections);
   ipcMain.handle('aside:addCreativeDirection', handleAddCreativeDirection);
+  ipcMain.handle('aside:updateCreativeDirection', handleUpdateCreativeDirection);
   ipcMain.handle('aside:deleteCreativeDirection', handleDeleteCreativeDirection);
 
   // 人设
@@ -903,6 +1133,12 @@ export function registerAsideHandlers(): void {
   ipcMain.handle('aside:getLibraryScreenplays', handleGetLibraryScreenplays);
   ipcMain.handle('aside:updateScreenplayContent', handleUpdateScreenplayContent);
   ipcMain.handle('aside:regenerateScreenplay', handleRegenerateScreenplay);
+
+  // AI 提供商
+  ipcMain.handle('aside:getAIProviders', handleGetAIProviders);
+
+  // AI 模型（按类型）
+  ipcMain.handle('getAIModels', handleGetAIModels);
 
   logger.info('[AI 处理器] IPC 处理器注册完成');
 }

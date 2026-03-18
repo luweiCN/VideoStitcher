@@ -6,9 +6,11 @@
 import { useState, useEffect } from 'react';
 import { Plus, LayoutGrid, List, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
+import { useConfirm } from '@renderer/hooks/useConfirm';
 import type { CreativeDirection } from '@shared/types/aside';
 import { DirectionCard } from './DirectionCard';
 import { AddDirectionModal } from './AddDirectionModal';
+import { EditDirectionModal } from './EditDirectionModal';
 import { ConveyorBelt } from './ConveyorBelt';
 import { StepLayout } from '../StepLayout';
 
@@ -18,6 +20,7 @@ import { StepLayout } from '../StepLayout';
 export function CreativeDirectionSelector() {
   const [directions, setDirections] = useState<CreativeDirection[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingDirection, setEditingDirection] = useState<CreativeDirection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
@@ -28,6 +31,8 @@ export function CreativeDirectionSelector() {
     setCurrentView,
     goToNextStep
   } = useASideStore();
+
+  const confirm = useConfirm();
 
   // 加载创意方向列表
   useEffect(() => {
@@ -82,9 +87,15 @@ export function CreativeDirectionSelector() {
    * 删除创意方向
    */
   const handleDeleteDirection = async (directionId: string) => {
-    if (!confirm('确定要删除此创意方向吗？')) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: '确认删除创意方向',
+      message: '确定要删除此创意方向吗？',
+      confirmText: '确认删除',
+      cancelText: '取消',
+      variant: 'danger',
+    });
+
+    if (!confirmed) return;
 
     try {
       const result = await window.api.asideDeleteCreativeDirection(directionId);
@@ -94,6 +105,33 @@ export function CreativeDirectionSelector() {
       }
     } catch (error) {
       console.error('[CreativeDirectionSelector] 删除创意方向失败:', error);
+    }
+  };
+
+  /**
+   * 编辑创意方向
+   */
+  const handleEditDirection = (direction: CreativeDirection) => {
+    setEditingDirection(direction);
+  };
+
+  /**
+   * 保存编辑的创意方向
+   */
+  const handleSaveDirection = async (directionId: string, name: string, description?: string, iconName?: string) => {
+    try {
+      const result = await window.api.asideUpdateCreativeDirection(directionId, {
+        name,
+        description,
+        iconName,
+      });
+      if (result.success) {
+        await loadDirections();
+        setEditingDirection(null);
+        console.log('[CreativeDirectionSelector] 编辑创意方向成功');
+      }
+    } catch (error) {
+      console.error('[CreativeDirectionSelector] 编辑创意方向失败:', error);
     }
   };
 
@@ -171,7 +209,7 @@ export function CreativeDirectionSelector() {
         className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
       >
         <Plus className="w-4 h-4" />
-        <span>添加方向</span>
+        <span>添加创意方向</span>
       </button>
     </div>
   );
@@ -203,6 +241,7 @@ export function CreativeDirectionSelector() {
             directions={directions}
             selectedId={selectedDirection?.id || null}
             onSelect={handleSelectDirection}
+            onEdit={handleEditDirection}
             onDelete={handleDeleteDirection}
           />
         ) : (
@@ -214,6 +253,7 @@ export function CreativeDirectionSelector() {
                 direction={direction}
                 isSelected={selectedDirection?.id === direction.id}
                 onSelect={() => handleSelectDirection(direction)}
+                onEdit={() => handleEditDirection(direction)}
                 onDelete={() => handleDeleteDirection(direction.id)}
               />
             ))}
@@ -226,6 +266,15 @@ export function CreativeDirectionSelector() {
         <AddDirectionModal
           onClose={() => setIsAddModalOpen(false)}
           onAdd={handleAddDirection}
+        />
+      )}
+
+      {/* 编辑创意方向弹窗 */}
+      {editingDirection && (
+        <EditDirectionModal
+          direction={editingDirection}
+          onClose={() => setEditingDirection(null)}
+          onSave={handleSaveDirection}
         />
       )}
     </StepLayout>

@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import type { Screenplay } from '@shared/types/aside';
+import { useToastMessages } from '@renderer/components/Toast';
 
 interface ScriptEditorProps {
   /** 剧本数据 */
@@ -20,13 +21,14 @@ interface ScriptEditorProps {
  */
 export function ScriptEditor({ screenplay, onClose, onSave }: ScriptEditorProps) {
   const [content, setContent] = useState(screenplay.content);
+  const toast = useToastMessages();
 
   /**
    * 处理保存
    */
   const handleSave = () => {
     if (!content.trim()) {
-      alert('剧本内容不能为空');
+      toast.warning('剧本内容不能为空');
       return;
     }
     onSave(content.trim());

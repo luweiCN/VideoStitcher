@@ -3,7 +3,7 @@
  * 显示单个项目的信息和操作按钮
  */
 
-import { Folder, Gamepad2, MapPin, Trash2, Clock } from 'lucide-react';
+import { Folder, Gamepad2, MapPin, Trash2, Clock, Edit2 } from 'lucide-react';
 import type { Project } from '@shared/types/aside';
 
 interface ProjectCardProps {
@@ -11,6 +11,8 @@ interface ProjectCardProps {
   project: Project;
   /** 进入项目回调 */
   onEnter: () => void;
+  /** 编辑项目回调 */
+  onEdit: () => void;
   /** 删除项目回调 */
   onDelete: () => void;
 }
@@ -18,7 +20,7 @@ interface ProjectCardProps {
 /**
  * 项目卡片组件
  */
-export function ProjectCard({ project, onEnter, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, onEnter, onEdit, onDelete }: ProjectCardProps) {
   /**
    * 格式化相对时间
    * 例如："2 天前"、"3 小时前"、"刚刚"
@@ -71,16 +73,28 @@ export function ProjectCard({ project, onEnter, onDelete }: ProjectCardProps) {
       <div className="mb-4">
         <div className="flex items-start justify-between mb-2">
           <Folder className="w-8 h-8 text-slate-600" />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-            title="删除项目"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              className="p-1.5 text-slate-600 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
+              title="编辑项目"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="p-1.5 text-slate-600 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+              title="删除项目"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <h3 className="text-lg font-semibold text-slate-100 mb-2">{project.name}</h3>

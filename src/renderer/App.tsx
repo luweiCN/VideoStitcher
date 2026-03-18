@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } 
 import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Link, Download, AlertCircle, Bell, Sparkles } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { ToastProvider } from './components/Toast';
+import { ConfirmDialogProvider } from './components/ConfirmDialog/ConfirmDialogProvider';
 import VideoMergeMode from './features/VideoMergeMode';
 import FileNameExtractorMode from './features/FileNameExtractorMode';
 import CoverFormatMode from './features/CoverFormatMode';
@@ -484,11 +485,13 @@ const App: React.FC = () => {
   return (
     <TaskCenterProvider>
       <ToastProvider>
-        <Tooltip.Provider>
-          <HashRouter>
-            <AppContent />
-          </HashRouter>
-        </Tooltip.Provider>
+        <ConfirmDialogProvider>
+          <Tooltip.Provider>
+            <HashRouter>
+              <AppContent />
+            </HashRouter>
+          </Tooltip.Provider>
+        </ConfirmDialogProvider>
       </ToastProvider>
     </TaskCenterProvider>
   );

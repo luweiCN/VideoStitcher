@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import ConcurrencySelector from '@/components/ConcurrencySelector';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
+import { useToastMessages } from '@renderer/components/Toast';
 
 interface AdminModeProps {
   initialUpdateInfo?: UpdateInfo | null;
@@ -57,6 +58,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
 }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const toast = useToastMessages();
   
   // 从 URL 读取当前标签
   const tabParam = searchParams.get('tab') as 'system' | 'settings' | 'updates' | 'database' | null;
@@ -401,12 +403,12 @@ const AdminMode: React.FC<AdminModeProps> = ({
       const result = await window.api.clearDbLogs();
       if (result.success) {
         await loadDbStats();
-        alert(`已清除 ${result.deletedCount} 条日志`);
+        toast.success(`已清除 ${result.deletedCount} 条日志`);
       } else {
-        alert('清除失败: ' + result.error);
+        toast.error('清除失败: ' + result.error);
       }
     } catch (err) {
-      alert('清除失败: ' + (err as Error).message);
+      toast.error('清除失败: ' + (err as Error).message);
     } finally {
       setDbLoading(false);
     }
@@ -420,12 +422,12 @@ const AdminMode: React.FC<AdminModeProps> = ({
       const result = await window.api.cleanupOldTasks(cleanupDays);
       if (result.success) {
         await loadDbStats();
-        alert(`已清理 ${result.deletedCount} 个任务`);
+        toast.success(`已清理 ${result.deletedCount} 个任务`);
       } else {
-        alert('清理失败: ' + result.error);
+        toast.error('清理失败: ' + result.error);
       }
     } catch (err) {
-      alert('清理失败: ' + (err as Error).message);
+      toast.error('清理失败: ' + (err as Error).message);
     } finally {
       setDbLoading(false);
     }
@@ -438,12 +440,12 @@ const AdminMode: React.FC<AdminModeProps> = ({
       const result = await window.api.createDbBackup('manual');
       if (result.success) {
         await loadDbBackups();
-        alert('备份成功: ' + result.path);
+        toast.success('备份成功', result.path);
       } else {
-        alert('备份失败: ' + result.error);
+        toast.error('备份失败: ' + result.error);
       }
     } catch (err) {
-      alert('备份失败: ' + (err as Error).message);
+      toast.error('备份失败: ' + (err as Error).message);
     } finally {
       setDbLoading(false);
     }
@@ -457,12 +459,12 @@ const AdminMode: React.FC<AdminModeProps> = ({
       const result = await window.api.restoreDbBackup(backupPath);
       if (result.success) {
         await loadDbStats();
-        alert('恢复成功');
+        toast.success('恢复成功');
       } else {
-        alert('恢复失败: ' + result.error);
+        toast.error('恢复失败: ' + result.error);
       }
     } catch (err) {
-      alert('恢复失败: ' + (err as Error).message);
+      toast.error('恢复失败: ' + (err as Error).message);
     } finally {
       setDbLoading(false);
     }
@@ -476,10 +478,10 @@ const AdminMode: React.FC<AdminModeProps> = ({
       if (result.success) {
         await loadDbBackups();
       } else {
-        alert('删除失败: ' + result.error);
+        toast.error('删除失败: ' + result.error);
       }
     } catch (err) {
-      alert('删除失败: ' + (err as Error).message);
+      toast.error('删除失败: ' + (err as Error).message);
     }
   };
 

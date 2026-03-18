@@ -4,25 +4,37 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Plus, Check, ChevronDown, MoreVertical } from 'lucide-react';
+import * as Select from '@radix-ui/react-select';
+import * as Popover from '@radix-ui/react-popover';
 import { useASideStore } from '@renderer/stores/asideStore';
-import type { Screenplay, AIModel } from '@shared/types/aside';
+import type { Screenplay, Persona } from '@shared/types/aside';
 import { ModelSelector } from './ModelSelector';
 import { ScriptCard } from './ScriptCard';
-import { PersonaManager } from '../PersonaManager';
+import { AddPersonaModal } from '../PersonaManager/AddPersonaModal';
+import { EditPersonaModal } from '../PersonaManager/EditPersonaModal';
 import { StepLayout } from '../StepLayout';
 import { ScreenplaySelector } from './ScreenplaySelector';
+import { useToastMessages } from '@renderer/components/Toast';
+import { useConfirm } from '@renderer/hooks/useConfirm';
 
 /**
  * 剧本生成器主组件
  */
 export function ScreenplayGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [addedScreenplayIds, setAddedScreenplayIds] = useState<Set<string>>(new Set()); // 跟踪已添加的剧本
-  const [activeTab, setActiveTab] = useState<'generated' | 'library'>('generated'); // 标签页状态
-  const [showSelector, setShowSelector] = useState(false); // 显示选择弹窗
-  const [selectorMode, setSelectorMode] = useState<'single' | 'multiple'>('single'); // 选择模式
-  const [showScreenplaySelector, setShowScreenplaySelector] = useState(false); // 剧本选择对话框
+  const [addedScreenplayIds, setAddedScreenplayIds] = useState<Set<string>>(new Set());
+  const [showScreenplaySelector, setShowScreenplaySelector] = useState(false);
+  const [selectorMode, setSelectorMode] = useState<'single' | 'multiple'>('single');
+
+  // 编剧管理状态
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [isLoadingPersonas, setIsLoadingPersonas] = useState(true);
+  const [isAddPersonaModalOpen, setIsAddPersonaModalOpen] = useState(false);
+  const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
+
+  // Toast 通知
+  const toast = useToastMessages();
 
   const {
     currentProject,
@@ -38,11 +50,111 @@ export function ScreenplayGenerator() {
     setGeneratedScripts,
     addGeneratedScript,
     removeGeneratedScript,
-    clearGeneratedScripts,
     setCurrentView,
     setLibraryScripts,
     selectScreenplay,
+    selectPersona,
   } = useASideStore();
+
+  // 加载编剧列表和待产库
+  useEffect(() => {
+    if (currentProject) {
+      loadPersonas();
+      loadLibraryScreenplays();
+    }
+  }, [currentProject]);
+
+  /**
+   * 加载编剧列表
+   */
+  const loadPersonas = async () => {
+    if (!currentProject) return;
+
+    try {
+      setIsLoadingPersonas(true);
+      const result = await window.api.asideGetPersonas(currentProject.id);
+      if (result.success && result.personas) {
+        setPersonas(result.personas);
+      }
+    } catch (error) {
+      console.error('[ScreenplayGenerator] 加载编剧列表失败:', error);
+    } finally {
+      setIsLoadingPersonas(false);
+    }
+  };
+
+  /**
+   * 加载待产库剧本
+   */
+  const loadLibraryScreenplays = async () => {
+    if (!currentProject) return;
+
+    try {
+      const result = await window.api.asideGetLibraryScreenplays(currentProject.id);
+      if (result.success && result.screenplays) {
+        setLibraryScripts(result.screenplays);
+      }
+    } catch (error) {
+      console.error('[ScreenplayGenerator] 加载待产库失败:', error);
+    }
+  };
+
+  /**
+   * 添加编剧
+   */
+  const handleAddPersona = async (name: string, prompt: string) => {
+    if (!currentProject) return;
+
+    try {
+      const result = await window.api.asideAddPersona({
+        projectId: currentProject.id,
+        name,
+        prompt,
+      });
+      if (result.success && result.persona) {
+        setPersonas([...personas, result.persona]);
+        setIsAddPersonaModalOpen(false);
+        console.log('[ScreenplayGenerator] 添加编剧成功:', result.persona.name);
+      }
+    } catch (error) {
+      console.error('[ScreenplayGenerator] 添加编剧失败:', error);
+    }
+  };
+
+  /**
+   * 编辑编剧
+   */
+  const handleEditPersona = async (personaId: string, name: string, prompt: string) => {
+    try {
+      const result = await window.api.asideUpdatePersona(personaId, { name, prompt });
+      if (result.success) {
+        await loadPersonas();
+        setEditingPersona(null);
+        console.log('[ScreenplayGenerator] 编辑编剧成功');
+      }
+    } catch (error) {
+      console.error('[ScreenplayGenerator] 编辑编剧失败:', error);
+    }
+  };
+
+  /**
+   * 删除编剧
+   */
+  const handleDeletePersona = async (personaId: string) => {
+    if (!confirm('确定要删除此编剧吗？')) {
+      return;
+    }
+
+    try {
+      const result = await window.api.asideDeletePersona(personaId);
+      if (result.success) {
+        setPersonas(personas.filter(p => p.id !== personaId));
+        console.log('[ScreenplayGenerator] 删除编剧成功');
+      }
+    } catch (error) {
+      console.error('[ScreenplayGenerator] 删除编剧失败:', error);
+    }
+  };
 
   /**
    * 返回 Step 2
@@ -56,7 +168,7 @@ export function ScreenplayGenerator() {
    */
   const handleOpenDirectorModeSelector = () => {
     if (libraryScripts.length === 0) {
-      alert('请先将剧本添加到待产库');
+      toast.warning('请先将剧本添加到待产库');
       return;
     }
     setSelectorMode('single');
@@ -68,7 +180,7 @@ export function ScreenplayGenerator() {
    */
   const handleOpenQuickComposeSelector = () => {
     if (libraryScripts.length === 0) {
-      alert('请先将剧本添加到待产库');
+      toast.warning('请先将剧本添加到待产库');
       return;
     }
     setSelectorMode('multiple');
@@ -96,27 +208,11 @@ export function ScreenplayGenerator() {
   };
 
   /**
-   * 加载待产库剧本
-   */
-  const loadLibraryScreenplays = async () => {
-    if (!currentProject) return;
-
-    try {
-      const result = await window.api.asideGetLibraryScreenplays(currentProject.id);
-      if (result.success && result.screenplays) {
-        setLibraryScripts(result.screenplays);
-      }
-    } catch (error) {
-      console.error('[ScreenplayGenerator] 加载待产库失败:', error);
-    }
-  };
-
-  /**
    * 生成剧本
    */
   const handleGenerate = async () => {
     if (!currentProject || !selectedDirection || !selectedPersona) {
-      alert('请先选择创意方向和人设');
+      toast.warning('请先选择创意方向和编剧');
       return;
     }
 
@@ -148,7 +244,7 @@ export function ScreenplayGenerator() {
       }
     } catch (error) {
       console.error('[ScriptGenerator] 生成剧本失败:', error);
-      alert(`生成剧本失败: ${(error as Error).message}`);
+      toast.error(`生成剧本失败: ${(error as Error).message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -184,13 +280,13 @@ export function ScreenplayGenerator() {
         await loadLibraryScreenplays();
 
         console.log('[ScreenplayGenerator] 已添加到待产库:', screenplay.id);
-        alert('已添加到待产库');
+        toast.success('已添加到待产库');
       } else {
         throw new Error(result.error || '添加失败');
       }
     } catch (error) {
       console.error('[ScriptGenerator] 添加到待产库失败:', error);
-      alert(`添加失败: ${(error as Error).message}`);
+      toast.error(`添加失败: ${(error as Error).message}`);
     }
   };
 
@@ -202,158 +298,263 @@ export function ScreenplayGenerator() {
     );
   }
 
+  // 头部左侧内容：步骤信息
+  const leftContent = (
+    <div>
+      <h1 className="text-2xl font-bold text-slate-100">生成剧本</h1>
+      <p className="text-sm text-slate-500 mt-1">Step 3 / 4</p>
+    </div>
+  );
+
+  // 头部右侧内容：空（移除添加编剧按钮）
+  const rightContent = null;
+
   return (
     <StepLayout
-      title="生成剧本"
       stepNumber={3}
-      totalSteps={3}
+      totalSteps={4}
+      showLibrary={false}
       onPrev={handleBack}
+      onNext={selectedPersona ? handleGenerate : undefined}
+      leftContent={leftContent}
+      rightContent={rightContent}
       nextButtons={
         <>
           <button
             onClick={handleOpenQuickComposeSelector}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
+            disabled={libraryScripts.length <= 4}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              libraryScripts.length > 4
+                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                : 'bg-slate-800/50 text-slate-500 cursor-not-allowed'
+            }`}
           >
             <span>⚡ 快速合成</span>
           </button>
           <button
             onClick={handleOpenDirectorModeSelector}
-            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-pink-600 to-violet-600 text-white rounded-lg hover:from-pink-700 hover:to-violet-700 transition-all"
+            disabled={libraryScripts.length === 0}
+            className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-all ${
+              libraryScripts.length > 0
+                ? 'bg-gradient-to-r from-pink-600 to-violet-600 text-white hover:from-pink-700 hover:to-violet-700'
+                : 'bg-gradient-to-r from-pink-600/50 to-violet-600/50 text-white/50 cursor-not-allowed'
+            }`}
           >
             <span>🎬 导演模式</span>
           </button>
         </>
       }
     >
-      <div className="h-full flex flex-col bg-black text-slate-100">
-        {/* 上半部分：控制区 + 人设管理 */}
-        <div className="flex gap-6 h-1/2 p-6 border-b border-slate-800">
-          {/* 左侧控制栏 - 窄栏 */}
-          <div className="w-48 flex flex-col gap-4">
-            <div>
-              <label className="text-sm text-slate-400 mb-1 block">AI 模型：</label>
+      <div className="h-full overflow-y-auto px-6 pt-6 pb-24">
+        {/* 编剧选择区域 - 通栏布局 */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm text-slate-400 font-medium">选择编剧</h3>
+            <button
+              onClick={() => setIsAddPersonaModalOpen(true)}
+              className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>添加编剧</span>
+            </button>
+          </div>
+
+          {isLoadingPersonas ? (
+            <div className="flex items-center justify-center h-24">
+              <div className="text-slate-500">加载中...</div>
+            </div>
+          ) : personas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-24 text-center border border-slate-800 rounded-lg">
+              <p className="text-slate-500 mb-1">还没有任何编剧</p>
+              <p className="text-xs text-slate-600">点击右上角按钮添加</p>
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {personas.map(persona => (
+                <div key={persona.id} className="relative flex-shrink-0">
+                  {/* 紧凑卡片 */}
+                  <button
+                    onClick={() => selectPersona(persona)}
+                    className={`
+                      w-64 p-4 rounded-lg border transition-all text-left
+                      ${selectedPersona?.id === persona.id
+                        ? 'border-violet-500 bg-violet-500/10'
+                        : 'border-slate-700/50 hover:bg-slate-800/50 hover:border-slate-600'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-slate-100">{persona.name}</span>
+                      {persona.isPreset && (
+                        <span className="px-2 py-0.5 bg-violet-600/20 text-violet-400 text-xs rounded">
+                          预设
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 line-clamp-1">
+                      {persona.prompt}
+                    </div>
+                  </button>
+
+                  {/* 详情按钮 */}
+                  <Popover.Root>
+                    <Popover.Trigger asChild>
+                      <button
+                        className="absolute top-2 right-2 p-1 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                    </Popover.Trigger>
+                    <Popover.Portal>
+                      <Popover.Content
+                        className="z-50 w-72 p-4 bg-slate-900 border border-slate-700 rounded-lg shadow-xl"
+                        side="bottom"
+                        align="end"
+                        sideOffset={8}
+                      >
+                        <div className="font-medium text-slate-100 mb-2">{persona.name}</div>
+                        <div className="text-sm text-slate-300 mb-3">{persona.prompt}</div>
+                        {!persona.isPreset && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingPersona(persona);
+                              }}
+                              className="text-xs px-2 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 transition-colors"
+                            >
+                              编辑
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePersona(persona.id);
+                              }}
+                              className="text-xs px-2 py-1 bg-slate-800 text-red-400 rounded hover:bg-slate-700 transition-colors"
+                            >
+                              删除
+                            </button>
+                          </div>
+                        )}
+                        <Popover.Arrow className="fill-slate-900" />
+                      </Popover.Content>
+                    </Popover.Portal>
+                  </Popover.Root>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 生成设置 */}
+        <div className="flex items-center justify-between pb-6 border-b border-slate-800 mb-6">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-400">AI 模型：</label>
               <ModelSelector
                 selectedModel={selectedModel}
                 onModelChange={setModel}
               />
             </div>
-            <div>
-              <label className="text-sm text-slate-400 mb-1 block">生成数量：</label>
-              <input
-                type="number"
-                value={scriptCount}
-                onChange={(e) => setScriptCount(Math.max(1, parseInt(e.target.value) || 1))}
-                min="1"
-                max="20"
-                className="w-full px-3 py-1.5 bg-black/50 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-slate-700"
-              />
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-slate-400">生成数量：</label>
+              <Select.Root
+                value={scriptCount.toString()}
+                onValueChange={(value) => setScriptCount(parseInt(value))}
+              >
+                <Select.Trigger className="inline-flex items-center justify-between gap-2 px-3 py-2 bg-black/50 border border-slate-800 rounded-lg text-slate-100 hover:border-slate-700 focus:outline-none focus:border-violet-500 w-[80px] h-9">
+                  <Select.Value />
+                  <Select.Icon>
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  </Select.Icon>
+                </Select.Trigger>
+
+                <Select.Portal>
+                  <Select.Content className="overflow-hidden bg-slate-900 border border-slate-800 rounded-lg shadow-xl">
+                    <Select.Viewport className="p-1">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                        <Select.Item
+                          key={num}
+                          value={num.toString()}
+                          className="flex items-center justify-between px-3 py-2 text-sm text-slate-300 rounded cursor-pointer hover:bg-slate-800 focus:outline-none focus:bg-violet-500/10 focus:text-violet-300"
+                        >
+                          <Select.ItemText>{num}</Select.ItemText>
+                          <Select.ItemIndicator>
+                            <Check className="w-4 h-4 text-violet-500" />
+                          </Select.ItemIndicator>
+                        </Select.Item>
+                      ))}
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
             </div>
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating || !selectedPersona}
-              className={`
-                flex items-center justify-center gap-2 w-full py-3 rounded-lg transition-all mt-2
-                ${
-                  isGenerating || !selectedPersona
-                    ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-pink-600 to-violet-600 text-white hover:opacity-90'
-                }
-              `}
-            >
-              <Sparkles className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
-              <span>{isGenerating ? '生成中...' : '✨ 生成剧本'}</span>
-            </button>
-            {!selectedPersona && (
-              <p className="text-xs text-slate-500 text-center">请先选择人设</p>
-            )}
           </div>
 
-          {/* 右侧人设管理 - 宽区 */}
-          <div className="flex-1 overflow-hidden">
-            <PersonaManager />
-          </div>
+          {/* 生成剧本按钮 - 更醒目 */}
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating || !selectedPersona}
+            className={`
+              flex items-center gap-2 px-8 py-3 rounded-lg transition-all text-base font-medium
+              ${
+                isGenerating || !selectedPersona
+                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-pink-600 to-violet-600 text-white hover:from-pink-700 hover:to-violet-700 shadow-lg shadow-violet-500/30'
+              }
+            `}
+          >
+            <Sparkles className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
+            <span>{isGenerating ? '生成中...' : '✨ 生成剧本'}</span>
+          </button>
         </div>
 
-        {/* 下半部分：剧本列表（标签页切换） */}
-        <div className="h-1/2 flex flex-col p-6">
-          {/* 标签页切换 */}
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => setActiveTab('generated')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                activeTab === 'generated'
-                  ? 'bg-violet-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-              }`}
-            >
-              生成的剧本 ({generatedScripts.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('library')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                activeTab === 'library'
-                  ? 'bg-violet-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-              }`}
-            >
-              待产库 ({libraryScripts.length})
-            </button>
-          </div>
-
-          {/* 标签页内容 */}
-          <div className="flex-1 overflow-y-auto">
-            {activeTab === 'generated' && (
-              <>
-                {generatedScripts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-64 text-center">
-                    <Sparkles className="w-16 h-16 text-slate-700 mb-4" />
-                    <p className="text-slate-500 mb-2">还没有生成任何剧本</p>
-                    <p className="text-sm text-slate-600">选择人设后点击左侧按钮生成剧本</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {generatedScripts.map((screenplay, index) => (
-                      <ScriptCard
-                        key={screenplay.id}
-                        screenplay={screenplay}
-                        index={index + 1}
-                        isAdded={addedScreenplayIds.has(screenplay.id)}
-                        onAddToLibrary={() => handleAddToLibrary(screenplay)}
-                        onDelete={() => removeGeneratedScript(screenplay.id)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-
-            {activeTab === 'library' && (
-              <>
-                {libraryScripts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-64 text-center">
-                    <Sparkles className="w-16 h-16 text-slate-700 mb-4" />
-                    <p className="text-slate-500 mb-2">待产库为空</p>
-                    <p className="text-sm text-slate-600">先生成剧本，然后添加到待产库</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {libraryScripts.map((screenplay, index) => (
-                      <ScriptCard
-                        key={screenplay.id}
-                        screenplay={screenplay}
-                        index={index + 1}
-                        isAdded={true}
-                        onAddToLibrary={() => {}}
-                        onDelete={() => {}}
-                      />
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+        {/* 生成的剧本列表 - 限制最大宽度并居中 */}
+        <div className="flex justify-center">
+          <div className="w-full max-w-6xl">
+            <div className="space-y-4">
+              {generatedScripts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-center">
+                  <Sparkles className="w-16 h-16 text-slate-700 mb-4" />
+                  <p className="text-slate-500 mb-2">还没有生成任何剧本</p>
+                  <p className="text-sm text-slate-600">选择编剧后点击上方按钮生成剧本</p>
+                </div>
+              ) : (
+                <>
+                  {generatedScripts.map((screenplay, index) => (
+                    <ScriptCard
+                      key={screenplay.id}
+                      screenplay={screenplay}
+                      index={index + 1}
+                      isAdded={addedScreenplayIds.has(screenplay.id)}
+                      onAddToLibrary={() => handleAddToLibrary(screenplay)}
+                      onDelete={() => removeGeneratedScript(screenplay.id)}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* 添加编剧弹窗 */}
+      {isAddPersonaModalOpen && (
+        <AddPersonaModal
+          onClose={() => setIsAddPersonaModalOpen(false)}
+          onAdd={handleAddPersona}
+        />
+      )}
+
+      {/* 编辑编剧弹窗 */}
+      {editingPersona && (
+        <EditPersonaModal
+          persona={editingPersona}
+          onClose={() => setEditingPersona(null)}
+          onSave={(name, prompt) => handleEditPersona(editingPersona.id, name, prompt)}
+        />
+      )}
 
       {/* 剧本选择弹窗 */}
       {showScreenplaySelector && (

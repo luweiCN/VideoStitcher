@@ -4,6 +4,7 @@
  */
 
 import type { ProviderType } from '../providers/interface';
+import type { ModelFeature } from '../types/model';
 
 /**
  * 提供商基础配置
@@ -20,6 +21,42 @@ export interface ProviderConfig {
 }
 
 /**
+ * 模型配置（在新配置格式中使用）
+ */
+export interface ModelConfig {
+  /** 模型 ID */
+  id: string;
+  /** 显示名称 */
+  name: string;
+  /** 输入类型 */
+  inputTypes: string[];
+  /** 输出类型 */
+  outputTypes: string[];
+  /** 能力特征 */
+  features: ModelFeature[];
+  /** 上下文窗口 */
+  contextWindow?: number;
+  /** 最大输出 tokens */
+  maxOutputTokens?: number;
+  /** 是否启用（默认 true） */
+  enabled?: boolean;
+}
+
+/**
+ * 供应商模型配置（在新配置格式中使用）
+ */
+export interface ProviderModelsConfig {
+  /** 文本模型列表 */
+  text?: ModelConfig[];
+  /** 图片模型列表 */
+  image?: ModelConfig[];
+  /** 语音模型列表 */
+  speech?: ModelConfig[];
+  /** 视频模型列表 */
+  video?: ModelConfig[];
+}
+
+/**
  * 癏山引擎配置
  */
 export interface VolcEngineConfig extends ProviderConfig {
@@ -31,6 +68,12 @@ export interface VolcEngineConfig extends ProviderConfig {
   speechModel?: string;
   /** 视频生成模型（可选） */
   videoModel?: string;
+
+  /**
+   * 模型配置（新格式，可选）
+   * 如果提供，将覆盖旧的单个 model 字段
+   */
+  models?: ProviderModelsConfig;
 }
 
 /**
@@ -39,6 +82,12 @@ export interface VolcEngineConfig extends ProviderConfig {
 export interface OpenAIConfig extends ProviderConfig {
   /** 组织 ID（可选） */
   organization?: string;
+
+  /**
+   * 模型配置（新格式，可选）
+   * 如果提供，将覆盖旧的单个 model 字段
+   */
+  models?: ProviderModelsConfig;
 }
 
 /**
@@ -49,6 +98,11 @@ export interface CustomConfig extends ProviderConfig {
   providerName: string;
   /** 自定义参数 */
   customParams?: Record<string, any>;
+
+  /**
+   * 模型配置（新格式，可选）
+   */
+  models?: ProviderModelsConfig;
 }
 
 /**

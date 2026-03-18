@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VideoStitcher AI Configuration",
+  "description": "AI 模型统一配置文件 - 支持多供应商、多模型、多能力",
+
+  "defaultProvider": "volcengine",
+
+  "providers": {
+    "volcengine": {
+      "enabled": true,
+      "apiKey": "${VOLCENGINE_API_KEY}",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+
+      "models": {
+        "text": [
+          {
+            "id": "doubao-1-5-pro-32k-250115",
+            "name": "Doubao 1.5 Pro 32K",
+            "inputTypes": ["text", "image"],
+            "outputTypes": ["text"],
+            "features": ["function_calling", "streaming"],
+            "contextWindow": 32768,
+            "maxOutputTokens": 32768
+          }
+        ],
+        "image": [
+          {
+            "id": "doubao-seedream-3-0-t2i-250428",
+            "name": "Doubao SeeDream 3.0",
+            "inputTypes": ["text"],
+            "outputTypes": ["image"],
+            "features": [],
+            "maxOutputTokens": 1
+          }
+        ]
+      }
+    },
+
+    "openai": {
+      "enabled": false,
+      "apiKey": "${OPENAI_API_KEY}",
+      "baseUrl": "https://api.openai.com/v1",
+
+      "models": {
+        "text": [
+          {
+            "id": "gpt-4o",
+            "name": "GPT-4o",
+            "inputTypes": ["text", "image", "audio"],
+            "outputTypes": ["text", "audio"],
+            "features": ["function_calling", "streaming", "vision"],
+            "contextWindow": 128000,
+            "maxOutputTokens": 4096
+          }
+        ],
+        "image": [
+          {
+            "id": "dall-e-3",
+            "name": "DALL-E 3",
+            "inputTypes": ["text"],
+            "outputTypes": ["image"],
+            "features": ["hd_quality", "revised_prompt"],
+            "maxOutputTokens": 1
+          }
+        ]
+      }
+    }
+  },
+
+  "features": {
+    "textGeneration": true,
+    "imageGeneration": true,
+    "speechSynthesis": false,
+    "videoGeneration": true
+  }
+}

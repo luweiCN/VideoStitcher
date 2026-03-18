@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VideoStitcher AI Configuration - 新格式示例",
+  "description": "展示新的模型配置格式",
+
+  "defaultProvider": "volcengine",
+
+  "providers": {
+    "volcengine": {
+      "enabled": true,
+      "apiKey": "${VOLCENGINE_API_KEY}",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+
+      "models": {
+        "text": [
+          {
+            "id": "doubao-1-5-pro-32k-250115",
+            "name": "Doubao 1.5 Pro 32K",
+            "inputTypes": ["text"],
+            "outputTypes": ["text"],
+            "features": ["function_calling", "streaming"],
+            "contextWindow": 32768,
+            "maxOutputTokens": 32768,
+            "enabled": true
+          },
+          {
+            "id": "doubao-1-5-pro-256k-250115",
+            "name": "Doubao 1.5 Pro 256K",
+            "inputTypes": ["text", "image"],
+            "outputTypes": ["text"],
+            "features": ["function_calling", "streaming", "vision"],
+            "contextWindow": 256000,
+            "maxOutputTokens": 4096,
+            "enabled": true
+          }
+        ],
+        "image": [
+          {
+            "id": "doubao-seedream-3-0-t2i-250428",
+            "name": "Doubao SeeDream 3.0",
+            "inputTypes": ["text"],
+            "outputTypes": ["image"],
+            "features": [],
+            "maxOutputTokens": 1,
+            "enabled": true
+          }
+        ]
+      },
+
+      "_comment": "以下字段是为了向后兼容保留的，如果提供了 models 字段，这些字段将被忽略",
+      "model": "doubao-1-5-pro-32k-250115",
+      "imageModel": "doubao-seedream-3-0-t2i-250428"
+    },
+
+    "openai": {
+      "enabled": false,
+      "apiKey": "${OPENAI_API_KEY}",
+      "baseUrl": "https://api.openai.com/v1",
+
+      "models": {
+        "text": [
+          {
+            "id": "gpt-4o",
+            "name": "GPT-4o",
+            "inputTypes": ["text", "image", "audio"],
+            "outputTypes": ["text", "audio"],
+            "features": ["function_calling", "streaming", "vision", "audio_input", "audio_output"],
+            "contextWindow": 128000,
+            "maxOutputTokens": 4096,
+            "enabled": true
+          }
+        ],
+        "image": [
+          {
+            "id": "dall-e-3",
+            "name": "DALL-E 3",
+            "inputTypes": ["text"],
+            "outputTypes": ["image"],
+            "features": ["hd_quality", "revised_prompt"],
+            "maxOutputTokens": 1,
+            "enabled": true
+          }
+        ]
+      },
+
+      "_comment": "向后兼容字段",
+      "model": "gpt-4o"
+    }
+  },
+
+  "features": {
+    "textGeneration": true,
+    "imageGeneration": true,
+    "speechSynthesis": false,
+    "videoGeneration": true
+  }
+}

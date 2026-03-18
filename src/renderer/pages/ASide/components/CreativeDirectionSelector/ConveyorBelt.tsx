@@ -12,6 +12,7 @@ interface ConveyorBeltProps {
   directions: CreativeDirection[];
   selectedId: string | null;
   onSelect: (direction: CreativeDirection) => void;
+  onEdit?: (direction: CreativeDirection) => void;
   onDelete: (directionId: string) => void;
 }
 
@@ -19,7 +20,7 @@ interface ConveyorBeltProps {
  * 传送带组件
  * 使用 react-fast-marquee 实现平滑的无限循环滚动
  */
-export function ConveyorBelt({ directions, selectedId, onSelect, onDelete }: ConveyorBeltProps) {
+export function ConveyorBelt({ directions, selectedId, onSelect, onEdit, onDelete }: ConveyorBeltProps) {
   return (
     <Marquee
       speed={30}
@@ -33,6 +34,7 @@ export function ConveyorBelt({ directions, selectedId, onSelect, onDelete }: Con
             direction={direction}
             isSelected={selectedId === direction.id}
             onSelect={() => onSelect(direction)}
+            onEdit={onEdit ? () => onEdit(direction) : undefined}
             onDelete={() => onDelete(direction.id)}
           />
         </div>

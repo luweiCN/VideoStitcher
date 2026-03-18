@@ -8,6 +8,7 @@ import { Film, Bot, User, Check, ArrowRight } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import { ChatPanel } from '../components/DirectorMode/ChatPanel';
 import { CanvasPanel } from '../components/DirectorMode/CanvasPanel';
+import { useToastMessages } from '@renderer/components/Toast';
 
 /**
  * Agent 定义
@@ -24,6 +25,7 @@ const AGENTS = [
  */
 export function DirectorMode() {
   const { currentProject, libraryScripts } = useASideStore();
+  const toast = useToastMessages();
 
   const [selectedScript, setSelectedScript] = useState<string | null>(null);
   const [currentAgent, setCurrentAgent] = useState(0);
@@ -123,7 +125,7 @@ export function DirectorMode() {
       console.log('[DirectorMode] Agent 工作完成');
     } catch (error) {
       console.error('[DirectorMode] Agent 工作失败:', error);
-      alert(`Agent 工作失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast.error(`Agent 工作失败: ${error instanceof Error ? error.message : '未知错误'}`);
     } finally {
       setIsAgentWorking(false);
     }
@@ -136,7 +138,7 @@ export function DirectorMode() {
     if (currentAgent < AGENTS.length - 1) {
       setCurrentAgent(currentAgent + 1);
     } else {
-      alert('视频生成完成！');
+      toast.success('视频生成完成！');
     }
   };
 
