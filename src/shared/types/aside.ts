@@ -43,8 +43,8 @@ export interface Project {
   /** 游戏类型（麻将、扑克、赛车） */
   gameType: GameType;
 
-  /** 区域（可选，用于地区化内容） */
-  region?: string;
+  /** 项目卖点（可选，最多200字符） */
+  sellingPoint?: string;
 
   /** 创建时间（ISO 8601 格式） */
   createdAt: string;
@@ -123,6 +123,9 @@ export interface Screenplay {
 
   /** 关联的人设 ID（可选） */
   personaId?: string;
+
+  /** 区域（可选，从项目表移过来） */
+  region?: string;
 
   /** 使用的 AI 模型（可选） */
   aiModel?: AIModel;
