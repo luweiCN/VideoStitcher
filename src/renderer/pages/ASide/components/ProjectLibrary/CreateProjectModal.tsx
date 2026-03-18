@@ -11,7 +11,7 @@ interface CreateProjectModalProps {
   /** 关闭弹窗回调 */
   onClose: () => void;
   /** 创建项目回调 */
-  onCreate: (name: string, gameType: GameType) => void;
+  onCreate: (name: string, gameType: GameType, sellingPoint?: string) => void;
 }
 
 /**
@@ -20,6 +20,7 @@ interface CreateProjectModalProps {
 export function CreateProjectModal({ onClose, onCreate }: CreateProjectModalProps) {
   const [name, setName] = useState('');
   const [gameType, setGameType] = useState<GameType>('麻将');
+  const [sellingPoint, setSellingPoint] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   /**
@@ -31,8 +32,13 @@ export function CreateProjectModal({ onClose, onCreate }: CreateProjectModalProp
       alert('请输入项目名称');
       return;
     }
+    // 新增:卖点长度验证
+    if (sellingPoint && sellingPoint.length > 200) {
+      alert('卖点不能超过200字符');
+      return;
+    }
     setIsLoading(true);
-    onCreate(name.trim(), gameType);
+    onCreate(name.trim(), gameType, sellingPoint.trim() || undefined);
   };
 
   return (
@@ -81,6 +87,26 @@ export function CreateProjectModal({ onClose, onCreate }: CreateProjectModalProp
               <option value="扑克">扑克</option>
               <option value="赛车">赛车</option>
             </select>
+          </div>
+
+          {/* 卖点 - 新增 */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              项目卖点 <span className="text-slate-500">(可选)</span>
+            </label>
+            <textarea
+              value={sellingPoint}
+              onChange={(e) => setSellingPoint(e.target.value)}
+              placeholder="描述项目的核心卖点,例如:快速上手、刺激有趣、画面精美..."
+              maxLength={200}
+              rows={3}
+              className="w-full px-3 py-2 bg-black/50 border border-slate-800 rounded-lg text-slate-100 placeholder-slate-600 focus:outline-none focus:border-slate-700 resize-none"
+            />
+            <div className="flex justify-end mt-1">
+              <span className="text-xs text-slate-500">
+                {sellingPoint.length}/200
+              </span>
+            </div>
           </div>
 
           {/* 按钮 */}
