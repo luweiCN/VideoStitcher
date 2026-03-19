@@ -37,7 +37,12 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
 
   // 调试:追踪 characters 变化
   useEffect(() => {
-    console.log('[DirectorMode] characters 更新:', characters?.length || 0, characters);
+    console.log('[DirectorMode] characters 更新:', {
+      count: characters?.length || 0,
+      characters: characters,
+      firstCharId: characters?.[0]?.id,
+      firstCharName: characters?.[0]?.name,
+    });
   }, [characters]);
 
   // 调试:追踪 storyboard 变化

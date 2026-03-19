@@ -44,8 +44,11 @@ function convertToCharacter(artDirectorOutput: any): any[] {
       `关键动作：${profile.key_actions?.join('、')}`,
     ].filter(Boolean).join('\n');
 
+    // 关键修复：优先使用 profile.id（来自 LangGraph），确保 ID 一致性
+    const characterId = profile.id || `char-${Date.now()}-${index}`;
+
     const character = {
-      id: profile.id || `char-${Date.now()}-${index}`,
+      id: characterId,
       name: profile.name,
       description, // 完整描述文本
       // 保留结构化字段供前端使用
@@ -58,12 +61,16 @@ function convertToCharacter(artDirectorOutput: any): any[] {
       imageUrl: undefined, // 暂时没有真实图片，后续选角导演会生成
     };
 
-    console.log(`[DirectorMode] 转换角色 ${index + 1}:`, character);
+    console.log(`[DirectorMode] 转换角色 ${index + 1}:`, {
+      id: characterId,
+      hasProfileId: !!profile.id,
+      name: profile.name,
+    });
 
     return character;
   });
 
-  console.log('[DirectorMode] convertToCharacter 输出数据:', result);
+  console.log('[DirectorMode] convertToCharacter 输出数据:', result.map(c => ({ id: c.id, name: c.name })));
   return result;
 }
 
@@ -190,6 +197,7 @@ export function registerDirectorModeHandlers() {
       // 调试：打印每个角色的完整数据
       profiles.forEach((profile, i) => {
         console.log(`[DirectorMode] 角色 ${i + 1}:`, {
+          id: profile.id,
           name: profile.name,
           role_type: profile.role_type,
           hasAppearance: !!profile.appearance,
@@ -199,16 +207,19 @@ export function registerDirectorModeHandlers() {
       // 更新缓存
       workflowStates.set(screenplayId, result.state);
 
+      // 关键修复：只调用一次 convertToCharacter，避免 ID 不一致
+      const convertedCharacters = convertToCharacter(artDirectorOutput);
+
       // 发送角色生成完成事件
       event.sender.send('aside:workflow:characters', {
         screenplayId,
-        characters: convertToCharacter(artDirectorOutput),
+        characters: convertedCharacters,
         message: '我为本剧本设计了如下的角色和场景，您看是否需要修改',
       });
 
       return {
         success: true,
-        characters: convertToCharacter(artDirectorOutput),
+        characters: convertedCharacters,
       };
     } catch (error) {
       console.error('[DirectorMode] 生成角色失败:', error);
