@@ -96,14 +96,59 @@ function convertToStoryboard(frames: any[] | undefined): Storyboard {
  */
 export function registerDirectorModeHandlers() {
   // ===== 生成角色 =====
-  ipcMain.handle('aside:generate-characters', async (_event, screenplayId: string) => {
+  ipcMain.handle('aside:generate-characters', async (_event, screenplayId: string, videoSpec?: { duration: 'short' | 'long'; aspectRatio: '16:9' | '9:16' }) => {
     console.log('[DirectorMode] 生成角色，剧本 ID:', screenplayId);
 
     try {
       // 从缓存获取工作流状态
-      const state = workflowStates.get(screenplayId);
+      let state = workflowStates.get(screenplayId);
+
+      // 如果工作流不存在，自动初始化
       if (!state) {
-        throw new Error('工作流状态不存在');
+        console.log('[DirectorMode] 工作流不存在，自动初始化');
+
+        // 从数据库获取剧本信息
+        const { AsideScreenplayRepository } = await import('@main/database/repositories/asideScreenplayRepository');
+        const screenplayRepo = new AsideScreenplayRepository();
+        const screenplay = screenplayRepo.getScreenplayById(screenplayId);
+        if (!screenplay) {
+          throw new Error(`剧本不存在: ${screenplayId}`);
+        }
+
+        console.log('[DirectorMode] 已加载剧本:', screenplay.title);
+
+        // 使用默认视频规格（如果没有提供）
+        const defaultVideoSpec = videoSpec || { duration: 'short', aspectRatio: '9:16' };
+
+        // 强制重置工作流图实例
+        const { resetVideoProductionGraph } = await import('@main/ai/workflows/graph');
+        resetVideoProductionGraph();
+
+        // 从数据库加载项目信息
+        const { AsideProjectRepository } = await import('@main/database/repositories/asideProjectRepository');
+        const projectRepo = new AsideProjectRepository();
+        const project = projectRepo.getProjectById(screenplay.projectId);
+        if (!project) {
+          throw new Error(`项目不存在: ${screenplay.projectId}`);
+        }
+
+        // 创建工作流执行选项
+        const options: any = {
+          executionMode: 'director',
+          videoSpec: defaultVideoSpec,
+          projectId: screenplay.projectId,
+          project: project,
+        };
+
+        // 启动工作流
+        const startResult = await startWorkflow(screenplay.content, options);
+        if (!startResult.success || !startResult.state) {
+          throw new Error(startResult.error || '初始化工作流失败');
+        }
+
+        state = startResult.state;
+        workflowStates.set(screenplayId, state);
+        console.log('[DirectorMode] 工作流已自动初始化');
       }
 
       // 确保步骤 1 已完成
