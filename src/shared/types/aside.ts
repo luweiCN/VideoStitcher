@@ -177,6 +177,25 @@ export interface Character {
 
   /** 角色图片 URL（AI 生成或用户上传） */
   imageUrl?: string;
+
+  // 结构化字段（从艺术总监 Agent 生成）
+  /** 角色类型：主角、反派、配角 */
+  role_type?: 'protagonist' | 'antagonist' | 'supporting';
+
+  /** 外貌描述 */
+  appearance?: string;
+
+  /** 服装描述 */
+  costume?: string;
+
+  /** 性格特征列表 */
+  personality_traits?: string[];
+
+  /** 关键动作列表 */
+  key_actions?: string[];
+
+  /** 图片生成提示词 */
+  image_generation_prompt?: string;
 }
 
 /**

@@ -242,11 +242,18 @@ export function useDirectorMode(screenplayId: string) {
 
   // 更新角色列表（用于工作流事件）
   const updateCharacters = useCallback((characters: Character[]) => {
-    console.log('[useDirectorMode] 更新角色列表:', characters.length);
-    setState((prev) => ({
-      ...prev,
-      characters,
-    }));
+    console.log('[useDirectorMode] 更新角色列表:', characters.length, characters);
+    setState((prev) => {
+      const newState = {
+        ...prev,
+        characters,
+      };
+      console.log('[useDirectorMode] 新状态:', {
+        oldCharactersCount: prev.characters.length,
+        newCharactersCount: newState.characters.length,
+      });
+      return newState;
+    });
   }, []);
 
   // 更新分镜图（用于工作流事件）

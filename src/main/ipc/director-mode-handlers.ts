@@ -19,7 +19,7 @@ const workflowStates = new Map<string, WorkflowState>();
 /**
  * 将工作流角色转换为前端 Character 类型
  */
-function convertToCharacter(artDirectorOutput: any): Character[] {
+function convertToCharacter(artDirectorOutput: any): any[] {
   if (!artDirectorOutput || !artDirectorOutput.character_profiles) {
     console.warn('[DirectorMode] 角色数据为空或格式错误');
     return [];
@@ -35,20 +35,26 @@ function convertToCharacter(artDirectorOutput: any): Character[] {
   console.log('[DirectorMode] convertToCharacter 输入数据:', profiles);
 
   const result = profiles.map((profile, index) => {
-    // 合并所有描述信息
+    // 保留所有结构化字段，同时生成 description 作为完整描述
     const description = [
       `【${profile.role_type === 'protagonist' ? '主角' : profile.role_type === 'antagonist' ? '反派' : '配角'}】`,
       `外貌：${profile.appearance}`,
       `服装：${profile.costume}`,
       `性格：${profile.personality_traits?.join('、')}`,
       `关键动作：${profile.key_actions?.join('、')}`,
-      `图片生成提示词：${profile.image_generation_prompt}`, // 添加提示词信息
     ].filter(Boolean).join('\n');
 
     const character = {
       id: profile.id || `char-${Date.now()}-${index}`,
       name: profile.name,
-      description,
+      description, // 完整描述文本
+      // 保留结构化字段供前端使用
+      role_type: profile.role_type,
+      appearance: profile.appearance,
+      costume: profile.costume,
+      personality_traits: profile.personality_traits,
+      key_actions: profile.key_actions,
+      image_generation_prompt: profile.image_generation_prompt,
       imageUrl: undefined, // 暂时没有真实图片，后续选角导演会生成
     };
 
