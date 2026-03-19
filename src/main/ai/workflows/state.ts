@@ -2,11 +2,11 @@
  * LangGraph 工作流状态定义
  *
  * 定义 AI 视频生成工作流的状态结构,
- * 用于 4 个 Agent 节点之间的数据共享和流程控制
+ * 用于 5 个 Agent 节点之间的数据共享和流程控制
  */
 
 import type { BaseMessage } from '@langchain/core/messages';
-import type { Script, CreativeDirection, Persona } from '@shared/types/aside';
+import type { Script, CreativeDirection, Persona, Project } from '@shared/types/aside';
 
 // ==================== 工作流配置类型 ====================
 
@@ -123,22 +123,25 @@ export interface WorkflowState {
   /** 视频规格 */
   videoSpec: VideoSpec;
 
-  // ===== Agent 输出 =====
+  // ===== Agent 输出（5 个步骤）=====
 
-  /** Agent 1: 脚本编写输出 */
-  step1_script?: StepOutput<Script>;
+  /** Agent 1: 剧本写作输出 */
+  step1_script?: StepOutput<any>;
 
-  /** Agent 2: 选角导演输出 */
-  step2_characters?: StepOutput<CharacterCard[]>;
+  /** Agent 2: 艺术总监输出（角色和场景） */
+  step2_characters?: StepOutput<any>;
 
-  /** Agent 3: 分镜师输出 */
-  step3_storyboard?: StepOutput<StoryboardFrame[]>;
+  /** Agent 3: 选角导演输出（人物图像提示词） */
+  step3_storyboard?: StepOutput<any>;
 
-  /** Agent 4: 摄像导演输出 */
-  step4_video?: StepOutput<VideoOutput>;
+  /** Agent 4: 分镜师输出 */
+  step4_video?: StepOutput<any>;
+
+  /** Agent 5: 摄像师输出（视频合成计划） */
+  step5_final?: StepOutput<any>;
 
   // ===== 控制状态 =====
-  /** 当前步骤（1-4） */
+  /** 当前步骤（1-5） */
   currentStep: number;
   /** 是否需要人工确认（导演模式） */
   humanApproval: boolean;
@@ -146,21 +149,37 @@ export interface WorkflowState {
   userModifications: {
     /** 步骤 1 是否被修改 */
     step1_modified?: boolean;
+    /** 步骤 1 修改内容（可选） */
+    step1_payload?: unknown;
     /** 步骤 2 是否被修改 */
     step2_modified?: boolean;
+    /** 步骤 2 修改内容（可选） */
+    step2_payload?: unknown;
     /** 步骤 3 是否被修改 */
     step3_modified?: boolean;
+    /** 步骤 3 修改内容（可选） */
+    step3_payload?: unknown;
     /** 步骤 4 是否被修改 */
     step4_modified?: boolean;
+    /** 步骤 4 修改内容（可选） */
+    step4_payload?: unknown;
+    /** 步骤 5 是否被修改 */
+    step5_modified?: boolean;
+    /** 步骤 5 修改内容（可选） */
+    step5_payload?: unknown;
   };
   /** 是否需要重新生成当前步骤 */
   needsRegeneration: boolean;
 
   // ===== 上下文信息 =====
-  /** 创意方向（可选） */
+  /** 项目信息 */
+  project?: Project;
+  /** 创意方向 */
   creativeDirection?: CreativeDirection;
-  /** 人设（可选） */
+  /** 人设 */
   persona?: Persona;
+  /** 目标地区 */
+  region?: string;
 
   // ===== 消息历史 =====
   /** LangChain 消息历史（用于 LLM 上下文） */
@@ -200,27 +219,33 @@ export interface WorkflowStep {
 export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
   {
     id: 1,
-    name: 'script',
-    label: '脚本编写',
-    description: '根据创意方向完善脚本内容',
+    name: 'screenplay',
+    label: '剧本写作',
+    description: '根据项目、创意方向、人设和地区生成剧本',
   },
   {
     id: 2,
-    name: 'characters',
-    label: '选角导演',
-    description: '生成人物卡片和概念图',
+    name: 'art_director',
+    label: '艺术总监',
+    description: '提炼剧本精华、创作角色和场景',
   },
   {
     id: 3,
-    name: 'storyboard',
-    label: '分镜设计',
-    description: '设计视频分镜和场景',
+    name: 'casting_director',
+    label: '选角导演',
+    description: '为角色生成人物图像提示词',
   },
   {
     id: 4,
-    name: 'video',
-    label: '视频生成',
-    description: '合成最终视频',
+    name: 'storyboard_artist',
+    label: '分镜设计',
+    description: '根据人物图和剧本生成分镜图',
+  },
+  {
+    id: 5,
+    name: 'cinematographer',
+    label: '摄像师',
+    description: '生成视频合成计划',
   },
 ] as const;
 
@@ -228,6 +253,28 @@ export const WORKFLOW_STEPS: readonly WorkflowStep[] = [
  * 工作流总步骤数
  */
 export const TOTAL_STEPS = WORKFLOW_STEPS.length;
+
+/**
+ * 规范化当前步骤，防止步骤越界
+ *
+ * @param currentStep 当前步骤
+ * @returns 规范化后的步骤编号
+ */
+export function normalizeCurrentStep(currentStep: number): number {
+  if (!Number.isFinite(currentStep)) {
+    return 1;
+  }
+
+  const normalizedStep = Math.floor(currentStep);
+
+  if (normalizedStep < 1) {
+    return 1;
+  }
+  if (normalizedStep > TOTAL_STEPS) {
+    return TOTAL_STEPS;
+  }
+  return normalizedStep;
+}
 
 // ==================== 工具函数 ====================
 
@@ -246,10 +293,14 @@ export function createInitialWorkflowState(params: {
   executionMode?: ExecutionMode;
   /** 视频规格（可选） */
   videoSpec?: VideoSpec;
+  /** 项目信息（可选） */
+  project?: Project;
   /** 创意方向（可选） */
   creativeDirection?: CreativeDirection;
   /** 人设（可选） */
   persona?: Persona;
+  /** 地区（可选） */
+  region?: string;
 }): WorkflowState {
   return {
     // 输入参数
@@ -264,20 +315,32 @@ export function createInitialWorkflowState(params: {
     },
 
     // Agent 输出（初始为空）
-    step1_script: undefined,
+    // 导演模式下，剧本已在外部生成，需要包装成 StepOutput
+    step1_script: params.executionMode === 'director' ? {
+      content: params.scriptContent, // 剧本内容（字符串）
+      metadata: {
+        timestamp: Date.now(),
+        duration: 0,
+        model: 'external',
+        tokens: 0,
+      },
+    } : undefined,
     step2_characters: undefined,
     step3_storyboard: undefined,
     step4_video: undefined,
+    step5_final: undefined,
 
     // 控制状态
-    currentStep: 1,
-    humanApproval: false, // 初始未批准，Agent 执行后根据模式决定是否暂停
+    currentStep: params.executionMode === 'director' ? 2 : 1, // 导演模式从步骤2开始
+    humanApproval: params.executionMode === 'director' ? false : true, // 导演模式需要确认，快速生成自动执行
     userModifications: {},
     needsRegeneration: false,
 
     // 上下文信息
+    project: params.project,
     creativeDirection: params.creativeDirection,
     persona: params.persona,
+    region: params.region,
 
     // 消息历史
     messages: [],
@@ -342,6 +405,7 @@ export function validateWorkflowState(state: WorkflowState): boolean {
   // 验证当前步骤
   if (
     typeof state.currentStep !== 'number' ||
+    !Number.isInteger(state.currentStep) ||
     state.currentStep < 1 ||
     state.currentStep > TOTAL_STEPS
   ) {
@@ -392,6 +456,8 @@ export function isStepCompleted(
       return state.step3_storyboard !== undefined;
     case 4:
       return state.step4_video !== undefined;
+    case 5:
+      return state.step5_final !== undefined;
     default:
       return false;
   }

@@ -193,9 +193,9 @@ export function CanvasPanel({
               添加角色
             </button>
           </div>
-        ) : (
+        ) : activeTab === 'storyboard' ? (
           // 分镜图
-          storyboard && (
+          storyboard ? (
             <div>
               {/* 分镜网格 */}
               <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-4">
@@ -252,7 +252,7 @@ export function CanvasPanel({
                 </div>
               </div>
             </div>
-          )
+          ) : null
         ) : activeTab === 'videos' ? (
           // 视频片段
           <div className="grid grid-cols-2 gap-4">
@@ -281,7 +281,7 @@ export function CanvasPanel({
               </div>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -42,13 +42,14 @@ function convertToCharacter(artDirectorOutput: any): Character[] {
       `服装：${profile.costume}`,
       `性格：${profile.personality_traits?.join('、')}`,
       `关键动作：${profile.key_actions?.join('、')}`,
+      `图片生成提示词：${profile.image_generation_prompt}`, // 添加提示词信息
     ].filter(Boolean).join('\n');
 
     const character = {
       id: profile.id || `char-${Date.now()}-${index}`,
       name: profile.name,
       description,
-      imageUrl: profile.image_generation_prompt, // 暂时用提示词，后续选角导演会生成真实图片
+      imageUrl: undefined, // 暂时没有真实图片，后续选角导演会生成
     };
 
     console.log(`[DirectorMode] 转换角色 ${index + 1}:`, character);
@@ -128,9 +129,6 @@ export function registerDirectorModeHandlers() {
           executionMode: 'director',
           videoSpec: defaultVideoSpec,
         });
-
-        // 标记步骤1已完成（剧本写作是独立的，已在外部完成）
-        initialState.step1_script = screenplay.content;
 
         console.log('[DirectorMode] 工作流已初始化，跳过步骤1（剧本写作已独立完成）');
         console.log('[DirectorMode] 当前步骤1状态:', !!initialState.step1_script);
@@ -407,7 +405,7 @@ export function registerDirectorModeHandlers() {
       // 执行步骤 4: 摄像导演
       const result = await regenerateStep(state, 4);
 
-      if (!result.success || !result.state?.step4_video) {
+      if (!result.success || !result.state?.step5_final) {
         throw new Error(result.error || '视频合成失败');
       }
 
@@ -416,7 +414,7 @@ export function registerDirectorModeHandlers() {
 
       return {
         success: true,
-        videoUrl: result.state.step4_video.content.videoUrl,
+        videoUrl: result.state.step5_final.content.videoUrl,
       };
     } catch (error) {
       console.error('[DirectorMode] 合成视频失败:', error);
@@ -512,40 +510,28 @@ export function registerDirectorModeHandlers() {
         }
       }
 
-      const options: WorkflowExecutionOptions = {
+      // 创建初始工作流状态（不执行任何 agent）
+      const { createInitialWorkflowState } = await import('@main/ai/workflows/state');
+      const initialState = createInitialWorkflowState({
+        scriptContent: data.scriptContent,
+        projectId: data.projectId,
         executionMode: 'director',
         videoSpec: data.videoSpec,
-        projectId: data.projectId,
-        project: project, // 传递完整的项目信息
-        creativeDirection: creativeDirection, // 传递完整的创意方向
-        persona: persona, // 传递完整的人设
-        region: data.region, // 传递地区
-        creativeDirectionId: data.creativeDirectionId,
-        personaId: data.personaId,
-      };
+        project: project,
+        creativeDirection: creativeDirection,
+        persona: persona,
+        region: data.region,
+      });
 
-      const result = await startWorkflow(data.scriptContent, options);
+      // 缓存工作流状态（不执行，等用户点击"生成角色"时才执行）
+      workflowStates.set(data.screenplayId, initialState);
 
-      if (!result.success || !result.state) {
-        throw new Error(result.error || '初始化工作流失败');
-      }
-
-      // 如果加载了创意方向和人设，添加到状态中
-      if (creativeDirection) {
-        result.state.creativeDirection = creativeDirection;
-      }
-      if (persona) {
-        result.state.persona = persona;
-      }
-
-      // 缓存工作流状态
-      workflowStates.set(data.screenplayId, result.state);
-
-      console.log('[DirectorMode] 工作流已缓存，当前缓存数量:', workflowStates.size);
+      console.log('[DirectorMode] 工作流已初始化（未执行），等待用户点击"生成角色"');
+      console.log('[DirectorMode] 当前缓存数量:', workflowStates.size);
 
       return {
         success: true,
-        state: result.state,
+        state: initialState,
       };
     } catch (error) {
       console.error('[DirectorMode] 初始化工作流失败:', error);

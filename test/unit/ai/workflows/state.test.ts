@@ -14,6 +14,7 @@ import {
   clearError,
   setError,
   incrementRetryCount,
+  normalizeCurrentStep,
   WORKFLOW_STEPS,
   TOTAL_STEPS,
 } from '../../../../src/main/ai/workflows/state';
@@ -33,7 +34,7 @@ describe('工作流状态定义', () => {
       expect(state.videoSpec.duration).toBe('short');
       expect(state.videoSpec.aspectRatio).toBe('16:9');
       expect(state.currentStep).toBe(1);
-      expect(state.humanApproval).toBe(false);
+      expect(state.humanApproval).toBe(true);
       expect(state.needsRegeneration).toBe(false);
       expect(state.messages).toEqual([]);
       expect(state.step1_script).toBeUndefined();
@@ -50,7 +51,7 @@ describe('工作流状态定义', () => {
       });
 
       expect(state.executionMode).toBe('director');
-      expect(state.humanApproval).toBe(true);
+      expect(state.humanApproval).toBe(false);
     });
 
     it('应该使用自定义视频规格创建状态', () => {
@@ -133,13 +134,49 @@ describe('工作流状态定义', () => {
       expect(validateWorkflowState(state)).toBe(false);
     });
 
-    it('应该拒绝无效的当前步骤', () => {
+    it('完成态 currentStep 等于 TOTAL_STEPS 时应视为有效', () => {
       const state = {
         ...createInitialWorkflowState({
           scriptContent: '测试',
           projectId: 'test-id',
         }),
-        currentStep: 10,
+        currentStep: TOTAL_STEPS,
+      };
+
+      expect(validateWorkflowState(state)).toBe(true);
+    });
+
+    it('currentStep 为 NaN 时应判定为无效', () => {
+      const state = {
+        ...createInitialWorkflowState({
+          scriptContent: '测试',
+          projectId: 'test-id',
+        }),
+        currentStep: Number.NaN,
+      };
+
+      expect(validateWorkflowState(state)).toBe(false);
+    });
+
+    it('currentStep 为小数时应判定为无效', () => {
+      const state = {
+        ...createInitialWorkflowState({
+          scriptContent: '测试',
+          projectId: 'test-id',
+        }),
+        currentStep: 2.5,
+      };
+
+      expect(validateWorkflowState(state)).toBe(false);
+    });
+
+    it('超过 TOTAL_STEPS 的 currentStep 应判定为无效', () => {
+      const state = {
+        ...createInitialWorkflowState({
+          scriptContent: '测试',
+          projectId: 'test-id',
+        }),
+        currentStep: TOTAL_STEPS + 1,
       };
 
       expect(validateWorkflowState(state)).toBe(false);
@@ -156,8 +193,8 @@ describe('工作流状态定义', () => {
       const step = getCurrentStep(state);
 
       expect(step.id).toBe(1);
-      expect(step.name).toBe('script');
-      expect(step.label).toBe('脚本编写');
+      expect(step.name).toBe('screenplay');
+      expect(step.label).toBe('剧本写作');
     });
 
     it('应该为不同步骤返回正确信息', () => {
@@ -170,8 +207,8 @@ describe('工作流状态定义', () => {
       const step = getCurrentStep(updatedState);
 
       expect(step.id).toBe(3);
-      expect(step.name).toBe('storyboard');
-      expect(step.label).toBe('分镜设计');
+      expect(step.name).toBe('casting_director');
+      expect(step.label).toBe('选角导演');
     });
   });
 
@@ -281,17 +318,46 @@ describe('工作流状态定义', () => {
     });
   });
 
+  describe('normalizeCurrentStep', () => {
+    it('非法数值应回退到 1（NaN/Infinity）', () => {
+      expect(normalizeCurrentStep(Number.NaN)).toBe(1);
+      expect(normalizeCurrentStep(Number.POSITIVE_INFINITY)).toBe(1);
+      expect(normalizeCurrentStep(Number.NEGATIVE_INFINITY)).toBe(1);
+    });
+
+    it('小数步骤应截断为整数步骤再做边界限制', () => {
+      expect(normalizeCurrentStep(2.9)).toBe(2);
+      expect(normalizeCurrentStep(TOTAL_STEPS + 0.8)).toBe(TOTAL_STEPS);
+      expect(normalizeCurrentStep(0.7)).toBe(1);
+    });
+
+    it('不应让步骤编号超过 TOTAL_STEPS', () => {
+      expect(normalizeCurrentStep(TOTAL_STEPS + 1)).toBe(TOTAL_STEPS);
+      expect(normalizeCurrentStep(TOTAL_STEPS + 10)).toBe(TOTAL_STEPS);
+    });
+
+    it('不应让步骤编号小于 1', () => {
+      expect(normalizeCurrentStep(0)).toBe(1);
+      expect(normalizeCurrentStep(-3)).toBe(1);
+    });
+
+    it('边界内步骤应保持不变', () => {
+      expect(normalizeCurrentStep(1)).toBe(1);
+      expect(normalizeCurrentStep(TOTAL_STEPS)).toBe(TOTAL_STEPS);
+    });
+  });
+
   describe('工作流步骤常量', () => {
-    it('应该定义 4 个步骤', () => {
-      expect(TOTAL_STEPS).toBe(4);
-      expect(WORKFLOW_STEPS.length).toBe(4);
+    it('应该定义 5 个步骤', () => {
+      expect(TOTAL_STEPS).toBe(5);
+      expect(WORKFLOW_STEPS.length).toBe(5);
     });
 
     it('步骤应该有正确的结构', () => {
       const firstStep = WORKFLOW_STEPS[0];
 
       expect(firstStep.id).toBe(1);
-      expect(firstStep.name).toBe('script');
+      expect(firstStep.name).toBe('screenplay');
       expect(firstStep.label).toBeDefined();
       expect(firstStep.description).toBeDefined();
     });

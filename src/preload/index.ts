@@ -587,7 +587,7 @@ export interface ElectronAPI {
     personaId?: string;
   }) => Promise<{
     success: boolean;
-    state?: any;
+    state?: unknown;
     error?: string;
   }>;
 }

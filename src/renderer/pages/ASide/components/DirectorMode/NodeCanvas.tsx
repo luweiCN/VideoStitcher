@@ -5,6 +5,7 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { FileText, UserCircle, Film, Play, RefreshCcw, Pencil, Check, X, MousePointer2, Hand } from 'lucide-react';
+import { ScreenplayCard } from '../ScreenplayGenerator/ScreenplayCard';
 
 // 节点类型
 export type NodeType = 'script' | 'character' | 'storyboard' | 'video';
@@ -401,9 +402,9 @@ export function NodeCanvas({
                 </div>
               </div>
             ) : (
-              <p className="text-sm font-medium leading-relaxed min-h-[60px]">
-                {node.data.text}
-              </p>
+              <div className="min-h-[60px]">
+                <ScreenplayCard content={node.data.text || ''} showFull />
+              </div>
             )}
           </>
         )}

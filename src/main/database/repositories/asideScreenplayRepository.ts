@@ -21,11 +21,42 @@ interface ScreenplayRow {
   persona_id: string | null;
   ai_model: string | null;
   status: string;
+  region: string | null;
   created_at: number;
 }
 
 export class AsideScreenplayRepository {
   // ==================== 查询 ====================
+
+  /**
+   * 根据 ID 获取剧本
+   * @param screenplayId 剧本 ID
+   * @returns 剧本对象，如果不存在则返回 undefined
+   */
+  getScreenplayById(screenplayId: string): Screenplay | undefined {
+    // 参数验证
+    if (!screenplayId || screenplayId.trim() === '') {
+      throw new Error('剧本 ID 不能为空');
+    }
+
+    try {
+      const db = getDatabase();
+      const row = db.prepare(`
+        SELECT id, project_id, content, creative_direction_id, persona_id, ai_model, status, created_at
+        FROM aside_screenplays
+        WHERE id = ?
+      `).get(screenplayId) as ScreenplayRow | undefined;
+
+      if (!row) {
+        return undefined;
+      }
+
+      return this.mapRowToScreenplay(row);
+    } catch (error) {
+      console.error('[AsideScreenplayRepository] 查询剧本失败:', error);
+      throw error;
+    }
+  }
 
   /**
    * 获取待产库中的所有剧本
@@ -69,6 +100,7 @@ export class AsideScreenplayRepository {
     personaId: string;
     aiModel: string;
     count: number;
+    region?: string;
   }): Promise<Screenplay[]> {
     // 参数验证
     if (!data.projectId || data.projectId.trim() === '') {
@@ -94,6 +126,24 @@ export class AsideScreenplayRepository {
     try {
       const db = getDatabase();
 
+      // 获取项目信息
+      const projectRow = db.prepare(`
+        SELECT id, name, game_type, selling_point
+        FROM aside_projects
+        WHERE id = ?
+      `).get(data.projectId) as { id: string; name: string; game_type: string; selling_point: string | null };
+
+      if (!projectRow) {
+        throw new Error(`项目不存在：ID ${data.projectId}`);
+      }
+
+      const project = {
+        id: projectRow.id,
+        name: projectRow.name,
+        gameType: projectRow.game_type,
+        sellingPoint: projectRow.selling_point || undefined,
+      };
+
       // 获取创意方向和人设信息
       const creativeDirection = asideCreativeDirectionRepository.getCreativeDirections(data.projectId)
         .find(cd => cd.id === data.creativeDirectionId);
@@ -112,17 +162,27 @@ export class AsideScreenplayRepository {
       // 获取 AI 提供商
       const provider = getGlobalProvider();
       const screenplays: Screenplay[] = [];
+      const region = data.region || 'universal';
 
       console.log(`[AsideScreenplayRepository] 开始使用 AI 生成 ${data.count} 个剧本`);
+      console.log(`[AsideScreenplayRepository] 项目: ${project.name}, 地区: ${region}`);
+
+      // 动态导入提示词构建器
+      const { ScreenplayAgentPrompts } = await import('../../ai/prompts/screenplay-agent');
 
       // 使用 for 循环生成指定数量的剧本
       for (let i = 0; i < data.count; i++) {
         const id = uuidv4();
         const now = Date.now();
 
-        // 构建 AI 提示词
-        const systemPrompt = this.buildScreenplaySystemPrompt(creativeDirection, persona);
-        const userPrompt = this.buildScreenplayUserPrompt(i + 1);
+        // 使用新的提示词构建器
+        const systemPrompt = ScreenplayAgentPrompts.buildSystemPrompt(
+          project,
+          creativeDirection,
+          persona,
+          region
+        );
+        const userPrompt = ScreenplayAgentPrompts.buildUserPrompt(i + 1, data.count);
 
         console.log(`[AsideScreenplayRepository] 生成第 ${i + 1}/${data.count} 个剧本...`);
 
@@ -137,8 +197,8 @@ export class AsideScreenplayRepository {
 
         // 插入数据库
         const insertStatement = db.prepare(`
-          INSERT INTO aside_screenplays (id, project_id, content, creative_direction_id, persona_id, ai_model, status, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO aside_screenplays (id, project_id, content, creative_direction_id, persona_id, ai_model, status, region, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
         insertStatement.run(
@@ -149,12 +209,13 @@ export class AsideScreenplayRepository {
           data.personaId,
           data.aiModel,
           'draft',
+          region,
           now
         );
 
         // 查询并添加到返回数组
         const row = db.prepare(`
-          SELECT id, project_id, content, creative_direction_id, persona_id, ai_model, status, created_at
+          SELECT id, project_id, content, creative_direction_id, persona_id, ai_model, status, region, created_at
           FROM aside_screenplays
           WHERE id = ?
         `).get(id) as ScreenplayRow;
@@ -466,46 +527,6 @@ export class AsideScreenplayRepository {
    * @param row 数据库行
    * @returns 脚本对象
    */
-  /**
-   * 构建剧本生成的系统提示词
-   */
-  private buildScreenplaySystemPrompt(
-    creativeDirection: { name: string; description?: string },
-    persona: { name: string; prompt: string }
-  ): string {
-    return `你是一位专业的视频剧本编写专家。
-
-角色设定：
-- 你是"${persona.name}"：${persona.prompt}
-
-创意方向：
-- 方向：${creativeDirection.name}
-- 描述：${creativeDirection.description || '无'}
-
-任务：
-根据以上信息生成一个短视频剧本，要求：
-1. 符合角色设定和创意方向
-2. 适合视频制作（包含场景描述、动作、对白）
-3. 时长控制在 15-30 秒
-4. 内容简洁有力，有吸引力
-
-输出格式：
-直接输出剧本内容，不要添加额外的说明或格式标记。`;
-  }
-
-  /**
-   * 构建剧本生成的用户提示词
-   */
-  private buildScreenplayUserPrompt(index: number): string {
-    return `请生成第 ${index} 个短视频剧本。
-
-要求：
-1. 时长：15-30 秒
-2. 画幅比例：9:16（竖屏）
-3. 包含清晰的场景描述、角色动作和对话
-4. 内容要有戏剧性和吸引力`;
-  }
-
   private mapRowToScreenplay(row: ScreenplayRow): Screenplay {
     return {
       id: row.id,
@@ -513,6 +534,7 @@ export class AsideScreenplayRepository {
       content: row.content,
       creativeDirectionId: row.creative_direction_id || undefined,
       personaId: row.persona_id || undefined,
+      region: row.region || undefined,
       aiModel: (row.ai_model as AIModel) || undefined,
       status: row.status as ScreenplayStatus,
       createdAt: new Date(row.created_at).toISOString(),

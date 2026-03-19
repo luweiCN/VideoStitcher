@@ -9,6 +9,7 @@ import { useASideStore } from '@renderer/stores/asideStore';
 import { ChatPanel } from '../components/DirectorMode/ChatPanel';
 import { CanvasPanel } from '../components/DirectorMode/CanvasPanel';
 import { useToastMessages } from '@renderer/components/Toast';
+import { ScreenplayCard } from '../components/ScreenplayGenerator/ScreenplayCard';
 
 /**
  * Agent 定义
@@ -189,7 +190,7 @@ export function DirectorMode() {
                     `}
                   >
                     <div className="text-xs text-slate-500 mb-1">#{index + 1}</div>
-                    <div className="text-sm text-slate-300 line-clamp-2">{script.content}</div>
+                    <ScreenplayCard content={script.content} />
                   </button>
                 ))}
               </div>

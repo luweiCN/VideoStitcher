@@ -738,6 +738,7 @@ async function handleGenerateScreenplays(
     personaId: string;
     aiModel: AIModel;
     count: number;
+    region?: string;
   }
 ): Promise<{ success: boolean; screenplays: any[]; error?: string }> {
   logger.info('[剧本处理器] 生成剧本', data);

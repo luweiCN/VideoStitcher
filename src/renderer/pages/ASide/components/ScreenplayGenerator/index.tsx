@@ -234,6 +234,7 @@ export function ScreenplayGenerator() {
         personaId: selectedPersona.id,
         aiModel: selectedModel,
         count: scriptCount,
+        region: selectedRegion,
       });
 
       if (result.success && result.screenplays) {

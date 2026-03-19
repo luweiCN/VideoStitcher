@@ -98,20 +98,36 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
     duration: null,
     aspectRatio: null,
   });
-  const [confirmedCharacters, setConfirmedCharacters] = useState<Set<string>>(new Set()); // 已确认的角色 ID
+  const confirmedCharactersRef = useRef<Set<string>>(new Set()); // 已确认的角色 ID
+  const confirmedCharacterLocksRef = useRef<Set<string>>(new Set()); // 防止角色重复确认
+  const storyboardTransitionTriggeredRef = useRef(false); // 防止重复进入分镜流程
+  const finalComposeInFlightRef = useRef(false); // 防止最终拼接重复触发
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const directorMode = useDirectorMode(screenplayId);
 
-  // 自动滚动到最新消息
+  // 剧本切换时重置会话状态
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    setMessages([]);
+    setCurrentStep('art-director');
+    setInputValue('');
+    setIsProcessing(false);
+    setHasCastingDirectorJoined(false);
+    setHasStoryboardArtistJoined(false);
+    setHasCameraDirectorJoined(false);
+    setRespondedMessages(new Set());
+    setSelectedOptions(new Map());
+    setVideoSpec({ duration: null, aspectRatio: null });
+
+    confirmedCharacterLocksRef.current = new Set();
+    confirmedCharactersRef.current = new Set();
+    storyboardTransitionTriggeredRef.current = false;
+    finalComposeInFlightRef.current = false;
+  }, [screenplayId]);
 
   // 添加初始 Agent 消息
   useEffect(() => {
-    // 延迟后显示艺术总监的欢迎消息
-    setTimeout(() => {
+    const welcomeTimer = setTimeout(() => {
       addAgentMessageWithDelay(
         'art-director',
         '您好！我是您的AI艺术总监。您的剧本已同步至右侧画板，您可以随时双击修改。在正式分发任务前，请确认项目的基础规格：',
@@ -122,7 +138,11 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
         ]
       );
     }, 800);
-  }, []);
+
+    return () => {
+      clearTimeout(welcomeTimer);
+    };
+  }, [screenplayId]);
 
   // 延迟函数
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -139,144 +159,44 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
       try {
         await delay(1500);
         // 调用 API 生成角色（艺术总监 Agent）
-        const result = await directorMode.generateCharacters();
+        const characters = await directorMode.generateCharacters();
 
-        if (result && result.length > 0) {
-          // 角色创作成功
+        if (characters && characters.length > 0) {
+          // 角色创作成功，发送详细的文本描述
+          const characterDescriptions = characters.map((c, i) => {
+            const lines = [
+              `**角色 ${i + 1}：${c.name}**`,
+              '',
+              c.description.split('\n').map(line => `  ${line}`).join('\n'),
+            ];
+            return lines.join('\n');
+          }).join('\n\n');
+
           addAgentMessageWithDelay(
             'art-director',
-            `我已经为该剧本创作了 ${result.length} 个角色：${result.map(c => c.name).join('、')}。接下来请选角导演为我们的剧本选择角色并生成形象。`,
+            `我为本剧本设计了如下的角色和场景：\n\n${characterDescriptions}\n\n接下来请选角导演为角色生成形象图片。`,
             1500
           );
 
           setIsProcessing(false);
+          setCurrentStep('casting-director');
 
-          // ===== 艺术总监邀请选角导演 =====
-          await delay(1500);
-
-          if (!hasCastingDirectorJoined) {
-            const systemMessage: Message = {
-              id: `system-casting-join`,
-              agentId: 'system',
-              type: 'text',
-              content: '艺术总监邀请选角导演加入群聊',
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, systemMessage]);
-            setHasCastingDirectorJoined(true);
-          }
-
-          await delay(800);
-
-          // ===== 选角导演生成人物形象 =====
-          addAgentMessageWithDelay('casting-director', '收到！开始为每个角色生成形象...', 1200);
-
-          setIsProcessing(true);
+          // ===== 系统消息：等待用户操作 =====
           await delay(1000);
 
-          // TODO: 调用选角导演 API 生成人物形象
-          // 目前先用占位符，后续需要实现流式返回
-          for (let i = 0; i < result.length; i++) {
-            const character = result[i];
-            const isProtagonist = i === 0; // 第一个角色默认为主角
-
-            // 发送角色形象消息（带 loading 图片占位符）
-            const characterMessageId = `${Date.now()}-char-${i}`;
-            const characterMessage: Message = {
-              id: characterMessageId,
-              agentId: 'casting-director',
-              type: 'character',
-              content: isProtagonist ? '主角' : '配角',
-              characterData: {
-                name: character.name,
-                description: character.description,
-                imageUrl: character.imageUrl,
-                isImageLoading: !character.imageUrl, // 如果没有图片，显示 loading
-              },
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, characterMessage]);
-
-            await delay(800);
-          }
-
-          setIsProcessing(false);
-
-          // 进入下一步：分镜师
-          await delay(1500);
-
-          // 添加系统消息：选角导演邀请分镜师加入群聊
-          if (!hasStoryboardArtistJoined) {
-            const systemMessage: Message = {
-              id: `system-storyboard-join`,
-              agentId: 'system',
-              type: 'text',
-              content: '选角导演邀请分镜师加入群聊',
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, systemMessage]);
-            setHasStoryboardArtistJoined(true);
-          }
-
-          await delay(500);
-          addAgentMessageWithDelay('storyboard-artist', '角色已就位。现在开始生成分镜图...', 1200);
-          setCurrentStep('storyboard-artist');
-          setIsProcessing(true);
-
-          await delay(3000);
-          await directorMode.generateStoryboard();
-          addAgentMessageWithDelay('storyboard-artist', '✅ 分镜图生成完成！请查看右侧画板。', 1500);
-          setIsProcessing(false);
-
-          // 进入最后一步：摄像导演
-          await delay(1000);
-
-          // 添加系统消息：分镜师邀请摄像导演加入群聊
-          if (!hasCameraDirectorJoined) {
-            const systemMessage: Message = {
-              id: `system-camera-join`,
-              agentId: 'system',
-              type: 'text',
-              content: '分镜师邀请摄像导演加入群聊',
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, systemMessage]);
-            setHasCameraDirectorJoined(true);
-          }
-
-          await delay(500);
-          addAgentMessageWithDelay('camera-director', '分镜图已确认。现在开始生成分镜视频...', 1200);
-          setCurrentStep('camera-director');
-          setIsProcessing(true);
-
-          await delay(3000);
-          addAgentMessageWithDelay('camera-director', '✅ 所有分镜视频已生成！', 1500);
-
-          await delay(1500);
-          addAgentMessageWithDelay('camera-director', '可以合成最终视频了。', 1000, [
-            { label: '✓ 确认并合成', value: 'compose' },
-          ]);
-          setIsProcessing(false);
+          const systemMessage: Message = {
+            id: `system-await-casting`,
+            agentId: 'system',
+            type: 'text',
+            content: '艺术总监邀请选角导演加入群聊',
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, systemMessage]);
         } else {
           throw new Error('未能生成任何角色');
         }
       } catch (error) {
-        addAgentMessageWithDelay('casting-director', `❌ 生成失败: ${(error as Error).message}`, 500);
-        setIsProcessing(false);
-      }
-    } else {
-      // 上传参考图模式（保留原逻辑）
-      addAgentMessageWithDelay('casting-director', '正在根据参考图生成角色...', 1200);
-
-      try {
-        await delay(2000);
-        await directorMode.generateCharacters();
-        addAgentMessageWithDelay('casting-director', '✅ 角色生成完成！请查看右侧画板。', 1500);
-        setIsProcessing(false);
-
-        // 后续流程同上...
-      } catch (error) {
-        addAgentMessageWithDelay('casting-director', `❌ 生成失败: ${(error as Error).message}`, 500);
+        addAgentMessageWithDelay('art-director', `❌ 创作失败: ${(error as Error).message}`, 500);
         setIsProcessing(false);
       }
     }
@@ -316,6 +236,23 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
         )
       );
     }, delay);
+  };
+
+  // 添加 Agent 消息（无延迟，直接添加）
+  const addAgentMessage = (
+    agentId: string,
+    content: string,
+    options?: { label: string; value: string }[]
+  ) => {
+    const message: Message = {
+      id: `${Date.now()}-${agentId}`,
+      agentId,
+      type: options ? 'options' : 'text',
+      content,
+      options,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, message]);
   };
 
   // 处理用户选择选项
@@ -367,35 +304,40 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
           1200
         );
 
-        // 进入创作状态
-        setCurrentStep('art-director-creating');
-        setIsProcessing(true);
-
-        // 发送 typing 消息
-        const typingMessage: Message = {
-          id: `typing-${Date.now()}`,
-          agentId: 'art-director',
-          type: 'typing',
-          content: '正在创作角色和场景...',
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, typingMessage]);
-
-        // 调用后台 API 创作角色
+        // 等待消息显示完成后再延迟1秒，然后进入创作状态
         setTimeout(async () => {
-          try {
-            await delay(2000);
-            const result = await directorMode.generateCharacters();
+          // 延迟1秒
+          await delay(1000);
+
+          // 进入创作状态
+          setCurrentStep('art-director-creating');
+          setIsProcessing(true);
+
+          // 发送 typing 消息
+          const typingMessage: Message = {
+            id: `typing-${Date.now()}`,
+            agentId: 'art-director',
+            type: 'typing',
+            content: '正在创作角色和场景...',
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, typingMessage]);
+
+          // 调用后台 API 创作角色
+          setTimeout(async () => {
+            try {
+              await delay(2000);
+              const characters = await directorMode.generateCharacters();
 
             // 移除 typing 消息
             setMessages((prev) => prev.filter(m => m.type !== 'typing'));
 
-            if (result && result.length > 0) {
-              const characterNames = result.map(c => c.name).join('、');
+            if (characters && characters.length > 0) {
+              const characterNames = characters.map(c => c.name).join('、');
 
               addAgentMessage(
                 'art-director',
-                `创作完成！我为您创作了以下角色：\n\n${result.map((c, i) =>
+                `创作完成！我为您创作了以下角色：\n\n${characters.map((c, i) =>
                   `${i + 1}. ${c.name}（${c.description.split('\n')[0]}）`
                 ).join('\n')}\n\n场景设定基于您的剧本，您看是否需要修改`,
                 [
@@ -412,6 +354,7 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
             setIsProcessing(false);
           }
         }, 2000);
+      });
       }
     } else if (currentStep === 'art-director-confirm') {
       if (value === 'regenerate') {
@@ -440,11 +383,12 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
             setMessages((prev) => prev.filter(m => m.type !== 'typing'));
 
             if (result && result.length > 0) {
-              addAgentMessage(
+              addAgentMessageWithDelay(
                 'art-director',
                 `重新创作完成！我为您创作了以下角色：\n\n${result.map((c, i) =>
                   `${i + 1}. ${c.name}（${c.description.split('\n')[0]}）`
                 ).join('\n')}\n\n场景设定基于您的剧本，您看是否需要修改`,
+                1500,
                 [
                   { label: '重新生成', value: 'regenerate' },
                   { label: '无需修改', value: 'confirm' },
@@ -526,7 +470,7 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
           setIsProcessing(true);
 
           // 获取角色列表
-          const characters = directorMode.state.characters;
+          const characters = directorMode.characters;
 
           // 逐个生成人物形象
           for (let i = 0; i < characters.length; i++) {
@@ -592,7 +536,7 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
       // 处理角色形象确认
       if (value.startsWith('regenerate-')) {
         const index = parseInt(value.split('-')[1]);
-        const character = directorMode.state.characters[index];
+        const character = directorMode.characters[index];
 
         addAgentMessage('user', `请重新生成 ${character.name} 的形象`);
 
@@ -651,13 +595,23 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
         }, 2000);
       } else if (value.startsWith('confirm-')) {
         const index = parseInt(value.split('-')[1]);
-        const character = directorMode.state.characters[index];
+        const character = directorMode.characters[index];
 
-        setConfirmedCharacters(prev => new Set(prev).add(character.id));
+        if (confirmedCharacterLocksRef.current.has(character.id)) {
+          return;
+        }
+
+        confirmedCharacterLocksRef.current.add(character.id);
+        confirmedCharactersRef.current.add(character.id);
         addAgentMessage('user', `确认 ${character.name} 的形象`);
 
         // 检查是否全部确认
-        if (confirmedCharacters.size + 1 === directorMode.state.characters.length) {
+        if (confirmedCharacterLocksRef.current.size === directorMode.characters.length) {
+          if (storyboardTransitionTriggeredRef.current) {
+            return;
+          }
+          storyboardTransitionTriggeredRef.current = true;
+
           addAgentMessageWithDelay(
             'casting-director',
             '太好了！所有演员形象已确认。接下来需要分镜师为我们绘制分镜。',
@@ -804,7 +758,7 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
             // 调用 API 生成视频
             setTimeout(async () => {
               try {
-                await directorMode.generateVideo();
+                await directorMode.composeVideo();
 
                 // 移除 typing 消息
                 setMessages((prev) => prev.filter(m => m.id !== 'typing-camera'));
@@ -845,7 +799,7 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
 
         setTimeout(async () => {
           try {
-            await directorMode.generateVideo();
+            await directorMode.composeVideo();
 
             setMessages((prev) => prev.filter(m => m.id !== 'typing-regen-video'));
 
@@ -865,6 +819,11 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
           }
         }, 3000);
       } else if (value === 'confirm-video') {
+        if (finalComposeInFlightRef.current) {
+          return;
+        }
+        finalComposeInFlightRef.current = true;
+
         addAgentMessage('user', '确认视频');
 
         setIsProcessing(true);
@@ -903,10 +862,15 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
                 // 触发完成回调
                 onComplete?.();
               }, 1500);
+            } else {
+              addAgentMessage('camera-director', `视频拼接失败：${result.error || '未知错误'}`);
+              setIsProcessing(false);
             }
           } catch (error) {
             addAgentMessage('camera-director', `视频拼接失败：${(error as Error).message}`);
             setIsProcessing(false);
+          } finally {
+            finalComposeInFlightRef.current = false;
           }
         }, 2000);
       }
@@ -1053,7 +1017,7 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
                 </div>
 
                 {/* 选项按钮 */}
-                {message.type === 'options' && message.options && (
+                {(message.type === 'options' || message.type === 'character-image') && message.options && (
                   <div className="mt-3 flex gap-2 flex-wrap">
                     {message.options.map((option) => {
                       // 检查该消息是否已被响应

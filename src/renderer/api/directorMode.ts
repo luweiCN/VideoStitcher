@@ -5,6 +5,21 @@
 
 import type { Character, Storyboard } from '@shared/types/aside';
 
+export interface DirectorWorkflowInitRequest {
+  screenplayId: string;
+  scriptContent: string;
+  videoSpec: { duration: 'short' | 'long'; aspectRatio: '16:9' | '9:16' };
+  projectId: string;
+  creativeDirectionId?: string;
+  personaId?: string;
+}
+
+export interface DirectorWorkflowInitResult {
+  success: boolean;
+  state?: unknown;
+  error?: string;
+}
+
 /**
  * 生成角色
  */
@@ -87,4 +102,13 @@ export async function composeVideo(screenplayId: string): Promise<{
   error?: string;
 }> {
   return window.api.asideComposeVideo(screenplayId);
+}
+
+/**
+ * 初始化导演模式工作流
+ */
+export async function initDirectorWorkflow(
+  data: DirectorWorkflowInitRequest,
+): Promise<DirectorWorkflowInitResult> {
+  return window.api.asideInitDirectorWorkflow(data);
 }

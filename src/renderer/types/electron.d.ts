@@ -566,7 +566,6 @@ export interface ElectronAPI {
     }>;
     error?: string;
   }>;
-}
   // === 导演模式 API ===
   asideGenerateCharacters: (screenplayId: string) => Promise<{ success: boolean; characters?: import('@shared/types/aside').Character[]; error?: string }>;
   asideAddCharacter: (data: { screenplayId: string; name: string; description: string }) => Promise<{ success: boolean; character?: import('@shared/types/aside').Character; error?: string }>;
@@ -575,4 +574,12 @@ export interface ElectronAPI {
   asideGenerateStoryboard: (screenplayId: string) => Promise<{ success: boolean; storyboard?: import('@shared/types/aside').Storyboard; error?: string }>;
   asideRegenerateStoryboard: (storyboardId: string) => Promise<{ success: boolean; storyboard?: import('@shared/types/aside').Storyboard; error?: string }>;
   asideComposeVideo: (screenplayId: string) => Promise<{ success: boolean; videoUrl?: string; error?: string }>;
+  asideInitDirectorWorkflow: (data: {
+    screenplayId: string;
+    scriptContent: string;
+    videoSpec: { duration: 'short' | 'long'; aspectRatio: '16:9' | '9:16' };
+    projectId: string;
+    creativeDirectionId?: string;
+    personaId?: string;
+  }) => Promise<{ success: boolean; state?: unknown; error?: string }>;
 }

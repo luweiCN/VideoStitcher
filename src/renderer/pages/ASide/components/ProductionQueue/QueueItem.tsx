@@ -5,6 +5,7 @@
 
 import { GripVertical, Trash2 } from 'lucide-react';
 import type { Screenplay } from '@shared/types/aside';
+import { ScreenplayCard } from '../ScreenplayGenerator/ScreenplayCard';
 
 interface QueueItemProps {
   /** 剧本数据 */
@@ -46,10 +47,7 @@ export function QueueItem({ screenplay, index, onDelete, onDragStart, onDragOver
 
         {/* 内容 */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-slate-300 line-clamp-2">{screenplay.content}</p>
-          <p className="text-xs text-slate-500 mt-1">
-            {new Date(screenplay.createdAt).toLocaleString('zh-CN')}
-          </p>
+          <ScreenplayCard content={screenplay.content} createdAt={screenplay.createdAt} showFull />
         </div>
 
         {/* 删除按钮 */}

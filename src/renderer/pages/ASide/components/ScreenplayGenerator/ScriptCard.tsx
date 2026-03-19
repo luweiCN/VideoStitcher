@@ -3,8 +3,9 @@
  * 显示单个剧本的信息和操作按钮
  */
 
-import { Plus, Trash2, Edit3, Check, Video } from 'lucide-react';
+import { Plus, Trash2, Check } from 'lucide-react';
 import type { Screenplay } from '@shared/types/aside';
+import { StructuredScreenplay } from './StructuredScreenplay';
 
 interface ScriptCardProps {
   /** 剧本数据 */
@@ -66,10 +67,8 @@ export function ScriptCard({ screenplay, index, isAdded = false, onAddToLibrary,
         </div>
       </div>
 
-      {/* 剧本内容 */}
-      <div className="bg-black/30 border border-slate-700/50 rounded-lg p-3 max-h-60 overflow-y-auto">
-        <p className="text-sm text-slate-300 whitespace-pre-wrap">{screenplay.content}</p>
-      </div>
+      {/* 结构化剧本内容 */}
+      <StructuredScreenplay content={screenplay.content} maxHeight="500px" />
     </div>
   );
 }

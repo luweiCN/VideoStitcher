@@ -13,11 +13,28 @@ test.setTimeout(120000);
 let electronApp: ElectronApplication;
 let page: Page;
 
+async function navigateToDirectorMode(targetPage: Page): Promise<void> {
+  if (targetPage.url().includes('#/director')) {
+    return;
+  }
+
+  const directorEntry = targetPage.getByRole('button', { name: /导演模式/ }).first();
+
+  if (!(await directorEntry.isVisible().catch(() => false))) {
+    await targetPage.goto('app://-/');
+    await targetPage.waitForLoadState('domcontentloaded');
+  }
+
+  await expect(directorEntry).toBeVisible();
+  await directorEntry.click();
+  await targetPage.waitForLoadState('networkidle');
+}
+
 test.describe('导演模式完整流程', () => {
   test.beforeAll(async () => {
     // 启动 Electron 应用
     electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../../out/main/index.js')],
+      args: [path.join(__dirname, '../../out/main/index.js')],
       env: {
         ...process.env,
         NODE_ENV: 'test',
@@ -41,7 +58,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该显示导演模式界面', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 等待页面加载
     await page.waitForLoadState('networkidle');
@@ -59,7 +76,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该能够输入用户需求', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 等待输入框出现
     const inputField = await page.locator('[data-testid="requirement-input"]');
@@ -77,7 +94,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该能够选择视频风格', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 等待风格选择器
     const styleSelector = await page.locator('[data-testid="style-selector"]');
@@ -106,7 +123,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该能够生成脚本', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 查找生成脚本按钮
     const generateButton = await page.locator('button:has-text("生成脚本")');
@@ -129,7 +146,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该能够生成角色', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 查找生成角色按钮
     const generateButton = await page.locator('button:has-text("生成角色")');
@@ -152,7 +169,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该能够生成分镜', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 查找分镜步骤
     const storyboardTab = await page.locator('button:has-text("分镜")');
@@ -183,7 +200,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该显示进度信息', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 查找进度指示器
     const progressIndicator = await page.locator('[data-testid="progress-indicator"]');
@@ -198,7 +215,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该能够处理错误情况', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 查找错误提示组件
     const errorAlert = await page.locator('[data-testid="error-alert"]');
@@ -213,7 +230,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该能够切换不同的步骤', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 查找步骤导航
     const stepButtons = await page.$$('[data-testid="step-button"]');
@@ -231,7 +248,7 @@ test.describe('导演模式完整流程', () => {
 
   test('应该能够保存和加载会话', async () => {
     // 导航到导演模式
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     // 查找保存按钮
     const saveButton = await page.locator('button:has-text("保存")');
@@ -254,7 +271,7 @@ test.describe('导演模式完整流程', () => {
 test.describe('导演模式 UI 响应性测试', () => {
   test.beforeAll(async () => {
     electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../../out/main/index.js')],
+      args: [path.join(__dirname, '../../out/main/index.js')],
     });
     page = await electronApp.firstWindow();
     await page.waitForLoadState('domcontentloaded');
@@ -265,7 +282,7 @@ test.describe('导演模式 UI 响应性测试', () => {
   });
 
   test('UI 应该在合理时间内响应', async () => {
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
 
     const startTime = Date.now();
 
@@ -284,7 +301,7 @@ test.describe('导演模式 UI 响应性测试', () => {
   test('页面加载应该在合理时间内完成', async () => {
     const startTime = Date.now();
 
-    await page.goto('app://-/#/director');
+    await navigateToDirectorMode(page);
     await page.waitForLoadState('networkidle');
 
     const loadTime = Date.now() - startTime;
