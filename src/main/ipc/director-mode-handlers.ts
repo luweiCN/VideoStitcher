@@ -103,9 +103,9 @@ export function registerDirectorModeHandlers() {
       // 从缓存获取工作流状态
       let state = workflowStates.get(screenplayId);
 
-      // 如果工作流不存在，自动初始化
+      // 如果工作流不存在，自动初始化（从步骤2开始，因为步骤1剧本写作已独立完成）
       if (!state) {
-        console.log('[DirectorMode] 工作流不存在，自动初始化');
+        console.log('[DirectorMode] 工作流不存在，自动初始化（从步骤2开始）');
 
         // 从数据库获取剧本信息
         const { AsideScreenplayRepository } = await import('@main/database/repositories/asideScreenplayRepository');
@@ -120,43 +120,34 @@ export function registerDirectorModeHandlers() {
         // 使用默认视频规格（如果没有提供）
         const defaultVideoSpec = videoSpec || { duration: 'short', aspectRatio: '9:16' };
 
-        // 强制重置工作流图实例
-        const { resetVideoProductionGraph } = await import('@main/ai/workflows/graph');
-        resetVideoProductionGraph();
-
-        // 从数据库加载项目信息
-        const { AsideProjectRepository } = await import('@main/database/repositories/asideProjectRepository');
-        const projectRepo = new AsideProjectRepository();
-        const project = projectRepo.getProjectById(screenplay.projectId);
-        if (!project) {
-          throw new Error(`项目不存在: ${screenplay.projectId}`);
-        }
-
-        // 创建工作流执行选项
-        const options: any = {
+        // 创建初始状态（标记步骤1已完成，剧本已在外部生成）
+        const { createInitialWorkflowState } = await import('@main/ai/workflows/state');
+        const initialState = createInitialWorkflowState({
+          scriptContent: screenplay.content,
+          projectId: screenplay.projectId,
           executionMode: 'director',
           videoSpec: defaultVideoSpec,
-          projectId: screenplay.projectId,
-          project: project,
-        };
+        });
 
-        // 启动工作流
-        const startResult = await startWorkflow(screenplay.content, options);
-        if (!startResult.success || !startResult.state) {
-          throw new Error(startResult.error || '初始化工作流失败');
-        }
+        // 标记步骤1已完成（剧本写作是独立的，已在外部完成）
+        initialState.step1_script = screenplay.content;
 
-        state = startResult.state;
+        console.log('[DirectorMode] 工作流已初始化，跳过步骤1（剧本写作已独立完成）');
+        console.log('[DirectorMode] 当前步骤1状态:', !!initialState.step1_script);
+
+        state = initialState;
         workflowStates.set(screenplayId, state);
-        console.log('[DirectorMode] 工作流已自动初始化');
       }
 
-      // 确保步骤 1 已完成
-      if (!state.step1_script) {
-        throw new Error('步骤 1（脚本编写）尚未完成');
-      }
+      // 恢复工作流执行（从当前状态继续，应该是步骤2）
+      console.log('[DirectorMode] 当前工作流状态:', {
+        hasStep1: !!state.step1_script,
+        hasStep2: !!state.step2_characters,
+        hasStep3: !!state.step3_storyboard,
+        hasStep4: !!state.step4_video,
+        hasStep5: !!state.step5_final,
+      });
 
-      // 恢复工作流执行（步骤 1 后会继续执行步骤 2）
       const result = await resumeWorkflow(state);
 
       if (!result.success) {
