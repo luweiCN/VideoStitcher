@@ -19,28 +19,41 @@ const workflowStates = new Map<string, WorkflowState>();
 /**
  * 将工作流角色转换为前端 Character 类型
  */
-function convertToCharacter(cards: any[] | undefined): Character[] {
-  if (!cards || !Array.isArray(cards)) {
+function convertToCharacter(artDirectorOutput: any): Character[] {
+  if (!artDirectorOutput || !artDirectorOutput.character_profiles) {
     console.warn('[DirectorMode] 角色数据为空或格式错误');
     return [];
   }
 
-  console.log('[DirectorMode] convertToCharacter 输入数据:', cards);
+  const profiles = artDirectorOutput.character_profiles;
 
-  const result = cards.map((card) => {
-    console.log('[DirectorMode] 转换角色:', {
-      id: card.id,
-      name: card.name,
-      hasImageUrl: !!card.imageUrl,
-      imageUrl: card.imageUrl,
-    });
+  if (!Array.isArray(profiles)) {
+    console.warn('[DirectorMode] character_profiles 不是数组');
+    return [];
+  }
 
-    return {
-      id: card.id,
-      name: card.name,
-      description: card.description,
-      imageUrl: card.imageUrl,
+  console.log('[DirectorMode] convertToCharacter 输入数据:', profiles);
+
+  const result = profiles.map((profile, index) => {
+    // 合并所有描述信息
+    const description = [
+      `【${profile.role_type === 'protagonist' ? '主角' : profile.role_type === 'antagonist' ? '反派' : '配角'}】`,
+      `外貌：${profile.appearance}`,
+      `服装：${profile.costume}`,
+      `性格：${profile.personality_traits?.join('、')}`,
+      `关键动作：${profile.key_actions?.join('、')}`,
+    ].filter(Boolean).join('\n');
+
+    const character = {
+      id: profile.id || `char-${Date.now()}-${index}`,
+      name: profile.name,
+      description,
+      imageUrl: profile.image_generation_prompt, // 暂时用提示词，后续选角导演会生成真实图片
     };
+
+    console.log(`[DirectorMode] 转换角色 ${index + 1}:`, character);
+
+    return character;
   });
 
   console.log('[DirectorMode] convertToCharacter 输出数据:', result);
@@ -110,20 +123,27 @@ export function registerDirectorModeHandlers() {
         throw new Error('角色生成失败：未生成任何角色');
       }
 
-      const characters = result.state.step2_characters.content;
+      const artDirectorOutput = result.state.step2_characters.content;
 
-      if (!Array.isArray(characters) || characters.length === 0) {
+      // 检查是否是艺术总监的输出对象（包含 character_profiles 字段）
+      if (!artDirectorOutput || !artDirectorOutput.character_profiles) {
+        console.warn('[DirectorMode] 艺术总监输出格式错误:', artDirectorOutput);
+        throw new Error('艺术总监输出格式错误：缺少 character_profiles 字段');
+      }
+
+      const profiles = artDirectorOutput.character_profiles;
+
+      if (!Array.isArray(profiles) || profiles.length === 0) {
         console.warn('[DirectorMode] 角色数量为 0，可能是 LLM 解析失败');
-        // 返回空数组而不是报错，让用户可以看到结果
+        throw new Error('艺术总监未生成任何角色');
       }
 
       // 调试：打印每个角色的完整数据
-      characters.forEach((char, i) => {
+      profiles.forEach((profile, i) => {
         console.log(`[DirectorMode] 角色 ${i + 1}:`, {
-          id: char.id,
-          name: char.name,
-          hasImageUrl: !!char.imageUrl,
-          imageUrl: char.imageUrl,
+          name: profile.name,
+          role_type: profile.role_type,
+          hasAppearance: !!profile.appearance,
         });
       });
 
@@ -132,7 +152,7 @@ export function registerDirectorModeHandlers() {
 
       return {
         success: true,
-        characters: convertToCharacter(characters),
+        characters: convertToCharacter(artDirectorOutput),
       };
     } catch (error) {
       console.error('[DirectorMode] 生成角色失败:', error);
@@ -388,24 +408,49 @@ export function registerDirectorModeHandlers() {
       resetVideoProductionGraph();
       console.log('[DirectorMode] 工作流图实例已重置');
 
-      // 从数据库加载创意方向和人设（如果提供）
-      let creativeDirection = undefined;
-      let persona = undefined;
+      // 从数据库加载项目信息
+      const { AsideProjectRepository } = await import('@main/database/repositories/asideProjectRepository');
+      const projectRepo = new AsideProjectRepository();
+      const project = projectRepo.getProjectById(data.projectId);
+      if (!project) {
+        throw new Error(`项目不存在: ${data.projectId}`);
+      }
+      console.log('[DirectorMode] 已加载项目:', project.name);
 
+      // 从数据库加载创意方向
+      let creativeDirection = undefined;
       if (data.creativeDirectionId) {
-        // TODO: 从数据库加载创意方向
-        console.log('[DirectorMode] 需要加载创意方向:', data.creativeDirectionId);
+        const { asideCreativeDirectionRepository } = await import('@main/database/repositories/asideCreativeDirectionRepository');
+        const directions = asideCreativeDirectionRepository.getCreativeDirections(data.projectId);
+        creativeDirection = directions.find(d => d.id === data.creativeDirectionId);
+        if (!creativeDirection) {
+          console.warn('[DirectorMode] 创意方向不存在:', data.creativeDirectionId);
+        } else {
+          console.log('[DirectorMode] 已加载创意方向:', creativeDirection.name);
+        }
       }
 
+      // 从数据库加载人设
+      let persona = undefined;
       if (data.personaId) {
-        // TODO: 从数据库加载人设
-        console.log('[DirectorMode] 需要加载人设:', data.personaId);
+        const { asidePersonaRepository } = await import('@main/database/repositories/asidePersonaRepository');
+        const personas = asidePersonaRepository.getPersonas(data.projectId);
+        persona = personas.find(p => p.id === data.personaId);
+        if (!persona) {
+          console.warn('[DirectorMode] 人设不存在:', data.personaId);
+        } else {
+          console.log('[DirectorMode] 已加载人设:', persona.name);
+        }
       }
 
       const options: WorkflowExecutionOptions = {
         executionMode: 'director',
         videoSpec: data.videoSpec,
-        projectId: data.projectId, // 使用正确的 projectId
+        projectId: data.projectId,
+        project: project, // 传递完整的项目信息
+        creativeDirection: creativeDirection, // 传递完整的创意方向
+        persona: persona, // 传递完整的人设
+        region: data.region, // 传递地区
         creativeDirectionId: data.creativeDirectionId,
         personaId: data.personaId,
       };
