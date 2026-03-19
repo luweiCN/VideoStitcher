@@ -391,6 +391,39 @@ export function registerDirectorModeHandlers() {
     }
   });
 
+  // ===== 生成人物形象 =====
+  ipcMain.handle('aside:generate-character-image', async (_event, data: {
+    screenplayId: string;
+    characterId: string;
+    useReference: boolean;
+  }) => {
+    console.log('[DirectorMode] 生成人物形象:', data);
+
+    try {
+      const state = workflowStates.get(data.screenplayId);
+      if (!state) {
+        throw new Error('工作流状态不存在');
+      }
+
+      // TODO: 调用选角导演 Agent 生成人物形象（正、侧、后三视图）
+      // 暂时返回占位符 URL
+      const imageUrl = `https://via.placeholder.com/400x600/8B5CF6/FFFFFF?text=${encodeURIComponent('角色形象：' + data.characterId)}`;
+
+      console.log('[DirectorMode] 人物形象生成完成:', imageUrl);
+
+      return {
+        success: true,
+        imageUrl,
+      };
+    } catch (error) {
+      console.error('[DirectorMode] 生成人物形象失败:', error);
+      return {
+        success: false,
+        error: (error as Error).message,
+      };
+    }
+  });
+
   // ===== 初始化工作流（供内部调用） =====
   ipcMain.handle('aside:init-director-workflow', async (_event, data: {
     screenplayId: string;

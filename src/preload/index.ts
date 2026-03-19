@@ -469,7 +469,7 @@ export interface ElectronAPI {
   asideDeletePersona: (personaId: string) => Promise<{ success: boolean; error?: string }>;
 
   // 脚本管理
-  asideGenerateScreenplays: (data: { projectId: string; creativeDirectionId: string; personaId: string; aiModel: string; count: number }) => Promise<{ success: boolean; scripts?: any[]; error?: string }>;
+  asideGenerateScreenplays: (data: { projectId: string; creativeDirectionId: string; personaId: string; aiModel: string; count: number; region?: string }) => Promise<{ success: boolean; screenplays?: any[]; error?: string }>;
   asideAddScreenplayToLibrary: (scriptId: string) => Promise<{ success: boolean; script?: any; newScript?: any; error?: string }>;
   asideRemoveScreenplayFromLibrary: (scriptId: string) => Promise<{ success: boolean; error?: string }>;
   asideGetLibraryScreenplays: (projectId: string) => Promise<{ success: boolean; scripts?: any[]; error?: string }>;
@@ -552,6 +552,15 @@ export interface ElectronAPI {
   asideRegenerateCharacter: (characterId: string) => Promise<{
     success: boolean;
     character?: Character;
+    error?: string;
+  }>;
+  asideGenerateCharacterImage: (data: {
+    screenplayId: string;
+    characterId: string;
+    useReference: boolean;
+  }) => Promise<{
+    success: boolean;
+    imageUrl?: string;
     error?: string;
   }>;
   asideGenerateStoryboard: (screenplayId: string) => Promise<{
@@ -830,6 +839,7 @@ const api: ElectronAPI = {
   asideAddCharacter: (data) => ipcRenderer.invoke('aside:add-character', data),
   asideEditCharacter: (data) => ipcRenderer.invoke('aside:edit-character', data),
   asideRegenerateCharacter: (characterId) => ipcRenderer.invoke('aside:regenerate-character', characterId),
+  asideGenerateCharacterImage: (data) => ipcRenderer.invoke('aside:generate-character-image', data),
   asideGenerateStoryboard: (screenplayId) => ipcRenderer.invoke('aside:generate-storyboard', screenplayId),
   asideRegenerateStoryboard: (storyboardId) => ipcRenderer.invoke('aside:regenerate-storyboard', storyboardId),
   asideComposeVideo: (screenplayId) => ipcRenderer.invoke('aside:compose-video', screenplayId),

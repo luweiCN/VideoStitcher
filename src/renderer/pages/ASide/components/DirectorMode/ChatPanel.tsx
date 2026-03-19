@@ -21,14 +21,21 @@ type WorkflowStep =
   | 'art-director-creating'  // 艺术总监创作中
   | 'art-director-confirm'   // 艺术总监等待确认
   | 'casting-director'   // 选角导演
+  | 'casting-director-generating'  // 选角导演生成中
+  | 'casting-director-confirm'     // 选角导演等待确认
   | 'storyboard-artist'  // 分镜师
-  | 'camera-director';   // 摄像导演
+  | 'storyboard-artist-generating' // 分镜师生成中
+  | 'storyboard-artist-confirm'    // 分镜师等待确认
+  | 'camera-director'   // 摄像导演
+  | 'camera-director-generating'   // 摄像导演生成中
+  | 'camera-director-confirm'      // 摄像导演等待确认
+  | 'completed';         // 工作流完成
 
 // 消息类型
 interface Message {
   id: string;
   agentId: string; // 'user', 'system', or agent IDs
-  type: 'text' | 'options' | 'typing' | 'character'; // 添加 character 类型
+  type: 'text' | 'options' | 'typing' | 'character' | 'character-image'; // character-image 用于带图片的角色形象
   content: string;
   options?: { label: string; value: string }[];
   characterData?: {
@@ -91,6 +98,7 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
     duration: null,
     aspectRatio: null,
   });
+  const [confirmedCharacters, setConfirmedCharacters] = useState<Set<string>>(new Set()); // 已确认的角色 ID
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const directorMode = useDirectorMode(screenplayId);
@@ -494,19 +502,407 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
           return;
         }
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `${Date.now()}-user`,
-            agentId: 'user',
-            type: 'text',
-            content: value === 'upload' ? '上传参考图' : '自由发挥',
-            timestamp: new Date(),
-          },
-        ]);
+        const userMessage: Message = {
+          id: `user-casting-${Date.now()}`,
+          agentId: 'user',
+          type: 'text',
+          content: value === 'upload' ? '我将上传参考图' : '自由发挥',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
 
-        // 调用新的工作流函数
-        await handleWorkflow(value);
+        if (value === 'upload') {
+          addAgentMessage('casting-director', '请上传您的参考图...');
+          // TODO: 实现上传参考图功能
+        } else {
+          // 自由发挥模式：开始生成角色形象
+          addAgentMessageWithDelay(
+            'casting-director',
+            '收到！开始为您创作角色形象...',
+            1200
+          );
+
+          setCurrentStep('casting-director-generating');
+          setIsProcessing(true);
+
+          // 获取角色列表
+          const characters = directorMode.state.characters;
+
+          // 逐个生成人物形象
+          for (let i = 0; i < characters.length; i++) {
+            const character = characters[i];
+
+            // 发送 typing 消息
+            const typingMessage: Message = {
+              id: `typing-char-${i}`,
+              agentId: 'casting-director',
+              type: 'typing',
+              content: `正在为 ${character.name} 生成形象（正、侧、后三视图）...`,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, typingMessage]);
+
+            try {
+              // 调用 API 生成形象
+              const result = await window.api.asideGenerateCharacterImage({
+                screenplayId,
+                characterId: character.id,
+                useReference: false,
+              });
+
+              // 移除 typing 消息
+              setMessages((prev) => prev.filter(m => m.id !== `typing-char-${i}`));
+
+              if (result.success && result.imageUrl) {
+                // 发送人物形象消息
+                const characterMessage: Message = {
+                  id: `char-img-${i}`,
+                  agentId: 'casting-director',
+                  type: 'character-image',
+                  content: `这是我找到的${i === 0 ? '主演' : '演员'} ${character.name}（正、侧、后三视图），您看怎么样`,
+                  characterData: {
+                    name: character.name,
+                    description: character.description,
+                    imageUrl: result.imageUrl,
+                    isImageLoading: false,
+                  },
+                  options: [
+                    { label: '重新生成', value: `regenerate-${i}` },
+                    { label: '确认', value: `confirm-${i}` },
+                  ],
+                  timestamp: new Date(),
+                };
+                setMessages((prev) => [...prev, characterMessage]);
+              }
+            } catch (error) {
+              addAgentMessage('casting-director', `生成 ${character.name} 的形象失败：${(error as Error).message}`);
+            }
+
+            await delay(1000);
+          }
+
+          setIsProcessing(false);
+          setCurrentStep('casting-director-confirm');
+        }
+      }
+    } else if (currentStep === 'casting-director-confirm') {
+      // 处理角色形象确认
+      if (value.startsWith('regenerate-')) {
+        const index = parseInt(value.split('-')[1]);
+        const character = directorMode.state.characters[index];
+
+        addAgentMessage('user', `请重新生成 ${character.name} 的形象`);
+
+        // 重新生成该角色形象
+        setIsProcessing(true);
+
+        const typingMessage: Message = {
+          id: `typing-regenerate-${index}`,
+          agentId: 'casting-director',
+          type: 'typing',
+          content: `正在重新为 ${character.name} 生成形象...`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, typingMessage]);
+
+        setTimeout(async () => {
+          try {
+            const result = await window.api.asideGenerateCharacterImage({
+              screenplayId,
+              characterId: character.id,
+              useReference: false,
+            });
+
+            // 移除 typing 消息
+            setMessages((prev) => prev.filter(m => m.id !== `typing-regenerate-${index}`));
+
+            if (result.success && result.imageUrl) {
+              const characterMessage: Message = {
+                id: `char-img-regen-${index}`,
+                agentId: 'casting-director',
+                type: 'character-image',
+                content: `这是我重新找到的 ${character.name}，您看怎么样`,
+                characterData: {
+                  name: character.name,
+                  description: character.description,
+                  imageUrl: result.imageUrl,
+                  isImageLoading: false,
+                },
+                options: [
+                  { label: '重新生成', value: `regenerate-${index}` },
+                  { label: '确认', value: `confirm-${index}` },
+                ],
+                timestamp: new Date(),
+              };
+              setMessages((prev) => [...prev, characterMessage]);
+            }
+
+            setIsProcessing(false);
+          } catch (error) {
+            addAgentMessage('casting-director', `重新生成失败：${(error as Error).message}`);
+            setIsProcessing(false);
+          }
+        }, 2000);
+      } else if (value.startsWith('confirm-')) {
+        const index = parseInt(value.split('-')[1]);
+        const character = directorMode.state.characters[index];
+
+        setConfirmedCharacters(prev => new Set(prev).add(character.id));
+        addAgentMessage('user', `确认 ${character.name} 的形象`);
+
+        // 检查是否全部确认
+        if (confirmedCharacters.size + 1 === directorMode.state.characters.length) {
+          addAgentMessageWithDelay(
+            'casting-director',
+            '太好了！所有演员形象已确认。接下来需要分镜师为我们绘制分镜。',
+            1500
+          );
+
+          // 系统消息：邀请分镜师
+          setTimeout(() => {
+            const systemMessage: Message = {
+              id: `system-invite-storyboard`,
+              agentId: 'system',
+              type: 'text',
+              content: '系统消息：艺术总监邀请分镜师加入群聊',
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, systemMessage]);
+
+            // 分镜师自我介绍
+            setTimeout(() => {
+              addAgentMessageWithDelay(
+                'storyboard-artist',
+                '大家好！我是这个项目的分镜师。我看到了项目的剧本、人物和场景设定了，接下来我开始进行分镜绘制。',
+                1200
+              );
+
+              setCurrentStep('storyboard-artist-generating');
+              setIsProcessing(true);
+
+              // 发送 typing 消息
+              const typingMessage: Message = {
+                id: `typing-storyboard`,
+                agentId: 'storyboard-artist',
+                type: 'typing',
+                content: '正在绘制 5x5 分镜图...',
+                timestamp: new Date(),
+              };
+              setMessages((prev) => [...prev, typingMessage]);
+
+              // 调用 API 生成分镜
+              setTimeout(async () => {
+                try {
+                  await directorMode.generateStoryboard();
+
+                  // 移除 typing 消息
+                  setMessages((prev) => prev.filter(m => m.id !== 'typing-storyboard'));
+
+                  addAgentMessage(
+                    'storyboard-artist',
+                    '这是我为我们项目绘制的分镜图（5x5），请审核',
+                    [
+                      { label: '重新生成', value: 'regenerate-storyboard' },
+                      { label: '确认', value: 'confirm-storyboard' },
+                    ]
+                  );
+
+                  setIsProcessing(false);
+                  setCurrentStep('storyboard-artist-confirm');
+                } catch (error) {
+                  addAgentMessage('storyboard-artist', `分镜生成失败：${(error as Error).message}`);
+                  setIsProcessing(false);
+                }
+              }, 3000);
+            }, 800);
+          }, 1000);
+        }
+      }
+    } else if (currentStep === 'storyboard-artist-confirm') {
+      if (value === 'regenerate-storyboard') {
+        addAgentMessage('user', '请重新生成分镜图');
+
+        setIsProcessing(true);
+
+        const typingMessage: Message = {
+          id: `typing-regen-storyboard`,
+          agentId: 'storyboard-artist',
+          type: 'typing',
+          content: '正在重新绘制分镜图...',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, typingMessage]);
+
+        setTimeout(async () => {
+          try {
+            await directorMode.generateStoryboard();
+
+            setMessages((prev) => prev.filter(m => m.id !== 'typing-regen-storyboard'));
+
+            addAgentMessage(
+              'storyboard-artist',
+              '这是我重新绘制的分镜图（5x5），请审核',
+              [
+                { label: '重新生成', value: 'regenerate-storyboard' },
+                { label: '确认', value: 'confirm-storyboard' },
+              ]
+            );
+
+            setIsProcessing(false);
+          } catch (error) {
+            addAgentMessage('storyboard-artist', `重新生成失败：${(error as Error).message}`);
+            setIsProcessing(false);
+          }
+        }, 3000);
+      } else if (value === 'confirm-storyboard') {
+        addAgentMessage('user', '确认分镜图');
+
+        addAgentMessageWithDelay(
+          'storyboard-artist',
+          '分镜图已确认。接下来需要摄像导演进行拍摄。',
+          1500
+        );
+
+        // 系统消息：邀请摄像导演
+        setTimeout(() => {
+          const systemMessage: Message = {
+            id: `system-invite-camera`,
+            agentId: 'system',
+            type: 'text',
+            content: '系统消息：艺术总监要求摄像导演加入群聊',
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, systemMessage]);
+
+          // 摄像导演自我介绍
+          setTimeout(() => {
+            addAgentMessageWithDelay(
+              'camera-director',
+              '大家好！我是这个项目的摄像导演。我现在去片场进行拍摄。',
+              1200
+            );
+
+            setCurrentStep('camera-director-generating');
+            setIsProcessing(true);
+
+            // 发送 typing 消息
+            const typingMessage: Message = {
+              id: `typing-camera`,
+              agentId: 'camera-director',
+              type: 'typing',
+              content: '正在拍摄视频...',
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, typingMessage]);
+
+            // 调用 API 生成视频
+            setTimeout(async () => {
+              try {
+                await directorMode.generateVideo();
+
+                // 移除 typing 消息
+                setMessages((prev) => prev.filter(m => m.id !== 'typing-camera'));
+
+                addAgentMessage(
+                  'camera-director',
+                  '拍摄完成！我生成了以下视频片段，请审核：',
+                  [
+                    { label: '重新生成', value: 'regenerate-video' },
+                    { label: '确认', value: 'confirm-video' },
+                  ]
+                );
+
+                setIsProcessing(false);
+                setCurrentStep('camera-director-confirm');
+              } catch (error) {
+                addAgentMessage('camera-director', `拍摄失败：${(error as Error).message}`);
+                setIsProcessing(false);
+              }
+            }, 3000);
+          }, 800);
+        }, 1000);
+      }
+    } else if (currentStep === 'camera-director-confirm') {
+      if (value === 'regenerate-video') {
+        addAgentMessage('user', '请重新生成视频');
+
+        setIsProcessing(true);
+
+        const typingMessage: Message = {
+          id: `typing-regen-video`,
+          agentId: 'camera-director',
+          type: 'typing',
+          content: '正在重新拍摄视频...',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, typingMessage]);
+
+        setTimeout(async () => {
+          try {
+            await directorMode.generateVideo();
+
+            setMessages((prev) => prev.filter(m => m.id !== 'typing-regen-video'));
+
+            addAgentMessage(
+              'camera-director',
+              '拍摄完成！我重新生成了以下视频片段，请审核：',
+              [
+                { label: '重新生成', value: 'regenerate-video' },
+                { label: '确认', value: 'confirm-video' },
+              ]
+            );
+
+            setIsProcessing(false);
+          } catch (error) {
+            addAgentMessage('camera-director', `重新生成失败：${(error as Error).message}`);
+            setIsProcessing(false);
+          }
+        }, 3000);
+      } else if (value === 'confirm-video') {
+        addAgentMessage('user', '确认视频');
+
+        setIsProcessing(true);
+
+        // 拼接视频
+        addAgentMessageWithDelay(
+          'camera-director',
+          '正在拼接视频...',
+          1200
+        );
+
+        setTimeout(async () => {
+          try {
+            // 调用拼接 API
+            const result = await window.api.asideComposeVideo(screenplayId);
+
+            if (result.success) {
+              addAgentMessageWithDelay(
+                'camera-director',
+                '✅ 视频拼接完成！已保存到本地。',
+                1500
+              );
+
+              setIsProcessing(false);
+
+              // 艺术总监总结祝贺
+              setTimeout(() => {
+                addAgentMessageWithDelay(
+                  'art-director',
+                  '🎉 恭喜！项目成功完成！感谢整个团队的协作！\n\n✨ 剧本创作：完成\n✨ 角色设计：完成\n✨ 演员形象：完成\n✨ 分镜绘制：完成\n✨ 视频拍摄：完成\n\n期待您的下一个作品！',
+                  2000
+                );
+
+                setCurrentStep('completed');
+
+                // 触发完成回调
+                onComplete?.();
+              }, 1500);
+            }
+          } catch (error) {
+            addAgentMessage('camera-director', `视频拼接失败：${(error as Error).message}`);
+            setIsProcessing(false);
+          }
+        }, 2000);
       }
     } else if (currentStep === 'camera-director' && value === 'compose') {
       setMessages((prev) => [
