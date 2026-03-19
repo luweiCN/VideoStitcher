@@ -31,11 +31,23 @@ interface Storyboard {
   imageUrl?: string; // 完整分镜图
 }
 
+// 视频数据
+interface Video {
+  id: string;
+  url: string;
+  duration?: number;
+  description?: string;
+}
+
 interface CanvasPanelProps {
   /** 角色 */
   characters?: Character[];
+  /** 角色图片映射（characterId -> imageUrl） */
+  characterImages?: Map<string, string>;
   /** 分镜图 */
   storyboard?: Storyboard;
+  /** 视频列表 */
+  videos?: Video[];
   /** 编辑角色回调 */
   onEditCharacter?: (characterId: string) => void;
   /** 重新生成角色回调 */
@@ -48,16 +60,18 @@ interface CanvasPanelProps {
 
 export function CanvasPanel({
   characters = [],
+  characterImages,
   storyboard,
+  videos = [],
   onEditCharacter,
   onRegenerateCharacter,
   onAddCharacter,
   onRegenerateStoryboard,
 }: CanvasPanelProps) {
-  const [activeTab, setActiveTab] = useState<'characters' | 'storyboard'>('characters');
+  const [activeTab, setActiveTab] = useState<'characters' | 'storyboard' | 'videos'>('characters');
 
   // 是否有内容
-  const hasContent = characters.length > 0 || storyboard;
+  const hasContent = characters.length > 0 || storyboard || videos.length > 0;
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-slate-900 to-black text-slate-100">
@@ -94,6 +108,17 @@ export function CanvasPanel({
             <Film className="w-4 h-4 inline-block mr-2" />
             分镜图
           </button>
+          <button
+            onClick={() => setActiveTab('videos')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'videos'
+                ? 'bg-violet-600 text-white'
+                : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+            }`}
+          >
+            <Film className="w-4 h-4 inline-block mr-2" />
+            视频片段 ({videos.length})
+          </button>
         </div>
       </div>
 
@@ -111,47 +136,52 @@ export function CanvasPanel({
           // 人物卡片
           <div>
             <div className="grid grid-cols-2 gap-4 mb-4">
-              {characters.map((character) => (
-                <div
-                  key={character.id}
-                  className="bg-slate-800/50 border border-slate-700 rounded-xl p-4"
-                >
-                  {/* 角色头像 */}
-                  <div className="w-full aspect-square bg-slate-900 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                    {character.imageUrl ? (
-                      <img
-                        src={character.imageUrl}
-                        alt={character.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-16 h-16 text-slate-700" />
-                    )}
-                  </div>
+              {characters.map((character) => {
+                // 优先使用 characterImages 中的图片，然后使用 character 自带的图片
+                const imageUrl = characterImages?.get(character.id) || character.imageUrl;
 
-                  {/* 角色信息 */}
-                  <h4 className="font-semibold mb-1">{character.name}</h4>
-                  <p className="text-xs text-slate-400 line-clamp-2 mb-3">{character.description}</p>
+                return (
+                  <div
+                    key={character.id}
+                    className="bg-slate-800/50 border border-slate-700 rounded-xl p-4"
+                  >
+                    {/* 角色头像 */}
+                    <div className="w-full aspect-square bg-slate-900 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={character.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-16 h-16 text-slate-700" />
+                      )}
+                    </div>
 
-                  {/* 操作按钮 */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => onEditCharacter?.(character.id)}
-                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs transition-colors"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      编辑
-                    </button>
-                    <button
-                      onClick={() => onRegenerateCharacter?.(character.id)}
-                      className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs transition-colors"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      重新生成
-                    </button>
+                    {/* 角色信息 */}
+                    <h4 className="font-semibold mb-1">{character.name}</h4>
+                    <p className="text-xs text-slate-400 line-clamp-2 mb-3">{character.description}</p>
+
+                    {/* 操作按钮 */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onEditCharacter?.(character.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs transition-colors"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        编辑
+                      </button>
+                      <button
+                        onClick={() => onRegenerateCharacter?.(character.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs transition-colors"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        重新生成
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* 添加角色按钮 */}
@@ -223,6 +253,34 @@ export function CanvasPanel({
               </div>
             </div>
           )
+        ) : activeTab === 'videos' ? (
+          // 视频片段
+          <div className="grid grid-cols-2 gap-4">
+            {videos.map((video) => (
+              <div
+                key={video.id}
+                className="bg-slate-800/50 border border-slate-700 rounded-xl p-4"
+              >
+                {/* 视频预览 */}
+                <div className="w-full aspect-video bg-slate-900 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                  <video
+                    src={video.url}
+                    controls
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+
+                {/* 视频信息 */}
+                <h4 className="font-semibold mb-1">
+                  视频片段 {video.id}
+                  {video.duration && <span className="text-xs text-slate-400 ml-2">({video.duration}s)</span>}
+                </h4>
+                {video.description && (
+                  <p className="text-xs text-slate-400 line-clamp-2">{video.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

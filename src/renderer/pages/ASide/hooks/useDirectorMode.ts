@@ -18,6 +18,8 @@ import {
 export interface DirectorModeState {
   characters: Character[];
   storyboard: Storyboard | null;
+  characterImages: Map<string, string>; // characterId -> imageUrl
+  videos: Array<{ id: string; url: string; duration?: number; description?: string }>;
   isGeneratingCharacters: boolean;
   isGeneratingStoryboard: boolean;
   isComposingVideo: boolean;
@@ -28,6 +30,8 @@ export function useDirectorMode(screenplayId: string) {
   const [state, setState] = useState<DirectorModeState>({
     characters: [],
     storyboard: null,
+    characterImages: new Map(),
+    videos: [],
     isGeneratingCharacters: false,
     isGeneratingStoryboard: false,
     isComposingVideo: false,
@@ -223,6 +227,28 @@ export function useDirectorMode(screenplayId: string) {
     }
   }, [screenplayId]);
 
+  // 更新角色图片
+  const updateCharacterImage = useCallback((characterId: string, imageUrl: string) => {
+    console.log('[useDirectorMode] 更新角色图片:', characterId, imageUrl);
+    setState((prev) => {
+      const newImages = new Map(prev.characterImages);
+      newImages.set(characterId, imageUrl);
+      return {
+        ...prev,
+        characterImages: newImages,
+      };
+    });
+  }, []);
+
+  // 添加视频
+  const addVideo = useCallback((video: { id: string; url: string; duration?: number; description?: string }) => {
+    console.log('[useDirectorMode] 添加视频:', video);
+    setState((prev) => ({
+      ...prev,
+      videos: [...prev.videos, video],
+    }));
+  }, []);
+
   return {
     ...state,
     generateCharacters,
@@ -232,5 +258,7 @@ export function useDirectorMode(screenplayId: string) {
     composeVideo,
     editCharacter,
     addCharacter,
+    updateCharacterImage,
+    addVideo,
   };
 }

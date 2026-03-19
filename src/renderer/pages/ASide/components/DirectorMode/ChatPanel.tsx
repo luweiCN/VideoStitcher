@@ -554,6 +554,9 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
               setMessages((prev) => prev.filter(m => m.id !== `typing-char-${i}`));
 
               if (result.success && result.imageUrl) {
+                // 更新画板角色卡片
+                directorMode.updateCharacterImage(character.id, result.imageUrl);
+
                 // 发送人物形象消息
                 const characterMessage: Message = {
                   id: `char-img-${i}`,
@@ -617,6 +620,9 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
             setMessages((prev) => prev.filter(m => m.id !== `typing-regenerate-${index}`));
 
             if (result.success && result.imageUrl) {
+              // 更新画板角色卡片
+              directorMode.updateCharacterImage(character.id, result.imageUrl);
+
               const characterMessage: Message = {
                 id: `char-img-regen-${index}`,
                 agentId: 'casting-director',
