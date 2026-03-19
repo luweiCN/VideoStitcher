@@ -240,6 +240,24 @@ export function useDirectorMode(screenplayId: string) {
     });
   }, []);
 
+  // 更新角色列表（用于工作流事件）
+  const updateCharacters = useCallback((characters: Character[]) => {
+    console.log('[useDirectorMode] 更新角色列表:', characters.length);
+    setState((prev) => ({
+      ...prev,
+      characters,
+    }));
+  }, []);
+
+  // 更新分镜图（用于工作流事件）
+  const updateStoryboard = useCallback((storyboard: Storyboard) => {
+    console.log('[useDirectorMode] 更新分镜图:', storyboard);
+    setState((prev) => ({
+      ...prev,
+      storyboard,
+    }));
+  }, []);
+
   // 添加视频
   const addVideo = useCallback((video: { id: string; url: string; duration?: number; description?: string }) => {
     console.log('[useDirectorMode] 添加视频:', video);
@@ -260,5 +278,7 @@ export function useDirectorMode(screenplayId: string) {
     addCharacter,
     updateCharacterImage,
     addVideo,
+    updateCharacters,
+    updateStoryboard,
   };
 }

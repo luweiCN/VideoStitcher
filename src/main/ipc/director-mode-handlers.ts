@@ -97,7 +97,7 @@ function convertToStoryboard(frames: any[] | undefined): Storyboard {
  */
 export function registerDirectorModeHandlers() {
   // ===== 生成角色 =====
-  ipcMain.handle('aside:generate-characters', async (_event, screenplayId: string, videoSpec?: { duration: 'short' | 'long'; aspectRatio: '16:9' | '9:16' }) => {
+  ipcMain.handle('aside:generate-characters', async (event, screenplayId: string, videoSpec?: { duration: 'short' | 'long'; aspectRatio: '16:9' | '9:16' }) => {
     console.log('[DirectorMode] 生成角色，剧本 ID:', screenplayId);
 
     try {
@@ -146,7 +146,16 @@ export function registerDirectorModeHandlers() {
         hasStep5: !!state.step5_final,
       });
 
-      const result = await resumeWorkflow(state);
+      // 定义进度回调：发送 IPC 事件到前端
+      const onProgress = (progressEvent: any) => {
+        console.log('[DirectorMode] 进度事件:', progressEvent);
+        event.sender.send('aside:workflow:progress', {
+          screenplayId,
+          ...progressEvent,
+        });
+      };
+
+      const result = await resumeWorkflow(state, onProgress);
 
       if (!result.success) {
         throw new Error(result.error || '工作流恢复失败');
@@ -184,12 +193,28 @@ export function registerDirectorModeHandlers() {
       // 更新缓存
       workflowStates.set(screenplayId, result.state);
 
+      // 发送角色生成完成事件
+      event.sender.send('aside:workflow:characters', {
+        screenplayId,
+        characters: convertToCharacter(artDirectorOutput),
+        message: '我为本剧本设计了如下的角色和场景，您看是否需要修改',
+      });
+
       return {
         success: true,
         characters: convertToCharacter(artDirectorOutput),
       };
     } catch (error) {
       console.error('[DirectorMode] 生成角色失败:', error);
+
+      // 发送错误事件
+      event.sender.send('aside:workflow:error', {
+        screenplayId,
+        step: 2,
+        error: (error as Error).message,
+        timestamp: Date.now(),
+      });
+
       return {
         success: false,
         error: (error as Error).message,
@@ -249,7 +274,7 @@ export function registerDirectorModeHandlers() {
   });
 
   // ===== 重新生成角色 =====
-  ipcMain.handle('aside:regenerate-character', async (_event, characterId: string) => {
+  ipcMain.handle('aside:regenerate-character', async (event, characterId: string) => {
     console.log('[DirectorMode] 重新生成角色:', characterId);
 
     try {
@@ -269,8 +294,17 @@ export function registerDirectorModeHandlers() {
         throw new Error('找不到角色对应的工作流');
       }
 
-      // 重新生成角色
-      const result = await regenerateStep(targetState, 2);
+      // 定义进度回调：发送 IPC 事件到前端
+      const onProgress = (progressEvent: any) => {
+        console.log('[DirectorMode] 重新生成角色进度:', progressEvent);
+        event.sender.send('aside:workflow:progress', {
+          screenplayId: targetScreenplayId,
+          ...progressEvent,
+        });
+      };
+
+      // 重新生成角色（带进度回调）
+      const result = await regenerateStep(targetState, 2, onProgress);
 
       if (!result.success || !result.state?.step2_characters) {
         throw new Error(result.error || '重新生成角色失败');
@@ -301,7 +335,7 @@ export function registerDirectorModeHandlers() {
   });
 
   // ===== 生成分镜图 =====
-  ipcMain.handle('aside:generate-storyboard', async (_event, screenplayId: string) => {
+  ipcMain.handle('aside:generate-storyboard', async (event, screenplayId: string) => {
     console.log('[DirectorMode] 生成分镜图，剧本 ID:', screenplayId);
 
     try {
@@ -315,8 +349,17 @@ export function registerDirectorModeHandlers() {
         throw new Error('步骤 1 和 2 尚未完成');
       }
 
-      // 恢复工作流执行（从步骤 2 继续执行步骤 3）
-      const result = await resumeWorkflow(state);
+      // 定义进度回调：发送 IPC 事件到前端
+      const onProgress = (progressEvent: any) => {
+        console.log('[DirectorMode] 分镜进度事件:', progressEvent);
+        event.sender.send('aside:workflow:progress', {
+          screenplayId,
+          ...progressEvent,
+        });
+      };
+
+      // 恢复工作流执行（从步骤 2 继续执行步骤 3-4）
+      const result = await resumeWorkflow(state, onProgress);
 
       if (!result.success) {
         throw new Error(result.error || '分镜图生成失败');
@@ -344,7 +387,7 @@ export function registerDirectorModeHandlers() {
   });
 
   // ===== 重新生成分镜图 =====
-  ipcMain.handle('aside:regenerate-storyboard', async (_event, storyboardId: string) => {
+  ipcMain.handle('aside:regenerate-storyboard', async (event, storyboardId: string) => {
     console.log('[DirectorMode] 重新生成分镜图:', storyboardId);
 
     try {
@@ -364,8 +407,17 @@ export function registerDirectorModeHandlers() {
         throw new Error('找不到分镜图对应的工作流');
       }
 
-      // 重新生成分镜图
-      const result = await regenerateStep(targetState, 3);
+      // 定义进度回调：发送 IPC 事件到前端
+      const onProgress = (progressEvent: any) => {
+        console.log('[DirectorMode] 重新生成分镜进度:', progressEvent);
+        event.sender.send('aside:workflow:progress', {
+          screenplayId: targetScreenplayId,
+          ...progressEvent,
+        });
+      };
+
+      // 重新生成分镜图（带进度回调）
+      const result = await regenerateStep(targetState, 3, onProgress);
 
       if (!result.success) {
         throw new Error(result.error || '重新生成分镜图失败');
@@ -439,10 +491,46 @@ export function registerDirectorModeHandlers() {
         throw new Error('工作流状态不存在');
       }
 
-      // TODO: 调用选角导演 Agent 生成人物形象（正、侧、后三视图）
-      // 暂时返回占位符 URL
-      const imageUrl = `https://via.placeholder.com/400x600/8B5CF6/FFFFFF?text=${encodeURIComponent('角色形象：' + data.characterId)}`;
+      // 1. 获取角色的图像生成提示词
+      const artDirectorOutput = state.step2_characters?.content;
+      if (!artDirectorOutput || !artDirectorOutput.character_profiles) {
+        throw new Error('艺术总监输出不存在');
+      }
 
+      // 查找对应角色
+      const character = artDirectorOutput.character_profiles.find(
+        (profile: any) => profile.id === data.characterId
+      );
+
+      if (!character) {
+        throw new Error(`找不到角色: ${data.characterId}`);
+      }
+
+      // 获取图像生成提示词
+      const imagePrompt = character.image_generation_prompt;
+      if (!imagePrompt) {
+        throw new Error('角色缺少图像生成提示词');
+      }
+
+      console.log('[DirectorMode] 使用提示词:', imagePrompt.substring(0, 100));
+
+      // 2. 获取全局 AI Provider
+      const { getGlobalProvider } = await import('@main/ai/provider-manager');
+      const provider = getGlobalProvider();
+
+      // 3. 调用图像生成 API
+      console.log('[DirectorMode] 调用图像生成 API...');
+      const result = await provider.generateImage(imagePrompt, {
+        size: '1024x1024',
+        quality: 'hd',
+        numberOfImages: 1,
+      });
+
+      if (!result.images || result.images.length === 0) {
+        throw new Error('图像生成失败：未返回图像');
+      }
+
+      const imageUrl = result.images[0].url;
       console.log('[DirectorMode] 人物形象生成完成:', imageUrl);
 
       return {

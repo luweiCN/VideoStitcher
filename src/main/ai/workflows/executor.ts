@@ -7,7 +7,17 @@ import type { BaseMessage } from '@langchain/core/messages';
 import type { Project, CreativeDirection, Persona } from '@shared/types/aside';
 import { getVideoProductionGraph } from './graph';
 import type { WorkflowState, ExecutionMode, VideoSpec } from './state';
-import { createInitialWorkflowState, updateWorkflowState, normalizeCurrentStep, TOTAL_STEPS } from './state';
+import { createInitialWorkflowState, updateWorkflowState, normalizeCurrentStep, TOTAL_STEPS, WORKFLOW_STEPS } from './state';
+
+/**
+ * 节点名称到步骤编号的映射
+ */
+const NODE_TO_STEP: Record<string, number> = {
+  'art_director': 2,
+  'casting_director': 3,
+  'storyboard_artist': 4,
+  'cinematographer': 5,
+};
 
 /**
  * 工作流执行选项
@@ -31,6 +41,8 @@ export interface WorkflowExecutionOptions {
   creativeDirectionId?: string;
   /** 人设 ID（可选，用于向后兼容） */
   personaId?: string;
+  /** 进度回调（可选） */
+  onProgress?: (event: ProgressEvent) => void;
 }
 
 /**
@@ -43,6 +55,22 @@ export interface WorkflowExecutionResult {
   state?: WorkflowState;
   /** 错误信息 */
   error?: string;
+}
+
+/**
+ * 进度事件
+ */
+export interface ProgressEvent {
+  /** 步骤编号 */
+  step: number;
+  /** 节点名称 */
+  nodeName: string;
+  /** 状态 */
+  status: 'started' | 'completed';
+  /** 消息 */
+  message?: string;
+  /** 时间戳 */
+  timestamp: number;
 }
 
 /**
@@ -109,15 +137,17 @@ export async function startWorkflow(
 }
 
 /**
- * 恢复工作流（从暂停点继续）
+ * 恢复工作流（从暂停点继续）- 使用流式执行，支持实时进度通知
  *
  * @param currentState 当前状态（已修改）
+ * @param onProgress 进度回调（可选）
  * @returns 执行结果
  */
 export async function resumeWorkflow(
-  currentState: WorkflowState
+  currentState: WorkflowState,
+  onProgress?: (event: ProgressEvent) => void,
 ): Promise<WorkflowExecutionResult> {
-  console.log('[WorkflowExecutor] 恢复工作流');
+  console.log('[WorkflowExecutor] 恢复工作流（流式模式）');
   console.log(`[WorkflowExecutor] 从步骤 ${currentState.currentStep} 继续`);
 
   try {
@@ -136,14 +166,47 @@ export async function resumeWorkflow(
     // 2. 获取工作流图
     const graph = getVideoProductionGraph();
 
-    // 3. 继续执行
-    console.log('[WorkflowExecutor] 继续执行工作流');
-    const result = await graph.invoke(currentState);
+    // 3. 使用流式执行
+    console.log('[WorkflowExecutor] 开始流式执行工作流');
+    let finalState = currentState;
+
+    try {
+      // 使用 stream API 获取每个节点的执行结果
+      const stream = await graph.stream(currentState, { streamMode: 'updates' });
+
+      for await (const event of stream) {
+        // event 格式: { nodeName: string, output: Partial<WorkflowState> }
+        const nodeName = Object.keys(event)[0];
+        const nodeOutput = event[nodeName];
+
+        console.log(`[WorkflowExecutor] 节点 ${nodeName} 完成`);
+
+        // 合并状态
+        if (nodeOutput && typeof nodeOutput === 'object') {
+          finalState = { ...finalState, ...nodeOutput } as WorkflowState;
+        }
+
+        // 发送进度事件
+        if (onProgress && nodeName && NODE_TO_STEP[nodeName]) {
+          const stepNumber = NODE_TO_STEP[nodeName];
+          onProgress({
+            step: stepNumber,
+            nodeName,
+            status: 'completed',
+            message: `节点 ${nodeName} 执行完成`,
+            timestamp: Date.now(),
+          });
+        }
+      }
+    } catch (streamError) {
+      console.error('[WorkflowExecutor] 流式执行出错:', streamError);
+      throw streamError;
+    }
 
     console.log('[WorkflowExecutor] 工作流恢复完成');
     return {
       success: true,
-      state: normalizeWorkflowResultState(result as WorkflowState),
+      state: normalizeWorkflowResultState(finalState),
     };
   } catch (error) {
     console.error('[WorkflowExecutor] 工作流恢复失败:', error);
@@ -155,18 +218,20 @@ export async function resumeWorkflow(
 }
 
 /**
- * 重新生成指定步骤
+ * 重新生成指定步骤 - 使用流式执行，支持实时进度通知
  *
  * @param currentState 当前状态
- * @param targetStep 目标步骤（1-4）
+ * @param targetStep 目标步骤（1-5）
+ * @param onProgress 进度回调（可选）
  * @returns 执行结果
  */
 export async function regenerateStep(
   currentState: WorkflowState,
-  targetStep: number
+  targetStep: number,
+  onProgress?: (event: ProgressEvent) => void
 ): Promise<WorkflowExecutionResult> {
   const normalizedTargetStep = normalizeCurrentStep(targetStep);
-  console.log(`[WorkflowExecutor] 重新生成步骤 ${normalizedTargetStep}`);
+  console.log(`[WorkflowExecutor] 重新生成步骤 ${normalizedTargetStep}（流式模式）`);
 
   try {
     // 1. 清除目标步骤及后续步骤的输出
@@ -186,14 +251,47 @@ export async function regenerateStep(
     // 3. 获取工作流图
     const graph = getVideoProductionGraph();
 
-    // 4. 从目标步骤重新执行
-    console.log(`[WorkflowExecutor] 从步骤 ${normalizedTargetStep} 重新执行`);
-    const result = await graph.invoke(newState);
+    // 4. 使用流式执行
+    console.log(`[WorkflowExecutor] 从步骤 ${normalizedTargetStep} 重新执行（流式）`);
+    let finalState = newState;
+
+    try {
+      // 使用 stream API 获取每个节点的执行结果
+      const stream = await graph.stream(newState, { streamMode: 'updates' });
+
+      for await (const event of stream) {
+        // event 格式: { nodeName: string, output: Partial<WorkflowState> }
+        const nodeName = Object.keys(event)[0];
+        const nodeOutput = event[nodeName];
+
+        console.log(`[WorkflowExecutor] 节点 ${nodeName} 完成`);
+
+        // 合并状态
+        if (nodeOutput && typeof nodeOutput === 'object') {
+          finalState = { ...finalState, ...nodeOutput } as WorkflowState;
+        }
+
+        // 发送进度事件
+        if (onProgress && nodeName && NODE_TO_STEP[nodeName]) {
+          const stepNumber = NODE_TO_STEP[nodeName];
+          onProgress({
+            step: stepNumber,
+            nodeName,
+            status: 'completed',
+            message: `节点 ${nodeName} 重新生成完成`,
+            timestamp: Date.now(),
+          });
+        }
+      }
+    } catch (streamError) {
+      console.error('[WorkflowExecutor] 流式执行出错:', streamError);
+      throw streamError;
+    }
 
     console.log('[WorkflowExecutor] 重新生成完成');
     return {
       success: true,
-      state: normalizeWorkflowResultState(result as WorkflowState),
+      state: normalizeWorkflowResultState(finalState),
     };
   } catch (error) {
     console.error('[WorkflowExecutor] 重新生成失败:', error);

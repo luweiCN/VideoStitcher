@@ -106,6 +106,91 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
 
   const directorMode = useDirectorMode(screenplayId);
 
+  // 监听工作流进度事件
+  useEffect(() => {
+    console.log('[ChatPanel] 设置工作流事件监听器，screenplayId:', screenplayId);
+
+    // 监听角色生成完成事件
+    const unsubscribeCharacters = window.api.onWorkflowCharacters((data) => {
+      console.log('[ChatPanel] 收到角色生成事件:', data);
+
+      if (data.screenplayId === screenplayId) {
+        // 移除 typing 消息
+        setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
+
+        // 简化的角色描述
+        const characterDescriptions = data.characters.map((c: any, i: number) => {
+          // 提取角色类型
+          const roleType = c.role_type === 'protagonist' ? '【主角】' :
+                          c.role_type === 'antagonist' ? '【反派】' : '【配角】';
+
+          // 提取外貌和服装（形象）
+          const appearance = c.appearance || '';
+          const costume = c.costume || '';
+          const image = [appearance, costume].filter(Boolean).join('，');
+
+          // 提取性格
+          const personality = c.personality_traits?.join('、') || '';
+
+          return `${i + 1}. **${c.name}** ${roleType}
+   形象：${image}
+   性格：${personality}`;
+        }).join('\n\n');
+
+        // 检查是否有场景信息
+        const hasScenes = data.scene_breakdowns && data.scene_breakdowns.length > 0;
+
+        addAgentMessage(
+          'art-director',
+          hasScenes
+            ? `${characterDescriptions}\n\n场景设定：${data.scene_breakdowns.map((s: any) => s.scene_name).join('、')}\n\n你看一下我设计的人物和场景怎么样呢？需不需要修改？`
+            : `${characterDescriptions}\n\n你看一下我设计的人物怎么样呢？需不需要修改？`,
+          [
+            { label: '重新生成', value: 'regenerate' },
+            { label: '无需修改', value: 'confirm' },
+          ]
+        );
+
+        // 更新画板
+        directorMode.updateCharacters(data.characters);
+      }
+    });
+
+    // 监听进度事件（可选，用于显示打字动画）
+    const unsubscribeProgress = window.api.onWorkflowProgress((data) => {
+      console.log('[ChatPanel] 收到进度事件:', data);
+
+      if (data.screenplayId === screenplayId && data.status === 'started') {
+        // 添加 typing 消息
+        const typingMessage: Message = {
+          id: `typing-${Date.now()}`,
+          agentId: data.nodeName === 'art_director' ? 'art-director' : data.nodeName,
+          type: 'typing',
+          content: '',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, typingMessage]);
+      }
+    });
+
+    // 监听错误事件
+    const unsubscribeError = window.api.onWorkflowError((data) => {
+      console.error('[ChatPanel] 收到错误事件:', data);
+
+      if (data.screenplayId === screenplayId) {
+        setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
+
+        addAgentMessage('art-director', `❌ 创作失败: ${data.error}`);
+      }
+    });
+
+    return () => {
+      unsubscribeCharacters();
+      unsubscribeProgress();
+      unsubscribeError();
+    };
+  }, [screenplayId]);
+
   // 剧本切换时重置会话状态
   useEffect(() => {
     setMessages([]);

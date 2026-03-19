@@ -590,6 +590,18 @@ export interface ElectronAPI {
     state?: unknown;
     error?: string;
   }>;
+
+  // 导演模式工作流事件监听
+  onWorkflowProgress: (callback: (data: {
+    screenplayId: string;
+    step: number;
+    nodeName: string;
+    status: 'started' | 'completed';
+    message?: string;
+    timestamp: number;
+  }) => void) => () => void;
+  onWorkflowComplete: (callback: (data: any) => void) => () => void;
+  onWorkflowError: (callback: (data: any) => void) => () => void;
 }
 
 const api: ElectronAPI = {
@@ -844,6 +856,43 @@ const api: ElectronAPI = {
   asideRegenerateStoryboard: (storyboardId) => ipcRenderer.invoke('aside:regenerate-storyboard', storyboardId),
   asideComposeVideo: (screenplayId) => ipcRenderer.invoke('aside:compose-video', screenplayId),
   asideInitDirectorWorkflow: (data) => ipcRenderer.invoke('aside:init-director-workflow', data),
+
+  // 导演模式工作流事件监听
+  onWorkflowProgress: (callback: (data: any) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('aside:workflow:progress', handler);
+    return () => ipcRenderer.removeListener('aside:workflow:progress', handler);
+  },
+  onWorkflowCharacters: (callback: (data: any) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('aside:workflow:characters', handler);
+    return () => ipcRenderer.removeListener('aside:workflow:characters', handler);
+  },
+  onWorkflowCharacterImage: (callback: (data: any) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('aside:workflow:character-image', handler);
+    return () => ipcRenderer.removeListener('aside:workflow:character-image', handler);
+  },
+  onWorkflowStoryboard: (callback: (data: any) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('aside:workflow:storyboard', handler);
+    return () => ipcRenderer.removeListener('aside:workflow:storyboard', handler);
+  },
+  onWorkflowVideo: (callback: (data: any) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('aside:workflow:video', handler);
+    return () => ipcRenderer.removeListener('aside:workflow:video', handler);
+  },
+  onWorkflowComplete: (callback: (data: any) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('aside:workflow:complete', handler);
+    return () => ipcRenderer.removeListener('aside:workflow:complete', handler);
+  },
+  onWorkflowError: (callback: (data: any) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('aside:workflow:error', handler);
+    return () => ipcRenderer.removeListener('aside:workflow:error', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);
