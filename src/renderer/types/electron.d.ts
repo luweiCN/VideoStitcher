@@ -571,6 +571,11 @@ export interface ElectronAPI {
   asideAddCharacter: (data: { screenplayId: string; name: string; description: string }) => Promise<{ success: boolean; character?: import('@shared/types/aside').Character; error?: string }>;
   asideEditCharacter: (data: { characterId: string; name: string; description: string }) => Promise<{ success: boolean; error?: string }>;
   asideRegenerateCharacter: (characterId: string) => Promise<{ success: boolean; character?: import('@shared/types/aside').Character; error?: string }>;
+  asideGenerateCharacterImage: (data: {
+    screenplayId: string;
+    characterId: string;
+    useReference: boolean;
+  }) => Promise<{ success: boolean; imageUrl?: string; error?: string }>;
   asideGenerateStoryboard: (screenplayId: string) => Promise<{ success: boolean; storyboard?: import('@shared/types/aside').Storyboard; error?: string }>;
   asideRegenerateStoryboard: (storyboardId: string) => Promise<{ success: boolean; storyboard?: import('@shared/types/aside').Storyboard; error?: string }>;
   asideComposeVideo: (screenplayId: string) => Promise<{ success: boolean; videoUrl?: string; error?: string }>;
