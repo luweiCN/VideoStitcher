@@ -18,6 +18,8 @@ interface Agent {
 // 工作流步骤
 type WorkflowStep =
   | 'art-director'      // 艺术总监
+  | 'art-director-creating'  // 艺术总监创作中
+  | 'art-director-confirm'   // 艺术总监等待确认
   | 'casting-director'   // 选角导演
   | 'storyboard-artist'  // 分镜师
   | 'camera-director';   // 摄像导演
@@ -123,30 +125,54 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
     setIsProcessing(true);
 
     if (value === 'free') {
-      // 自由发挥模式
-      addAgentMessageWithDelay('casting-director', '收到！正在为您解析剧本深意并提取核心人物群像...', 1200);
+      // ===== 艺术总监创作角色和场景 =====
+      addAgentMessageWithDelay('art-director', '收到！开始为您创作角色和场景...', 1200);
 
       try {
         await delay(1500);
-        // 调用 API 生成角色
+        // 调用 API 生成角色（艺术总监 Agent）
         const result = await directorMode.generateCharacters();
 
         if (result && result.length > 0) {
-          // 角色生成成功
+          // 角色创作成功
           addAgentMessageWithDelay(
-            'casting-director',
-            `在深入解读剧本之后，我为该剧本设计了如下 ${result.length} 个角色：`,
+            'art-director',
+            `我已经为该剧本创作了 ${result.length} 个角色：${result.map(c => c.name).join('、')}。接下来请选角导演为我们的剧本选择角色并生成形象。`,
             1500
           );
 
+          setIsProcessing(false);
+
+          // ===== 艺术总监邀请选角导演 =====
+          await delay(1500);
+
+          if (!hasCastingDirectorJoined) {
+            const systemMessage: Message = {
+              id: `system-casting-join`,
+              agentId: 'system',
+              type: 'text',
+              content: '艺术总监邀请选角导演加入群聊',
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, systemMessage]);
+            setHasCastingDirectorJoined(true);
+          }
+
+          await delay(800);
+
+          // ===== 选角导演生成人物形象 =====
+          addAgentMessageWithDelay('casting-director', '收到！开始为每个角色生成形象...', 1200);
+
+          setIsProcessing(true);
           await delay(1000);
 
-          // 为每个角色发送消息
+          // TODO: 调用选角导演 API 生成人物形象
+          // 目前先用占位符，后续需要实现流式返回
           for (let i = 0; i < result.length; i++) {
             const character = result[i];
             const isProtagonist = i === 0; // 第一个角色默认为主角
 
-            // 发送角色消息（带 loading 图片占位符）
+            // 发送角色形象消息（带 loading 图片占位符）
             const characterMessageId = `${Date.now()}-char-${i}`;
             const characterMessage: Message = {
               id: characterMessageId,
@@ -314,56 +340,150 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
       } else if (value === 'landscape' || value === 'portrait') {
         // 用户选择了视频方向
         setVideoSpec(prev => ({ ...prev, aspectRatio: value }));
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `${Date.now()}-user`,
-            agentId: 'user',
-            type: 'text',
-            content: value === 'landscape' ? '横版 (16:9)' : '竖版 (9:16)',
-            timestamp: new Date(),
-          },
-        ]);
+        const userMessage: Message = {
+          id: `user-aspect-${Date.now()}`,
+          agentId: 'user',
+          type: 'text',
+          content: `已选择：${value === 'landscape' ? '横版 (16:9)' : '竖版 (9:16)'}`,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, userMessage]);
 
-        // 艺术总监确认规格
-        setTimeout(() => {
-          const durationText = videoSpec.duration === 'long' ? '长视频 (15-30s)' : '短视频 (15s以下)';
-          const aspectText = value === 'landscape' ? '横版 (16:9)' : '竖版 (9:16)';
+        // 艺术总监确认规格并开始创作
+        const durationText = videoSpec.duration === 'long' ? '长视频 (15-30s)' : '短视频 (15s以下)';
+        const ratioText = value === 'landscape' ? '横 (16:9)' : '竖 (9:16)';
 
-          addAgentMessageWithDelay(
-            'art-director',
-            `【已确认规格】 ${durationText} | ${aspectText}\n\n接下来，需要选角导演为我们的剧本创建角色`,
-            1500
-          );
-        }, 500);
+        addAgentMessageWithDelay(
+          'art-director',
+          `【已确认规格】${durationText} | ${ratioText} 接下来我将根据您的剧本为您设计人物角色和场景`,
+          1200
+        );
 
-        // 进入下一步：选角导演
-        setTimeout(() => {
-          // 添加系统消息：艺术总监邀请选角导演加入群聊
-          if (!hasCastingDirectorJoined) {
-            const systemMessage: Message = {
-              id: `system-casting-join`,
-              agentId: 'system',
-              type: 'text',
-              content: '艺术总监邀请选角导演加入群聊',
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, systemMessage]);
-            setHasCastingDirectorJoined(true);
+        // 进入创作状态
+        setCurrentStep('art-director-creating');
+        setIsProcessing(true);
+
+        // 发送 typing 消息
+        const typingMessage: Message = {
+          id: `typing-${Date.now()}`,
+          agentId: 'art-director',
+          type: 'typing',
+          content: '正在创作角色和场景...',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, typingMessage]);
+
+        // 调用后台 API 创作角色
+        setTimeout(async () => {
+          try {
+            await delay(2000);
+            const result = await directorMode.generateCharacters();
+
+            // 移除 typing 消息
+            setMessages((prev) => prev.filter(m => m.type !== 'typing'));
+
+            if (result && result.length > 0) {
+              const characterNames = result.map(c => c.name).join('、');
+
+              addAgentMessage(
+                'art-director',
+                `创作完成！我为您创作了以下角色：\n\n${result.map((c, i) =>
+                  `${i + 1}. ${c.name}（${c.description.split('\n')[0]}）`
+                ).join('\n')}\n\n场景设定基于您的剧本，您看是否需要修改`,
+                [
+                  { label: '重新生成', value: 'regenerate' },
+                  { label: '无需修改', value: 'confirm' },
+                ]
+              );
+
+              setIsProcessing(false);
+              setCurrentStep('art-director-confirm');
+            }
+          } catch (error) {
+            addAgentMessage('art-director', `创作失败：${(error as Error).message}`);
+            setIsProcessing(false);
           }
+        }, 2000);
+      }
+    } else if (currentStep === 'art-director-confirm') {
+      if (value === 'regenerate') {
+        // 重新生成角色
+        addAgentMessage('user', '请重新生成角色');
 
-          // 延迟后选角导演开始说话
+        setCurrentStep('art-director-creating');
+        setIsProcessing(true);
+
+        // 发送 typing 消息
+        const typingMessage: Message = {
+          id: `typing-regenerate-${Date.now()}`,
+          agentId: 'art-director',
+          type: 'typing',
+          content: '正在重新创作角色和场景...',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, typingMessage]);
+
+        setTimeout(async () => {
+          try {
+            await delay(2000);
+            const result = await directorMode.generateCharacters();
+
+            // 移除 typing 消息
+            setMessages((prev) => prev.filter(m => m.type !== 'typing'));
+
+            if (result && result.length > 0) {
+              addAgentMessage(
+                'art-director',
+                `重新创作完成！我为您创作了以下角色：\n\n${result.map((c, i) =>
+                  `${i + 1}. ${c.name}（${c.description.split('\n')[0]}）`
+                ).join('\n')}\n\n场景设定基于您的剧本，您看是否需要修改`,
+                [
+                  { label: '重新生成', value: 'regenerate' },
+                  { label: '无需修改', value: 'confirm' },
+                ]
+              );
+
+              setIsProcessing(false);
+            }
+          } catch (error) {
+            addAgentMessage('art-director', `重新创作失败：${(error as Error).message}`);
+            setIsProcessing(false);
+          }
+        }, 2000);
+      } else if (value === 'confirm') {
+        // 用户确认角色，邀请选角导演
+        addAgentMessage('user', '无需修改，确认角色和场景');
+
+        addAgentMessageWithDelay(
+          'art-director',
+          '好的，角色和场景已经确定。接下来需要选角导演为我们的剧本挑选演员。',
+          1500
+        );
+
+        // 系统消息：邀请选角导演
+        setTimeout(() => {
+          const systemMessage: Message = {
+            id: `system-invite-casting`,
+            agentId: 'system',
+            type: 'text',
+            content: '系统消息：艺术总监邀请选角导演加入群聊',
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, systemMessage]);
+
+          // 选角导演自我介绍
           setTimeout(() => {
-            addAgentMessageWithDelay('casting-director', '大家好！我是选角导演，负责根据剧本创建角色。', 1200);
-            setTimeout(() => {
-              addAgentMessageWithDelay('casting-director', '请选择角色生成方式：', 1000, [
+            addAgentMessage(
+              'casting-director',
+              '大家好！我是选角导演，负责为我们的剧本挑选演员。对于演员的形象，请问您这边有需要我参考的方向还是让我自由发挥呢？',
+              [
                 { label: '上传参考图', value: 'upload' },
                 { label: '自由发挥', value: 'free' },
-              ]);
-              setCurrentStep('casting-director');
-            }, 1500);
-          }, 1000);
-        }, 2500);
+              ]
+            );
+            setCurrentStep('casting-director');
+          }, 800);
+        }, 1000);
       }
     } else if (currentStep === 'casting-director') {
       if (value === 'upload' || value === 'free') {
