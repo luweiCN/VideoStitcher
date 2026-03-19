@@ -152,7 +152,14 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
         );
 
         // 更新画板
+        console.log('[ChatPanel] 准备更新画板，角色数量:', data.characters.length);
+        console.log('[ChatPanel] 角色数据:', data.characters.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          hasId: !!c.id,
+        })));
         directorMode.updateCharacters(data.characters);
+        console.log('[ChatPanel] updateCharacters 调用完成');
       }
     });
 

@@ -6,6 +6,7 @@
 import type { WorkflowState, StepOutput } from '../state';
 import type { AIProvider, TextGenerationOptions } from '../../providers/interface';
 import { ArtDirectorAgentPrompts } from '../../prompts/art-director-agent';
+import { createHash } from 'crypto';
 
 /**
  * 艺术总监 Agent 节点
@@ -66,6 +67,25 @@ export async function artDirectorNode(state: WorkflowState): Promise<Partial<Wor
     // 5. 解析 LLM 输出
     console.log('[艺术总监] 解析 LLM 输出');
     const parsed = parseArtDirectorOutput(result.content);
+
+    // 关键修复：为每个角色生成稳定的 ID（如果 LLM 没有生成）
+    if (parsed && parsed.character_profiles && Array.isArray(parsed.character_profiles)) {
+      parsed.character_profiles = parsed.character_profiles.map((profile: any, index: number) => {
+        // 如果已有 ID，保留；否则生成稳定 ID
+        if (!profile.id) {
+          // 使用剧本内容哈希 + 索引生成稳定 ID
+          const stableId = `char-${createHash('md5')
+            .update(state.step1_script?.content || state.inputScript || '')
+            .digest('hex')
+            .substring(0, 8)}-${index}`;
+          console.log(`[艺术总监] 为角色 ${profile.name} 生成 ID: ${stableId}`);
+          profile.id = stableId;
+        } else {
+          console.log(`[艺术总监] 角色 ${profile.name} 已有 ID: ${profile.id}`);
+        }
+        return profile;
+      });
+    }
 
     // 6. 构建输出
     const output: StepOutput<any> = {
