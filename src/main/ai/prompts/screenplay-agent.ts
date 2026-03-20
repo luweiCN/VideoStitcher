@@ -21,7 +21,7 @@ export class ScreenplayAgentPrompts {
   ): string {
     // 地区描述映射
     const regionDescriptions: Record<string, string> = {
-      'universal': '全球通用',
+      'universal': '全国通用',
       'shanghai': '上海地区 - 具有上海本地民俗特征，符合当地人的语言和生活习惯',
       'guangdong': '广东地区 - 具有广东本地民俗特征，符合当地人的语言和生活习惯',
       'sichuan': '四川地区 - 具有四川本地民俗特征，符合当地人的语言和生活习惯',
@@ -70,7 +70,7 @@ export class ScreenplayAgentPrompts {
 - 广东地区：可以使用粤语元素、茶餐厅场景、岭南文化、商业氛围等
 - 四川地区：可以使用川渝方言元素、火锅场景、巴蜀文化、休闲生活等
 - 北京地区：可以使用北京方言元素、胡同场景、京味文化、政治文化中心等
-- 全球通用：使用普世价值观、国际化场景、通用的情感共鸣点
+- 全国通用：使用普世价值观、国际化场景、通用的情感共鸣点
 
 # 输出格式
 请严格按以下 JSON 格式输出（不要使用 markdown 代码块包裹，直接输出 JSON 文本）：

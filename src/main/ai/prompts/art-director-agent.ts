@@ -20,7 +20,7 @@ export class ArtDirectorAgentPrompts {
   ): string {
     // 地区描述映射
     const regionDescriptions: Record<string, string> = {
-      'universal': '全球通用',
+      'universal': '全国通用',
       'shanghai': '上海地区 - 具有上海本地民俗特征',
       'guangdong': '广东地区 - 具有广东本地民俗特征',
       'sichuan': '四川地区 - 具有四川本地民俗特征',
