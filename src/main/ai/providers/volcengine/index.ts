@@ -81,10 +81,14 @@ export class VolcEngineProvider implements AIProvider {
 
     // 初始化视频生成
     if (config.features.videoGeneration) {
+      // 优先使用 videoModel 或 models.video[0].id，回退到 model
+      const videoModel = (config as any).videoModel
+        || (config as any).models?.video?.[0]?.id
+        || config.model;
       this.video = new VolcEngineVideo({
         apiKey: config.apiKey,
         baseUrl: config.baseUrl,
-        model: config.model,
+        model: videoModel,
       });
       console.log('[VolcEngineProvider] 视频生成初始化成功');
     } else {
@@ -255,17 +259,23 @@ export class VolcEngineProvider implements AIProvider {
       throw new Error('[VolcEngineProvider] 视频生成模块未初始化,请检查配置');
     }
 
-    console.log('[VolcEngineProvider] 开始生成视频');
+    console.log('[VolcEngineProvider] 开始生成视频', {
+      prompt: prompt.substring(0, 80),
+      hasImageRef: !!options?.imageUrl,
+    });
 
-    // 检查是否是图片 URL（以 http 开头）
-    const isImageUrl = prompt.startsWith('http://') || prompt.startsWith('https://');
+    // 优先使用 options.imageUrl 作为参考图（图生视频）
+    // 兼容旧逻辑：如果 prompt 本身是 http URL，也当作参考图使用
+    const referenceImageUrl = options?.imageUrl ||
+      (prompt.startsWith('http://') || prompt.startsWith('https://') ? prompt : undefined);
 
-    if (isImageUrl) {
-      // 图生视频
-      return await this.video.generateVideoFromImage(prompt, undefined, options);
+    if (referenceImageUrl) {
+      // 图生视频：传入参考图 + 文本 prompt
+      const textPrompt = options?.imageUrl ? prompt : undefined;
+      return await this.video.generateVideoFromImage(referenceImageUrl, textPrompt, options);
     } else {
-      // 文生视频（暂不支持）
-      throw new Error('[VolcEngineProvider] 暂不支持文生视频，请使用图生视频');
+      // 文生视频
+      return await this.video.generateVideoFromText(prompt, options);
     }
   }
 

@@ -19,6 +19,16 @@ export interface DirectorModeState {
   characters: Character[];
   storyboard: Storyboard | null;
   characterImages: Map<string, string>; // characterId -> imageUrl
+  sceneBreakdowns: Array<{
+    scene_number: number;
+    scene_name: string;
+    location_type: string;
+    time_of_day: string;
+    environment: string;
+    props: string[];
+    atmosphere: string;
+    key_visual_elements: string[];
+  }>; // 场景信息
   videos: Array<{ id: string; url: string; duration?: number; description?: string }>;
   isGeneratingCharacters: boolean;
   isGeneratingStoryboard: boolean;
@@ -31,6 +41,7 @@ export function useDirectorMode(screenplayId: string) {
     characters: [],
     storyboard: null,
     characterImages: new Map(),
+    sceneBreakdowns: [],
     videos: [],
     isGeneratingCharacters: false,
     isGeneratingStoryboard: false,
@@ -231,10 +242,18 @@ export function useDirectorMode(screenplayId: string) {
   const updateCharacterImage = useCallback((characterId: string, imageUrl: string) => {
     console.log('[useDirectorMode] 更新角色图片:', characterId, imageUrl);
     setState((prev) => {
+      // 更新 characters 数组中对应角色的 imageUrl
+      const updatedCharacters = prev.characters.map((char) =>
+        char.id === characterId ? { ...char, imageUrl } : char
+      );
+
+      // 同时更新 characterImages Map
       const newImages = new Map(prev.characterImages);
       newImages.set(characterId, imageUrl);
+
       return {
         ...prev,
+        characters: updatedCharacters,
         characterImages: newImages,
       };
     });
@@ -265,6 +284,15 @@ export function useDirectorMode(screenplayId: string) {
     }));
   }, []);
 
+  // 更新场景设定（用于工作流事件）
+  const updateSceneBreakdowns = useCallback((scenes: DirectorModeState['sceneBreakdowns']) => {
+    console.log('[useDirectorMode] 更新场景设定:', scenes);
+    setState((prev) => ({
+      ...prev,
+      sceneBreakdowns: scenes,
+    }));
+  }, []);
+
   // 添加视频
   const addVideo = useCallback((video: { id: string; url: string; duration?: number; description?: string }) => {
     console.log('[useDirectorMode] 添加视频:', video);
@@ -277,15 +305,16 @@ export function useDirectorMode(screenplayId: string) {
   return {
     ...state,
     generateCharacters,
+    addCharacter,
+    editCharacter,
     regenerateCharacter,
     generateStoryboard,
     regenerateStoryboard,
     composeVideo,
-    editCharacter,
-    addCharacter,
     updateCharacterImage,
     addVideo,
     updateCharacters,
     updateStoryboard,
+    updateSceneBreakdowns,
   };
 }

@@ -56,7 +56,7 @@ interface VolcEngineImageError {
 const MAX_PROMPT_LENGTH = 4000;
 const MIN_IMAGE_COUNT = 1;
 const MAX_IMAGE_COUNT = 4;
-const REQUEST_TIMEOUT = 30000; // 30 秒
+const REQUEST_TIMEOUT = 120000; // 120 秒（2K 图片生成需要较长时间）
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY = 1000; // 1 秒
 
@@ -237,6 +237,12 @@ export class VolcEngineImage implements Pick<AIProvider, 'generateImage' | 'heal
     // 添加可选参数（风格和质量暂时不支持，火山引擎有自己的参数）
     if (options?.style) {
       body.style = options.style;
+    }
+
+    // 参考图（用于角色/风格一致性控制）
+    if (options?.referenceImageUrl) {
+      body.reference_image_url = options.referenceImageUrl;
+      console.log('[VolcEngineImage] 使用参考图:', options.referenceImageUrl.substring(0, 60));
     }
 
     return body;

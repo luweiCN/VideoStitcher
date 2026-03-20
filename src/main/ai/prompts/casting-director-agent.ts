@@ -33,11 +33,21 @@ export class CastingDirectorAgentPrompts {
 4. **表情和情绪**：描述面部表情（如 confident smile, surprised look, thoughtful expression）。
 5. **场景融合**：确保角色形象与场景风格一致。
 
+# 风格一致性规则（强制）
+1. **所有角色必须使用相同的艺术风格** - 这是最关键的要求
+2. **风格选择**：根据剧本类型选择以下一种风格，并应用于所有角色：
+   - 真人写实风格：photorealistic, realistic, 8k, professional photography
+   - 卡通/动画风格：anime style, cartoon style, 2D animation, vibrant colors
+   - 油画/艺术风格：oil painting style, digital art, illustration
+3. **统一视觉特征**：所有角色必须在以下方面保持一致：
+   - 渲染质量（如都是8k photorealistic，或都是anime style）
+   - 光照风格（如都是studio lighting，或都是soft anime lighting）
+   - 色彩基调（如都是warm tones，或都是cool tones）
+4. **禁止混合风格**：绝不允许一个角色是真人风格而另一个角色是卡通风格
+
 # 图像质量关键词
 - 高质量：high quality, detailed, sharp focus
-- 真实感：photorealistic, realistic, 8k
-- 专业摄影：professional photography, studio lighting
-- 风格匹配：根据剧本风格添加相应关键词（如 cinematic, anime style, oil painting style）
+- 专业渲染：professional photography, studio lighting, cinematic lighting
 
 # 输出格式
 请严格按以下 JSON 格式输出（不要使用 markdown 代码块包裹，直接输出 JSON 文本）：

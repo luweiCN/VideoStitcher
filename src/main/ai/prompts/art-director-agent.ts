@@ -3,7 +3,7 @@
  * 负责提炼剧本、创作角色和场景，并询问用户视频参数
  */
 
-import type { Screenplay, Project, CreativeDirection, Persona } from '@shared/types/aside';
+import type { Project, CreativeDirection, Persona } from '@shared/types/aside';
 
 /**
  * 艺术总监 Agent 提示词构建器
@@ -71,13 +71,13 @@ export class ArtDirectorAgentPrompts {
 3. **确保角色形象与创意方向、人设特征和地区特征匹配**。
 
 # 场景创作规则
-1. 根据剧本内容拆分为 3-5 个核心场景。
-2. 为每个场景设定：
+1. **只创作一个主要场景**，该场景将贯穿整个视频。
+2. 为该场景设定：
    - 场景名称和类型（室内/室外）
    - 时间（白天/夜晚/黄昏等）
    - 环境描述（光线、氛围、背景元素）
    - 道具和细节
-3. 确保场景之间的视觉连贯性。
+3. 确保场景的视觉连贯性。
 
 # 输出格式
 请严格按以下 JSON 格式输出（不要使用 markdown 代码块包裹，直接输出 JSON 文本）：
@@ -104,7 +104,7 @@ export class ArtDirectorAgentPrompts {
   "scene_breakdowns": [
     {
       "scene_number": 1,
-      "scene_name": "场景名称",
+      "scene_name": "主要场景",
       "location_type": "indoor/outdoor",
       "time_of_day": "day/night/dusk/dawn",
       "environment": "环境描述",
@@ -133,7 +133,7 @@ export class ArtDirectorAgentPrompts {
    * 构建用户提示词
    */
   static buildUserPrompt(
-    screenplay: Screenplay,
+    scriptContent: string,
     durationFlag: 'short_<15s' | 'long_>15s',
     aspectRatio: '16:9' | '9:16',
     creativeDirection: CreativeDirection
@@ -144,7 +144,7 @@ export class ArtDirectorAgentPrompts {
     return `请处理以下剧本并创作角色和场景：
 
 # 剧本内容
-${screenplay.content}
+${scriptContent}
 
 # 用户选择的参数
 - 时长要求：${durationText}
@@ -162,6 +162,6 @@ ${screenplay.content}
 7. 视频生成提示词（video_generation_prompt）
 8. 转场建议（transition_note）
 
-**重要提示：角色和场景的创作必须符合创意方向的核心要求。**`;
+**重要提示：角色和场景的创作必须符合创意方向的核心要求，且必须严格来自剧本内容。**`;
   }
 }

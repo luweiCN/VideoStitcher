@@ -1,10 +1,10 @@
 /**
  * 分镜师 Agent
- * Agent 4: 根据人物图和剧本生成分镜图
+ * Agent 4: 根据人物图和剧本生成分镜图（图像）
  */
 
 import type { WorkflowState, StepOutput } from '../state';
-import type { AIProvider, TextGenerationOptions } from '../../providers/interface';
+import type { AIProvider, TextGenerationOptions, ImageGenerationOptions } from '../../providers/interface';
 import { getGlobalProvider } from '../../provider-manager';
 import { StoryboardArtistAgentPrompts } from '../../prompts/storyboard-artist-agent';
 
@@ -27,47 +27,119 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
 
     // 2. 获取上下文信息
     const artDirectorOutput = state.step2_characters?.content;
-    const characterImages = state.step3_storyboard?.content; // 选角导演输出的人物图像提示词
+    const castingDirectorOutput = state.step3_storyboard?.content; // 选角导演输出的角色数据（包含图片）
     const scriptContent = state.step1_script?.content;
 
-    if (!artDirectorOutput || !characterImages || !scriptContent) {
+    if (!artDirectorOutput || !castingDirectorOutput || !scriptContent) {
       throw new Error('[Agent 4: 分镜师] 缺少必要的上下文信息');
     }
 
     console.log('[Agent 4: 分镜师] 开始生成分镜图');
 
-    // 3. 使用 StoryboardArtistAgentPrompts 构建提示词
+    // 3. 先调用 LLM 生成分镜描述和提示词
     const systemPrompt = StoryboardArtistAgentPrompts.buildSystemPrompt();
     const userPrompt = StoryboardArtistAgentPrompts.buildUserPrompt(
       artDirectorOutput,
-      characterImages,
-      JSON.stringify(scriptContent)
+      castingDirectorOutput,
+      typeof scriptContent === 'string' ? scriptContent : JSON.stringify(scriptContent)
     );
 
-    // 4. 调用 LLM
-    const options: TextGenerationOptions = {
+    const textOptions: TextGenerationOptions = {
       temperature: 0.7,
       maxTokens: 8192,
       systemPrompt,
     };
 
-    console.log('[Agent 4: 分镜师] 调用 LLM...');
-    const result = await provider.generateText(userPrompt, options);
+    console.log('[Agent 4: 分镜师] 调用 LLM 生成分镜描述...');
+    const textResult = await provider.generateText(userPrompt, textOptions);
 
-    // 5. 解析输出
-    console.log('[Agent 4: 分镜师] 解析 LLM 输出');
-    const storyboard = parseStoryboardOutput(result.content);
+    // 4. 解析分镜描述
+    console.log('[Agent 4: 分镜师] 解析分镜描述');
+    console.log('[Agent 4: 分镜师] LLM 原始输出（前 500 字符）:', textResult.content.substring(0, 500));
+    const storyboardPlan = parseStoryboardOutput(textResult.content);
+    console.log('[Agent 4: 分镜师] 解析后的结构:', JSON.stringify(storyboardPlan, null, 2).substring(0, 1000));
 
-    console.log(`[Agent 4: 分镜师] 成功生成 ${storyboard.storyboard_groups?.length || 0} 组分镜`);
+    if (!storyboardPlan.storyboard_groups || storyboardPlan.storyboard_groups.length === 0) {
+      throw new Error('分镜描述生成失败：未生成任何分镜计划');
+    }
 
-    // 6. 构建输出
+    console.log(`[Agent 4: 分镜师] 生成了 ${storyboardPlan.storyboard_groups.length} 组分镜计划`);
+
+    // 5. 生成分镜网格图（单张图片包含 5x5 = 25 个分镜）
+    console.log('[Agent 4: 分镜师] 生成分镜网格图（5x5）...');
+
+    // 构建分镜网格的详细描述
+    const frameDescriptions = storyboardPlan.storyboard_groups
+      .flatMap((group: any) => group.frames || [])
+      .filter((frame: any) => frame && frame.description) // 过滤掉无效的帧
+      .slice(0, 25) // 最多 25 个帧
+      .map((frame: any, index: number) => {
+        return `Frame ${index + 1}: ${frame.description}`;
+      })
+      .join('. ');
+
+    console.log(`[Agent 4: 分镜师] 提取了 ${frameDescriptions.split('. ').length} 个帧描述`);
+
+    // 构建图像生成提示词（不限制长度，让所有 25 个帧都包含在提示词中）
+    const storyboardPrompt = `Professional storyboard layout, 5x5 grid of 25 frames arranged in 5 rows and 5 columns, cinematic storyboard style, each frame shows: ${frameDescriptions}, clean line art, consistent character design, sequential narrative flow, no text, no numbers, professional storyboarding technique`;
+
+    console.log('[Agent 4: 分镜师] 调用图像生成 API...');
+
+    // 从选角导演输出中提取角色形象图 URL（前端已通过 aside:generate-character-image 生成并写入）
+    const characterProfiles = castingDirectorOutput.character_profiles || [];
+    const characterImageUrl = characterProfiles.find((p: any) => p.imageUrl)?.imageUrl;
+    if (characterImageUrl) {
+      console.log('[Agent 4: 分镜师] 使用角色形象图作为参考:', characterImageUrl.substring(0, 60));
+    } else {
+      console.warn('[Agent 4: 分镜师] 未找到角色形象图，分镜图将不包含角色参考');
+    }
+
+    const imageOptions: ImageGenerationOptions = {
+      size: '2K', // 2560x1440 = 3,686,400 像素（满足火山引擎最小要求）
+      quality: 'hd',
+      numberOfImages: 1,
+      ...(characterImageUrl ? { referenceImageUrl: characterImageUrl } : {}),
+    };
+
+    const imageResult = await provider.generateImage(storyboardPrompt, imageOptions);
+
+    if (!imageResult.images || imageResult.images.length === 0) {
+      throw new Error('分镜图生成失败：未返回图片');
+    }
+
+    const imageUrl = imageResult.images[0].url;
+    console.log('[Agent 4: 分镜师] 分镜网格图生成成功');
+
+    // 构建帧数据（用于前端交互）
+    const storyboardFrames = storyboardPlan.storyboard_groups.flatMap((group: any, groupIndex: number) => {
+      const frames = group.frames || [];
+      return frames.map((frame: any, frameIndex: number) => ({
+        id: `frame-${groupIndex}-${frameIndex}`,
+        frameNumber: frame.frame_number || (groupIndex * frames.length + frameIndex + 1),
+        description: frame.description,
+        // 所有帧共用同一张大图的 URL
+        imageUrl,
+        duration: frame.duration || 3,
+        isKeyFrame: frame.is_key_frame || false,
+        cameraMovement: frame.camera_movement || '',
+      }));
+    }).slice(0, 25);
+
+    console.log(`[Agent 4: 分镜师] 生成了 ${storyboardFrames.length} 个分镜帧（共用 1 张大图）`);
+
+    // 6. 构建输出（5x5 布局）
     const output: StepOutput<any> = {
-      content: storyboard,
+      content: {
+        frames: storyboardFrames,
+        rows: 5, // 5x5 布局
+        cols: 5,
+        imageUrl, // 添加图片 URL 到顶层，方便前端访问
+      },
       metadata: {
         timestamp: Date.now(),
         duration: Date.now() - startTime,
-        model: 'volcengine-doubao',
-        tokens: result.usage.totalTokens,
+        model: 'volcengine-doubao + image-generation',
+        tokens: textResult.usage.totalTokens,
       },
     };
 
@@ -76,7 +148,7 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
 
     // 7. 返回状态更新
     const updates: Partial<WorkflowState> = {
-      step4_video: output, // 注意：这里暂时使用 step4_video 存储，后续需要调整
+      step4_video: output,
       currentStep: 5,
     };
 

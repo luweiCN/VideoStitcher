@@ -8,7 +8,7 @@ import { FileText, UserCircle, Film, Play, RefreshCcw, Pencil, Check, X, MousePo
 import { ScreenplayCard } from '../ScreenplayGenerator/ScreenplayCard';
 
 // 节点类型
-export type NodeType = 'script' | 'character' | 'storyboard' | 'video';
+export type NodeType = 'script' | 'character' | 'character-image' | 'scene' | 'storyboard' | 'video';
 
 // 节点数据
 export interface CanvasNode {
@@ -23,12 +23,26 @@ export interface CanvasNode {
 
     // Character
     name?: string;
+    charName?: string; // 角色真实名字
     description?: string;
+    role_type?: string;
     imageUrl?: string;
     isGeneratingImage?: boolean;
 
+    // Character Image
+    characterId?: string;
+
+    // Scene
+    location_type?: string;
+    time_of_day?: string;
+    environment?: string;
+    props?: string[];
+    atmosphere?: string;
+    key_visual_elements?: string[];
+
     // Storyboard
     label?: string;
+    frames?: any[]; // 分镜帧数据
     isHorizontal?: boolean;
 
     // Video
@@ -75,6 +89,7 @@ export function NodeCanvas({
       nodesCount: nodes?.length || 0,
       edgesCount: edges?.length || 0,
       nodes: nodes,
+      edges: edges,
     });
   }, [nodes, edges]);
 
@@ -283,6 +298,7 @@ export function NodeCanvas({
     switch (type) {
       case 'script': return 140;
       case 'character': return 380;
+      case 'character-image': return 320;
       case 'storyboard': return 200;
       case 'video': return 280;
       default: return 120;
@@ -294,12 +310,23 @@ export function NodeCanvas({
     return edges.map(edge => {
       const sourceNode = nodes.find(n => n.id === edge.source);
       const targetNode = nodes.find(n => n.id === edge.target);
+
+      console.log('[NodeCanvas] 渲染连线:', {
+        edgeId: edge.id,
+        sourceId: edge.source,
+        targetId: edge.target,
+        sourceNodeFound: !!sourceNode,
+        targetNodeFound: !!targetNode,
+        sourceNodeData: sourceNode?.data,
+        targetNodeData: targetNode?.data,
+      });
+
       if (!sourceNode || !targetNode) return null;
 
       const startX = sourceNode.x + sourceNode.width / 2;
-      const startY = sourceNode.y + getNodeHeight(sourceNode.type);
+      const startY = sourceNode.y + getNodeHeight(sourceNode.type) / 2;  // 从节点中心出发
       const endX = targetNode.x + targetNode.width / 2;
-      const endY = targetNode.y;
+      const endY = targetNode.y + getNodeHeight(targetNode.type) / 2;    // 到节点中心
 
       const yOffset = Math.max(60, Math.abs(endY - startY) / 2);
       const path = `M ${startX} ${startY} C ${startX} ${startY + yOffset}, ${endX} ${endY - yOffset}, ${endX} ${endY}`;
@@ -355,7 +382,7 @@ export function NodeCanvas({
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                 <FileText size={14} className="text-blue-500" />
-                文案模块
+                剧本
               </h4>
               {!isEditing && (
                 <button
@@ -415,7 +442,7 @@ export function NodeCanvas({
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                 <UserCircle size={14} className="text-orange-500" />
-                人物视觉模块
+                {node.data.name}
               </h4>
               <div className="flex items-center gap-1">
                 <button
@@ -449,19 +476,6 @@ export function NodeCanvas({
               </div>
             </div>
 
-            {/* 人物图片 */}
-            <div className="w-full h-40 rounded-xl overflow-hidden mb-3 bg-slate-900 flex items-center justify-center">
-              {node.data.imageUrl ? (
-                <img
-                  src={node.data.imageUrl}
-                  alt={node.data.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <UserCircle className="w-16 h-16 text-slate-700" />
-              )}
-            </div>
-
             {/* 人物信息 */}
             {isEditing ? (
               <div className="flex flex-col gap-2">
@@ -476,7 +490,7 @@ export function NodeCanvas({
                   onChange={(e) => setEditDesc(e.target.value)}
                   placeholder="角色描述"
                   className="w-full p-2 text-sm rounded-lg border bg-slate-900 border-slate-600 text-white outline-none resize-none"
-                  rows={2}
+                  rows={3}
                 />
                 <div className="flex justify-end gap-2">
                   <button
@@ -502,10 +516,52 @@ export function NodeCanvas({
               </div>
             ) : (
               <>
-                <h5 className="text-sm font-bold mb-1">{node.data.name}</h5>
-                <p className="text-xs text-slate-400 line-clamp-2">{node.data.description}</p>
+                <h5 className="text-sm font-bold mb-2">{node.data.charName}</h5>
+                <p className="text-xs text-slate-400 whitespace-pre-wrap">{node.data.description}</p>
               </>
             )}
+          </>
+        )}
+
+        {/* Character Image 节点 - 人物形象图片 */}
+        {node.type === 'character-image' && (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <UserCircle size={14} className="text-purple-500" />
+                人物形象
+              </h4>
+            </div>
+            <div className="w-full h-56 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center">
+              {node.data.imageUrl ? (
+                <img
+                  src={node.data.imageUrl}
+                  alt={node.data.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <UserCircle className="w-16 h-16 text-slate-700" />
+              )}
+            </div>
+            <div className="mt-2 text-xs text-slate-400 text-center">
+              {node.data.name}
+            </div>
+          </>
+        )}
+
+        {/* Scene 节点 - 场景设定 */}
+        {node.type === 'scene' && (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <Film size={14} className="text-green-500" />
+                场景设定
+              </h4>
+            </div>
+            <div className="space-y-2">
+              <h5 className="text-sm font-bold text-slate-300">{node.data.name}</h5>
+              <p className="text-xs text-slate-400 whitespace-pre-wrap">{node.data.description}</p>
+            </div>
           </>
         )}
 
@@ -518,8 +574,19 @@ export function NodeCanvas({
                 {node.data.label || '分镜矩阵'}
               </h4>
             </div>
-            <div className="w-full h-32 rounded-xl bg-slate-900 flex items-center justify-center">
-              <Film className="w-12 h-12 text-slate-700" />
+            <div className="w-full rounded-xl overflow-hidden bg-slate-900">
+              {node.data.imageUrl ? (
+                <img
+                  src={node.data.imageUrl}
+                  alt="分镜图"
+                  className="w-full h-auto object-contain"
+                  style={{ maxHeight: '400px' }}
+                />
+              ) : (
+                <div className="h-32 flex items-center justify-center">
+                  <Film className="w-12 h-12 text-slate-700" />
+                </div>
+              )}
             </div>
           </>
         )}

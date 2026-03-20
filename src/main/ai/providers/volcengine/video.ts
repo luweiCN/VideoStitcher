@@ -39,12 +39,56 @@ export class VolcEngineVideo {
   constructor(config: VolcEngineVideoConfig) {
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl || 'https://ark.cn-beijing.volces.com/api/v3';
-    this.model = config.model || 'seedance-2-0';
+    this.model = config.model || 'doubao-seedance-1-0-lite-i2v-250428';
 
     console.log('[VolcEngineVideo] 初始化视频生成客户端', {
       baseUrl: this.baseUrl,
       model: this.model,
     });
+  }
+
+  /**
+   * 文生视频
+   *
+   * @param prompt 提示词
+   * @param options 生成选项
+   * @returns 视频生成结果
+   */
+  async generateVideoFromText(
+    prompt: string,
+    options?: VideoGenerationOptions
+  ): Promise<VideoGenerationResult> {
+    console.log('[VolcEngineVideo] 开始文生视频', {
+      prompt: prompt.substring(0, 80),
+      duration: options?.duration || 5,
+    });
+
+    try {
+      const task = await this.createVideoTask(undefined, prompt, options);
+      console.log('[VolcEngineVideo] 视频任务已创建:', task.taskId);
+
+      const result = await this.pollTaskStatus(task.taskId);
+
+      if (result.status === 'failed') {
+        throw new Error(result.error || '视频生成失败');
+      }
+
+      if (!result.videoUrl) {
+        throw new Error('视频生成成功，但未返回视频 URL');
+      }
+
+      console.log('[VolcEngineVideo] 视频生成完成:', result.videoUrl);
+
+      return {
+        videoUrl: result.videoUrl,
+        duration: options?.duration || 5,
+        resolution: options?.resolution || '720p',
+        fileSize: 0,
+      };
+    } catch (error) {
+      console.error('[VolcEngineVideo] 文生视频失败:', error);
+      throw error;
+    }
   }
 
   /**
@@ -97,13 +141,44 @@ export class VolcEngineVideo {
   }
 
   /**
-   * 创建视频生成任务
+   * 创建视频生成任务（文生视频 or 图生视频）
    */
   private async createVideoTask(
-    imageUrl: string,
+    imageUrl?: string,
     prompt?: string,
     options?: VideoGenerationOptions
   ): Promise<{ taskId: string }> {
+    // 构建 content 数组（与 OpenAI Chat API 格式一致）
+    const contentItems: Array<Record<string, unknown>> = [];
+
+    // 提示词（文本）
+    if (prompt) {
+      contentItems.push({ type: 'text', text: prompt });
+    }
+
+    // 首帧图片（图生视频，可选）
+    if (imageUrl) {
+      contentItems.push({
+        type: 'image_url',
+        image_url: { url: imageUrl },
+        role: 'first_frame',
+      });
+    }
+
+    // 参考图片列表（role: reference_image → r2v 任务类型）
+    // 当前模型 doubao-seedance-1-0-lite-i2v-250428 支持 r2v（参考图生视频）
+    if (options?.referenceImageUrls && options.referenceImageUrls.length > 0) {
+      const refs = options.referenceImageUrls.slice(0, 4); // API 限制最多 4 张
+      for (const refUrl of refs) {
+        contentItems.push({
+          type: 'image_url',
+          image_url: { url: refUrl },
+          role: 'reference_image',
+        });
+      }
+      console.log(`[VolcEngineVideo] 添加 ${refs.length} 张参考图（r2v 模式）`);
+    }
+
     const response = await fetch(`${this.baseUrl}/contents/generations/tasks`, {
       method: 'POST',
       headers: {
@@ -112,15 +187,11 @@ export class VolcEngineVideo {
       },
       body: JSON.stringify({
         model: this.model,
-        input: {
-          type: 'image',
-          url: imageUrl,
-        },
-        prompt: prompt || '',
+        content: contentItems,
         duration: options?.duration || 5,
-        aspect_ratio: options?.aspectRatio || '16:9',
+        ratio: options?.aspectRatio || '16:9',
         fps: options?.fps || 24,
-        resolution: options?.resolution || '1080p',
+        resolution: options?.resolution || '720p',
       }),
     });
 
@@ -172,7 +243,8 @@ export class VolcEngineVideo {
           return {
             taskId,
             status: 'completed',
-            videoUrl: data.output?.video_url || data.video_url,
+            // 官方文档：视频URL在 content.video_url 字段
+            videoUrl: data.content?.video_url,
           };
         }
 
@@ -180,7 +252,7 @@ export class VolcEngineVideo {
           return {
             taskId,
             status: 'failed',
-            error: data.error || data.message || '视频生成失败',
+            error: data.error?.message || data.error || data.message || '视频生成失败',
           };
         }
 
@@ -201,12 +273,16 @@ export class VolcEngineVideo {
   private mapTaskStatus(status: string): VideoTaskStatus['status'] {
     const statusMap: Record<string, VideoTaskStatus['status']> = {
       pending: 'pending',
+      queued: 'pending',       // 官方状态：排队中
       processing: 'processing',
-      running: 'processing',
+      running: 'processing',   // 官方状态：任务运行中
       completed: 'completed',
+      succeeded: 'completed',  // 官方状态：任务成功
       success: 'completed',
       failed: 'failed',
       error: 'failed',
+      cancelled: 'failed',     // 官方状态：取消任务
+      expired: 'failed',       // 官方状态：任务超时
     };
 
     return statusMap[status.toLowerCase()] || 'pending';

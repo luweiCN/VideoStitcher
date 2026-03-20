@@ -587,4 +587,19 @@ export interface ElectronAPI {
     creativeDirectionId?: string;
     personaId?: string;
   }) => Promise<{ success: boolean; state?: unknown; error?: string }>;
+  // 导演模式工作流事件监听
+  onWorkflowProgress: (callback: (data: {
+    screenplayId?: string;
+    step: number;
+    nodeName?: string;
+    status?: 'started' | 'completed';
+    message: string;
+    agentName?: string;
+  }) => void) => () => void;
+  onWorkflowCharacters: (callback: (data: any) => void) => () => void;
+  onWorkflowCharacterImage: (callback: (data: any) => void) => () => void;
+  onWorkflowStoryboard: (callback: (data: any) => void) => () => void;
+  onWorkflowVideo: (callback: (data: any) => void) => () => void;
+  onWorkflowComplete: (callback: (data: any) => void) => () => void;
+  onWorkflowError: (callback: (data: any) => void) => () => void;
 }

@@ -110,6 +110,17 @@ export function migrateVolcEngineConfig(config: VolcEngineConfig): VolcEngineCon
         enabled: true,
       },
     ];
+    models.video = [
+      {
+        id: 'doubao-seedance-1-0-lite-i2v-250428',
+        name: 'Doubao Seedance 1.0 Lite i2v',
+        inputTypes: ['text', 'image'],
+        outputTypes: ['video'],
+        features: [],
+        maxOutputTokens: 1,
+        enabled: true,
+      },
+    ];
   }
 
   return {

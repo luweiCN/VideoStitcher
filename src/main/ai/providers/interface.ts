@@ -54,13 +54,15 @@ export interface TextGenerationResult {
  */
 export interface ImageGenerationOptions {
   /** 图片尺寸（如 '1024x1024'） */
-  size?: `${number}x${number}`;
+  size?: `${number}x${number}` | string;
   /** 风格（如 '写实', '动漫'） */
   style?: string;
   /** 质量 */
   quality?: 'standard' | 'hd';
   /** 生成数量（1-4） */
   numberOfImages?: number;
+  /** 参考图片 URL（用于风格/角色一致性控制，可选） */
+  referenceImageUrl?: string;
 }
 
 /**
@@ -120,6 +122,10 @@ export interface VideoGenerationOptions {
   fps?: number;
   /** 分辨率 */
   resolution?: '720p' | '1080p' | '4k';
+  /** 参考图片 URL（图生视频，作为视觉参考/首帧） */
+  imageUrl?: string;
+  /** 多张参考图 URL 列表（按顺序对应提示词中的 [图1]、[图2]…）*/
+  referenceImageUrls?: string[];
 }
 
 /**

@@ -51,22 +51,24 @@ export class StoryboardArtistAgentPrompts {
       "group_id": 1,
       "grid_layout": "5x5",
       "grid_aspect_ratio": "9:16",
-      "shots": [
+      "frames": [
         {
-          "shot_number": 1,
+          "frame_number": 1,
           "shot_type": "close-up",
           "character_refs": ["角色名称"],
-          "prompt_text": "Close-up shot of [角色特征], [表情/动作], [环境元素], [光线描述], [风格标签], no timecode, no subtitles",
-          "duration_frames": 3,
+          "description": "Close-up shot of [角色特征], [表情/动作], [环境元素], [光线描述], [风格标签], no timecode, no subtitles",
+          "duration": 3,
+          "is_key_frame": false,
           "camera_movement": "static",
           "transition": "cut"
         },
         {
-          "shot_number": 2,
+          "frame_number": 2,
           "shot_type": "medium shot",
           "character_refs": ["角色名称"],
-          "prompt_text": "Medium shot of [角色特征], [动作描述], [场景描述], [光线], [风格], no timecode, no subtitles",
-          "duration_frames": 3,
+          "description": "Medium shot of [角色特征], [动作描述], [场景描述], [光线], [风格], no timecode, no subtitles",
+          "duration": 3,
+          "is_key_frame": false,
           "camera_movement": "pan right",
           "transition": "cut"
         }

@@ -16,7 +16,6 @@ import VideoStitcherMode from './features/VideoStitcherMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
 import ASidePage from './pages/ASide';
-import DirectorMode from './pages/DirectorMode';
 import { TaskCenterProvider } from './contexts/TaskContext';
 import { TaskCenterListPage, TaskCenterDashboard, HomeTaskIndicator, TaskDetailPage } from './components/TaskCenter';
 
@@ -455,7 +454,6 @@ const AppContent: React.FC = () => {
         <Route path="/resize" element={<ResizeMode />} />
         <Route path="/videoStitcher" element={<VideoStitcherMode />} />
         <Route path="/aside" element={<ASidePage />} />
-        <Route path="/director" element={<DirectorMode />} />
         <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
         <Route path="/tasks" element={<TaskCenterListPage />} />

@@ -1,15 +1,18 @@
 /**
  * 选角导演 Agent
- * Agent 3: 根据艺术总监的角色设定生成人物图像提示词
+ * Agent 3: 为每个角色生成三视图（正面、侧面、动作）并调用图像生成 API
  */
 
 import type { WorkflowState, StepOutput } from '../state';
-import type { AIProvider, TextGenerationOptions } from '../../providers/interface';
+import type { AIProvider, TextGenerationOptions, ImageGenerationOptions } from '../../providers/interface';
 import { getGlobalProvider } from '../../provider-manager';
 import { CastingDirectorAgentPrompts } from '../../prompts/casting-director-agent';
 
 /**
  * 选角导演 Agent 节点
+ *
+ * 注意：在导演模式下，角色图像生成由前端单独调用 aside:generate-character-image
+ * 工作流中的选角导演节点只负责生成分镜师需要的上下文数据
  */
 export async function castingDirectorNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
   console.log('[Agent 3: 选角导演] 开始执行');
@@ -22,86 +25,43 @@ export async function castingDirectorNode(state: WorkflowState): Promise<Partial
       return {};
     }
 
-    // 1. 获取 AI 提供商
-    const provider = getGlobalProvider();
-
-    // 2. 获取艺术总监的输出
+    // 1. 获取艺术总监的输出
     const artDirectorOutput = state.step2_characters?.content;
-    if (!artDirectorOutput) {
-      throw new Error('[Agent 3: 选角导演] 缺少艺术总监的输出');
+    if (!artDirectorOutput || !artDirectorOutput.character_profiles) {
+      throw new Error('[Agent 3: 选角导演] 缺少艺术总监的角色输出');
     }
 
-    console.log('[Agent 3: 选角导演] 开始为角色生成人物图像提示词');
+    console.log(`[Agent 3: 选角导演] 准备上下文数据（角色图像由前端单独生成）`);
 
-    // 3. 使用 CastingDirectorAgentPrompts 构建提示词
-    const systemPrompt = CastingDirectorAgentPrompts.buildSystemPrompt();
-    const userPrompt = CastingDirectorAgentPrompts.buildUserPrompt(
-      artDirectorOutput,
-      artDirectorOutput.scene_breakdowns || []
-    );
-
-    // 4. 调用 LLM 生成人物图像提示词
-    const options: TextGenerationOptions = {
-      temperature: 0.7,
-      maxTokens: 4096,
-      systemPrompt,
-    };
-
-    console.log('[Agent 3: 选角导演] 调用 LLM...');
-    const result = await provider.generateText(userPrompt, options);
-
-    // 5. 解析输出
-    console.log('[Agent 3: 选角导演] 解析 LLM 输出');
-    const characterImages = parseCastingDirectorOutput(result.content);
-
-    console.log(`[Agent 3: 选角导演] 成功为 ${characterImages.character_images?.length || 0} 个角色生成图像提示词`);
-
-    // 6. 构建输出
+    // 2. 直接使用艺术总监的输出作为选角导演的输出
+    // 前端会通过 aside:generate-character-image 单独生成图像并更新角色数据
     const output: StepOutput<any> = {
-      content: characterImages,
+      content: {
+        character_profiles: artDirectorOutput.character_profiles,
+        scene_breakdowns: artDirectorOutput.scene_breakdowns || [],
+      },
       metadata: {
         timestamp: Date.now(),
         duration: Date.now() - startTime,
-        model: 'volcengine-doubao',
-        tokens: result.usage.totalTokens,
+        model: 'none', // 不调用 AI
+        tokens: 0,
       },
     };
 
     const endTime = Date.now();
-    console.log(`[Agent 3: 选角导演] 完成，耗时 ${endTime - startTime}ms`);
+    console.log(`[Agent 3: 选角导演] 完成（仅传递上下文），耗时 ${endTime - startTime}ms`);
 
-    // 7. 返回状态更新
+    // 3. 返回状态更新
     const updates: Partial<WorkflowState> = {
-      step3_storyboard: output, // 注意：这里暂时使用 step3_storyboard 存储，后续需要调整
+      step3_storyboard: output,
       currentStep: 4,
     };
 
-    if (state.executionMode === 'director') {
-      updates.humanApproval = false;
-    }
-
+    // 导演模式：不设置 humanApproval = false，让工作流继续执行到分镜师
+    // 分镜师节点会在完成后设置暂停
     return updates;
   } catch (error) {
     console.error('[Agent 3: 选角导演] 执行失败:', error);
     throw error;
-  }
-}
-
-/**
- * 解析选角导演输出
- */
-function parseCastingDirectorOutput(llmOutput: string): any {
-  try {
-    // 尝试提取 JSON 代码块
-    const jsonMatch = llmOutput.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[1]);
-    }
-
-    // 尝试直接解析整个输出
-    return JSON.parse(llmOutput);
-  } catch (error) {
-    console.warn('[Agent 3: 选角导演] JSON 解析失败，返回原始输出');
-    throw new Error('选角导演输出格式错误：无法解析 JSON');
   }
 }

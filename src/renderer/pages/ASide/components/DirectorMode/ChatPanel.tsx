@@ -54,6 +54,8 @@ interface ChatPanelProps {
   onComplete?: () => void;
   /** 工作流是否已初始化 */
   isWorkflowInitialized: boolean;
+  /** 导演模式状态和方法 */
+  directorMode: ReturnType<typeof useDirectorMode>;
 }
 
 // Agent 配置
@@ -84,7 +86,7 @@ const AGENTS: Agent[] = [
   },
 ];
 
-export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: ChatPanelProps) {
+export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized, directorMode }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('art-director');
   const [inputValue, setInputValue] = useState('');
@@ -104,7 +106,7 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
   const finalComposeInFlightRef = useRef(false); // 防止最终拼接重复触发
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const directorMode = useDirectorMode(screenplayId);
+  // directorMode 是从父组件传递进来的，包含了所有状态和方法
 
   // 监听工作流进度事件
   useEffect(() => {
@@ -118,33 +120,15 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
         // 移除 typing 消息
         setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
 
-        // 简化的角色描述
-        const characterDescriptions = data.characters.map((c: any, i: number) => {
-          // 提取角色类型
-          const roleType = c.role_type === 'protagonist' ? '【主角】' :
-                          c.role_type === 'antagonist' ? '【反派】' : '【配角】';
-
-          // 提取外貌和服装（形象）
-          const appearance = c.appearance || '';
-          const costume = c.costume || '';
-          const image = [appearance, costume].filter(Boolean).join('，');
-
-          // 提取性格
-          const personality = c.personality_traits?.join('、') || '';
-
-          return `${i + 1}. **${c.name}** ${roleType}
-   形象：${image}
-   性格：${personality}`;
-        }).join('\n\n');
-
         // 检查是否有场景信息
         const hasScenes = data.scene_breakdowns && data.scene_breakdowns.length > 0;
 
+        // 简化消息：画板已经显示详细信息，聊天框只显示简单提示
         addAgentMessage(
           'art-director',
           hasScenes
-            ? `${characterDescriptions}\n\n场景设定：${data.scene_breakdowns.map((s: any) => s.scene_name).join('、')}\n\n你看一下我设计的人物和场景怎么样呢？需不需要修改？`
-            : `${characterDescriptions}\n\n你看一下我设计的人物怎么样呢？需不需要修改？`,
+            ? '✨ 人物和场景已生成，请查看右侧画板。如需修改请告诉我！'
+            : '✨ 人物已生成，请查看右侧画板。如需修改请告诉我！',
           [
             { label: '重新生成', value: 'regenerate' },
             { label: '无需修改', value: 'confirm' },
@@ -171,12 +155,56 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
         // 添加 typing 消息
         const typingMessage: Message = {
           id: `typing-${Date.now()}`,
-          agentId: data.nodeName === 'art_director' ? 'art-director' : data.nodeName,
+          agentId: data.nodeName === 'art_director' ? 'art-director' : (data.nodeName ?? 'system'),
           type: 'typing',
           content: '',
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, typingMessage]);
+      }
+    });
+
+    // 监听分镜图生成完成事件
+    const unsubscribeStoryboard = window.api.onWorkflowStoryboard((data) => {
+      console.log('[ChatPanel] 收到分镜图生成事件:', data);
+
+      if (data.screenplayId === screenplayId) {
+        // 移除 typing 消息
+        setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
+
+        // 更新画板分镜图
+        console.log('[ChatPanel] 准备更新分镜图:', data.storyboard);
+        directorMode.updateStoryboard(data.storyboard);
+        console.log('[ChatPanel] updateStoryboard 调用完成');
+      }
+    });
+
+    // 监听视频生成完成事件
+    const unsubscribeVideo = window.api.onWorkflowVideo((data) => {
+      console.log('[ChatPanel] 收到视频生成事件:', data);
+
+      if (data.screenplayId === screenplayId) {
+        // 移除 typing 消息
+        setMessages((prev) => prev.filter((m) => m.type !== 'typing'));
+
+        // 添加视频消息到聊天
+        addAgentMessage(
+          'cinematographer',
+          `🎬 视频已生成！总时长: ${data.totalDuration}秒`,
+          [
+            { label: '查看视频', value: 'view-video' },
+          ]
+        );
+
+        // 更新画板视频
+        if (directorMode.addVideo && data.videoUrl) {
+          directorMode.addVideo({
+            id: `video-${Date.now()}`,
+            url: data.videoUrl,
+            duration: data.totalDuration,
+            description: '生成的视频',
+          });
+        }
       }
     });
 
@@ -194,6 +222,8 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
     return () => {
       unsubscribeCharacters();
       unsubscribeProgress();
+      unsubscribeStoryboard();
+      unsubscribeVideo();
       unsubscribeError();
     };
   }, [screenplayId]);
@@ -254,22 +284,6 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
         const characters = await directorMode.generateCharacters();
 
         if (characters && characters.length > 0) {
-          // 角色创作成功，发送详细的文本描述
-          const characterDescriptions = characters.map((c, i) => {
-            const lines = [
-              `**角色 ${i + 1}：${c.name}**`,
-              '',
-              c.description.split('\n').map(line => `  ${line}`).join('\n'),
-            ];
-            return lines.join('\n');
-          }).join('\n\n');
-
-          addAgentMessageWithDelay(
-            'art-director',
-            `我为本剧本设计了如下的角色和场景：\n\n${characterDescriptions}\n\n接下来请选角导演为角色生成形象图片。`,
-            1500
-          );
-
           setIsProcessing(false);
           setCurrentStep('casting-director');
 
@@ -419,34 +433,19 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
           setTimeout(async () => {
             try {
               await delay(2000);
-              const characters = await directorMode.generateCharacters();
+              await directorMode.generateCharacters();
 
-            // 移除 typing 消息
-            setMessages((prev) => prev.filter(m => m.type !== 'typing'));
-
-            if (characters && characters.length > 0) {
-              const characterNames = characters.map(c => c.name).join('、');
-
-              addAgentMessage(
-                'art-director',
-                `创作完成！我为您创作了以下角色：\n\n${characters.map((c, i) =>
-                  `${i + 1}. ${c.name}（${c.description.split('\n')[0]}）`
-                ).join('\n')}\n\n场景设定基于您的剧本，您看是否需要修改`,
-                [
-                  { label: '重新生成', value: 'regenerate' },
-                  { label: '无需修改', value: 'confirm' },
-                ]
-              );
-
+              // 消息由工作流事件自动发送，这里只更新状态
               setIsProcessing(false);
               setCurrentStep('art-director-confirm');
+            } catch (error) {
+              // 移除 typing 消息
+              setMessages((prev) => prev.filter(m => m.type !== 'typing'));
+              addAgentMessage('art-director', `创作失败：${(error as Error).message}`);
+              setIsProcessing(false);
             }
-          } catch (error) {
-            addAgentMessage('art-director', `创作失败：${(error as Error).message}`);
-            setIsProcessing(false);
-          }
-        }, 2000);
-      });
+          }, 2000);
+        });
       }
     } else if (currentStep === 'art-director-confirm') {
       if (value === 'regenerate') {
@@ -477,9 +476,7 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
             if (result && result.length > 0) {
               addAgentMessageWithDelay(
                 'art-director',
-                `重新创作完成！我为您创作了以下角色：\n\n${result.map((c, i) =>
-                  `${i + 1}. ${c.name}（${c.description.split('\n')[0]}）`
-                ).join('\n')}\n\n场景设定基于您的剧本，您看是否需要修改`,
+                '✨ 人物和场景已重新生成，请查看右侧画板。如需修改请告诉我！',
                 1500,
                 [
                   { label: '重新生成', value: 'regenerate' },
@@ -551,10 +548,10 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
           addAgentMessage('casting-director', '请上传您的参考图...');
           // TODO: 实现上传参考图功能
         } else {
-          // 自由发挥模式：开始生成角色形象
+          // 自由发挥模式：开始生成角色形象（所有角色共用一张大图）
           addAgentMessageWithDelay(
             'casting-director',
-            '收到！开始为您创作角色形象...',
+            '收到！开始为您创作角色形象（所有角色将生成在同一张图中以保证风格一致）...',
             1200
           );
 
@@ -564,41 +561,40 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
           // 获取角色列表
           const characters = directorMode.characters;
 
-          // 逐个生成人物形象
-          for (let i = 0; i < characters.length; i++) {
-            const character = characters[i];
+          // 发送 typing 消息（只发送一次，因为只生成一张图）
+          const typingMessage: Message = {
+            id: 'typing-char-all',
+            agentId: 'casting-director',
+            type: 'typing',
+            content: `正在为 ${characters.length} 个角色生成形象（共用一张图，正、侧、后三视图）...`,
+            timestamp: new Date(),
+          };
+          setMessages((prev) => [...prev, typingMessage]);
 
-            // 发送 typing 消息
-            const typingMessage: Message = {
-              id: `typing-char-${i}`,
-              agentId: 'casting-director',
-              type: 'typing',
-              content: `正在为 ${character.name} 生成形象（正、侧、后三视图）...`,
-              timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, typingMessage]);
+          try {
+            // 调用 API 生成所有角色的形象（共用一张大图）
+            // 使用第一个角色的 ID，后端会处理所有角色
+            const result = await window.api.asideGenerateCharacterImage({
+              screenplayId,
+              characterId: characters[0]?.id,
+              useReference: false,
+            });
 
-            try {
-              // 调用 API 生成形象
-              const result = await window.api.asideGenerateCharacterImage({
-                screenplayId,
-                characterId: character.id,
-                useReference: false,
-              });
+            // 移除 typing 消息
+            setMessages((prev) => prev.filter(m => m.id === 'typing-char-all'));
 
-              // 移除 typing 消息
-              setMessages((prev) => prev.filter(m => m.id !== `typing-char-${i}`));
+            if (result.success && result.imageUrl) {
+              const sharedImageUrl = result.imageUrl;
+              // 更新所有角色的画板卡片（共用同一张图）
+              characters.forEach((character, index) => {
+                directorMode.updateCharacterImage(character.id, sharedImageUrl);
 
-              if (result.success && result.imageUrl) {
-                // 更新画板角色卡片
-                directorMode.updateCharacterImage(character.id, result.imageUrl);
-
-                // 发送人物形象消息
+                // 发送人物形象消息（每个角色都引用同一张图）
                 const characterMessage: Message = {
-                  id: `char-img-${i}`,
+                  id: `char-img-${index}`,
                   agentId: 'casting-director',
                   type: 'character-image',
-                  content: `这是我找到的${i === 0 ? '主演' : '演员'} ${character.name}（正、侧、后三视图），您看怎么样`,
+                  content: `这是我找到的${index === 0 ? '主演' : '演员'} ${character.name}（正、侧、后三视图，${characters.length > 1 ? '与其他角色在同一张图中以保证风格一致' : ''}），您看怎么样`,
                   characterData: {
                     name: character.name,
                     description: character.description,
@@ -606,25 +602,31 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized }: C
                     isImageLoading: false,
                   },
                   options: [
-                    { label: '重新生成', value: `regenerate-${i}` },
-                    { label: '确认', value: `confirm-${i}` },
+                    { label: '重新生成', value: `regenerate-${index}` },
+                    { label: '确认', value: `confirm-${index}` },
                   ],
                   timestamp: new Date(),
                 };
                 setMessages((prev) => [...prev, characterMessage]);
-              }
-            } catch (error) {
-              addAgentMessage('casting-director', `生成 ${character.name} 的形象失败：${(error as Error).message}`);
+              });
+
+              setIsProcessing(false);
+              setCurrentStep('casting-director-confirm');
+            } else {
+              throw new Error('生成角色形象失败：未返回图片 URL');
             }
-
-            await delay(1000);
-          }
-
+          } catch (error) {
+          // 移除 typing 消息
+          setMessages((prev) => prev.filter((m) => m.id === 'typing-char-all'));
+          addAgentMessage(
+            'casting-director',
+            `❌ 生成角色形象失败：${(error as Error).message}`
+          );
           setIsProcessing(false);
-          setCurrentStep('casting-director-confirm');
         }
       }
-    } else if (currentStep === 'casting-director-confirm') {
+    }
+  } else if (currentStep === 'casting-director-confirm') {
       // 处理角色形象确认
       if (value.startsWith('regenerate-')) {
         const index = parseInt(value.split('-')[1]);

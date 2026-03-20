@@ -21,6 +21,7 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
   const { selectedScreenplay } = useASideStore();
   const [isWorkflowInitialized, setIsWorkflowInitialized] = useState(false);
 
+  const directorMode = useDirectorMode(screenplayId);
   const {
     characters,
     storyboard,
@@ -33,7 +34,9 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
     isGeneratingCharacters,
     isGeneratingStoryboard,
     isComposingVideo,
-  } = useDirectorMode(screenplayId);
+    updateCharacters,
+    updateStoryboard,
+  } = directorMode;
 
   // 调试:追踪 characters 变化
   useEffect(() => {
@@ -80,9 +83,9 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       });
     }
 
-    // 人物节点 - 根据数量自适应布局
+    // 人物设定节点 - 根据数量自适应布局
     if (characters && characters.length > 0) {
-      console.log('[DirectorMode] 添加人物节点:', characters);
+      console.log('[DirectorMode] 添加人物设定节点:', characters);
 
       const count = characters.length;
       const y = 50 + PADDING_Y; // 脚本下方
@@ -105,6 +108,11 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
           x = CANVAS_CENTER_X - totalWidth / 2 + index * PADDING_X;
         }
 
+        // 根据角色类型生成标题
+        const roleTypeLabel = char.role_type === 'protagonist' ? '主角' :
+                             char.role_type === 'antagonist' ? '反派' : '配角';
+
+        // 人物设定节点（纯文本卡片）
         nodes.push({
           id: `node_char_${char.id}`,
           type: 'character',
@@ -112,14 +120,36 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
           y: y,
           width: NODE_WIDTH,
           data: {
-            name: char.name,
+            name: `人物设定-${roleTypeLabel}`,
+            charName: char.name,  // 角色真实名字
             description: char.description,
-            imageUrl: char.imageUrl,
-            isGeneratingImage: false,
+            role_type: char.role_type,
           },
         });
       });
+
+      // 所有角色共用一张形象图 —— 只添加一个人物形象节点，居中显示
+      const sharedImageUrl = characters.find(c => c.imageUrl)?.imageUrl;
+      if (sharedImageUrl) {
+        nodes.push({
+          id: 'node_char_image_shared',
+          type: 'character-image',
+          x: CANVAS_CENTER_X - NODE_WIDTH / 2, // 居中
+          y: y + NODE_HEIGHT_CHARACTER + 50,
+          width: NODE_WIDTH,
+          data: {
+            name: characters.map(c => c.name).join(' / '),
+            imageUrl: sharedImageUrl,
+            characterId: 'shared',
+          },
+        });
+      }
     }
+
+    // 场景设定节点 - 在人物下方
+    // 注意：这里我们只显示从 characters 数据中提取的场景信息
+    // 由于当前 useDirectorMode 没有 sceneBreakdowns 状态，我们暂时跳过场景节点
+    // TODO: 后续需要在 useDirectorMode 中添加 sceneBreakdowns 状态
 
     // 分镜节点 - 在所有人物下方
     if (storyboard && storyboard.scenes && storyboard.scenes.length > 0) {
@@ -132,6 +162,8 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
         width: 640,
         data: {
           label: `分镜矩阵 (${storyboard.rows}×${storyboard.cols})`,
+          imageUrl: storyboard.imageUrl, // 分镜大图 URL（5x5网格）
+          frames: storyboard.scenes, // 使用 scenes 作为 frames
           isHorizontal: true,
         },
       });
@@ -145,7 +177,7 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
   const canvasEdges = useMemo<CanvasEdge[]>(() => {
     const edges: CanvasEdge[] = [];
 
-    // 脚本 -> 人物
+    // 脚本 -> 人物设定
     if (characters && characters.length > 0) {
       characters.forEach((char) => {
         edges.push({
@@ -156,14 +188,24 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       });
     }
 
-    // 人物 -> 分镜
-    if (storyboard && characters && characters.length > 0) {
-      characters.forEach((char) => {
+    // 人物文字卡片 -> 共享人物形象节点（多对一）
+    const hasSharedImage = characters && characters.some(c => c.imageUrl);
+    if (hasSharedImage) {
+      characters!.forEach((char) => {
         edges.push({
-          id: `edge_${char.id}_storyboard`,
-          source: `node_char_${char.id}`,
-          target: 'node_storyboard',
+          id: `edge_char_${char.id}_image`,
+          source: `node_char_${char.id}`,         // 人物文字卡片
+          target: 'node_char_image_shared',        // 共享形象节点
         });
+      });
+    }
+
+    // 共享人物形象节点 -> 分镜
+    if (storyboard && storyboard.scenes && storyboard.scenes.length > 0 && hasSharedImage) {
+      edges.push({
+        id: 'edge_char_image_storyboard',
+        source: 'node_char_image_shared',
+        target: 'node_storyboard',
       });
     }
 
@@ -260,6 +302,7 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
           screenplayId={screenplayId}
           onComplete={onComplete}
           isWorkflowInitialized={isWorkflowInitialized}
+          directorMode={directorMode}
         />
       </div>
 

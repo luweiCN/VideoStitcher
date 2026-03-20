@@ -174,12 +174,23 @@ export async function resumeWorkflow(
       // 使用 stream API 获取每个节点的执行结果
       const stream = await graph.stream(currentState, { streamMode: 'updates' });
 
+      let eventCount = 0;
       for await (const event of stream) {
+        eventCount++;
         // event 格式: { nodeName: string, output: Partial<WorkflowState> }
         const nodeName = Object.keys(event)[0];
         const nodeOutput = event[nodeName];
 
-        console.log(`[WorkflowExecutor] 节点 ${nodeName} 完成`);
+        console.log(`[WorkflowExecutor] 节点 ${nodeName} 完成，输出键:`, Object.keys(nodeOutput || {}));
+
+        // 详细日志：检查输出内容
+        if (nodeOutput && typeof nodeOutput === 'object') {
+          const hasStepUpdate = 'step4_video' in nodeOutput;
+          console.log(`[WorkflowExecutor] 节点 ${nodeName} 是否更新 step4_video:`, hasStepUpdate);
+          if (hasStepUpdate) {
+            console.log(`[WorkflowExecutor] step4_video 内容:`, nodeOutput.step4_video);
+          }
+        }
 
         // 合并状态
         if (nodeOutput && typeof nodeOutput === 'object') {
@@ -198,6 +209,8 @@ export async function resumeWorkflow(
           });
         }
       }
+
+      console.log(`[WorkflowExecutor] 总共执行了 ${eventCount} 个节点事件`);
     } catch (streamError) {
       console.error('[WorkflowExecutor] 流式执行出错:', streamError);
       throw streamError;
