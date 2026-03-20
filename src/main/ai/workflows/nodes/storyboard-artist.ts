@@ -38,10 +38,12 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
 
     // 3. 先调用 LLM 生成分镜描述和提示词
     const systemPrompt = StoryboardArtistAgentPrompts.buildSystemPrompt();
+    const sceneBreakdowns = artDirectorOutput.scene_breakdowns || [];
     const userPrompt = StoryboardArtistAgentPrompts.buildUserPrompt(
       artDirectorOutput,
       castingDirectorOutput,
-      typeof scriptContent === 'string' ? scriptContent : JSON.stringify(scriptContent)
+      typeof scriptContent === 'string' ? scriptContent : JSON.stringify(scriptContent),
+      sceneBreakdowns
     );
 
     const textOptions: TextGenerationOptions = {

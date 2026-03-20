@@ -87,8 +87,13 @@ export class StoryboardArtistAgentPrompts {
   static buildUserPrompt(
     artDirectorOutput: any,
     characterImages: any,
-    originalScript: string
+    originalScript: string,
+    sceneBreakdowns?: any[]
   ): string {
+    const sceneSection = sceneBreakdowns && sceneBreakdowns.length > 0
+      ? `\n# 场景设定（请确保每帧分镜都体现场景的环境、氛围和道具）\n${JSON.stringify(sceneBreakdowns, null, 2)}\n`
+      : '';
+
     return `请根据以下信息生成分镜图：
 
 # 艺术总监输出
@@ -96,7 +101,7 @@ ${JSON.stringify(artDirectorOutput, null, 2)}
 
 # 选角导演生成的人物图像提示词
 ${JSON.stringify(characterImages, null, 2)}
-
+${sceneSection}
 # 原始剧本
 ${originalScript}
 
@@ -104,6 +109,7 @@ ${originalScript}
 1. 每个镜头都使用人物图像提示词中的角色特征
 2. 保持角色形象的一致性
 3. 镜头之间的转场流畅
-4. 符合预估时长和画幅比例要求`;
+4. 符合预估时长和画幅比例要求
+5. 每帧描述中体现场景的环境特征和氛围`;
   }
 }

@@ -93,13 +93,16 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
     }
 
     // 3. 调用 LLM 生成视频合成计划（render_queue）
+    const artDirectorOutput = state.step2_characters?.content;
+    const sceneBreakdowns = artDirectorOutput?.scene_breakdowns || [];
     const systemPrompt = CinematographerAgentPrompts.buildSystemPrompt();
     const userPrompt = CinematographerAgentPrompts.buildUserPrompt(
       storyboardOutput,
       {
         duration: videoSpec?.duration || 'short',
         aspectRatio: videoSpec?.aspectRatio || '16:9',
-      }
+      },
+      sceneBreakdowns
     );
 
     const textOptions = {

@@ -78,13 +78,18 @@ export class CinematographerAgentPrompts {
    */
   static buildUserPrompt(
     storyboardOutput: any,
-    videoParameters: any
+    videoParameters: any,
+    sceneBreakdowns?: any[]
   ): string {
+    const sceneSection = sceneBreakdowns && sceneBreakdowns.length > 0
+      ? `\n# 场景设定（在 video_generation_prompt 中体现场景氛围）\n${JSON.stringify(sceneBreakdowns, null, 2)}\n`
+      : '';
+
     return `请根据以下分镜输出和视频参数生成视频合成计划：
 
 # 分镜输出
 ${JSON.stringify(storyboardOutput, null, 2)}
-
+${sceneSection}
 # 视频参数
 ${JSON.stringify(videoParameters, null, 2)}
 
