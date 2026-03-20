@@ -7,6 +7,8 @@ import type { WorkflowState, StepOutput } from '../state';
 import type { AIProvider, TextGenerationOptions, ImageGenerationOptions } from '../../providers/interface';
 import { getGlobalProvider } from '../../provider-manager';
 import { StoryboardArtistAgentPrompts } from '../../prompts/storyboard-artist-agent';
+import { downloadToCache } from '@main/utils/cache';
+import * as sharp from 'sharp';
 
 /**
  * 分镜师 Agent 节点
@@ -131,13 +133,55 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
 
     console.log(`[Agent 4: 分镜师] 生成了 ${storyboardFrames.length} 个分镜帧（共用 1 张大图）`);
 
-    // 6. 构建输出（5x5 布局）
+    // 6. 下载分镜网格图到本地缓存，并用 Sharp 切割为 25 个单帧 base64
+    let localGridPath: string | undefined;
+    let framesWithBase64 = storyboardFrames;
+
+    try {
+      console.log('[Agent 4: 分镜师] 下载分镜网格图到本地缓存...');
+      localGridPath = await downloadToCache(imageUrl, '.jpg');
+      console.log('[Agent 4: 分镜师] 下载完成:', localGridPath);
+
+      // 获取图片实际尺寸，计算每格大小
+      const gridMeta = await (sharp as any)(localGridPath).metadata();
+      const gridWidth = gridMeta.width || 2560;
+      const gridHeight = gridMeta.height || 1440;
+      const frameWidth = Math.floor(gridWidth / 5);
+      const frameHeight = Math.floor(gridHeight / 5);
+
+      console.log(`[Agent 4: 分镜师] 网格尺寸 ${gridWidth}×${gridHeight}，每帧 ${frameWidth}×${frameHeight}，开始切割 25 帧`);
+
+      // 切割 25 帧并转 base64（按行优先：第1行5帧，第2行5帧...）
+      const frameBase64List: string[] = [];
+      for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 5; col++) {
+          const frameBuffer = await (sharp as any)(localGridPath)
+            .extract({ left: col * frameWidth, top: row * frameHeight, width: frameWidth, height: frameHeight })
+            .jpeg({ quality: 85 })
+            .toBuffer();
+          frameBase64List.push(`data:image/jpeg;base64,${frameBuffer.toString('base64')}`);
+        }
+      }
+
+      // 将 base64 写入对应帧
+      framesWithBase64 = storyboardFrames.map((frame, idx) => ({
+        ...frame,
+        base64: frameBase64List[idx] || undefined,
+      }));
+
+      console.log(`[Agent 4: 分镜师] 切割完成，共 ${frameBase64List.length} 帧`);
+    } catch (sharpErr) {
+      console.warn('[Agent 4: 分镜师] 切割帧失败，继续使用远程 URL:', sharpErr);
+    }
+
+    // 7. 构建输出（5x5 布局）
     const output: StepOutput<any> = {
       content: {
-        frames: storyboardFrames,
+        frames: framesWithBase64,
         rows: 5, // 5x5 布局
         cols: 5,
-        imageUrl, // 添加图片 URL 到顶层，方便前端访问
+        imageUrl, // 远程 URL，供前端 fallback 使用
+        localGridPath, // 本地缓存路径，供后续 IPC 事件和 Sharp 使用
       },
       metadata: {
         timestamp: Date.now(),
