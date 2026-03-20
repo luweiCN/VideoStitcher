@@ -97,7 +97,9 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
     }
 
     const imageOptions: ImageGenerationOptions = {
-      size: '2K', // 2560x1440 = 3,686,400 像素（满足火山引擎最小要求）
+      // 根据视频比例选择分镜图尺寸
+      // 16:9 → 2K（2560×1440 横屏）  9:16 → 1024x1792（竖屏）
+      size: state.videoSpec?.aspectRatio === '9:16' ? '1024x1792' : '2K',
       quality: 'hd',
       numberOfImages: 1,
       ...(characterImageUrl ? { referenceImageUrl: characterImageUrl } : {}),
