@@ -25,6 +25,7 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
   const {
     characters,
     storyboard,
+    sceneBreakdowns,
     generateCharacters,
     editCharacter,
     regenerateCharacter,
@@ -146,14 +147,43 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       }
     }
 
-    // 场景设定节点 - 在人物下方
-    // 注意：这里我们只显示从 characters 数据中提取的场景信息
-    // 由于当前 useDirectorMode 没有 sceneBreakdowns 状态，我们暂时跳过场景节点
-    // TODO: 后续需要在 useDirectorMode 中添加 sceneBreakdowns 状态
+    // 场景设定节点 - 在人物形象下方，由艺术总监与角色同步输出
+    if (sceneBreakdowns && sceneBreakdowns.length > 0) {
+      const sceneY = 50 + PADDING_Y * 2; // 人物图片行下方的新一行
 
-    // 分镜节点 - 在所有人物下方
+      sceneBreakdowns.forEach((scene, index) => {
+        const count = sceneBreakdowns.length;
+        let x: number;
+        if (count === 1) {
+          x = CANVAS_CENTER_X - NODE_WIDTH / 2;
+        } else {
+          const totalWidth = (count - 1) * PADDING_X;
+          x = CANVAS_CENTER_X - totalWidth / 2 + index * PADDING_X;
+        }
+
+        nodes.push({
+          id: `node_scene_${scene.scene_number}`,
+          type: 'scene',
+          x,
+          y: sceneY,
+          width: NODE_WIDTH,
+          data: {
+            name: scene.scene_name,
+            description: scene.environment,
+            environment: scene.environment,
+            atmosphere: scene.atmosphere,
+            props: scene.props,
+            location_type: scene.location_type,
+            time_of_day: scene.time_of_day,
+            key_visual_elements: scene.key_visual_elements,
+          },
+        });
+      });
+    }
+
+    // 分镜节点 - 在场景节点下方
     if (storyboard && storyboard.scenes && storyboard.scenes.length > 0) {
-      const y = 50 + PADDING_Y * 2; // 人物下方
+      const y = 50 + PADDING_Y * 3; // 场景下方新一行
       nodes.push({
         id: 'node_storyboard',
         type: 'storyboard',
@@ -171,7 +201,7 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
 
     console.log('[DirectorMode] 生成的节点数量:', nodes.length);
     return nodes;
-  }, [selectedScreenplay, characters, storyboard]); // 移除 isWorkflowInitialized 依赖
+  }, [selectedScreenplay, characters, storyboard, sceneBreakdowns]);
 
   // 生成连线
   const canvasEdges = useMemo<CanvasEdge[]>(() => {
@@ -200,17 +230,37 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       });
     }
 
-    // 共享人物形象节点 -> 分镜
-    if (storyboard && storyboard.scenes && storyboard.scenes.length > 0 && hasSharedImage) {
-      edges.push({
-        id: 'edge_char_image_storyboard',
-        source: 'node_char_image_shared',
-        target: 'node_storyboard',
+    // 脚本 -> 场景设定
+    if (sceneBreakdowns && sceneBreakdowns.length > 0) {
+      sceneBreakdowns.forEach((scene) => {
+        edges.push({
+          id: `edge_script_scene_${scene.scene_number}`,
+          source: 'node_script',
+          target: `node_scene_${scene.scene_number}`,
+        });
       });
     }
 
+    // 场景设定 -> 分镜（或共享形象 -> 分镜，取决于哪个存在）
+    if (storyboard && storyboard.scenes && storyboard.scenes.length > 0) {
+      if (sceneBreakdowns && sceneBreakdowns.length > 0) {
+        // 场景节点 -> 分镜（多对一，取第一个场景）
+        edges.push({
+          id: 'edge_scene_storyboard',
+          source: `node_scene_${sceneBreakdowns[0].scene_number}`,
+          target: 'node_storyboard',
+        });
+      } else if (hasSharedImage) {
+        edges.push({
+          id: 'edge_char_image_storyboard',
+          source: 'node_char_image_shared',
+          target: 'node_storyboard',
+        });
+      }
+    }
+
     return edges;
-  }, [characters, storyboard]);
+  }, [characters, storyboard, sceneBreakdowns]);
 
   // 选中的节点
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);

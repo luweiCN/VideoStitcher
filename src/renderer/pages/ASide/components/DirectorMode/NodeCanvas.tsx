@@ -299,6 +299,7 @@ export function NodeCanvas({
       case 'script': return 140;
       case 'character': return 380;
       case 'character-image': return 320;
+      case 'scene': return 260;
       case 'storyboard': return 200;
       case 'video': return 280;
       default: return 120;
@@ -557,10 +558,31 @@ export function NodeCanvas({
                 <Film size={14} className="text-green-500" />
                 场景设定
               </h4>
+              <span className="text-xs text-slate-600">
+                {node.data.location_type === 'indoor' ? '室内' : node.data.location_type === 'outdoor' ? '室外' : ''}
+                {node.data.time_of_day ? ` · ${
+                  node.data.time_of_day === 'day' ? '白天' :
+                  node.data.time_of_day === 'night' ? '夜晚' :
+                  node.data.time_of_day === 'dusk' ? '黄昏' :
+                  node.data.time_of_day === 'dawn' ? '清晨' : node.data.time_of_day
+                }` : ''}
+              </span>
             </div>
             <div className="space-y-2">
-              <h5 className="text-sm font-bold text-slate-300">{node.data.name}</h5>
-              <p className="text-xs text-slate-400 whitespace-pre-wrap">{node.data.description}</p>
+              <h5 className="text-sm font-bold text-green-400">{node.data.name}</h5>
+              <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">{node.data.environment}</p>
+              {node.data.atmosphere && (
+                <p className="text-xs text-slate-500 italic">氛围：{node.data.atmosphere}</p>
+              )}
+              {node.data.props && node.data.props.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {node.data.props.slice(0, 4).map((prop, i) => (
+                    <span key={i} className="px-1.5 py-0.5 text-xs rounded bg-green-900/30 text-green-400 border border-green-800/40">
+                      {prop}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
