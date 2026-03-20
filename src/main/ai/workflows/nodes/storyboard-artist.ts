@@ -8,7 +8,8 @@ import type { AIProvider, TextGenerationOptions, ImageGenerationOptions } from '
 import { getGlobalProvider } from '../../provider-manager';
 import { StoryboardArtistAgentPrompts } from '../../prompts/storyboard-artist-agent';
 import { downloadToCache } from '@main/utils/cache';
-import * as sharp from 'sharp';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const sharp = require('sharp');
 
 /**
  * 分镜师 Agent 节点
