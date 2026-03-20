@@ -131,7 +131,7 @@ export class VolcEngineVideo {
       return {
         videoUrl: result.videoUrl,
         duration: options?.duration || 5,
-        resolution: options?.resolution || '1080p',
+        resolution: options?.resolution || '720p',
         fileSize: 0, // 未知文件大小
       };
     } catch (error) {

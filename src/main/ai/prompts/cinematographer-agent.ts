@@ -64,8 +64,8 @@ export class CinematographerAgentPrompts {
   ],
   "total_duration_seconds": 20,
   "final_output_settings": {
-    "resolution": "1080x1920",
-    "fps": 30,
+    "resolution": "720p",
+    "fps": 24,
     "codec": "H.264"
   }
 }
