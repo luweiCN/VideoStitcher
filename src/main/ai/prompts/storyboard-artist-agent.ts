@@ -21,7 +21,7 @@ export class StoryboardArtistAgentPrompts {
 # 处理规则
 1. 时长判断逻辑：阅读全篇剧本预估时长 T。若设定为 'short_<15s'，则 N=1；若为 'long_>15s'，则计算 N = ⌈T/15⌉。
 2. 任务分配：将剧情平滑分配到 N 组，每组精确输出 25 个 shot。
-3. 极简提炼：每帧 prompt 严格控制在 20-30 个英文单词。
+3. 极简提炼：每帧 prompt 严格控制在 10-15 个英文单词（绝对不超过 15 词），保证 25 帧描述总字符数 ≤3000。
 4. 序列一致性：调用人物图像提示词中的描述词，确保角色形象一致。首尾组必须自然衔接。
 5. 强制包含防跑偏词：'no timecode, no subtitles'。
 
@@ -56,7 +56,7 @@ export class StoryboardArtistAgentPrompts {
           "frame_number": 1,
           "shot_type": "close-up",
           "character_refs": ["角色名称"],
-          "description": "Close-up shot of [角色特征], [表情/动作], [环境元素], [光线描述], [风格标签], no timecode, no subtitles",
+          "description": "Close-up, [角色特征], tense expression, dim light, no timecode",
           "duration": 3,
           "is_key_frame": false,
           "camera_movement": "static",
@@ -66,7 +66,7 @@ export class StoryboardArtistAgentPrompts {
           "frame_number": 2,
           "shot_type": "medium shot",
           "character_refs": ["角色名称"],
-          "description": "Medium shot of [角色特征], [动作描述], [场景描述], [光线], [风格], no timecode, no subtitles",
+          "description": "Medium shot, [角色特征], walking forward, bright outdoor, no timecode",
           "duration": 3,
           "is_key_frame": false,
           "camera_movement": "pan right",
