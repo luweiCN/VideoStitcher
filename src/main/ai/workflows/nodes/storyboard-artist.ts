@@ -85,8 +85,15 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
 
     console.log(`[Agent 4: 分镜师] 提取了 ${frameDescriptions.split('. ').length} 个帧描述`);
 
-    // 构建图像生成提示词（不限制长度，让所有 25 个帧都包含在提示词中）
-    const storyboardPrompt = `Professional storyboard layout, 5x5 grid of 25 frames arranged in 5 rows and 5 columns, cinematic storyboard style, each frame shows: ${frameDescriptions}, clean line art, consistent character design, sequential narrative flow, no text, no numbers, professional storyboarding technique`;
+    // 构建图像生成提示词（火山引擎图像 API 限制 4000 字符，超出需截断）
+    const MAX_PROMPT_LENGTH = 4000;
+    const promptPrefix = 'Professional storyboard layout, 5x5 grid of 25 frames arranged in 5 rows and 5 columns, cinematic storyboard style, each frame shows: ';
+    const promptSuffix = ', clean line art, consistent character design, sequential narrative flow, no text, no numbers, professional storyboarding technique';
+    const availableLength = MAX_PROMPT_LENGTH - promptPrefix.length - promptSuffix.length;
+    const truncatedFrameDescriptions = frameDescriptions.length > availableLength
+      ? frameDescriptions.substring(0, availableLength - 3) + '...'
+      : frameDescriptions;
+    const storyboardPrompt = `${promptPrefix}${truncatedFrameDescriptions}${promptSuffix}`;
 
     console.log('[Agent 4: 分镜师] 调用图像生成 API...');
 
