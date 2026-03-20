@@ -684,6 +684,7 @@ export function registerDirectorModeHandlers() {
     projectId: string;
     creativeDirectionId?: string;
     personaId?: string;
+    region?: string;
   }) => {
     console.log('[DirectorMode] 初始化工作流，剧本 ID:', data.screenplayId);
 
