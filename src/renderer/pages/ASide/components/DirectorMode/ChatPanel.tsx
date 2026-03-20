@@ -196,11 +196,12 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized, dir
           ]
         );
 
-        // 更新画板视频
+        // 更新画板视频（保留本地路径供预览使用）
         if (directorMode.addVideo && data.videoUrl) {
           directorMode.addVideo({
             id: `video-${Date.now()}`,
             url: data.videoUrl,
+            localPath: data.localVideoPath,
             duration: data.totalDuration,
             description: '生成的视频',
           });

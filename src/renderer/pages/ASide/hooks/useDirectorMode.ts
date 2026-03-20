@@ -29,7 +29,7 @@ export interface DirectorModeState {
     atmosphere: string;
     key_visual_elements: string[];
   }>; // 场景信息
-  videos: Array<{ id: string; url: string; duration?: number; description?: string }>;
+  videos: Array<{ id: string; url: string; localPath?: string; duration?: number; description?: string }>;
   isGeneratingCharacters: boolean;
   isGeneratingStoryboard: boolean;
   isComposingVideo: boolean;
@@ -294,7 +294,7 @@ export function useDirectorMode(screenplayId: string) {
   }, []);
 
   // 添加视频
-  const addVideo = useCallback((video: { id: string; url: string; duration?: number; description?: string }) => {
+  const addVideo = useCallback((video: { id: string; url: string; localPath?: string; duration?: number; description?: string }) => {
     console.log('[useDirectorMode] 添加视频:', video);
     setState((prev) => ({
       ...prev,

@@ -542,6 +542,7 @@ export function registerDirectorModeHandlers() {
         event.sender.send('aside:workflow:video', {
           screenplayId,
           videoUrl: newState.step5_final.content.videoUrl,
+          localVideoPath: newState.step5_final.content.localVideoPath,
           totalDuration: newState.step5_final.content.totalDuration,
           message: '视频已生成',
         });
