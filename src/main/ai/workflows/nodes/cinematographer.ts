@@ -32,7 +32,10 @@ interface RenderQueueItem {
   duration_seconds: number;
   start_frame?: number;
   end_frame?: number;
-  reference_images?: string[];
+  /** 0-based，对应分镜帧数组首帧下标，用于 i2v 参考图 */
+  first_frame_index?: number;
+  /** 0-based，对应分镜帧数组尾帧下标 */
+  last_frame_index?: number;
   video_generation_prompt: string;
   camera_movement?: string;
   transition_note?: string;
