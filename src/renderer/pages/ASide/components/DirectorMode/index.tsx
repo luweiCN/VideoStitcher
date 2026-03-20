@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
+import { X, Play } from 'lucide-react';
 import { ChatPanel } from './ChatPanel';
 import { NodeCanvas, CanvasNode, CanvasEdge } from './NodeCanvas';
 import { useDirectorMode } from '@renderer/pages/ASide/hooks/useDirectorMode';
@@ -17,15 +18,66 @@ interface DirectorModeProps {
   onComplete?: () => void;
 }
 
+/** 预览弹窗数据 */
+interface PreviewItem {
+  type: 'image' | 'video';
+  src: string;         // 图片 URL 或 base64
+  title?: string;
+}
+
+/** 媒体预览弹窗 */
+function MediaPreviewModal({ item, onClose }: { item: PreviewItem; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-5xl max-h-[90vh] w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 关闭按钮 */}
+        <button
+          className="absolute -top-10 right-0 text-white hover:text-slate-300 p-1"
+          onClick={onClose}
+        >
+          <X size={24} />
+        </button>
+
+        {item.title && (
+          <p className="text-white text-sm text-center mb-2 opacity-70">{item.title}</p>
+        )}
+
+        {item.type === 'image' ? (
+          <img
+            src={item.src}
+            alt={item.title}
+            className="w-full h-auto max-h-[85vh] object-contain rounded-xl"
+          />
+        ) : (
+          <video
+            src={item.src}
+            className="w-full max-h-[85vh] rounded-xl"
+            controls
+            autoPlay
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
   const { selectedScreenplay } = useASideStore();
   const [isWorkflowInitialized, setIsWorkflowInitialized] = useState(false);
+  const [previewItem, setPreviewItem] = useState<PreviewItem | null>(null);
 
   const directorMode = useDirectorMode(screenplayId);
   const {
     characters,
     storyboard,
     sceneBreakdowns,
+    videos,
     generateCharacters,
     editCharacter,
     regenerateCharacter,
@@ -199,9 +251,37 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       });
     }
 
+    // 视频节点 - 在分镜节点下方
+    if (videos && videos.length > 0) {
+      const videoY = 50 + PADDING_Y * 4;
+      videos.forEach((video, index) => {
+        const count = videos.length;
+        let x: number;
+        if (count === 1) {
+          x = CANVAS_CENTER_X - NODE_WIDTH / 2;
+        } else {
+          const totalWidth = (count - 1) * PADDING_X;
+          x = CANVAS_CENTER_X - totalWidth / 2 + index * PADDING_X;
+        }
+        nodes.push({
+          id: `node_video_${video.id}`,
+          type: 'video',
+          x,
+          y: videoY,
+          width: NODE_WIDTH,
+          data: {
+            label: video.description || '生成的视频',
+            url: video.url,
+            localPath: video.localPath,
+            duration: video.duration ? `${video.duration}s` : undefined,
+          },
+        });
+      });
+    }
+
     console.log('[DirectorMode] 生成的节点数量:', nodes.length);
     return nodes;
-  }, [selectedScreenplay, characters, storyboard, sceneBreakdowns]);
+  }, [selectedScreenplay, characters, storyboard, sceneBreakdowns, videos]);
 
   // 生成连线
   const canvasEdges = useMemo<CanvasEdge[]>(() => {
@@ -259,8 +339,19 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       }
     }
 
+    // 分镜 -> 视频节点
+    if (videos && videos.length > 0 && storyboard?.scenes?.length) {
+      videos.forEach((video) => {
+        edges.push({
+          id: `edge_storyboard_video_${video.id}`,
+          source: 'node_storyboard',
+          target: `node_video_${video.id}`,
+        });
+      });
+    }
+
     return edges;
-  }, [characters, storyboard, sceneBreakdowns]);
+  }, [characters, storyboard, sceneBreakdowns, videos]);
 
   // 选中的节点
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -376,9 +467,18 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
             onNodeRegenerate={handleNodeRegenerate}
             selectedNodeIds={selectedNodeIds}
             onSelectionChange={setSelectedNodeIds}
+            onPreview={setPreviewItem}
           />
         )}
       </div>
+
+      {/* 媒体预览弹窗 */}
+      {previewItem && (
+        <MediaPreviewModal
+          item={previewItem}
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
     </div>
   );
 }

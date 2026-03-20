@@ -47,6 +47,7 @@ export interface CanvasNode {
 
     // Video
     url?: string;
+    localPath?: string;   // 本地缓存路径（file:// 播放）
     duration?: string;
     isFinal?: boolean;
   };
@@ -66,6 +67,8 @@ interface NodeCanvasProps {
   onNodeRegenerate: (nodeId: string) => void;
   selectedNodeIds: string[];
   onSelectionChange: (nodeIds: string[]) => void;
+  /** 点击图片/视频触发预览弹窗 */
+  onPreview?: (item: { type: 'image' | 'video'; src: string; title?: string }) => void;
 }
 
 export function NodeCanvas({
@@ -75,6 +78,7 @@ export function NodeCanvas({
   onNodeRegenerate,
   selectedNodeIds,
   onSelectionChange,
+  onPreview,
 }: NodeCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -538,7 +542,8 @@ export function NodeCanvas({
                 <img
                   src={node.data.imageUrl}
                   alt={node.data.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover cursor-zoom-in"
+                  onClick={() => onPreview?.({ type: 'image', src: node.data.imageUrl!, title: node.data.name })}
                 />
               ) : (
                 <UserCircle className="w-16 h-16 text-slate-700" />
@@ -601,8 +606,9 @@ export function NodeCanvas({
                 <img
                   src={node.data.imageUrl}
                   alt="分镜图"
-                  className="w-full h-auto object-contain"
+                  className="w-full h-auto object-contain cursor-zoom-in"
                   style={{ maxHeight: '400px' }}
+                  onClick={() => onPreview?.({ type: 'image', src: node.data.imageUrl!, title: node.data.label || '分镜矩阵' })}
                 />
               ) : (
                 <div className="h-32 flex items-center justify-center">
@@ -623,9 +629,9 @@ export function NodeCanvas({
               </h4>
             </div>
             <div className="w-full h-40 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center">
-              {node.data.url ? (
+              {(node.data.localPath || node.data.url) ? (
                 <video
-                  src={node.data.url}
+                  src={node.data.localPath ? `file://${node.data.localPath}` : node.data.url}
                   className="w-full h-full object-cover"
                   controls
                 />
