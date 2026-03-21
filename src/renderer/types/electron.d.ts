@@ -609,4 +609,5 @@ export interface ElectronAPI {
   regionAdd: (data: { name: string; parentId?: string | null; emoji?: string; iconType?: string | null; iconValue?: string | null; culturalProfile?: string; sortOrder?: number }) => Promise<{ success: boolean; region?: import('@shared/types/aside').Region; error?: string }>;
   regionUpdate: (id: string, data: { name?: string; parentId?: string | null; emoji?: string; iconType?: string | null; iconValue?: string | null; culturalProfile?: string; sortOrder?: number; isActive?: boolean }) => Promise<{ success: boolean; error?: string }>;
   regionDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
+  regionResetPresets: () => Promise<{ success: boolean; error?: string }>;
 }

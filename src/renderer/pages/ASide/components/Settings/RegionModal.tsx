@@ -78,9 +78,9 @@ export function RegionModal({
     }
   };
 
-  // 可选的上级地区（1-2 级，且不是自己）
+  // 可选的上级地区（不包括自身及其子孙，支持无限级）
   const parentOptions = allRegions.filter(
-    (r) => r.level < 3 && r.id !== editingRegion?.id,
+    (r) => r.id !== editingRegion?.id,
   );
 
   return (

@@ -25,6 +25,7 @@ import { registerAsideHandlers } from '@main/ipc/aside-handlers';
 import { registerDirectorModeHandlers } from '@main/ipc/director-mode-handlers';
 import { registerAIWorkflowHandlers } from '@main/ipc/ai-workflow-handlers';
 import { registerRegionHandlers } from '@main/ipc/region-handlers';
+import { regionRepository } from '@main/database/repositories/regionRepository';
 import { taskQueueManager, TaskCancelledError } from '@main/services/TaskQueueManager';
 
 // 导入 AI 提供商初始化
@@ -204,6 +205,9 @@ app.whenReady().then(() => {
     console.log('[主进程] 初始化数据库...');
     initDatabase();
     console.log('[主进程] 数据库初始化完成');
+
+    // 确保预置地区数据已植入
+    regionRepository.ensurePresetsSeeded();
 
     // 初始化任务队列管理器（必须在数据库初始化后）
     taskQueueManager.init();

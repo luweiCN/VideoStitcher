@@ -76,7 +76,7 @@ export function registerRegionHandlers(): void {
     },
   );
 
-  // 删除地区（预置地区不可删除）
+  // 删除地区
   ipcMain.handle('region:delete', async (_event, id: string) => {
     try {
       regionRepository.deleteRegion(id);
@@ -84,6 +84,18 @@ export function registerRegionHandlers(): void {
     } catch (error) {
       const message = error instanceof Error ? error.message : '未知错误';
       console.error('[区域处理器] 删除地区失败:', message);
+      return { success: false, error: message };
+    }
+  });
+
+  // 重置预置数据
+  ipcMain.handle('region:resetPresets', async () => {
+    try {
+      regionRepository.resetPresets();
+      return { success: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      console.error('[区域处理器] 重置预置数据失败:', message);
       return { success: false, error: message };
     }
   });

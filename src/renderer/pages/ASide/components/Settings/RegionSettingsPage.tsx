@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit2, Trash2, Search, ChevronRight, ChevronDown, Lock, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, ChevronRight, ChevronDown, FileText, RotateCcw } from 'lucide-react';
 import type { Region, RegionTreeNode } from '@shared/types/aside';
 import { RegionModal } from './RegionModal';
 
@@ -59,6 +59,8 @@ export function RegionSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [profileDraft, setProfileDraft] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const selectedRegion = regions.find(r => r.id === selectedId) ?? null;
 
@@ -70,11 +72,13 @@ export function RegionSettingsPage() {
       if (result.success && result.regions) {
         setRegions(result.regions);
         setTree(buildRegionTree(result.regions));
-        // 默认展开一级节点
-        const level1Ids = new Set<string>(
-          result.regions.filter((r: Region) => r.level === 1).map((r: Region) => r.id),
+        // 默认展开 L1 和 L2 节点
+        const level12Ids = new Set<string>(
+          result.regions
+            .filter((r: Region) => r.level <= 2)
+            .map((r: Region) => r.id),
         );
-        setExpandedIds(level1Ids);
+        setExpandedIds(level12Ids);
       }
     } catch (err) {
       console.error('[RegionSettingsPage] 加载地区失败:', err);
@@ -115,13 +119,26 @@ export function RegionSettingsPage() {
   };
 
   const handleDelete = async (region: Region) => {
-    if (region.isPreset) return;
     try {
       await window.api.regionDelete(region.id);
       if (selectedId === region.id) setSelectedId(null);
       await loadRegions();
     } catch (err) {
       console.error('[RegionSettingsPage] 删除地区失败:', err);
+    }
+  };
+
+  const handleResetPresets = async () => {
+    try {
+      setIsResetting(true);
+      setShowResetConfirm(false);
+      await window.api.regionResetPresets();
+      setSelectedId(null);
+      await loadRegions();
+    } catch (err) {
+      console.error('[RegionSettingsPage] 重置预置数据失败:', err);
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -199,11 +216,6 @@ export function RegionSettingsPage() {
             {LEVEL_NAMES[node.level] ?? `L${node.level}`}
           </span>
 
-          {/* 预置锁 */}
-          {node.isPreset && (
-            <Lock className="w-3 h-3 text-slate-700 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-          )}
-
           {/* 操作按钮（悬停显示） */}
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
@@ -215,13 +227,8 @@ export function RegionSettingsPage() {
             </button>
             <button
               onClick={e => { e.stopPropagation(); handleDelete(node); }}
-              disabled={node.isPreset}
-              className={`p-1 rounded transition-colors ${
-                node.isPreset
-                  ? 'text-slate-800 cursor-not-allowed'
-                  : 'text-slate-600 hover:bg-slate-700 hover:text-red-400'
-              }`}
-              title={node.isPreset ? '预置地区不可删除' : '删除'}
+              className="p-1 rounded transition-colors text-slate-600 hover:bg-slate-700 hover:text-red-400"
+              title="删除"
             >
               <Trash2 className="w-3 h-3" />
             </button>
@@ -270,6 +277,16 @@ export function RegionSettingsPage() {
             <Plus className="w-3.5 h-3.5" />
             添加地区
           </button>
+
+          {/* 重置预置数据 */}
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            disabled={isResetting}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 border border-slate-800/60 rounded-lg text-xs text-slate-700 hover:border-slate-700 hover:text-slate-500 transition-colors disabled:opacity-50"
+          >
+            <RotateCcw className={`w-3 h-3 ${isResetting ? 'animate-spin' : ''}`} />
+            {isResetting ? '重置中…' : '重置预置数据'}
+          </button>
         </div>
 
         {/* 树形内容 */}
@@ -317,12 +334,6 @@ export function RegionSettingsPage() {
                   <h2 className="text-2xl font-semibold tracking-tight text-slate-100">
                     {selectedRegion.name}
                   </h2>
-                  {selectedRegion.isPreset && (
-                    <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] text-slate-700 border border-slate-800 rounded px-1.5 py-0.5">
-                      <Lock className="w-2.5 h-2.5" />
-                      预置
-                    </span>
-                  )}
                 </div>
 
                 <button
@@ -406,6 +417,37 @@ export function RegionSettingsPage() {
         onClose={() => setIsModalOpen(false)}
         onSave={handleModalSave}
       />
+
+      {/* 重置确认弹窗 */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-80 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <RotateCcw className="w-4 h-4 text-amber-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-100">重置预置数据</h3>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              将删除所有预置地区（包括已修改过文化档案的），重新植入最新版本的预置数据。自定义地区不受影响。
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 py-2 rounded-lg border border-slate-800 text-xs text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleResetPresets}
+                className="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-xs text-white font-medium transition-colors"
+              >
+                确认重置
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../index';
 import type { Region } from '@shared/types/aside';
+import { REGION_PRESETS } from '@shared/constants/regionPresets';
 
 /**
  * 数据库行类型
@@ -212,7 +213,7 @@ export class RegionRepository {
   // ==================== 删除 ====================
 
   /**
-   * 删除地区（预置地区不可删除）
+   * 删除地区
    */
   deleteRegion(id: string): void {
     if (!id?.trim()) throw new Error('地区 ID 不能为空');
@@ -220,11 +221,10 @@ export class RegionRepository {
     try {
       const db = getDatabase();
 
-      const row = db.prepare('SELECT is_preset FROM regions WHERE id = ?').get(id) as
-        | { is_preset: number }
+      const row = db.prepare('SELECT id FROM regions WHERE id = ?').get(id) as
+        | { id: string }
         | undefined;
       if (!row) throw new Error(`地区不存在：ID ${id}`);
-      if (row.is_preset === 1) throw new Error('预置地区不可删除');
 
       db.prepare('DELETE FROM regions WHERE id = ?').run(id);
       console.log(`[RegionRepository] 成功删除地区 ID: ${id}`);
@@ -252,6 +252,84 @@ export class RegionRepository {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
+  }
+
+  // ==================== 预置数据管理 ====================
+
+  /**
+   * 批量插入预置数据
+   */
+  private seedPresets(): void {
+    const db = getDatabase();
+    const now = new Date().toISOString();
+
+    const insert = db.prepare(`
+      INSERT OR REPLACE INTO regions
+        (id, name, parent_id, level, cultural_profile, emoji, is_preset, is_active, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)
+    `);
+
+    const insertMany = db.transaction(() => {
+      for (const preset of REGION_PRESETS) {
+        insert.run(
+          preset.id,
+          preset.name,
+          preset.parentId ?? null,
+          preset.level,
+          preset.culturalProfile ?? '',
+          preset.emoji ?? '',
+          preset.sortOrder,
+          now,
+          now,
+        );
+      }
+    });
+
+    insertMany();
+    console.log(`[RegionRepository] 成功植入 ${REGION_PRESETS.length} 条预置地区数据`);
+  }
+
+  /**
+   * 确保预置数据已植入（启动时调用）
+   * 若数据库中没有任何 is_preset=1 的记录，则执行初始化种子
+   */
+  ensurePresetsSeeded(): void {
+    try {
+      const db = getDatabase();
+      const result = db
+        .prepare('SELECT COUNT(*) as count FROM regions WHERE is_preset = 1')
+        .get() as { count: number };
+
+      if (result.count === 0) {
+        console.log('[RegionRepository] 未发现预置地区数据，开始初始化...');
+        this.seedPresets();
+      } else {
+        console.log(`[RegionRepository] 已有 ${result.count} 条预置地区数据，跳过初始化`);
+      }
+    } catch (error) {
+      console.error('[RegionRepository] 检查预置数据失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 重置预置数据：删除所有 is_preset=1 的记录，重新植入
+   */
+  resetPresets(): void {
+    try {
+      const db = getDatabase();
+
+      db.transaction(() => {
+        db.prepare('DELETE FROM regions WHERE is_preset = 1').run();
+        console.log('[RegionRepository] 已清除旧预置数据');
+      })();
+
+      this.seedPresets();
+      console.log('[RegionRepository] 预置数据重置完成');
+    } catch (error) {
+      console.error('[RegionRepository] 重置预置数据失败:', error);
+      throw error;
+    }
   }
 }
 
