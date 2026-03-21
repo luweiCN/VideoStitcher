@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Link, Download, AlertCircle, Bell, Sparkles } from 'lucide-react';
+import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Link, Download, AlertCircle, Bell, Sparkles, Wand2 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { ToastProvider } from './components/Toast';
 import { ConfirmDialogProvider } from './components/ConfirmDialog/ConfirmDialogProvider';
@@ -16,6 +16,7 @@ import VideoStitcherMode from './features/VideoStitcherMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
 import ASidePage from './pages/ASide';
+import AICreativePage from './pages/AICreative';
 import { TaskCenterProvider } from './contexts/TaskContext';
 import { TaskCenterListPage, TaskCenterDashboard, HomeTaskIndicator, TaskDetailPage } from './components/TaskCenter';
 
@@ -96,6 +97,31 @@ const HomePage: React.FC<{
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full max-w-7xl">
+          {/* AI 创意视频 - 第一位，带 New 标签 */}
+          <button
+            onClick={() => onNavigate('/ai-creative')}
+            className="group relative overflow-hidden bg-gradient-to-br from-violet-900/40 to-fuchsia-900/30 border border-violet-700/40 rounded-2xl p-5 text-left transition-all hover:border-violet-500 hover:shadow-lg hover:shadow-violet-500/20 hover:-translate-y-0.5"
+          >
+            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
+              <Wand2 className="w-16 h-16 text-violet-400" />
+            </div>
+            {/* New 标签 */}
+            <div className="absolute top-3 right-3 px-2 py-0.5 bg-emerald-500 rounded-full">
+              <span className="text-xs font-bold text-white tracking-wide">New</span>
+            </div>
+            <div className="relative z-10 space-y-3">
+              <div className="w-12 h-12 bg-violet-500/20 rounded-xl flex items-center justify-center group-hover:bg-violet-500 group-hover:text-white transition-colors text-violet-400">
+                <Wand2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold mb-1 text-white group-hover:text-violet-300 transition-colors">AI 创意视频</h2>
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  从剧本到成片，AI 全流程创意视频生产
+                </p>
+              </div>
+            </div>
+          </button>
+
           <button
             onClick={() => onNavigate('/videoMerge')}
             className="group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all hover:border-violet-500 hover:shadow-lg hover:shadow-violet-500/10 hover:-translate-y-0.5"
@@ -256,45 +282,6 @@ const HomePage: React.FC<{
             </div>
           </button>
 
-          <button
-            onClick={() => onNavigate('/aside')}
-            className="group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all hover:border-violet-500 hover:shadow-lg hover:shadow-violet-500/10 hover:-translate-y-0.5"
-          >
-            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
-              <Sparkles className="w-16 h-16" />
-            </div>
-            <div className="relative z-10 space-y-3">
-              <div className="w-12 h-12 bg-violet-500/10 rounded-xl flex items-center justify-center group-hover:bg-violet-500 group-hover:text-white transition-colors text-violet-400">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold mb-1 text-white group-hover:text-violet-400 transition-colors">A 面视频生产</h2>
-                <p className="text-slate-400 text-sm leading-relaxed">
-                  AI 驱动的营销视频批量生产工具
-                </p>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={() => onNavigate('/director')}
-            className="group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/10 hover:-translate-y-0.5"
-          >
-            <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-15 transition-opacity">
-              <Monitor className="w-16 h-16" />
-            </div>
-            <div className="relative z-10 space-y-3">
-              <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors text-blue-400">
-                <Monitor className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold mb-1 text-white group-hover:text-blue-400 transition-colors">导演模式</h2>
-                <p className="text-slate-400 text-sm leading-relaxed">
-                  AI 辅助视频创作，从剧本到成片
-                </p>
-              </div>
-            </div>
-          </button>
         </div>
       </div>
 
@@ -454,6 +441,7 @@ const AppContent: React.FC = () => {
         <Route path="/resize" element={<ResizeMode />} />
         <Route path="/videoStitcher" element={<VideoStitcherMode />} />
         <Route path="/aside" element={<ASidePage />} />
+        <Route path="/ai-creative" element={<AICreativePage />} />
         <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
         <Route path="/tasks" element={<TaskCenterListPage />} />
