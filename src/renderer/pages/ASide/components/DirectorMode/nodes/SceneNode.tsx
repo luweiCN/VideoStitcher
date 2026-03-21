@@ -30,7 +30,7 @@ export function SceneNode({ data, selected }: NodeProps) {
       <div className="space-y-2">
         <h5 className="text-sm font-bold text-green-400">{data.name as string}</h5>
         <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">{data.environment as string}</p>
-        {data.atmosphere && <p className="text-xs text-slate-500 italic">氛围：{data.atmosphere as string}</p>}
+        {data.atmosphere ? <p className="text-xs text-slate-500 italic">氛围：{data.atmosphere as string}</p> : null}
         {Array.isArray(data.props) && (data.props as string[]).length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1">
             {(data.props as string[]).slice(0, 4).map((prop, i) => (

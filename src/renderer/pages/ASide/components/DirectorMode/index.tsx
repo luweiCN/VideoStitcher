@@ -3,13 +3,12 @@
  * 左右分栏:左侧 Agent 群聊 + 右侧可视化画板
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { X, Play } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import { ChatPanel } from './ChatPanel';
-import { NodeCanvas, CanvasNode, CanvasEdge } from './NodeCanvas';
+import { NodeCanvas, type NodeCanvasHandle } from './NodeCanvas';
 import { useDirectorMode } from '@renderer/pages/ASide/hooks/useDirectorMode';
 import { useASideStore } from '@renderer/stores/asideStore';
-import type { Character, Storyboard } from '@shared/types/aside';
 
 interface DirectorModeProps {
   /** 剧本 ID */
@@ -67,10 +66,20 @@ function MediaPreviewModal({ item, onClose }: { item: PreviewItem; onClose: () =
   );
 }
 
+// 布局常量（与原版保持一致）
+const NODE_WIDTH = 320;
+const NODE_HEIGHT_CHARACTER = 380;
+const PADDING_X = 380;
+const PADDING_Y = 480;
+const CANVAS_CENTER_X = 500;
+
 export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
   const { selectedScreenplay } = useASideStore();
   const [isWorkflowInitialized, setIsWorkflowInitialized] = useState(false);
   const [previewItem, setPreviewItem] = useState<PreviewItem | null>(null);
+
+  // 命令式画布句柄
+  const canvasRef = useRef<NodeCanvasHandle>(null);
 
   const directorMode = useDirectorMode(screenplayId);
   const {
@@ -78,24 +87,13 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
     storyboard,
     sceneBreakdowns,
     videos,
-    generateCharacters,
-    editCharacter,
     regenerateCharacter,
-    generateStoryboard,
-    regenerateStoryboard,
-    composeVideo,
-    isGeneratingCharacters,
-    isGeneratingStoryboard,
-    isComposingVideo,
-    updateCharacters,
-    updateStoryboard,
   } = directorMode;
 
   // 调试:追踪 characters 变化
   useEffect(() => {
     console.log('[DirectorMode] characters 更新:', {
       count: characters?.length || 0,
-      characters: characters,
       firstCharId: characters?.[0]?.id,
       firstCharName: characters?.[0]?.name,
     });
@@ -106,289 +104,176 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
     console.log('[DirectorMode] storyboard 更新:', storyboard);
   }, [storyboard]);
 
-  // 将后端数据转换为节点画布格式（智能布局，自适应节点数量）
-  const canvasNodes = useMemo<CanvasNode[]>(() => {
-    console.log('[DirectorMode] 转换节点数据:', {
-      isWorkflowInitialized,
-      hasScript: !!selectedScreenplay,
-      charactersCount: characters?.length || 0,
-      storyboardScenesCount: storyboard?.scenes?.length || 0,
+  // ── 剧本节点 ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!selectedScreenplay || !canvasRef.current) return;
+    canvasRef.current.addNode({
+      id: 'node_script',
+      type: 'script',
+      x: CANVAS_CENTER_X - NODE_WIDTH / 2,
+      y: 50,
+      width: NODE_WIDTH,
+      data: { text: selectedScreenplay.content },
     });
+  }, [selectedScreenplay]);
 
-    const nodes: CanvasNode[] = [];
-    const NODE_WIDTH = 320;
-    const NODE_HEIGHT_CHARACTER = 380;
-    const PADDING_X = 380; // 水平间距
-    const PADDING_Y = 480; // 垂直间距
-    const CANVAS_CENTER_X = 500; // 画布中心 X 坐标
+  // ── 人物节点 + 连线 ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!characters?.length || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const count = characters.length;
+    const y = 50 + PADDING_Y;
 
-    // 脚本节点 - 只要选择了剧本就显示（不依赖工作流初始化）
-    if (selectedScreenplay) {
-      nodes.push({
-        id: 'node_script',
-        type: 'script',
-        x: CANVAS_CENTER_X - NODE_WIDTH / 2, // 居中
-        y: 50,
+    characters.forEach((char, index) => {
+      let x: number;
+      if (count === 1) x = CANVAS_CENTER_X - NODE_WIDTH / 2;
+      else if (count === 2) x = CANVAS_CENTER_X - PADDING_X / 2 - NODE_WIDTH / 2 + index * PADDING_X;
+      else if (count === 3) x = CANVAS_CENTER_X - PADDING_X - NODE_WIDTH / 2 + index * PADDING_X;
+      else { const tw = (count - 1) * PADDING_X; x = CANVAS_CENTER_X - tw / 2 + index * PADDING_X; }
+
+      const roleTypeLabel = char.role_type === 'protagonist' ? '主角' :
+        char.role_type === 'antagonist' ? '反派' : '配角';
+
+      canvas.addNode({
+        id: `node_char_${char.id}`,
+        type: 'character',
+        x, y,
         width: NODE_WIDTH,
         data: {
-          text: selectedScreenplay.content,
+          name: `人物设定-${roleTypeLabel}`,
+          charName: char.name,
+          description: char.description,
+          role_type: char.role_type,
         },
       });
-    }
 
-    // 人物设定节点 - 根据数量自适应布局
-    if (characters && characters.length > 0) {
-      console.log('[DirectorMode] 添加人物设定节点:', characters);
+      canvas.addEdge({ id: `edge_script_${char.id}`, source: 'node_script', target: `node_char_${char.id}` });
+    });
 
-      const count = characters.length;
-      const y = 50 + PADDING_Y; // 脚本下方
-
-      characters.forEach((char, index) => {
-        let x: number;
-
-        if (count === 1) {
-          // 1个：居中
-          x = CANVAS_CENTER_X - NODE_WIDTH / 2;
-        } else if (count === 2) {
-          // 2个：左右对称
-          x = CANVAS_CENTER_X - PADDING_X / 2 - NODE_WIDTH / 2 + index * PADDING_X;
-        } else if (count === 3) {
-          // 3个：左中右
-          x = CANVAS_CENTER_X - PADDING_X - NODE_WIDTH / 2 + index * PADDING_X;
-        } else {
-          // 4个或更多：等间距分布
-          const totalWidth = (count - 1) * PADDING_X;
-          x = CANVAS_CENTER_X - totalWidth / 2 + index * PADDING_X;
-        }
-
-        // 根据角色类型生成标题
-        const roleTypeLabel = char.role_type === 'protagonist' ? '主角' :
-                             char.role_type === 'antagonist' ? '反派' : '配角';
-
-        // 人物设定节点（纯文本卡片）
-        nodes.push({
-          id: `node_char_${char.id}`,
-          type: 'character',
-          x: x,
-          y: y,
-          width: NODE_WIDTH,
-          data: {
-            name: `人物设定-${roleTypeLabel}`,
-            charName: char.name,  // 角色真实名字
-            description: char.description,
-            role_type: char.role_type,
-          },
-        });
-      });
-
-      // 所有角色共用一张形象图 —— 只添加一个人物形象节点，居中显示
-      const sharedImageUrl = characters.find(c => c.imageUrl)?.imageUrl;
-      if (sharedImageUrl) {
-        nodes.push({
-          id: 'node_char_image_shared',
-          type: 'character-image',
-          x: CANVAS_CENTER_X - NODE_WIDTH / 2, // 居中
-          y: y + NODE_HEIGHT_CHARACTER + 50,
-          width: NODE_WIDTH,
-          data: {
-            name: characters.map(c => c.name).join(' / '),
-            imageUrl: sharedImageUrl,
-            characterId: 'shared',
-          },
-        });
-      }
-    }
-
-    // 场景设定节点 - 在人物形象下方，由艺术总监与角色同步输出
-    if (sceneBreakdowns && sceneBreakdowns.length > 0) {
-      const sceneY = 50 + PADDING_Y * 2; // 人物图片行下方的新一行
-
-      sceneBreakdowns.forEach((scene, index) => {
-        const count = sceneBreakdowns.length;
-        let x: number;
-        if (count === 1) {
-          x = CANVAS_CENTER_X - NODE_WIDTH / 2;
-        } else {
-          const totalWidth = (count - 1) * PADDING_X;
-          x = CANVAS_CENTER_X - totalWidth / 2 + index * PADDING_X;
-        }
-
-        nodes.push({
-          id: `node_scene_${scene.scene_number}`,
-          type: 'scene',
-          x,
-          y: sceneY,
-          width: NODE_WIDTH,
-          data: {
-            name: scene.scene_name,
-            description: scene.environment,
-            environment: scene.environment,
-            atmosphere: scene.atmosphere,
-            props: scene.props,
-            location_type: scene.location_type,
-            time_of_day: scene.time_of_day,
-            key_visual_elements: scene.key_visual_elements,
-          },
-        });
-      });
-    }
-
-    // 分镜节点 - 在场景节点下方
-    if (storyboard && storyboard.scenes && storyboard.scenes.length > 0) {
-      const y = 50 + PADDING_Y * 3; // 场景下方新一行
-      nodes.push({
-        id: 'node_storyboard',
-        type: 'storyboard',
-        x: CANVAS_CENTER_X - 320, // 居中（宽度640）
-        y: y,
-        width: 640,
+    // 共享形象节点
+    const sharedImageUrl = characters.find(c => c.imageUrl)?.imageUrl;
+    if (sharedImageUrl) {
+      canvas.addNode({
+        id: 'node_char_image_shared',
+        type: 'character-image',
+        x: CANVAS_CENTER_X - NODE_WIDTH / 2,
+        y: y + NODE_HEIGHT_CHARACTER + 50,
+        width: NODE_WIDTH,
         data: {
-          label: `分镜矩阵 (${storyboard.rows}×${storyboard.cols})`,
-          imageUrl: storyboard.imageUrl, // 分镜大图 URL（5x5网格）
-          frames: storyboard.scenes, // 使用 scenes 作为 frames
-          isHorizontal: true,
+          name: characters.map(c => c.name).join(' / '),
+          imageUrl: sharedImageUrl,
+          characterId: 'shared',
         },
       });
-    }
-
-    // 视频节点 - 在分镜节点下方
-    if (videos && videos.length > 0) {
-      const videoY = 50 + PADDING_Y * 4;
-      videos.forEach((video, index) => {
-        const count = videos.length;
-        let x: number;
-        if (count === 1) {
-          x = CANVAS_CENTER_X - NODE_WIDTH / 2;
-        } else {
-          const totalWidth = (count - 1) * PADDING_X;
-          x = CANVAS_CENTER_X - totalWidth / 2 + index * PADDING_X;
-        }
-        nodes.push({
-          id: `node_video_${video.id}`,
-          type: 'video',
-          x,
-          y: videoY,
-          width: NODE_WIDTH,
-          data: {
-            label: video.description || '生成的视频',
-            url: video.url,
-            localPath: video.localPath,
-            duration: video.duration ? `${video.duration}s` : undefined,
-          },
-        });
-      });
-    }
-
-    console.log('[DirectorMode] 生成的节点数量:', nodes.length);
-    return nodes;
-  }, [selectedScreenplay, characters, storyboard, sceneBreakdowns, videos]);
-
-  // 生成连线
-  const canvasEdges = useMemo<CanvasEdge[]>(() => {
-    const edges: CanvasEdge[] = [];
-
-    // 脚本 -> 人物设定
-    if (characters && characters.length > 0) {
       characters.forEach((char) => {
-        edges.push({
-          id: `edge_script_${char.id}`,
-          source: 'node_script',
-          target: `node_char_${char.id}`,
-        });
+        canvas.addEdge({ id: `edge_char_${char.id}_image`, source: `node_char_${char.id}`, target: 'node_char_image_shared' });
       });
     }
+  }, [characters]);
 
-    // 人物文字卡片 -> 共享人物形象节点（多对一）
-    const hasSharedImage = characters && characters.some(c => c.imageUrl);
-    if (hasSharedImage) {
-      characters!.forEach((char) => {
-        edges.push({
-          id: `edge_char_${char.id}_image`,
-          source: `node_char_${char.id}`,         // 人物文字卡片
-          target: 'node_char_image_shared',        // 共享形象节点
-        });
-      });
+  // ── 人物形象图片更新（imageUrl 异步到来时更新已有节点） ──────────
+  useEffect(() => {
+    if (!characters || !canvasRef.current) return;
+    const sharedImageUrl = characters.find(c => c.imageUrl)?.imageUrl;
+    if (sharedImageUrl) {
+      canvasRef.current.updateNode('node_char_image_shared', { imageUrl: sharedImageUrl });
     }
+  }, [characters]);
 
-    // 脚本 -> 场景设定
-    if (sceneBreakdowns && sceneBreakdowns.length > 0) {
-      sceneBreakdowns.forEach((scene) => {
-        edges.push({
-          id: `edge_script_scene_${scene.scene_number}`,
-          source: 'node_script',
-          target: `node_scene_${scene.scene_number}`,
-        });
-      });
-    }
+  // ── 场景节点 + 连线 ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!sceneBreakdowns?.length || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const sceneY = 50 + PADDING_Y * 2;
+    const count = sceneBreakdowns.length;
 
-    // 场景设定 -> 分镜（或共享形象 -> 分镜，取决于哪个存在）
-    if (storyboard && storyboard.scenes && storyboard.scenes.length > 0) {
-      if (sceneBreakdowns && sceneBreakdowns.length > 0) {
-        // 场景节点 -> 分镜（多对一，取第一个场景）
-        edges.push({
-          id: 'edge_scene_storyboard',
-          source: `node_scene_${sceneBreakdowns[0].scene_number}`,
-          target: 'node_storyboard',
-        });
-      } else if (hasSharedImage) {
-        edges.push({
-          id: 'edge_char_image_storyboard',
-          source: 'node_char_image_shared',
-          target: 'node_storyboard',
-        });
-      }
-    }
+    sceneBreakdowns.forEach((scene, index) => {
+      let x: number;
+      if (count === 1) x = CANVAS_CENTER_X - NODE_WIDTH / 2;
+      else { const tw = (count - 1) * PADDING_X; x = CANVAS_CENTER_X - tw / 2 + index * PADDING_X; }
 
-    // 分镜 -> 视频节点
-    if (videos && videos.length > 0 && storyboard?.scenes?.length) {
-      videos.forEach((video) => {
-        edges.push({
-          id: `edge_storyboard_video_${video.id}`,
-          source: 'node_storyboard',
-          target: `node_video_${video.id}`,
-        });
-      });
-    }
-
-    return edges;
-  }, [characters, storyboard, sceneBreakdowns, videos]);
-
-  // 选中的节点
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
-
-  // 节点位置状态（用于拖拽）
-  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
-
-  // 合并节点数据和位置
-  const nodesWithPositions = useMemo(() => {
-    return canvasNodes.map(node => ({
-      ...node,
-      x: nodePositions[node.id]?.x ?? node.x,
-      y: nodePositions[node.id]?.y ?? node.y,
-    }));
-  }, [canvasNodes, nodePositions]);
-
-  // 处理节点更新
-  const handleNodeUpdate = (nodeId: string, updates: Partial<CanvasNode['data'] | { x: number; y: number }>) => {
-    console.log('[DirectorMode] 更新节点:', nodeId, updates);
-
-    // 如果更新包含位置信息，更新节点位置
-    if ('x' in updates && 'y' in updates) {
-      setNodePositions(prev => ({
-        ...prev,
-        [nodeId]: {
-          x: updates.x as number,
-          y: updates.y as number,
+      canvas.addNode({
+        id: `node_scene_${scene.scene_number}`,
+        type: 'scene',
+        x, y: sceneY,
+        width: NODE_WIDTH,
+        data: {
+          name: scene.scene_name,
+          description: scene.environment,
+          environment: scene.environment,
+          atmosphere: scene.atmosphere,
+          props: scene.props,
+          location_type: scene.location_type,
+          time_of_day: scene.time_of_day,
+          key_visual_elements: scene.key_visual_elements,
         },
-      }));
+      });
+
+      canvas.addEdge({ id: `edge_script_scene_${scene.scene_number}`, source: 'node_script', target: `node_scene_${scene.scene_number}` });
+    });
+  }, [sceneBreakdowns]);
+
+  // ── 分镜节点 + 连线 ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!storyboard?.scenes?.length || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const y = 50 + PADDING_Y * 3;
+
+    canvas.addNode({
+      id: 'node_storyboard',
+      type: 'storyboard',
+      x: CANVAS_CENTER_X - 320,
+      y,
+      width: 640,
+      data: {
+        label: `分镜矩阵 (${storyboard.rows}×${storyboard.cols})`,
+        imageUrl: storyboard.imageUrl,
+        frames: storyboard.scenes,
+        isHorizontal: true,
+      },
+    });
+
+    if (sceneBreakdowns?.length) {
+      canvas.addEdge({ id: 'edge_scene_storyboard', source: `node_scene_${sceneBreakdowns[0].scene_number}`, target: 'node_storyboard' });
+    } else if (characters?.some(c => c.imageUrl)) {
+      canvas.addEdge({ id: 'edge_char_image_storyboard', source: 'node_char_image_shared', target: 'node_storyboard' });
     }
-  };
+  }, [storyboard, sceneBreakdowns, characters]);
+
+  // ── 视频节点 + 连线 ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!videos?.length || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const videoY = 50 + PADDING_Y * 4;
+    const count = videos.length;
+
+    videos.forEach((video, index) => {
+      let x: number;
+      if (count === 1) x = CANVAS_CENTER_X - NODE_WIDTH / 2;
+      else { const tw = (count - 1) * PADDING_X; x = CANVAS_CENTER_X - tw / 2 + index * PADDING_X; }
+
+      canvas.addNode({
+        id: `node_video_${video.id}`,
+        type: 'video',
+        x, y: videoY,
+        width: NODE_WIDTH,
+        data: {
+          label: video.description ?? '生成的视频',
+          url: video.url,
+          localPath: video.localPath,
+          duration: video.duration ? `${video.duration}s` : undefined,
+        },
+      });
+
+      if (storyboard?.scenes?.length) {
+        canvas.addEdge({ id: `edge_storyboard_video_${video.id}`, source: 'node_storyboard', target: `node_video_${video.id}` });
+      }
+    });
+  }, [videos, storyboard]);
 
   // 处理节点重新生成
   const handleNodeRegenerate = async (nodeId: string) => {
     console.log('[DirectorMode] 重新生成节点:', nodeId);
-
-    // 如果是人物节点,提取角色 ID
     if (nodeId.startsWith('node_char_')) {
       const characterId = nodeId.replace('node_char_', '');
       try {
@@ -402,9 +287,7 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
   // 初始化工作流状态
   useEffect(() => {
     const initWorkflow = async () => {
-      if (!screenplayId || !selectedScreenplay || isWorkflowInitialized) {
-        return;
-      }
+      if (!screenplayId || !selectedScreenplay || isWorkflowInitialized) return;
 
       console.log('[DirectorMode] 初始化工作流,剧本 ID:', screenplayId);
 
@@ -447,29 +330,13 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
         />
       </div>
 
-      {/* 右侧:节点画布 */}
+      {/* 右侧:节点画布（始终显示，无内容时显示点阵背景） */}
       <div className="w-3/4 relative">
-
-        {nodesWithPositions.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-slate-500 mb-2">等待 Agent 完成</p>
-              <p className="text-xs text-slate-600">
-                成果将在此显示(当前 {nodesWithPositions.length} 个节点)
-              </p>
-            </div>
-          </div>
-        ) : (
-          <NodeCanvas
-            nodes={nodesWithPositions}
-            edges={canvasEdges}
-            onNodeUpdate={handleNodeUpdate}
-            onNodeRegenerate={handleNodeRegenerate}
-            selectedNodeIds={selectedNodeIds}
-            onSelectionChange={setSelectedNodeIds}
-            onPreview={setPreviewItem}
-          />
-        )}
+        <NodeCanvas
+          ref={canvasRef}
+          onNodeRegenerate={handleNodeRegenerate}
+          onPreview={setPreviewItem}
+        />
       </div>
 
       {/* 媒体预览弹窗 */}
