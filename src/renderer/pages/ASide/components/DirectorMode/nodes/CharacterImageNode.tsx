@@ -1,5 +1,5 @@
 /**
- * 人物形象图片节点 - 自适应图片真实比例，不裁切
+ * 人物形象图片节点 - 双约束自适应比例（横图贴满宽，竖图封顶高）
  */
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { UserCircle } from 'lucide-react';
@@ -21,17 +21,23 @@ export function CharacterImageNode({ data, selected }: NodeProps) {
         </h4>
       </div>
 
-      {/* 自适应高度：不设固定 h-*，用 h-auto 让图片保持真实宽高比 */}
-      <div className="w-full rounded-xl overflow-hidden bg-slate-900">
+      {/*
+        双约束自适应：不用 w-full，改用 max-width:100% + max-height
+        - 横图：max-width 先触发 → 贴满卡片宽度，高度等比
+        - 竖图：max-height 先触发 → 封顶高度，宽度等比缩小居中
+        外层 flex justify-center 确保竖图水平居中
+      */}
+      <div className="w-full rounded-xl overflow-hidden bg-slate-900 flex justify-center">
         {data.imageUrl ? (
           <img
             src={data.imageUrl as string}
             alt={data.name as string}
-            className="w-full h-auto cursor-zoom-in"
+            style={{ display: 'block', maxWidth: '100%', maxHeight: 800 }}
+            className="cursor-zoom-in"
             onClick={() => (data.onPreview as Function)?.({ type: 'image', src: data.imageUrl, title: data.name })}
           />
         ) : (
-          <div className="h-48 flex items-center justify-center">
+          <div className="h-48 flex items-center justify-center w-full">
             <UserCircle className="w-16 h-16 text-slate-700" />
           </div>
         )}

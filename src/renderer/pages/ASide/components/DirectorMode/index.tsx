@@ -68,6 +68,7 @@ function MediaPreviewModal({ item, onClose }: { item: PreviewItem; onClose: () =
 
 // 布局常量（与原版保持一致）
 const NODE_WIDTH = 320;
+const NODE_WIDTH_WIDE = NODE_WIDTH * 3;   // 960px，用于图片/分镜宽卡片
 const NODE_HEIGHT_CHARACTER = 380;
 const PADDING_X = 380;
 const PADDING_Y = 480;
@@ -156,9 +157,9 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       canvas.addNode({
         id: 'node_char_image_shared',
         type: 'character-image',
-        x: CANVAS_CENTER_X - 640,       // 1280px 宽居中：500 - 640 = -140
+        x: CANVAS_CENTER_X - NODE_WIDTH_WIDE / 2,
         y: y + NODE_HEIGHT_CHARACTER + 50,
-        width: 1280,
+        width: NODE_WIDTH_WIDE,
         data: {
           name: characters.map(c => c.name).join(' / '),
           imageUrl: sharedImageUrl,
@@ -222,9 +223,9 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
     canvas.addNode({
       id: 'node_storyboard',
       type: 'storyboard',
-      x: CANVAS_CENTER_X - 640,
+      x: CANVAS_CENTER_X - NODE_WIDTH_WIDE / 2,
       y,
-      width: 1280,
+      width: NODE_WIDTH_WIDE,
       data: {
         label: `分镜矩阵 (${storyboard.rows}×${storyboard.cols})`,
         imageUrl: storyboard.imageUrl,
