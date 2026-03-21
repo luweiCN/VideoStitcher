@@ -12,46 +12,26 @@
 
 import { useMemo } from 'react';
 import pinyin from 'pinyin';
-import type { RegionOption } from '@shared/constants/regions';
 
 /**
- * 区域搜索 Hook
+ * 区域搜索 Hook（泛型，支持任意含 name 字段的对象）
  *
- * @param regions - 区域列表
+ * @param items - 区域列表（需含 name 字段）
  * @param query - 搜索查询字符串
  * @returns 匹配的区域列表
- *
- * @example
- * ```ts
- * const regions = [
- *   { id: '1', name: '北京', emoji: '🏛️', group: '华北' },
- *   { id: '2', name: '上海', emoji: '🌃', group: '华东' },
- * ];
- *
- * // 中文搜索
- * useRegionSearch(regions, '北'); // 返回北京
- *
- * // 全拼搜索
- * useRegionSearch(regions, 'beijing'); // 返回北京
- *
- * // 首字母搜索
- * useRegionSearch(regions, 'bj'); // 返回北京
- * ```
  */
-export function useRegionSearch(regions: RegionOption[], query: string): RegionOption[] {
+export function useRegionSearch<T extends { name: string }>(items: T[], query: string): T[] {
   return useMemo(() => {
-    // 空查询返回所有区域
-    if (!query) return regions;
+    if (!query) return items;
 
-    // 标准化查询字符串（转小写并去除首尾空格）
     const lowerQuery = query.toLowerCase().trim();
 
-    return regions.filter(region => {
+    return items.filter(item => {
       // 1. 中文匹配
-      if (region.name.includes(query)) return true;
+      if (item.name.includes(query)) return true;
 
       // 2. 拼音匹配 - 全拼
-      const fullPinyin = pinyin(region.name, {
+      const fullPinyin = pinyin(item.name, {
         style: pinyin.STYLE_NORMAL,
         heteronym: false,
       })
@@ -62,7 +42,7 @@ export function useRegionSearch(regions: RegionOption[], query: string): RegionO
       if (fullPinyin.includes(lowerQuery)) return true;
 
       // 3. 拼音匹配 - 首字母
-      const firstLetters = pinyin(region.name, {
+      const firstLetters = pinyin(item.name, {
         style: pinyin.STYLE_FIRST_LETTER,
         heteronym: false,
       })
@@ -74,5 +54,5 @@ export function useRegionSearch(regions: RegionOption[], query: string): RegionO
 
       return false;
     });
-  }, [regions, query]);
+  }, [items, query]);
 }

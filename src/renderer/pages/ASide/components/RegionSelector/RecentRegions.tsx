@@ -4,15 +4,6 @@
  */
 
 import { Clock } from 'lucide-react';
-import type { RegionOption } from '@shared/constants/regions';
-
-/**
- * RecentRegions 组件 Props
- */
-interface RecentRegionsProps {
-  regions: RegionOption[];
-  onSelect: (region: RegionOption) => void;
-}
 
 /** localStorage 存储键名 */
 const STORAGE_KEY = 'aside-recent-regions';
@@ -34,7 +25,6 @@ export function getRecentRegions(): string[] {
 
 /**
  * 保存最近选择的地区
- * @param regionId - 地区 ID
  */
 export function saveRecentRegion(regionId: string): void {
   const recent = getRecentRegions();
@@ -44,35 +34,49 @@ export function saveRecentRegion(regionId: string): void {
 }
 
 /**
- * 最近选择地区组件
- * 显示为标签列表，按选择时间排序（最新的在最前面）
+ * 最近选择地区组件 Props（泛型，支持 RegionOption 和 Region）
  */
-export function RecentRegions({ regions, onSelect }: RecentRegionsProps) {
+interface RecentRegionsProps<T extends { id: string; name: string }> {
+  regions: T[];
+  selectedId: string | null;
+  onSelect: (region: T) => void;
+}
+
+/**
+ * 最近选择地区组件
+ * 显示为文字胶囊标签列表，按选择时间排序（最新的在最前面）
+ */
+export function RecentRegions<T extends { id: string; name: string }>({
+  regions,
+  selectedId,
+  onSelect,
+}: RecentRegionsProps<T>) {
   const recentIds = getRecentRegions();
 
-  // 按照 recentIds 的顺序排列地区（最新的在最前面）
   const recentRegions = recentIds
     .map(id => regions.find(r => r.id === id))
-    .filter((region): region is RegionOption => region !== undefined);
+    .filter((r): r is T => r !== undefined);
 
-  // 没有最近选择时不显示
   if (recentRegions.length === 0) return null;
 
   return (
-    <div className="mb-4">
-      <div className="flex items-center gap-2 mb-2 text-sm text-slate-400">
-        <Clock className="w-4 h-4" />
-        <span>最近选择：</span>
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-2.5">
+        <Clock className="w-3.5 h-3.5 text-slate-600" />
+        <span className="text-xs text-slate-600 uppercase tracking-widest font-medium">最近选择</span>
       </div>
       <div className="flex flex-wrap gap-2">
         {recentRegions.map(region => (
           <button
             key={region.id}
             onClick={() => onSelect(region)}
-            className="
-              px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg
-              hover:bg-slate-700 transition-colors text-sm
-            "
+            className={`
+              px-3 py-1.5 rounded-full text-sm border transition-all
+              ${selectedId === region.id
+                ? 'border-violet-500 bg-violet-500/10 text-violet-300'
+                : 'border-slate-700/60 bg-transparent text-slate-400 hover:border-slate-600 hover:text-slate-200'
+              }
+            `}
           >
             {region.name}
           </button>
