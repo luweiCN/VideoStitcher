@@ -61,6 +61,8 @@ export function RegionSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [deleteConfirmRegion, setDeleteConfirmRegion] = useState<Region | null>(null);
+  const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
 
   const selectedRegion = regions.find(r => r.id === selectedId) ?? null;
 
@@ -125,6 +127,8 @@ export function RegionSettingsPage() {
       await loadRegions();
     } catch (err) {
       console.error('[RegionSettingsPage] 删除地区失败:', err);
+    } finally {
+      setDeleteConfirmRegion(null);
     }
   };
 
@@ -219,14 +223,26 @@ export function RegionSettingsPage() {
           {/* 操作按钮（悬停显示） */}
           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
-              onClick={e => { e.stopPropagation(); setEditingRegion(node); setIsModalOpen(true); }}
+              onClick={e => {
+                e.stopPropagation();
+                setEditingRegion(null);
+                setDefaultParentId(node.id);
+                setIsModalOpen(true);
+              }}
+              className="p-1 rounded hover:bg-slate-700 text-slate-600 hover:text-violet-400 transition-colors"
+              title="添加子级"
+            >
+              <Plus className="w-3 h-3" />
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); setEditingRegion(node); setDefaultParentId(null); setIsModalOpen(true); }}
               className="p-1 rounded hover:bg-slate-700 text-slate-600 hover:text-slate-300 transition-colors"
               title="编辑"
             >
               <Edit2 className="w-3 h-3" />
             </button>
             <button
-              onClick={e => { e.stopPropagation(); handleDelete(node); }}
+              onClick={e => { e.stopPropagation(); setDeleteConfirmRegion(node); }}
               className="p-1 rounded transition-colors text-slate-600 hover:bg-slate-700 hover:text-red-400"
               title="删除"
             >
@@ -271,7 +287,7 @@ export function RegionSettingsPage() {
 
           {/* 添加按钮 */}
           <button
-            onClick={() => { setEditingRegion(null); setIsModalOpen(true); }}
+            onClick={() => { setEditingRegion(null); setDefaultParentId(null); setIsModalOpen(true); }}
             className="w-full flex items-center justify-center gap-1.5 py-1.5 border border-slate-800 rounded-lg text-xs text-slate-500 hover:border-slate-700 hover:text-slate-300 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -413,10 +429,42 @@ export function RegionSettingsPage() {
       <RegionModal
         isOpen={isModalOpen}
         editingRegion={editingRegion}
+        defaultParentId={defaultParentId}
         allRegions={regions}
         onClose={() => setIsModalOpen(false)}
         onSave={handleModalSave}
       />
+
+      {/* 删除确认弹窗 */}
+      {deleteConfirmRegion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-80 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-4 h-4 text-red-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-slate-100">删除地区</h3>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed mb-5">
+              确定删除「{deleteConfirmRegion.name}」？其子级地区将失去父级关联，此操作不可撤销。
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeleteConfirmRegion(null)}
+                className="flex-1 py-2 rounded-lg border border-slate-800 text-xs text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirmRegion)}
+                className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-xs text-white font-medium transition-colors"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 重置确认弹窗 */}
       {showResetConfirm && (

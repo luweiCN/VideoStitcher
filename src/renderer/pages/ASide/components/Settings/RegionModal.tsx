@@ -12,6 +12,8 @@ interface RegionModalProps {
   isOpen: boolean;
   /** 编辑模式的初始数据（undefined 为新建模式） */
   editingRegion?: Region | null;
+  /** 新建时预填的父级 ID */
+  defaultParentId?: string | null;
   /** 所有地区列表（用于选择上级） */
   allRegions: Region[];
   /** 关闭弹窗 */
@@ -30,6 +32,7 @@ interface RegionModalProps {
 export function RegionModal({
   isOpen,
   editingRegion,
+  defaultParentId,
   allRegions,
   onClose,
   onSave,
@@ -51,12 +54,12 @@ export function RegionModal({
         setEmoji(editingRegion.emoji || '📍');
       } else {
         setName('');
-        setParentId(null);
+        setParentId(defaultParentId ?? null);
         setEmoji('📍');
       }
       setError('');
     }
-  }, [isOpen, editingRegion]);
+  }, [isOpen, editingRegion, defaultParentId]);
 
   if (!isOpen) return null;
 
