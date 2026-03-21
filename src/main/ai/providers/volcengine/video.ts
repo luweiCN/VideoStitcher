@@ -39,8 +39,9 @@ export class VolcEngineVideo {
   constructor(config: VolcEngineVideoConfig) {
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl || 'https://ark.cn-beijing.volces.com/api/v3';
-    // Seedance 1.5 pro 支持音频生成；lite 版不支持
-    this.model = config.model || 'doubao-seedance-1-5-pro-i2v-250528';
+    // Seedance 1.5 pro 支持音频生成（generate_audio 参数）
+    // 如需回退到无音频的 lite 版，可传入 model: 'doubao-seedance-1-0-lite-i2v-250428'
+    this.model = config.model || 'doubao-seedance-1-5-pro-251215';
 
     console.log('[VolcEngineVideo] 初始化视频生成客户端', {
       baseUrl: this.baseUrl,
@@ -188,29 +189,35 @@ export class VolcEngineVideo {
     }
 
     // 构建请求体
+    // ratio 策略：
+    // - i2v 模式（有首帧图）→ 用 adaptive，让模型自动根据首帧图比例决定宽高比
+    // - t2v 模式（纯文本）→ 使用用户指定的 aspectRatio，默认 16:9
+    const hasFirstFrame = !!firstFrameUrl;
+    const ratioValue = hasFirstFrame
+      ? 'adaptive'
+      : (options?.aspectRatio || '16:9');
+
     const requestBody: Record<string, unknown> = {
       model: this.model,
       content: contentItems,
       duration: options?.duration || 5,
-      ratio: options?.aspectRatio || '16:9',
+      ratio: ratioValue,
       fps: options?.fps || 24,
       resolution: options?.resolution || '720p',
     };
 
-    // 音频生成（仅 Seedance 1.5 pro 支持）
-    // 默认 true，开启同步音频（人声/音效/背景音乐）
-    if (options?.generateAudio !== undefined) {
-      requestBody.generate_audio = options.generateAudio;
-    } else {
-      requestBody.generate_audio = true; // 默认开启
+    // generate_audio：Seedance 1.5 pro 支持同步音频，默认开启
+    // 使用 lite 模型时此字段会被忽略
+    if (options?.generateAudio !== false) {
+      requestBody.generate_audio = true;
     }
 
     console.log('[VolcEngineVideo] 创建视频任务', {
       model: this.model,
-      aspectRatio: requestBody.ratio,
+      ratio: ratioValue,
       duration: requestBody.duration,
-      generateAudio: requestBody.generate_audio,
       contentCount: contentItems.length,
+      hasFirstFrame,
     });
 
     const response = await fetch(`${this.baseUrl}/contents/generations/tasks`, {

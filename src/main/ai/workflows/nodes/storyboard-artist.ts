@@ -71,7 +71,8 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
     console.log(`[Agent 4: 分镜师] 生成了 ${storyboardPlan.storyboard_groups.length} 组分镜计划`);
 
     // 5. 生成分镜网格图（单张图片包含 5x5 = 25 个分镜）
-    console.log('[Agent 4: 分镜师] 生成分镜网格图（5x5）...');
+    const aspectRatio = state.videoSpec?.aspectRatio;
+    console.log('[Agent 4: 分镜师] 生成分镜网格图（5x5）...', { aspectRatio });
 
     // 从选角导演输出中提取角色风格标签，保证分镜图与角色形象图风格一致
     const characterProfiles = castingDirectorOutput.character_profiles || [];
@@ -158,21 +159,41 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
       localGridPath = await downloadToCache(imageUrl, '.jpg');
       console.log('[Agent 4: 分镜师] 下载完成:', localGridPath);
 
-      // 获取图片实际尺寸，计算每格大小
+      // 获取图片实际尺寸
       const gridMeta = await (sharp as any)(localGridPath).metadata();
-      const gridWidth = gridMeta.width || 2560;
-      const gridHeight = gridMeta.height || 1440;
-      const frameWidth = Math.floor(gridWidth / 5);
-      const frameHeight = Math.floor(gridHeight / 5);
+      const rawWidth: number = gridMeta.width || 2560;
+      const rawHeight: number = gridMeta.height || 1440;
 
-      console.log(`[Agent 4: 分镜师] 网格尺寸 ${gridWidth}×${gridHeight}，每帧 ${frameWidth}×${frameHeight}，开始切割 25 帧`);
+      // 自动裁剪边框：图像生成模型常在网格周围添加白色/黑色边距
+      // 策略：对每条边最多裁剪 3%，然后取整到能被 5 整除的值
+      const maxCropRatio = 0.03;
+      const cropPx = (dim: number) => Math.floor(dim * maxCropRatio);
+      const cropLeft = cropPx(rawWidth);
+      const cropTop = cropPx(rawHeight);
+      // 保证裁剪后的宽高能被 5 整除，便于等分 5 列/行
+      const croppedWidth = Math.floor((rawWidth - cropLeft * 2) / 5) * 5;
+      const croppedHeight = Math.floor((rawHeight - cropTop * 2) / 5) * 5;
+
+      const frameWidth = croppedWidth / 5;
+      const frameHeight = croppedHeight / 5;
+
+      console.log(
+        `[Agent 4: 分镜师] 原图 ${rawWidth}×${rawHeight}，` +
+        `裁边后 ${croppedWidth}×${croppedHeight}（偏移 left=${cropLeft} top=${cropTop}），` +
+        `每帧 ${frameWidth}×${frameHeight}，开始切割 25 帧`
+      );
 
       // 切割 25 帧并转 base64（按行优先：第1行5帧，第2行5帧...）
       const frameBase64List: string[] = [];
       for (let row = 0; row < 5; row++) {
         for (let col = 0; col < 5; col++) {
           const frameBuffer = await (sharp as any)(localGridPath)
-            .extract({ left: col * frameWidth, top: row * frameHeight, width: frameWidth, height: frameHeight })
+            .extract({
+              left: cropLeft + col * frameWidth,
+              top: cropTop + row * frameHeight,
+              width: frameWidth,
+              height: frameHeight,
+            })
             .jpeg({ quality: 85 })
             .toBuffer();
           frameBase64List.push(`data:image/jpeg;base64,${frameBuffer.toString('base64')}`);
