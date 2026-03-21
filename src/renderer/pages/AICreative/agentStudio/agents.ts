@@ -1,4 +1,4 @@
-import { FileText, Palette, Lightbulb } from 'lucide-react';
+import { FileText, Palette, Lightbulb, Sparkles } from 'lucide-react';
 import type { AgentConfig } from './types';
 
 const AGENTS: AgentConfig[] = [
@@ -22,6 +22,17 @@ const AGENTS: AgentConfig[] = [
     icon: FileText,
     iconColor: 'text-violet-400',
     bgColor: 'bg-violet-500/10 group-hover:bg-violet-500',
+    modelTypes: ['text'],
+  },
+  {
+    id: 'writer-generator-agent',
+    name: '编剧生成 Agent',
+    role: '人设创建',
+    description:
+      '根据游戏信息生成专属的编剧人设，决定剧本的语言风格和叙事方式。支持一键生成和按名称生成两种模式，同时产出人物特点标签。',
+    icon: Sparkles,
+    iconColor: 'text-pink-400',
+    bgColor: 'bg-pink-500/10 group-hover:bg-pink-500',
     modelTypes: ['text'],
   },
   {
