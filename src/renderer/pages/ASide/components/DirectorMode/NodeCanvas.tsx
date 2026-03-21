@@ -150,6 +150,9 @@ export function NodeCanvas({
   const [isDraggingNode, setIsDraggingNode] = useState(false);
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+  // 用 ref 追踪是否真正移动（避免 click 被误判为 drag）
+  const dragMovedRef = useRef(false);
+  const DRAG_THRESHOLD = 5; // 像素，超过此值才认定为拖拽
 
   // 编辑状态
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
@@ -222,41 +225,38 @@ export function NodeCanvas({
         x: e.clientX - dragStartPos.x,
         y: e.clientY - dragStartPos.y,
       }));
-    } else if (isDraggingNode && dragNodeId) {
+    } else if (dragNodeId) {
+      const dx = e.clientX - dragStartPos.x;
+      const dy = e.clientY - dragStartPos.y;
+
+      // 未超阈值前不激活拖拽，保留 onClick 正常触发
+      if (!dragMovedRef.current && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+        return;
+      }
+
+      // 超阈值后确认为拖拽
+      if (!dragMovedRef.current) {
+        dragMovedRef.current = true;
+        setIsDraggingNode(true);
+        setIsDraggingCanvas(false);
+      }
+
       const node = nodes.find(n => n.id === dragNodeId);
       if (node) {
-        // 计算鼠标移动的增量（考虑缩放）
-        const dx = (e.clientX - dragStartPos.x) / transform.scale;
-        const dy = (e.clientY - dragStartPos.y) / transform.scale;
-
-        // 计算新位置
-        const newX = node.x + dx;
-        const newY = node.y + dy;
-
-        console.log('[NodeCanvas] 节点拖动', {
-          nodeId: dragNodeId,
-          dx, dy,
-          oldPos: { x: node.x, y: node.y },
-          newPos: { x: newX, y: newY }
-        });
-
-        // 更新节点位置
-        onNodeUpdate(dragNodeId, { x: newX, y: newY });
-
-        // 更新拖拽起始位置（用于下一次移动）
-        setDragStartPos({
-          x: e.clientX,
-          y: e.clientY,
-        });
+        const scaledDx = dx / transform.scale;
+        const scaledDy = dy / transform.scale;
+        onNodeUpdate(dragNodeId, { x: node.x + scaledDx, y: node.y + scaledDy });
+        setDragStartPos({ x: e.clientX, y: e.clientY });
       }
     }
-  }, [isDraggingCanvas, isDraggingNode, dragNodeId, dragStartPos, transform, nodes, onNodeUpdate]);
+  }, [isDraggingCanvas, dragNodeId, dragStartPos, transform, nodes, onNodeUpdate]);
 
   // 拖拽结束
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     setIsDraggingCanvas(false);
     setIsDraggingNode(false);
     setDragNodeId(null);
+    dragMovedRef.current = false;
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch (err) {}
@@ -270,20 +270,13 @@ export function NodeCanvas({
     }
 
     e.stopPropagation();
-    e.preventDefault(); // 阻止默认行为
+    // 注意：不调用 e.preventDefault()，保留 onClick 冒泡，由 dragMovedRef 决定是否拦截
 
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
 
-    console.log('[NodeCanvas] ✅ 节点点击 - 触发节点拖动', {
-      nodeId,
-      nodeName: node.data.name || '脚本节点',
-      nodeX: node.x,
-      nodeY: node.y
-    });
-
-    setIsDraggingNode(true);
-    setIsDraggingCanvas(false); // 确保画布拖动关闭
+    // 记录按下起始位置，等 pointermove 超过阈值后才真正激活拖拽
+    dragMovedRef.current = false;
     setDragNodeId(nodeId);
     setDragStartPos({
       x: e.clientX,
@@ -628,13 +621,28 @@ export function NodeCanvas({
                 视频输出
               </h4>
             </div>
-            <div className="w-full h-40 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center">
+            <div
+              className="w-full h-40 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center relative group cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                const src = node.data.localPath ? `file://${node.data.localPath}` : node.data.url;
+                if (src) onPreview?.({ type: 'video', src, title: node.data.label });
+              }}
+            >
               {(node.data.localPath || node.data.url) ? (
-                <video
-                  src={node.data.localPath ? `file://${node.data.localPath}` : node.data.url}
-                  className="w-full h-full object-cover"
-                  controls
-                />
+                <>
+                  {/* 用 video 元素静默预览第一帧，不带 controls */}
+                  <video
+                    src={node.data.localPath ? `file://${node.data.localPath}` : node.data.url}
+                    className="w-full h-full object-cover"
+                    preload="metadata"
+                    muted
+                  />
+                  {/* 播放图标遮罩 */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Play className="w-10 h-10 text-white drop-shadow-lg" fill="white" />
+                  </div>
+                </>
               ) : (
                 <Play className="w-12 h-12 text-slate-700" />
               )}
