@@ -462,6 +462,7 @@ export interface ElectronAPI {
   asideUpdateCreativeDirection: (directionId: string, data: { name?: string; description?: string; iconName?: string }) => Promise<{ success: boolean; error?: string }>;
   asideDeleteCreativeDirection: (directionId: string) => Promise<{ success: boolean; error?: string }>;
   asideGenerateCreativeDirections: (projectId: string) => Promise<{ success: boolean; directions?: any[]; error?: string }>;
+  asidePreviewCreativeDirection: (projectId: string) => Promise<{ success: boolean; direction?: { name: string; description?: string; iconName?: string }; error?: string }>;
 
   // 人设
   asideGetPersonas: (projectId: string) => Promise<{ success: boolean; personas?: any[]; error?: string }>;
@@ -476,6 +477,12 @@ export interface ElectronAPI {
   asideGetLibraryScreenplays: (projectId: string) => Promise<{ success: boolean; scripts?: any[]; error?: string }>;
   asideUpdateScreenplayContent: (scriptId: string, content: string) => Promise<{ success: boolean; error?: string }>;
   asideRegenerateScreenplay: (scriptId: string) => Promise<{ success: boolean; script?: any; error?: string }>;
+
+  // === 地区管理 API ===
+  regionGetAll: () => Promise<{ success: boolean; regions?: any[]; error?: string }>;
+  regionAdd: (data: { name: string; parentId?: string | null; emoji?: string; iconType?: string | null; iconValue?: string | null; culturalProfile?: string; sortOrder?: number }) => Promise<{ success: boolean; region?: any; error?: string }>;
+  regionUpdate: (id: string, data: { name?: string; parentId?: string | null; emoji?: string; iconType?: string | null; iconValue?: string | null; culturalProfile?: string; sortOrder?: number; isActive?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  regionDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
 
   // AI 工作流 API
   aiStartWorkflow: (
@@ -809,6 +816,7 @@ const api: ElectronAPI = {
   asideUpdateCreativeDirection: (directionId, data) => ipcRenderer.invoke('aside:updateCreativeDirection', directionId, data),
   asideDeleteCreativeDirection: (directionId) => ipcRenderer.invoke('aside:deleteCreativeDirection', directionId),
   asideGenerateCreativeDirections: (projectId) => ipcRenderer.invoke('aside:generateCreativeDirections', projectId),
+  asidePreviewCreativeDirection: (projectId) => ipcRenderer.invoke('aside:previewCreativeDirection', projectId),
 
   // 人设
   asideGetPersonas: (projectId) => ipcRenderer.invoke('aside:getPersonas', projectId),
@@ -823,6 +831,12 @@ const api: ElectronAPI = {
   asideGetLibraryScreenplays: (projectId) => ipcRenderer.invoke('aside:getLibraryScreenplays', projectId),
   asideUpdateScreenplayContent: (scriptId, content) => ipcRenderer.invoke('aside:updateScreenplayContent', scriptId, content),
   asideRegenerateScreenplay: (scriptId) => ipcRenderer.invoke('aside:regenerateScreenplay', scriptId),
+
+  // === 地区管理 API ===
+  regionGetAll: () => ipcRenderer.invoke('region:getAll'),
+  regionAdd: (data) => ipcRenderer.invoke('region:add', data),
+  regionUpdate: (id, data) => ipcRenderer.invoke('region:update', id, data),
+  regionDelete: (id) => ipcRenderer.invoke('region:delete', id),
 
   // AI 提供商
   asideGetAIProviders: () => ipcRenderer.invoke('aside:getAIProviders'),

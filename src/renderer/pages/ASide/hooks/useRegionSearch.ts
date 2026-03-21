@@ -12,7 +12,7 @@
 
 import { useMemo } from 'react';
 import pinyin from 'pinyin';
-import type { Region } from '@shared/types/aside';
+import type { RegionOption } from '@shared/constants/regions';
 
 /**
  * 区域搜索 Hook
@@ -38,7 +38,7 @@ import type { Region } from '@shared/types/aside';
  * useRegionSearch(regions, 'bj'); // 返回北京
  * ```
  */
-export function useRegionSearch(regions: Region[], query: string): Region[] {
+export function useRegionSearch(regions: RegionOption[], query: string): RegionOption[] {
   return useMemo(() => {
     // 空查询返回所有区域
     if (!query) return regions;

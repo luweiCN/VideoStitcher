@@ -1,15 +1,23 @@
 /**
  * 区域数据常量
- * 定义中国地理区域分组
+ * 定义中国地理区域分组（静态常量，用于 RegionSelector 下拉）
  */
 
-import type { Region } from '../types/aside';
+/**
+ * 静态地区选项（与数据库 Region 表解耦，保留向后兼容）
+ */
+export interface RegionOption {
+  id: string;
+  name: string;
+  emoji: string;
+  group: string;
+}
 
 /**
  * 区域列表
  * 按地理分组排列
  */
-export const REGIONS: Region[] = [
+export const REGIONS: RegionOption[] = [
   // 全国通用
   { id: 'universal', name: '全国通用', emoji: '🌐', group: '通用' },
 
@@ -67,8 +75,8 @@ export const REGIONS: Region[] = [
 /**
  * 获取区域分组列表
  */
-export function getRegionGroups(): { group: string; regions: Region[] }[] {
-  const groupMap = new Map<string, Region[]>();
+export function getRegionGroups(): { group: string; regions: RegionOption[] }[] {
+  const groupMap = new Map<string, RegionOption[]>();
 
   REGIONS.forEach(region => {
     if (!groupMap.has(region.group)) {

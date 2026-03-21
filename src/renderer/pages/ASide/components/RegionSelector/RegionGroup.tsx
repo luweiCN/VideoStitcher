@@ -3,24 +3,23 @@
  * 显示单个区域分组的区域列表
  */
 
-import type { Region } from '@shared/types/aside';
+import type { RegionOption } from '@shared/constants/regions';
 
 interface RegionGroupProps {
   /** 分组名称 */
   group: string;
   /** 区域列表 */
-  regions: Region[];
+  regions: RegionOption[];
   /** 当前选中的区域 ID */
   selectedRegion: string;
   /** 选择回调 */
-  onSelect: (region: Region) => void;
+  onSelect: (region: RegionOption) => void;
 }
 
 /**
  * 区域分组组件
  */
-export function RegionGroup({ group, regions, selectedRegion, onSelect }: RegionGroupProps) {
-  return (
+export function RegionGroup({ group, regions, selectedRegion, onSelect }: RegionGroupProps) {  return (
     <div>
       <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">
         {group}

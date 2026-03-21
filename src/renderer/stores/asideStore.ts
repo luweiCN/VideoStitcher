@@ -15,7 +15,9 @@ export type ASideView =
   | 'step2-region' // 第二步：区域选择
   | 'step3-scripts' // 第三步：剧本生成
   | 'quick-compose' // 快速合成
-  | 'director-mode'; // 导演模式：视频生成
+  | 'director-mode' // 导演模式：视频生成
+  | 'settings' // 设置落地页
+  | 'settings-regions'; // 地区设置
 
 /**
  * A面 Store 接口

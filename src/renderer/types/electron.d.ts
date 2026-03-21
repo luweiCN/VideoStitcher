@@ -603,4 +603,10 @@ export interface ElectronAPI {
   onWorkflowVideo: (callback: (data: any) => void) => () => void;
   onWorkflowComplete: (callback: (data: any) => void) => () => void;
   onWorkflowError: (callback: (data: any) => void) => () => void;
+
+  // === 地区管理 API ===
+  regionGetAll: () => Promise<{ success: boolean; regions?: import('@shared/types/aside').Region[]; error?: string }>;
+  regionAdd: (data: { name: string; parentId?: string | null; emoji?: string; iconType?: string | null; iconValue?: string | null; culturalProfile?: string; sortOrder?: number }) => Promise<{ success: boolean; region?: import('@shared/types/aside').Region; error?: string }>;
+  regionUpdate: (id: string, data: { name?: string; parentId?: string | null; emoji?: string; iconType?: string | null; iconValue?: string | null; culturalProfile?: string; sortOrder?: number; isActive?: boolean }) => Promise<{ success: boolean; error?: string }>;
+  regionDelete: (id: string) => Promise<{ success: boolean; error?: string }>;
 }

@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Folder, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Folder, ArrowLeft, Settings } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import { useConfirm } from '@renderer/hooks/useConfirm';
 import type { Project, GameType } from '@shared/types/aside';
@@ -16,7 +16,7 @@ import { EditProjectModal } from './EditProjectModal';
 /**
  * 项目库主组件
  */
-export function ProjectLibrary() {
+export function ProjectLibrary({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -150,6 +150,15 @@ export function ProjectLibrary() {
           <Plus className="w-4 h-4" />
           <span>创建项目</span>
         </button>
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
+            title="设置"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        )}
       </header>
 
       {/* 项目列表 */}

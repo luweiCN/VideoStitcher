@@ -4,14 +4,14 @@
  */
 
 import { Clock } from 'lucide-react';
-import type { Region } from '@shared/types/aside';
+import type { RegionOption } from '@shared/constants/regions';
 
 /**
  * RecentRegions 组件 Props
  */
 interface RecentRegionsProps {
-  regions: Region[];
-  onSelect: (region: Region) => void;
+  regions: RegionOption[];
+  onSelect: (region: RegionOption) => void;
 }
 
 /** localStorage 存储键名 */
@@ -53,7 +53,7 @@ export function RecentRegions({ regions, onSelect }: RecentRegionsProps) {
   // 按照 recentIds 的顺序排列地区（最新的在最前面）
   const recentRegions = recentIds
     .map(id => regions.find(r => r.id === id))
-    .filter((region): region is Region => region !== undefined);
+    .filter((region): region is RegionOption => region !== undefined);
 
   // 没有最近选择时不显示
   if (recentRegions.length === 0) return null;

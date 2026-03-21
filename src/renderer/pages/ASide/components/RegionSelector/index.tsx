@@ -9,8 +9,7 @@ import { useASideStore } from '@renderer/stores/asideStore';
 import { StepLayout } from '../StepLayout';
 import { RecentRegions, saveRecentRegion } from './RecentRegions';
 import { useRegionSearch } from '../../hooks/useRegionSearch';
-import { REGIONS, getRegionGroups } from '@shared/constants/regions';
-import type { Region } from '@shared/types/aside';
+import { REGIONS, getRegionGroups, type RegionOption } from '@shared/constants/regions';
 
 /**
  * 热门地区 ID 列表
@@ -36,7 +35,7 @@ const GROUP_ORDER = ['华东', '华南', '华北', '西北', '西南', '东北',
 /**
  * 判断地区是否为热门地区
  */
-function isHotRegion(region: Region): boolean {
+function isHotRegion(region: RegionOption): boolean {
   return HOT_REGION_IDS.has(region.id);
 }
 
@@ -76,7 +75,7 @@ export function RegionSelector() {
   /**
    * 选择地区（不自动进入下一步，不保存最近选择）
    */
-  const handleSelectRegion = (region: Region) => {
+  const handleSelectRegion = (region: RegionOption) => {
     console.log('[RegionSelector] 选择地区:', region.name);
     setSelectedRegionId(region.id);
     selectRegion(region.id);

@@ -24,6 +24,7 @@ import { registerDatabaseIpc } from '@main/ipc/database';
 import { registerAsideHandlers } from '@main/ipc/aside-handlers';
 import { registerDirectorModeHandlers } from '@main/ipc/director-mode-handlers';
 import { registerAIWorkflowHandlers } from '@main/ipc/ai-workflow-handlers';
+import { registerRegionHandlers } from '@main/ipc/region-handlers';
 import { taskQueueManager, TaskCancelledError } from '@main/services/TaskQueueManager';
 
 // 导入 AI 提供商初始化
@@ -187,6 +188,9 @@ function registerAllHandlers(): void {
 
   // AI 工作流处理器
   registerAIWorkflowHandlers();
+
+  // 地区管理处理器
+  registerRegionHandlers();
 
   console.log('[主进程] IPC 处理器注册完成');
 }

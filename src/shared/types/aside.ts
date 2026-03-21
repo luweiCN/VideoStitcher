@@ -236,3 +236,60 @@ export interface Storyboard {
   /** 完整分镜图 URL（包含所有场景的大图） */
   imageUrl?: string;
 }
+
+// ==================== 地区管理类型 ====================
+
+/**
+ * 地区
+ * 全局共用，不绑定项目
+ * 支持 1-3 级层级结构（国家 → 省级 → 市级）
+ */
+export interface Region {
+  /** 地区唯一标识符 */
+  id: string;
+
+  /** 地区名称 */
+  name: string;
+
+  /** 父地区 ID（一级地区为 undefined） */
+  parentId?: string;
+
+  /** 层级（1=国家，2=省级，3=市级） */
+  level: number;
+
+  /** 文化档案（Markdown 格式，最多 800 字符） */
+  culturalProfile: string;
+
+  /** 地区 emoji */
+  emoji: string;
+
+  /** 图标类型（local=本地文件，url=远程图片） */
+  iconType?: 'local' | 'url';
+
+  /** 图标值（本地路径或远程 URL） */
+  iconValue?: string;
+
+  /** 是否为预置地区（预置地区不可删除） */
+  isPreset: boolean;
+
+  /** 是否启用 */
+  isActive: boolean;
+
+  /** 排序权重 */
+  sortOrder: number;
+
+  /** 创建时间（ISO 8601 格式） */
+  createdAt: string;
+
+  /** 更新时间（ISO 8601 格式） */
+  updatedAt: string;
+}
+
+/**
+ * 地区树节点
+ * 用于前端树形展示
+ */
+export interface RegionTreeNode extends Region {
+  /** 子地区列表 */
+  children: RegionTreeNode[];
+}
