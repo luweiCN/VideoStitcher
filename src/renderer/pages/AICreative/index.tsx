@@ -461,11 +461,12 @@ const BuiltinTemplateCard: React.FC<{
 
 const CustomTemplateCard: React.FC<{
   template: PromptTemplate;
+  builtinLockedPart?: string;
   builtinUserPromptTemplate?: string;
   onSetActive: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
-}> = ({ template: t, builtinUserPromptTemplate, onSetActive, onEdit, onDelete }) => {
+}> = ({ template: t, builtinLockedPart, builtinUserPromptTemplate, onSetActive, onEdit, onDelete }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -515,26 +516,40 @@ const CustomTemplateCard: React.FC<{
       {/* 展开内容 */}
       {expanded && (
         <div className="border-t border-slate-800 p-4 space-y-4">
-          {/* 系统提示词（可编辑层，用户自定义内容） */}
+          {/* 可编辑层（用户自定义内容） */}
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <Unlock className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs font-semibold text-amber-400">系统提示词</span>
-              <span className="text-xs text-slate-500 ml-1">— 自定义的 Agent 人设与创意指南</span>
+              <span className="text-xs font-semibold text-amber-400">可编辑层</span>
+              <span className="text-xs text-slate-500 ml-1">— 自定义的 Agent 人设、创意指南、示例</span>
             </div>
             <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap bg-slate-800/60 rounded-lg p-3 max-h-64 overflow-y-auto leading-relaxed border border-amber-500/10">
               {t.content}
             </pre>
           </div>
 
-          {/* 动态提示词（来自内置模板，只读） */}
+          {/* 锁定层（沿用内置模板，只读） */}
+          {builtinLockedPart && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Lock className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-xs font-semibold text-slate-400">锁定层</span>
+                <span className="text-xs text-slate-500 ml-1">— JSON 格式、图标列表（代码依赖，禁止修改）</span>
+              </div>
+              <pre className="text-xs text-slate-500 font-mono whitespace-pre-wrap bg-slate-800/30 rounded-lg p-3 max-h-48 overflow-y-auto leading-relaxed border border-slate-700/30">
+                {builtinLockedPart}
+              </pre>
+            </div>
+          )}
+
+          {/* 动态提示词（沿用内置模板，只读） */}
           {builtinUserPromptTemplate && (
             <div>
               <div className="flex items-center gap-1.5 mb-2">
                 <span className="text-xs font-semibold text-slate-400">动态提示词</span>
-                <span className="text-xs text-slate-500 ml-1">— 变量由代码注入（{'{{gameName}}'} 等），沿用内置模板</span>
+                <span className="text-xs text-slate-500 ml-1">— 变量由代码注入（{'{{gameName}}'} 等）</span>
               </div>
-              <pre className="text-xs text-slate-400 font-mono whitespace-pre-wrap bg-slate-800/40 rounded-lg p-3 max-h-32 overflow-y-auto leading-relaxed">
+              <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap bg-slate-800/60 rounded-lg p-3 max-h-32 overflow-y-auto leading-relaxed">
                 {builtinUserPromptTemplate}
               </pre>
             </div>
@@ -789,6 +804,7 @@ const TemplatesView: React.FC<{
           <CustomTemplateCard
             key={t.id}
             template={t}
+            builtinLockedPart={builtinTemplate?.lockedPart}
             builtinUserPromptTemplate={builtinTemplate?.userPromptTemplate}
             onSetActive={handleSetActive}
             onEdit={(id) => {
