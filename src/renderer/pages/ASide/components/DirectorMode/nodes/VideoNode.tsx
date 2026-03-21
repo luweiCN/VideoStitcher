@@ -1,5 +1,5 @@
 /**
- * 视频输出节点
+ * 视频输出节点 - 自适应视频真实宽高比，不裁切
  */
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Play } from 'lucide-react';
@@ -22,19 +22,22 @@ export function VideoNode({ data, selected }: NodeProps) {
         </h4>
       </div>
 
+      {/* 自适应高度：video 用 h-auto 保持真实宽高比，absolute 遮罩随之伸展 */}
       <div
-        className="w-full h-40 rounded-xl overflow-hidden bg-slate-900 flex items-center justify-center relative group cursor-pointer"
+        className="w-full rounded-xl overflow-hidden bg-slate-900 relative group cursor-pointer"
         onClick={() => src && (data.onPreview as Function)?.({ type: 'video', src, title: data.label })}
       >
         {src ? (
           <>
-            <video src={src} className="w-full h-full object-cover" preload="metadata" muted />
+            <video src={src} className="w-full h-auto block" preload="metadata" muted />
             <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
               <Play className="w-10 h-10 text-white drop-shadow-lg" fill="white" />
             </div>
           </>
         ) : (
-          <Play className="w-12 h-12 text-slate-700" />
+          <div className="h-40 flex items-center justify-center">
+            <Play className="w-12 h-12 text-slate-700" />
+          </div>
         )}
       </div>
 

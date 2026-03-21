@@ -240,6 +240,15 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
     }
   }, [storyboard, sceneBreakdowns, characters]);
 
+  // ── 新节点添加后自动 fitView（等待 React Flow 完成节点渲染） ───────
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const timer = setTimeout(() => {
+      canvasRef.current?.fitView();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [selectedScreenplay, characters, sceneBreakdowns, storyboard, videos]);
+
   // ── 视频节点 + 连线 ───────────────────────────────────────────────
   useEffect(() => {
     if (!videos?.length || !canvasRef.current) return;
