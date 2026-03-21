@@ -543,8 +543,9 @@ export function ScreenplayGenerator() {
       </div>
 
       {/* 添加编剧弹窗 */}
-      {isAddPersonaModalOpen && (
+      {isAddPersonaModalOpen && currentProject && (
         <AddPersonaModal
+          projectId={currentProject.id}
           onClose={() => setIsAddPersonaModalOpen(false)}
           onAdd={handleAddPersona}
         />
