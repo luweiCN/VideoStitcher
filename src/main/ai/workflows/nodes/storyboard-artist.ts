@@ -108,9 +108,9 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
     const storyboardPrompt = `Professional storyboard, 5x5 seamless grid of 25 frames in 5 rows and 5 columns, no borders, no padding, no white space, no black bars, no margins, no grid lines, edge-to-edge frames, tight layout, ${styleFragment}, each frame shows: ${frameDescriptions}, consistent character design, sequential narrative flow, no text, no numbers`;
 
     const imageOptions: ImageGenerationOptions = {
-      // 根据视频比例选择分镜图尺寸
-      // 16:9 → 2K（2560×1440 横屏）  9:16 → 1024x1792（竖屏）
-      size: state.videoSpec?.aspectRatio === '9:16' ? '1024x1792' : '2K',
+      // 分镜图用最高分辨率，保证帧切割质量
+      // 16:9 → 4K（3840×2160，每帧 768×432）  9:16 → 1024x1792（每帧 204×358）
+      size: state.videoSpec?.aspectRatio === '9:16' ? '1024x1792' : '4K',
       quality: 'hd',
       numberOfImages: 1,
       ...(characterImageUrl ? { referenceImageUrl: characterImageUrl } : {}),

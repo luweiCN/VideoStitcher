@@ -56,7 +56,7 @@ interface VolcEngineImageError {
 const MAX_PROMPT_LENGTH = 4000;
 const MIN_IMAGE_COUNT = 1;
 const MAX_IMAGE_COUNT = 4;
-const REQUEST_TIMEOUT = 120000; // 120 秒（2K 图片生成需要较长时间）
+const REQUEST_TIMEOUT = 300000; // 300 秒（4K 图片生成需要较长时间）
 const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY = 1000; // 1 秒
 
@@ -66,6 +66,7 @@ const RETRY_BASE_DELAY = 1000; // 1 秒
 const SUPPORTED_SIZES = [
   '1K',
   '2K',
+  '4K',
   '512x512',
   '768x768',
   '1024x1024',
