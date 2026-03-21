@@ -99,9 +99,16 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
     // 3. 调用 LLM 生成视频合成计划（render_queue）
     const artDirectorOutput = state.step2_characters?.content;
     const sceneBreakdowns = artDirectorOutput?.scene_breakdowns || [];
+
+    // 剥离 frames 中的 base64 字段，避免撑爆 LLM 上下文（128K token 限制）
+    const storyboardOutputForLLM = {
+      ...storyboardOutput,
+      frames: (storyboardOutput.frames || []).map(({ base64: _b64, ...rest }: any) => rest),
+    };
+
     const systemPrompt = CinematographerAgentPrompts.buildSystemPrompt();
     const userPrompt = CinematographerAgentPrompts.buildUserPrompt(
-      storyboardOutput,
+      storyboardOutputForLLM,
       {
         duration: videoSpec?.duration || 'short',
         aspectRatio: videoSpec?.aspectRatio || '16:9',

@@ -73,6 +73,23 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
     // 5. 生成分镜网格图（单张图片包含 5x5 = 25 个分镜）
     console.log('[Agent 4: 分镜师] 生成分镜网格图（5x5）...');
 
+    // 从选角导演输出中提取角色风格标签，保证分镜图与角色形象图风格一致
+    const characterProfiles = castingDirectorOutput.character_profiles || [];
+    const characterImageUrl = characterProfiles.find((p: any) => p.imageUrl)?.imageUrl;
+    const styleTags: string[] = characterProfiles
+      .flatMap((p: any) => p.style_consistency_tags || [])
+      .filter(Boolean)
+      .slice(0, 5); // 最多取 5 个风格标签，避免撑长提示词
+    const styleFragment = styleTags.length > 0
+      ? styleTags.join(', ')
+      : 'photorealistic, cinematic composition';
+
+    if (characterImageUrl) {
+      console.log('[Agent 4: 分镜师] 使用角色形象图作为参考:', characterImageUrl.substring(0, 60));
+    } else {
+      console.warn('[Agent 4: 分镜师] 未找到角色形象图，分镜图将不包含角色参考');
+    }
+
     // 构建分镜网格的详细描述
     const frameDescriptions = storyboardPlan.storyboard_groups
       .flatMap((group: any) => group.frames || [])
@@ -86,18 +103,8 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
     console.log(`[Agent 4: 分镜师] 提取了 ${frameDescriptions.split('. ').length} 个帧描述`);
 
     // 构建图像生成提示词（火山引擎图像 API 限制 4000 字符；系统 prompt 已约束每帧 ≤15 词，25 帧合计约 1875 字符，安全余量充足）
-    const storyboardPrompt = `Professional storyboard layout, 5x5 grid of 25 frames arranged in 5 rows and 5 columns, cinematic storyboard style, each frame shows: ${frameDescriptions}, clean line art, consistent character design, sequential narrative flow, no text, no numbers, professional storyboarding technique`;
-
-    console.log('[Agent 4: 分镜师] 调用图像生成 API...');
-
-    // 从选角导演输出中提取角色形象图 URL（前端已通过 aside:generate-character-image 生成并写入）
-    const characterProfiles = castingDirectorOutput.character_profiles || [];
-    const characterImageUrl = characterProfiles.find((p: any) => p.imageUrl)?.imageUrl;
-    if (characterImageUrl) {
-      console.log('[Agent 4: 分镜师] 使用角色形象图作为参考:', characterImageUrl.substring(0, 60));
-    } else {
-      console.warn('[Agent 4: 分镜师] 未找到角色形象图，分镜图将不包含角色参考');
-    }
+    // 使用角色风格标签替代硬编码的卡通风格词，确保分镜图与角色形象图风格一致
+    const storyboardPrompt = `Professional storyboard layout, 5x5 grid of 25 frames arranged in 5 rows and 5 columns, ${styleFragment}, each frame shows: ${frameDescriptions}, consistent character design, sequential narrative flow, no text, no numbers`;
 
     const imageOptions: ImageGenerationOptions = {
       // 根据视频比例选择分镜图尺寸
