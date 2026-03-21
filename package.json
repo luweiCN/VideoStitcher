@@ -83,6 +83,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-table": "^8.21.3",
     "@types/pinyin": "^2.10.2",
+    "@xyflow/react": "^12.10.1",
     "better-sqlite3": "^12.6.2",
     "clsx": "^2.1.1",
     "electron-log": "^5.4.3",
