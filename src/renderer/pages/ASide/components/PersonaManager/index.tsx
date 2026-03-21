@@ -153,7 +153,7 @@ export function PersonaManager() {
         </div>
 
         {/* 添加人设弹窗 */}
-        {isAddModalOpen && (
+        {isAddModalOpen && currentProject && (
           <AddPersonaModal
             projectId={currentProject.id}
             onClose={() => setIsAddModalOpen(false)}

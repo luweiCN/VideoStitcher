@@ -75,7 +75,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* 名称 */}
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 mb-1.5 tracking-wide uppercase">
+              <label className="block text-base font-medium text-slate-500 mb-1.5 tracking-wide uppercase">
                 编剧名称 <span className="text-red-500 normal-case">*</span>
               </label>
               <input
@@ -89,7 +89,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
 
             {/* 编剧设定 */}
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 mb-1.5 tracking-wide uppercase">
+              <label className="block text-base font-medium text-slate-500 mb-1.5 tracking-wide uppercase">
                 编剧设定 <span className="text-red-500 normal-case">*</span>
               </label>
               <textarea
@@ -104,7 +104,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
             {/* 特点标签 */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[11px] font-medium text-slate-500 tracking-wide uppercase">
+                <label className="text-base font-medium text-slate-500 tracking-wide uppercase">
                   特点标签
                 </label>
                 {!isEditCharas && (
@@ -114,7 +114,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
                       setEditingCharasText(characteristics.join('、'));
                       setIsEditCharas(true);
                     }}
-                    className="flex items-center gap-1 text-[11px] text-pink-400 hover:text-pink-300 transition-colors"
+                    className="flex items-center gap-1 text-base text-pink-400 hover:text-pink-300 transition-colors"
                   >
                     <Pencil className="w-3 h-3" />
                     编辑
@@ -135,14 +135,14 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
                     <button
                       type="button"
                       onClick={() => setIsEditCharas(false)}
-                      className="px-3 py-1.5 text-xs text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:border-slate-500 transition-colors"
+                      className="px-3 py-1.5 text-base text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:border-slate-500 transition-colors"
                     >
                       取消
                     </button>
                     <button
                       type="button"
                       onClick={handleSaveCharas}
-                      className="px-3 py-1.5 text-xs bg-pink-600 hover:bg-pink-500 text-white rounded-lg transition-colors"
+                      className="px-3 py-1.5 text-base bg-pink-600 hover:bg-pink-500 text-white rounded-lg transition-colors"
                     >
                       保存
                     </button>
@@ -153,7 +153,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
                   {characteristics.map((tag, i) => (
                     <span
                       key={i}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-pink-500/10 border border-pink-500/20 rounded-full text-xs text-pink-300"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-pink-500/10 border border-pink-500/20 rounded-full text-base text-pink-300"
                     >
                       <Tags className="w-3 h-3" />
                       {tag}
@@ -161,7 +161,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
                   ))}
                 </div>
               ) : (
-                <p className="text-[11px] text-slate-600 italic">暂无特点标签</p>
+                <p className="text-base text-slate-600 italic">暂无特点标签</p>
               )}
             </div>
 
