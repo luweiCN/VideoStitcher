@@ -153,17 +153,16 @@ export function PersonaManager() {
         </div>
 
         {/* 添加人设弹窗 */}
+        {(() => {
+          console.log('[PersonaManager] 弹窗条件检查:', { isAddModalOpen, currentProject, id: currentProject?.id });
+          return null;
+        })()}
         {isAddModalOpen && currentProject && (
           <AddPersonaModal
             projectId={currentProject.id}
             onClose={() => setIsAddModalOpen(false)}
             onAdd={handleAddPersona}
           />
-        )}
-        {isAddModalOpen && !currentProject && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-            <div className="text-red-400">错误：currentProject 为 null，无法打开弹窗</div>
-          </div>
         )}
 
         {/* 编辑人设弹窗 */}
