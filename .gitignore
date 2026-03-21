@@ -41,3 +41,7 @@ coverage/
 .env
 .env.local
 .env.production
+
+# 防止误提交本地临时下载文件
+https:/
+http:/
