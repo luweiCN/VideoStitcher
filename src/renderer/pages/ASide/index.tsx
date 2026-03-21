@@ -3,8 +3,8 @@
  * 整合所有子组件，管理视图切换
  */
 
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Settings } from 'lucide-react';
 import { useASideStore } from '../../stores/asideStore';
 import { ProjectLibrary } from './components/ProjectLibrary';
@@ -22,19 +22,42 @@ import { RegionSettingsPage } from './components/Settings/RegionSettingsPage';
  */
 const ASidePage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentView, currentProject, selectedScreenplay, setCurrentView, goToPrevStep } = useASideStore();
+  const [searchParams] = useSearchParams();
+  const { currentView, currentProject, selectedScreenplay, setCurrentView, goToPrevStep, selectProject } = useASideStore();
+
+  // 从 URL 同步 projectId 和 view 到 store，避免 store 时序问题
+  const projectIdFromUrl = searchParams.get('project');
+  const viewFromUrl = searchParams.get('view');
+  useEffect(() => {
+    if (projectIdFromUrl && (!currentProject || currentProject.id !== projectIdFromUrl)) {
+      window.api.asideGetProjects().then(result => {
+        if (result.success && result.projects) {
+          const project = result.projects.find((p: any) => p.id === projectIdFromUrl);
+          if (project) selectProject(project);
+        }
+      });
+    }
+    // 同步 view 到 store
+    if (viewFromUrl && viewFromUrl !== currentView) {
+      setCurrentView(viewFromUrl as any);
+    }
+  }, [projectIdFromUrl, viewFromUrl]);
+
   /**
    * 返回上一步或项目库
    */
   const handleBack = () => {
-    if (currentView === 'director-mode') {
-      setCurrentView('step3-scripts');
-    } else if (currentView === 'step1-direction') {
-      setCurrentView('library');
-    } else if (currentView === 'settings-regions') {
-      setCurrentView('settings');
-    } else if (currentView === 'settings') {
-      setCurrentView('library');
+    const prevViews: Record<string, string> = {
+      'director-mode': '/aside?project=' + (currentProject?.id || '') + '&view=step3-scripts',
+      'step3-scripts': '/aside?project=' + (currentProject?.id || '') + '&view=step2-region',
+      'step2-region': '/aside?project=' + (currentProject?.id || '') + '&view=step1-direction',
+      'step1-direction': '/aside',
+      'settings-regions': '/aside?project=' + (currentProject?.id || '') + '&view=settings',
+      'settings': '/aside',
+    };
+    const target = prevViews[currentView];
+    if (target) {
+      navigate(target);
     } else {
       goToPrevStep();
     }
