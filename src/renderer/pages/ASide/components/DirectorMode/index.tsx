@@ -222,9 +222,9 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
     canvas.addNode({
       id: 'node_storyboard',
       type: 'storyboard',
-      x: CANVAS_CENTER_X - 320,
+      x: CANVAS_CENTER_X - 640,
       y,
-      width: 640,
+      width: 1280,
       data: {
         label: `分镜矩阵 (${storyboard.rows}×${storyboard.cols})`,
         imageUrl: storyboard.imageUrl,

@@ -36,7 +36,6 @@ export function CharacterImageNode({ data, selected }: NodeProps) {
           </div>
         )}
       </div>
-      <div className="mt-2 text-xs text-slate-400 text-center">{data.name as string}</div>
     </div>
   );
 }
