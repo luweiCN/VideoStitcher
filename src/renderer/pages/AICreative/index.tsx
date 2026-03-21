@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -18,14 +18,29 @@ import {
   Clock,
   Lock,
   Unlock,
-  ChevronDown,
   Cpu,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
-import { BUILTIN_PROMPT_TEMPLATES, SUPPORTED_MODELS } from '@shared/constants/promptTemplates';
+import * as Select from '@radix-ui/react-select';
+import { BUILTIN_PROMPT_TEMPLATES } from '@shared/constants/promptTemplates';
 
 // ─── 类型定义 ─────────────────────────────────────────────
 
 type AICreativeView = 'hub' | 'prompt-studio' | 'prompt-templates';
+
+type ModelType = 'text' | 'image' | 'video';
+
+interface AIModel {
+  id: string;
+  name: string;
+  provider: string;
+  enabled: boolean;
+  description?: string;
+}
+
+/** 每个 Agent 支持的模型类型，以及各类型当前选中的 modelId */
+type AgentModelConfig = Partial<Record<ModelType, string>>;
 
 interface AgentConfig {
   id: string;
@@ -35,6 +50,8 @@ interface AgentConfig {
   iconColor: string;
   bgColor: string;
   icon: React.ElementType;
+  /** 该 Agent 使用哪些类型的模型，决定渲染几个选择器 */
+  modelTypes: ModelType[];
 }
 
 interface PromptTemplate {
@@ -59,6 +76,7 @@ const AGENTS: AgentConfig[] = [
     icon: FileText,
     iconColor: 'text-violet-400',
     bgColor: 'bg-violet-500/10 group-hover:bg-violet-500',
+    modelTypes: ['text'],
   },
   {
     id: 'art-director-agent',
@@ -69,18 +87,26 @@ const AGENTS: AgentConfig[] = [
     icon: Palette,
     iconColor: 'text-blue-400',
     bgColor: 'bg-blue-500/10 group-hover:bg-blue-500',
+    modelTypes: ['text', 'image'],
   },
   {
     id: 'creative-direction-agent',
     name: '创意方向生成 Agent',
     role: '创意策划',
     description:
-      '根据游戏名称、类型和核心卖点，自动生成 5 个项目专属的创意方向选项，替代通用预设，让每个项目都有量身定制的创作风格。',
+      '根据游戏名称、类型和核心卖点，自动生成项目专属的创意方向选项，替代通用预设，让每个项目都有量身定制的创作风格。',
     icon: Lightbulb,
     iconColor: 'text-amber-400',
     bgColor: 'bg-amber-500/10 group-hover:bg-amber-500',
+    modelTypes: ['text'],
   },
 ];
+
+const MODEL_TYPE_LABEL: Record<ModelType, string> = {
+  text: '文本模型',
+  image: '图片模型',
+  video: '视频模型',
+};
 
 const STORAGE_KEY = 'vs_prompt_templates';
 const MODEL_STORAGE_KEY = 'vs_agent_models';
@@ -132,23 +158,23 @@ function setActiveTemplate(agentId: string, templateId: string): void {
   saveAllTemplates(all);
 }
 
-/** 获取指定 Agent 当前选用的模型 ID（默认 'default'） */
-function getAgentModel(agentId: string): string {
+/** 获取指定 Agent 当前各类型模型的选择（返回 per-type map） */
+function getAgentModelConfig(agentId: string): AgentModelConfig {
   try {
     const raw = localStorage.getItem(MODEL_STORAGE_KEY);
-    const data: Record<string, string> = raw ? JSON.parse(raw) : {};
-    return data[agentId] ?? 'default';
+    const data: Record<string, AgentModelConfig> = raw ? JSON.parse(raw) : {};
+    return data[agentId] ?? {};
   } catch {
-    return 'default';
+    return {};
   }
 }
 
-/** 保存指定 Agent 的模型选择 */
-function saveAgentModel(agentId: string, modelId: string): void {
+/** 保存指定 Agent 某类型的模型选择 */
+function saveAgentModelType(agentId: string, type: ModelType, modelId: string): void {
   try {
     const raw = localStorage.getItem(MODEL_STORAGE_KEY);
-    const data: Record<string, string> = raw ? JSON.parse(raw) : {};
-    data[agentId] = modelId;
+    const data: Record<string, AgentModelConfig> = raw ? JSON.parse(raw) : {};
+    data[agentId] = { ...(data[agentId] ?? {}), [type]: modelId };
     localStorage.setItem(MODEL_STORAGE_KEY, JSON.stringify(data));
   } catch {
     // 存储失败静默处理
@@ -415,10 +441,10 @@ const BuiltinTemplateCard: React.FC<{
             </pre>
           </div>
 
-          {/* 用户提示词模板 */}
+          {/* 动态提示词 */}
           <div>
             <div className="flex items-center gap-1.5 mb-2">
-              <span className="text-xs font-semibold text-slate-400">用户提示词模板</span>
+              <span className="text-xs font-semibold text-slate-400">动态提示词</span>
               <span className="text-xs text-slate-500 ml-1">— 变量由代码注入（{'{{gameName}}'} 等）</span>
             </div>
             <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap bg-slate-800/60 rounded-lg p-3 max-h-32 overflow-y-auto leading-relaxed">
@@ -445,13 +471,27 @@ const TemplatesView: React.FC<{
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newContent, setNewContent] = useState('');
-  const [selectedModel, setSelectedModel] = useState(() => getAgentModel(agent.id));
+  const [modelConfig, setModelConfig] = useState<AgentModelConfig>(() =>
+    getAgentModelConfig(agent.id)
+  );
+  // 按类型缓存从 IPC 获取的模型列表
+  const [modelsByType, setModelsByType] = useState<Partial<Record<ModelType, AIModel[]>>>({});
+
+  // 加载该 Agent 所需的各类型模型列表
+  useEffect(() => {
+    agent.modelTypes.forEach(async (type) => {
+      const result = await window.api.getAIModels(type);
+      if (result.success && result.models) {
+        setModelsByType((prev) => ({ ...prev, [type]: result.models }));
+      }
+    });
+  }, [agent.id]);
 
   const refresh = () => setTemplates(getAgentTemplates(agent.id));
 
-  const handleModelChange = (modelId: string) => {
-    setSelectedModel(modelId);
-    saveAgentModel(agent.id, modelId);
+  const handleModelTypeChange = (type: ModelType, modelId: string) => {
+    setModelConfig((prev) => ({ ...prev, [type]: modelId }));
+    saveAgentModelType(agent.id, type, modelId);
   };
 
   const handleCreate = () => {
@@ -494,8 +534,6 @@ const TemplatesView: React.FC<{
   // 找到该 Agent 的内置模板（来自共享常量）
   const builtinTemplate = BUILTIN_PROMPT_TEMPLATES.find((t) => t.agentId === agent.id);
   const hasActiveCustom = templates.some((t) => t.isActive);
-  const currentModelLabel =
-    SUPPORTED_MODELS.find((m) => m.id === selectedModel)?.label ?? '默认模型';
 
   return (
     <div className="w-full max-w-2xl space-y-4">
@@ -510,38 +548,93 @@ const TemplatesView: React.FC<{
         </div>
       </div>
 
-      {/* 模型选择 */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-        <div className="flex items-center gap-3">
-          <Cpu className="w-4 h-4 text-slate-400 flex-shrink-0" />
-          <div className="flex-1">
-            <div className="text-sm font-medium text-slate-200 mb-0.5">使用模型</div>
-            <div className="text-xs text-slate-500">为此 Agent 指定独立的模型，覆盖系统全局配置</div>
-          </div>
-          <div className="relative flex-shrink-0">
-            <select
-              value={selectedModel}
-              onChange={(e) => handleModelChange(e.target.value)}
-              className="appearance-none bg-slate-800 border border-slate-700 rounded-lg pl-3 pr-8 py-2 text-sm text-white focus:outline-none focus:border-violet-500 cursor-pointer"
-            >
-              {SUPPORTED_MODELS.map((model) => (
-                <option
-                  key={model.id}
-                  value={model.id}
-                  disabled={model.comingSoon}
-                >
-                  {model.label}{model.comingSoon ? '（即将支持）' : ''}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+      {/* 模型选择 — 每种类型一个 Radix Select */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Cpu className="w-4 h-4 text-slate-400" />
+          <span className="text-sm font-medium text-slate-200">使用模型</span>
+          <span className="text-xs text-slate-500 ml-1">为此 Agent 指定独立的模型，覆盖系统全局配置</span>
         </div>
-        {selectedModel !== 'default' && (
-          <div className="mt-2 ml-7 text-xs text-amber-400/80">
-            当前生效：{currentModelLabel}
-          </div>
-        )}
+
+        {agent.modelTypes.map((type) => {
+          const models = modelsByType[type] ?? [];
+          const selectedId = modelConfig[type] ?? 'default';
+          const selectedName = models.find((m) => m.id === selectedId)?.name ?? '默认模型（系统配置）';
+
+          return (
+            <div key={type} className="flex items-center gap-3">
+              <span className="text-xs text-slate-400 w-16 flex-shrink-0">{MODEL_TYPE_LABEL[type]}</span>
+
+              <Select.Root
+                value={selectedId}
+                onValueChange={(val) => handleModelTypeChange(type, val)}
+              >
+                <Select.Trigger className="flex items-center justify-between gap-2 flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white hover:border-slate-500 focus:outline-none focus:border-violet-500 data-[placeholder]:text-slate-400 cursor-pointer transition-colors">
+                  <Select.Value placeholder="选择模型">
+                    {selectedName}
+                  </Select.Value>
+                  <Select.Icon>
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  </Select.Icon>
+                </Select.Trigger>
+
+                <Select.Portal>
+                  <Select.Content
+                    className="z-50 min-w-[280px] bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden"
+                    position="popper"
+                    sideOffset={4}
+                  >
+                    <Select.ScrollUpButton className="flex items-center justify-center py-1 text-slate-400">
+                      <ChevronUp />
+                    </Select.ScrollUpButton>
+
+                    <Select.Viewport className="p-1">
+                      {/* 默认选项 */}
+                      <Select.Item
+                        value="default"
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 rounded-lg cursor-pointer hover:bg-slate-700 hover:text-white focus:bg-slate-700 focus:text-white focus:outline-none data-[highlighted]:bg-slate-700 data-[highlighted]:text-white"
+                      >
+                        <Select.ItemIndicator>
+                          <Check className="w-4 h-4 text-violet-400" />
+                        </Select.ItemIndicator>
+                        <Select.ItemText>默认模型（系统配置）</Select.ItemText>
+                      </Select.Item>
+
+                      {models.length > 0 && (
+                        <>
+                          <div className="mx-2 my-1 border-t border-slate-700" />
+                          {models.map((model) => (
+                            <Select.Item
+                              key={model.id}
+                              value={model.id}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300 rounded-lg cursor-pointer hover:bg-slate-700 hover:text-white focus:outline-none data-[highlighted]:bg-slate-700 data-[highlighted]:text-white"
+                            >
+                              <Select.ItemIndicator>
+                                <Check className="w-4 h-4 text-violet-400" />
+                              </Select.ItemIndicator>
+                              <div className="flex-1 min-w-0">
+                                <Select.ItemText>{model.name}</Select.ItemText>
+                                <div className="text-xs text-slate-500">{model.provider}</div>
+                              </div>
+                            </Select.Item>
+                          ))}
+                        </>
+                      )}
+
+                      {models.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-slate-500">暂无可用模型</div>
+                      )}
+                    </Select.Viewport>
+
+                    <Select.ScrollDownButton className="flex items-center justify-center py-1 text-slate-400">
+                      <ChevronDown />
+                    </Select.ScrollDownButton>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+            </div>
+          );
+        })}
       </div>
 
       {/* 内置提示词（只读展示，带实际内容） */}
