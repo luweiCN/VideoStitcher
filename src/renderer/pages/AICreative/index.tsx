@@ -457,6 +457,94 @@ const BuiltinTemplateCard: React.FC<{
   );
 };
 
+// ─── 自定义模板卡片（可展开查看内容）────────────────────────
+
+const CustomTemplateCard: React.FC<{
+  template: PromptTemplate;
+  builtinUserPromptTemplate?: string;
+  onSetActive: (id: string) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+}> = ({ template: t, builtinUserPromptTemplate, onSetActive, onEdit, onDelete }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+      {/* 卡片头部 */}
+      <div className="flex items-center gap-2 p-4">
+        <span className="text-sm font-semibold text-white flex-1 min-w-0 truncate">{t.name}</span>
+        {t.isActive && (
+          <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full text-xs text-emerald-400 flex-shrink-0">
+            <Check className="w-3 h-3" />
+            生效中
+          </span>
+        )}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="text-xs text-slate-500 hover:text-white transition-colors cursor-pointer px-2 py-1 rounded hover:bg-slate-700"
+          >
+            {expanded ? '收起' : '查看内容'}
+          </button>
+          {!t.isActive && (
+            <button
+              onClick={() => onSetActive(t.id)}
+              title="设为生效"
+              className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={() => onEdit(t.id)}
+            title="编辑"
+            className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
+          >
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onDelete(t.id)}
+            title="删除"
+            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* 展开内容 */}
+      {expanded && (
+        <div className="border-t border-slate-800 p-4 space-y-4">
+          {/* 系统提示词（可编辑层，用户自定义内容） */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Unlock className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-xs font-semibold text-amber-400">系统提示词</span>
+              <span className="text-xs text-slate-500 ml-1">— 自定义的 Agent 人设与创意指南</span>
+            </div>
+            <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap bg-slate-800/60 rounded-lg p-3 max-h-64 overflow-y-auto leading-relaxed border border-amber-500/10">
+              {t.content}
+            </pre>
+          </div>
+
+          {/* 动态提示词（来自内置模板，只读） */}
+          {builtinUserPromptTemplate && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-xs font-semibold text-slate-400">动态提示词</span>
+                <span className="text-xs text-slate-500 ml-1">— 变量由代码注入（{'{{gameName}}'} 等），沿用内置模板</span>
+              </div>
+              <pre className="text-xs text-slate-400 font-mono whitespace-pre-wrap bg-slate-800/40 rounded-lg p-3 max-h-32 overflow-y-auto leading-relaxed">
+                {builtinUserPromptTemplate}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── 子视图：模板列表 ─────────────────────────────────────
 
 const TemplatesView: React.FC<{
@@ -664,87 +752,57 @@ const TemplatesView: React.FC<{
       )}
 
       {/* 自定义模板列表 */}
-      {templates.map((t) => (
-        <div key={t.id} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          {editingId === t.id ? (
-            // 编辑状态
-            <div className="p-4 space-y-3">
-              <input
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                placeholder="模板名称"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
-              />
-              <textarea
-                value={editingContent}
-                onChange={(e) => setEditingContent(e.target.value)}
-                placeholder="提示词内容（可编辑层，替换内置的 Agent 人设和创意指南）"
-                rows={8}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 font-mono resize-y"
-              />
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={() => setEditingId(null)}
-                  className="px-3 py-1.5 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:border-slate-500 transition-colors cursor-pointer"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={() => handleSaveEdit(t.id)}
-                  className="px-3 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors cursor-pointer"
-                >
-                  保存
-                </button>
-              </div>
+      {templates.map((t) =>
+        editingId === t.id ? (
+          // 编辑状态（内联表单）
+          <div key={t.id} className="bg-slate-900 border border-violet-500/30 rounded-xl p-4 space-y-3">
+            <input
+              value={editingName}
+              onChange={(e) => setEditingName(e.target.value)}
+              placeholder="模板名称"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+            />
+            <textarea
+              value={editingContent}
+              onChange={(e) => setEditingContent(e.target.value)}
+              placeholder="提示词内容（可编辑层，替换内置的 Agent 人设和创意指南）"
+              rows={8}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 font-mono resize-y"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setEditingId(null)}
+                className="px-3 py-1.5 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:border-slate-500 transition-colors cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => handleSaveEdit(t.id)}
+                className="px-3 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors cursor-pointer"
+              >
+                保存
+              </button>
             </div>
-          ) : (
-            // 展示状态
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-semibold text-white flex-1">{t.name}</span>
-                {t.isActive && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full text-xs text-emerald-400">
-                    <Check className="w-3 h-3" />
-                    生效中
-                  </span>
-                )}
-                <div className="flex items-center gap-1">
-                  {!t.isActive && (
-                    <button
-                      onClick={() => handleSetActive(t.id)}
-                      title="设为生效"
-                      className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Check className="w-4 h-4" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setEditingId(t.id);
-                      setEditingName(t.name);
-                      setEditingContent(t.content);
-                    }}
-                    title="编辑"
-                    className="p-1.5 text-slate-500 hover:text-white hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(t.id)}
-                    title="删除"
-                    className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              <pre className="text-xs text-slate-400 font-mono whitespace-pre-wrap bg-slate-800/50 rounded-lg p-3 max-h-32 overflow-y-auto">
-                {t.content}
-              </pre>
-            </div>
-          )}
-        </div>
-      ))}
+          </div>
+        ) : (
+          // 展示状态（可展开卡片）
+          <CustomTemplateCard
+            key={t.id}
+            template={t}
+            builtinUserPromptTemplate={builtinTemplate?.userPromptTemplate}
+            onSetActive={handleSetActive}
+            onEdit={(id) => {
+              const tpl = templates.find((x) => x.id === id);
+              if (tpl) {
+                setEditingId(id);
+                setEditingName(tpl.name);
+                setEditingContent(tpl.content);
+              }
+            }}
+            onDelete={handleDelete}
+          />
+        )
+      )}
 
       {/* 新建模板表单 */}
       {isCreating ? (
