@@ -277,3 +277,69 @@
 [data-radix-toast][data-swipe='end'] {
   animation: toast-fade-in 0.2s ease-out forwards;
 }
+
+/* ====================================================================
+ * React Flow 深色主题覆盖
+ * ==================================================================== */
+
+/* 隐藏 React Flow attribution logo */
+.react-flow__attribution {
+  display: none;
+}
+
+/* Controls 按钮深色主题 */
+.react-flow__controls {
+  background: rgba(30, 41, 59, 0.85) !important;
+  border: 1px solid #334155 !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+
+.react-flow__controls-button {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid #334155 !important;
+  color: #94a3b8 !important;
+  fill: #94a3b8 !important;
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #1e293b !important;
+  color: #f97316 !important;
+  fill: #f97316 !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+/* Handle（连接点）平时隐藏，hover 时显示 */
+.react-flow__handle {
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.react-flow__node:hover .react-flow__handle {
+  opacity: 1;
+}
+
+/* 多选框橙色 */
+.react-flow__selection {
+  border: 1px solid #f97316 !important;
+  background: rgba(249, 115, 22, 0.05) !important;
+}
+
+/* 节点默认样式清零（用 Tailwind 控制） */
+.react-flow__node-default,
+.react-flow__node-input,
+.react-flow__node-output {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
