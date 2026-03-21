@@ -23,6 +23,7 @@ export interface SupportedModel {
 import {
   WRITER_GENERATOR_AGENT_EDITABLE_PART,
   WRITER_GENERATOR_AGENT_LOCKED_PART,
+  WRITER_GENERATOR_BUILTIN_TEMPLATE,
 } from './writerGeneratorTemplates';
 
 /**
@@ -181,6 +182,9 @@ export const BUILTIN_PROMPT_TEMPLATES = [
     name: '内置默认模板 v1',
     editablePart: WRITER_GENERATOR_AGENT_EDITABLE_PART,
     lockedPart: WRITER_GENERATOR_AGENT_LOCKED_PART,
+    get userPromptTemplate() {
+      return WRITER_GENERATOR_BUILTIN_TEMPLATE.userPromptTemplate;
+    },
     get systemPrompt() {
       return `${this.editablePart}\n\n${this.lockedPart}`;
     },

@@ -125,6 +125,10 @@ export const WRITER_GENERATOR_BUILTIN_TEMPLATE = {
   lockedPart: WRITER_GENERATOR_AGENT_LOCKED_PART,
   userPromptTemplateGenerate: WRITER_GENERATOR_AGENT_USER_PROMPT_TEMPLATE_GENERATE,
   userPromptTemplateByName: WRITER_GENERATOR_AGENT_USER_PROMPT_TEMPLATE_BY_NAME,
+  /** 用于 PromptStudio 展示的动态提示词（展示通用生成模板） */
+  get userPromptTemplate() {
+    return WRITER_GENERATOR_AGENT_USER_PROMPT_TEMPLATE_GENERATE;
+  },
   get systemPrompt() {
     return `${this.editablePart}\n\n${this.lockedPart}`;
   },

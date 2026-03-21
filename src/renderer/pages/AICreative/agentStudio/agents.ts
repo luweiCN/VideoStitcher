@@ -14,17 +14,6 @@ const AGENTS: AgentConfig[] = [
     modelTypes: ['text'],
   },
   {
-    id: 'screenplay-agent',
-    name: '剧本写作 Agent',
-    role: '内容创作',
-    description:
-      '根据游戏信息、创意方向和目标受众，生成 15 秒短视频广告剧本。负责黄金 3 秒钩子、无厘头反转、B 面衔接三段式结构。',
-    icon: FileText,
-    iconColor: 'text-violet-400',
-    bgColor: 'bg-violet-500/10 group-hover:bg-violet-500',
-    modelTypes: ['text'],
-  },
-  {
     id: 'writer-generator-agent',
     name: '编剧生成 Agent',
     role: '人设创建',
@@ -33,6 +22,17 @@ const AGENTS: AgentConfig[] = [
     icon: Sparkles,
     iconColor: 'text-pink-400',
     bgColor: 'bg-pink-500/10 group-hover:bg-pink-500',
+    modelTypes: ['text'],
+  },
+  {
+    id: 'screenplay-agent',
+    name: '剧本写作 Agent',
+    role: '内容创作',
+    description:
+      '根据游戏信息、创意方向和目标受众，生成 15 秒短视频广告剧本。负责黄金 3 秒钩子、无厘头反转、B 面衔接三段式结构。',
+    icon: FileText,
+    iconColor: 'text-violet-400',
+    bgColor: 'bg-violet-500/10 group-hover:bg-violet-500',
     modelTypes: ['text'],
   },
   {
