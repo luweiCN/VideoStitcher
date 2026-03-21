@@ -156,9 +156,9 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       canvas.addNode({
         id: 'node_char_image_shared',
         type: 'character-image',
-        x: CANVAS_CENTER_X - 320,       // 640px 宽居中：500 - 320 = 180
+        x: CANVAS_CENTER_X - 640,       // 1280px 宽居中：500 - 640 = -140
         y: y + NODE_HEIGHT_CHARACTER + 50,
-        width: 640,
+        width: 1280,
         data: {
           name: characters.map(c => c.name).join(' / '),
           imageUrl: sharedImageUrl,
