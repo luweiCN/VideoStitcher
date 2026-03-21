@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Search, ChevronRight, ChevronDown, FileText, RotateCcw } from 'lucide-react';
 import type { Region, RegionTreeNode } from '@shared/types/aside';
 import { RegionModal } from './RegionModal';
+import { useConfirm } from '@renderer/hooks/useConfirm';
 
 /**
  * 将平铺地区列表转为树形结构
@@ -49,6 +50,7 @@ const LEVEL_NAMES: Record<number, string> = { 1: 'L1', 2: 'L2', 3: 'L3' };
  * 地区设置主页面组件
  */
 export function RegionSettingsPage() {
+  const confirm = useConfirm();
   const [regions, setRegions] = useState<Region[]>([]);
   const [tree, setTree] = useState<RegionTreeNode[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -60,8 +62,6 @@ export function RegionSettingsPage() {
   const [profileDraft, setProfileDraft] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [deleteConfirmRegion, setDeleteConfirmRegion] = useState<Region | null>(null);
   const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
 
   const selectedRegion = regions.find(r => r.id === selectedId) ?? null;
@@ -121,21 +121,32 @@ export function RegionSettingsPage() {
   };
 
   const handleDelete = async (region: Region) => {
+    const ok = await confirm({
+      title: '删除地区',
+      message: `确定删除「${region.name}」？其子级地区将失去父级关联，此操作不可撤销。`,
+      confirmText: '确认删除',
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       await window.api.regionDelete(region.id);
       if (selectedId === region.id) setSelectedId(null);
       await loadRegions();
     } catch (err) {
       console.error('[RegionSettingsPage] 删除地区失败:', err);
-    } finally {
-      setDeleteConfirmRegion(null);
     }
   };
 
   const handleResetPresets = async () => {
+    const ok = await confirm({
+      title: '重置预置数据',
+      message: '将删除所有预置地区（包括已修改过文化档案的），重新植入最新版本的预置数据。自定义地区不受影响。',
+      confirmText: '确认重置',
+      variant: 'warning',
+    });
+    if (!ok) return;
     try {
       setIsResetting(true);
-      setShowResetConfirm(false);
       await window.api.regionResetPresets();
       setSelectedId(null);
       await loadRegions();
@@ -242,7 +253,7 @@ export function RegionSettingsPage() {
               <Edit2 className="w-3 h-3" />
             </button>
             <button
-              onClick={e => { e.stopPropagation(); setDeleteConfirmRegion(node); }}
+              onClick={e => { e.stopPropagation(); handleDelete(node); }}
               className="p-1 rounded transition-colors text-slate-600 hover:bg-slate-700 hover:text-red-400"
               title="删除"
             >
@@ -296,7 +307,7 @@ export function RegionSettingsPage() {
 
           {/* 重置预置数据 */}
           <button
-            onClick={() => setShowResetConfirm(true)}
+            onClick={handleResetPresets}
             disabled={isResetting}
             className="w-full flex items-center justify-center gap-1.5 py-1.5 border border-slate-800/60 rounded-lg text-xs text-slate-700 hover:border-slate-700 hover:text-slate-500 transition-colors disabled:opacity-50"
           >
@@ -434,68 +445,6 @@ export function RegionSettingsPage() {
         onClose={() => setIsModalOpen(false)}
         onSave={handleModalSave}
       />
-
-      {/* 删除确认弹窗 */}
-      {deleteConfirmRegion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-80 shadow-xl">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center flex-shrink-0">
-                <Trash2 className="w-4 h-4 text-red-400" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-100">删除地区</h3>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed mb-5">
-              确定删除「{deleteConfirmRegion.name}」？其子级地区将失去父级关联，此操作不可撤销。
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setDeleteConfirmRegion(null)}
-                className="flex-1 py-2 rounded-lg border border-slate-800 text-xs text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={() => handleDelete(deleteConfirmRegion)}
-                className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-xs text-white font-medium transition-colors"
-              >
-                确认删除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 重置确认弹窗 */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-80 shadow-xl">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                <RotateCcw className="w-4 h-4 text-amber-400" />
-              </div>
-              <h3 className="text-sm font-semibold text-slate-100">重置预置数据</h3>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed mb-5">
-              将删除所有预置地区（包括已修改过文化档案的），重新植入最新版本的预置数据。自定义地区不受影响。
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowResetConfirm(false)}
-                className="flex-1 py-2 rounded-lg border border-slate-800 text-xs text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleResetPresets}
-                className="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-xs text-white font-medium transition-colors"
-              >
-                确认重置
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
