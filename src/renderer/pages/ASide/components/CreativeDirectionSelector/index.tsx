@@ -4,13 +4,12 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Plus, LayoutGrid, List, Wand2, Loader2 } from 'lucide-react';
+import { Plus, LayoutGrid, List } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import { useConfirm } from '@renderer/hooks/useConfirm';
 import type { CreativeDirection } from '@shared/types/aside';
 import { DirectionCard } from './DirectionCard';
-import { AddDirectionModal } from './AddDirectionModal';
-import { EditDirectionModal } from './EditDirectionModal';
+import { DirectionModal } from './DirectionModal';
 import { ConveyorBelt } from './ConveyorBelt';
 import { StepLayout } from '../StepLayout';
 
@@ -22,7 +21,6 @@ export function CreativeDirectionSelector() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingDirection, setEditingDirection] = useState<CreativeDirection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   const {
@@ -153,27 +151,6 @@ export function CreativeDirectionSelector() {
   /**
    * AI 批量生成创意方向
    */
-  const handleAIGenerate = async () => {
-    if (!currentProject) return;
-    setIsGenerating(true);
-    try {
-      const result = await window.api.asideGenerateCreativeDirections(currentProject.id);
-      if (result.success && result.directions) {
-        await loadDirections();
-        console.log('[CreativeDirectionSelector] AI 生成创意方向成功:', result.directions.length);
-      } else {
-        console.error('[CreativeDirectionSelector] AI 生成失败:', result.error);
-      }
-    } catch (error) {
-      console.error('[CreativeDirectionSelector] AI 生成创意方向异常:', error);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  /**
-   * 进入下一步
-   */
   const handleGoToNextStep = () => {
     if (selectedDirection) {
       goToNextStep();
@@ -196,51 +173,26 @@ export function CreativeDirectionSelector() {
     </div>
   );
 
-  // 头部右侧内容：布局切换 + AI 生成 + 添加按钮
+  // 头部右侧内容：布局切换 + 添加按钮
   const rightContent = (
     <div className="flex items-center gap-3">
-      {/* 视图切换按钮 */}
       <div className="flex items-center bg-slate-800 rounded-lg p-1">
         <button
           onClick={() => setViewMode('card')}
-          className={`p-2 rounded-md transition-colors ${
-            viewMode === 'card'
-              ? 'bg-violet-600 text-white'
-              : 'text-slate-400 hover:text-slate-100'
-          }`}
+          className={`p-2 rounded-md transition-colors ${viewMode === 'card' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-100'}`}
           title="卡片视图"
         >
           <LayoutGrid className="w-4 h-4" />
         </button>
         <button
           onClick={() => setViewMode('list')}
-          className={`p-2 rounded-md transition-colors ${
-            viewMode === 'list'
-              ? 'bg-violet-600 text-white'
-              : 'text-slate-400 hover:text-slate-100'
-          }`}
+          className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-violet-600 text-white' : 'text-slate-400 hover:text-slate-100'}`}
           title="列表视图"
         >
           <List className="w-4 h-4" />
         </button>
       </div>
 
-      {/* AI 生成按钮 */}
-      <button
-        onClick={handleAIGenerate}
-        disabled={isGenerating}
-        className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:border-violet-500 hover:text-violet-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        title="根据游戏信息 AI 生成 5 个专属创意方向"
-      >
-        {isGenerating ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Wand2 className="w-4 h-4" />
-        )}
-        <span>{isGenerating ? '生成中...' : 'AI 生成'}</span>
-      </button>
-
-      {/* 手动添加按钮 */}
       <button
         onClick={() => setIsAddModalOpen(true)}
         className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
@@ -269,9 +221,14 @@ export function CreativeDirectionSelector() {
             <div className="text-slate-500">加载中...</div>
           </div>
         ) : directions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <p className="text-slate-500 mb-2">还没有任何创意方向</p>
-            <p className="text-sm text-slate-600">点击上方按钮添加创意方向</p>
+          <div className="flex flex-col items-center justify-center h-64 text-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center">
+              <Plus className="w-6 h-6 text-slate-500" />
+            </div>
+            <div>
+              <p className="text-slate-300 font-medium mb-1">还没有创意方向</p>
+              <p className="text-sm text-slate-500">点击右上角按钮，AI 生成或手动添加</p>
+            </div>
           </div>
         ) : viewMode === 'card' ? (
           /* 卡片视图 - 传送带动画 */
@@ -299,20 +256,23 @@ export function CreativeDirectionSelector() {
         )}
       </div>
 
-      {/* 添加创意方向弹窗 */}
-      {isAddModalOpen && (
-        <AddDirectionModal
-          onClose={() => setIsAddModalOpen(false)}
-          onAdd={handleAddDirection}
-        />
-      )}
-
-      {/* 编辑创意方向弹窗 */}
-      {editingDirection && (
-        <EditDirectionModal
-          direction={editingDirection}
-          onClose={() => setEditingDirection(null)}
-          onSave={handleSaveDirection}
+      {/* 添加/编辑创意方向弹窗 */}
+      {(isAddModalOpen || editingDirection) && currentProject && (
+        <DirectionModal
+          projectId={currentProject.id}
+          onClose={() => {
+            setIsAddModalOpen(false);
+            setEditingDirection(null);
+          }}
+          onSave={editingDirection
+            ? (name, description, iconName) => handleSaveDirection(editingDirection.id, name, description, iconName)
+            : handleAddDirection}
+          initialData={editingDirection ? {
+            name: editingDirection.name,
+            description: editingDirection.description,
+            iconName: editingDirection.iconName,
+          } : undefined}
+          isEdit={!!editingDirection}
         />
       )}
     </StepLayout>

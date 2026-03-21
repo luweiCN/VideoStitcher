@@ -29,7 +29,7 @@ export function ConveyorBelt({ directions, selectedId, onSelect, onEdit, onDelet
       className="py-6"
     >
       {directions.map((direction) => (
-        <div key={direction.id} className="mx-2">
+        <div key={direction.id} className="mx-2 w-[360px]">
           <DirectionCard
             direction={direction}
             isSelected={selectedId === direction.id}

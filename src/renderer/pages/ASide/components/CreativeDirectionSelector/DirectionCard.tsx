@@ -91,7 +91,9 @@ export function DirectionCard({ direction, isSelected = false, onSelect, onEdit,
       </div>
 
       {direction.description && (
-        <p className="text-sm text-slate-400 line-clamp-2">{direction.description}</p>
+        <p className="text-sm text-slate-400 line-clamp-2 overflow-hidden text-ellipsis" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+          {direction.description}
+        </p>
       )}
     </div>
   );
