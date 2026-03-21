@@ -158,6 +158,13 @@ function setActiveTemplate(agentId: string, templateId: string): void {
   saveAllTemplates(all);
 }
 
+/** 清除所有自定义模板的生效状态，回退到内置模板 */
+function clearActiveTemplate(agentId: string): void {
+  const all = loadAllTemplates();
+  all[agentId] = (all[agentId] ?? []).map((t) => ({ ...t, isActive: false }));
+  saveAllTemplates(all);
+}
+
 /** 获取指定 Agent 当前各类型模型的选择（返回 per-type map） */
 function getAgentModelConfig(agentId: string): AgentModelConfig {
   try {
@@ -385,7 +392,8 @@ const PromptStudioView: React.FC<{
 const BuiltinTemplateCard: React.FC<{
   template: (typeof BUILTIN_PROMPT_TEMPLATES)[number];
   isActive: boolean;
-}> = ({ template, isActive }) => {
+  onSetActive: () => void;
+}> = ({ template, isActive, onSetActive }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -400,11 +408,19 @@ const BuiltinTemplateCard: React.FC<{
           <div className="text-xs text-slate-500 mt-0.5">系统内置，不可删除或修改</div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {isActive && (
+          {isActive ? (
             <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full text-xs text-emerald-400">
               <Check className="w-3 h-3" />
               生效中
             </span>
+          ) : (
+            <button
+              onClick={onSetActive}
+              className="p-1.5 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+              title="设为生效"
+            >
+              <Check className="w-4 h-4" />
+            </button>
           )}
           <button
             onClick={() => setExpanded((v) => !v)}
@@ -745,6 +761,10 @@ const TemplatesView: React.FC<{
         <BuiltinTemplateCard
           template={builtinTemplate}
           isActive={!hasActiveCustom}
+          onSetActive={() => {
+            clearActiveTemplate(agent.id);
+            refresh();
+          }}
         />
       ) : (
         <div className="flex items-start gap-3 p-4 bg-slate-900 border border-slate-800 rounded-xl">
