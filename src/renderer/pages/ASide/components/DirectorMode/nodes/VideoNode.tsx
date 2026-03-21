@@ -1,11 +1,26 @@
 /**
- * 视频输出节点 - 自适应视频真实宽高比，不裁切
+ * 视频输出节点 - 加载后按真实宽高比动态调整卡片宽度
+ * 横向视频 → NODE_WIDTH*3 (960px)，竖向/方形 → NODE_WIDTH*2 (640px)
  */
+import { useRef } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Play } from 'lucide-react';
 
+const WIDE = 320 * 3;   // 960px 横向视频
+const NORMAL = 320 * 2; // 640px 竖向/方形视频
+
 export function VideoNode({ data, selected }: NodeProps) {
   const src = data.localPath ? `file://${data.localPath as string}` : data.url as string | undefined;
+  const hasResized = useRef(false);
+
+  const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    if (hasResized.current) return;
+    hasResized.current = true;
+    const v = e.currentTarget;
+    if (!v.videoWidth || !v.videoHeight) return;
+    const width = v.videoWidth > v.videoHeight ? WIDE : NORMAL;
+    (data.onResize as Function)?.(width);
+  };
 
   return (
     <div className={`p-5 rounded-2xl border shadow-xl bg-slate-800 transition-all ${
@@ -22,14 +37,19 @@ export function VideoNode({ data, selected }: NodeProps) {
         </h4>
       </div>
 
-      {/* 自适应高度：video 用 h-auto 保持真实宽高比，absolute 遮罩随之伸展 */}
       <div
         className="w-full rounded-xl overflow-hidden bg-slate-900 relative group cursor-pointer"
         onClick={() => src && (data.onPreview as Function)?.({ type: 'video', src, title: data.label })}
       >
         {src ? (
           <>
-            <video src={src} className="w-full h-auto block" preload="metadata" muted />
+            <video
+              src={src}
+              className="w-full h-auto block"
+              preload="metadata"
+              muted
+              onLoadedMetadata={handleLoadedMetadata}
+            />
             <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
               <Play className="w-10 h-10 text-white drop-shadow-lg" fill="white" />
             </div>

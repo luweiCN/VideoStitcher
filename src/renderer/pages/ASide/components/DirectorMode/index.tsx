@@ -68,7 +68,7 @@ function MediaPreviewModal({ item, onClose }: { item: PreviewItem; onClose: () =
 
 // 布局常量（与原版保持一致）
 const NODE_WIDTH = 320;
-const NODE_WIDTH_WIDE = NODE_WIDTH * 3;   // 960px，用于图片/分镜宽卡片
+const NODE_WIDTH_WIDE = NODE_WIDTH * 2;   // 640px 初始宽度，横图动态扩展至 NODE_WIDTH*3(960)
 const NODE_HEIGHT_CHARACTER = 380;
 const PADDING_X = 380;
 const PADDING_Y = 480;

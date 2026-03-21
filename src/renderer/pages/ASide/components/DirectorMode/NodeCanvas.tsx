@@ -116,6 +116,9 @@ const NodeCanvasInner = forwardRef<NodeCanvasHandle, NodeCanvasProps>(
     onNodeRegenerateRef.current = onNodeRegenerate;
     const onPreviewRef = useRef(onPreview);
     onPreviewRef.current = onPreview;
+    // fitView ref，供 onResize 内部使用（避免闭包捕获问题）
+    const fitViewRef = useRef(fitView);
+    fitViewRef.current = fitView;
 
     /** 将 CanvasNode 转为 React Flow Node 格式，注入交互回调 */
     const toRFNode = useCallback((cn: CanvasNode): Node => ({
@@ -128,6 +131,22 @@ const NodeCanvasInner = forwardRef<NodeCanvasHandle, NodeCanvasProps>(
           setRfNodes((prev) =>
             prev.map((n) => n.id === cn.id ? { ...n, data: { ...n.data, ...updates } } : n)
           );
+        },
+        /** 根据媒体真实宽高比动态调整节点宽度，同步修正 x 坐标保持水平居中 */
+        onResize: (width: number) => {
+          setRfNodes((prev) =>
+            prev.map((n) => {
+              if (n.id !== cn.id) return n;
+              const prevWidth = (n.style?.width as number) ?? cn.width;
+              const dx = (prevWidth - width) / 2; // 保持中心不变
+              return {
+                ...n,
+                style: { ...n.style, width },
+                position: { x: n.position.x + dx, y: n.position.y },
+              };
+            })
+          );
+          setTimeout(() => fitViewRef.current({ padding: 0.2, duration: 300 }), 100);
         },
         onRegenerate: () => onNodeRegenerateRef.current(cn.id),
         onPreview: (item: any) => onPreviewRef.current?.(item),

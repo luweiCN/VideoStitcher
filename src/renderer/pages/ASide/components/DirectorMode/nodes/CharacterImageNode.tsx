@@ -1,10 +1,26 @@
 /**
- * 人物形象图片节点 - 双约束自适应比例（横图贴满宽，竖图封顶高）
+ * 人物形象图片节点 - 加载后按真实宽高比动态调整卡片宽度
+ * 横图 → NODE_WIDTH*3 (960px)，竖图/方图 → NODE_WIDTH*2 (640px)
  */
+import { useRef } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { UserCircle } from 'lucide-react';
 
+// 与 index.tsx 的 NODE_WIDTH=320 对应
+const WIDE = 320 * 3;   // 960px 横图
+const NORMAL = 320 * 2; // 640px 竖图/方图
+
 export function CharacterImageNode({ data, selected }: NodeProps) {
+  const hasResized = useRef(false);
+
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (hasResized.current) return;
+    hasResized.current = true;
+    const img = e.currentTarget;
+    const width = img.naturalWidth > img.naturalHeight ? WIDE : NORMAL;
+    (data.onResize as Function)?.(width);
+  };
+
   return (
     <div className={`p-5 rounded-2xl border shadow-xl bg-slate-800 transition-all ${
       selected
@@ -21,12 +37,6 @@ export function CharacterImageNode({ data, selected }: NodeProps) {
         </h4>
       </div>
 
-      {/*
-        双约束自适应：不用 w-full，改用 max-width:100% + max-height
-        - 横图：max-width 先触发 → 贴满卡片宽度，高度等比
-        - 竖图：max-height 先触发 → 封顶高度，宽度等比缩小居中
-        外层 flex justify-center 确保竖图水平居中
-      */}
       <div className="w-full rounded-xl overflow-hidden bg-slate-900 flex justify-center">
         {data.imageUrl ? (
           <img
@@ -34,6 +44,7 @@ export function CharacterImageNode({ data, selected }: NodeProps) {
             alt={data.name as string}
             style={{ display: 'block', maxWidth: '100%', maxHeight: 800 }}
             className="cursor-zoom-in"
+            onLoad={handleLoad}
             onClick={() => (data.onPreview as Function)?.({ type: 'image', src: data.imageUrl, title: data.name })}
           />
         ) : (

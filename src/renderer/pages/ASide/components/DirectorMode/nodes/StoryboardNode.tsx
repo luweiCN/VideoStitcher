@@ -1,17 +1,32 @@
 /**
- * 分镜矩阵节点 - 双约束自适应比例（横图贴满宽，竖图封顶高）
+ * 分镜矩阵节点 - 加载后按真实宽高比动态调整卡片宽度
+ * 横图 → NODE_WIDTH*3 (960px)，竖图/方图 → NODE_WIDTH*2 (640px)
  */
+import { useRef } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Film } from 'lucide-react';
 
+const WIDE = 320 * 3;   // 960px 横图
+const NORMAL = 320 * 2; // 640px 竖图/方图
+
 export function StoryboardNode({ data, selected }: NodeProps) {
+  const hasResized = useRef(false);
+
+  const handleLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (hasResized.current) return;
+    hasResized.current = true;
+    const img = e.currentTarget;
+    const width = img.naturalWidth > img.naturalHeight ? WIDE : NORMAL;
+    (data.onResize as Function)?.(width);
+  };
+
   return (
     <div className={`p-5 rounded-2xl border shadow-xl bg-slate-800 transition-all ${
       selected
         ? 'ring-2 ring-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.25)] scale-[1.02] border-orange-500'
         : 'border-slate-700 hover:shadow-orange-500/10'
     }`}>
-      {/* 宽度由父级 style.width 控制，节点内部不设 w-* */}
+      {/* 宽度由 onResize 动态决定，初始由父级 style.width 控制 */}
       <Handle type="target" position={Position.Top} className="!w-2 !h-2 !bg-blue-500 !border-2 !border-slate-900" />
       <Handle type="source" position={Position.Bottom} className="!w-2 !h-2 !bg-blue-500 !border-2 !border-slate-900" />
 
@@ -22,10 +37,6 @@ export function StoryboardNode({ data, selected }: NodeProps) {
         </h4>
       </div>
 
-      {/*
-        双约束自适应：max-width:100% 横图贴满，max-height 竖图封顶
-        分镜通常为横向多列，设 maxHeight:1200 给更多垂直空间
-      */}
       <div className="w-full rounded-xl overflow-hidden bg-slate-900 flex justify-center">
         {data.imageUrl ? (
           <img
@@ -33,6 +44,7 @@ export function StoryboardNode({ data, selected }: NodeProps) {
             alt="分镜图"
             style={{ display: 'block', maxWidth: '100%', maxHeight: 1200 }}
             className="cursor-zoom-in"
+            onLoad={handleLoad}
             onClick={() => (data.onPreview as Function)?.({ type: 'image', src: data.imageUrl, title: data.label ?? '分镜矩阵' })}
           />
         ) : (
