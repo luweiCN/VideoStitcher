@@ -128,17 +128,13 @@ export class AsideCreativeDirectionRepository {
     try {
       const db = getDatabase();
 
-      // 检查是否为预设
+      // 检查是否存在
       const row = db.prepare(`
         SELECT is_preset FROM aside_creative_directions WHERE id = ?
       `).get(id) as { is_preset: number } | undefined;
 
       if (!row) {
         throw new Error(`创意方向不存在：ID ${id}`);
-      }
-
-      if (row.is_preset === 1) {
-        throw new Error('无法删除预设创意方向');
       }
 
       // 执行删除
@@ -174,10 +170,6 @@ export class AsideCreativeDirectionRepository {
 
       if (!row) {
         throw new Error(`创意方向不存在：ID ${id}`);
-      }
-
-      if (row.is_preset === 1) {
-        throw new Error('无法编辑预设创意方向');
       }
 
       // 构建更新语句

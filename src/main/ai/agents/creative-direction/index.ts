@@ -42,6 +42,16 @@ export interface CreativeDirectionAgentOptions {
   customEditablePart?: string;
 }
 
+/**
+ * 创意方向上下文（用于提示词动态长度控制）
+ */
+export interface CreativeDirectionContext {
+  /** 最近20个方向的名称列表（固定传入，用于去重） */
+  recentNames: string[];
+  /** 完整方向列表（按时间倒序，动态截取） */
+  fullDirections: Array<{ name: string; description: string }>;
+}
+
 // ─── 提示词构建 ────────────────────────────────────────────
 
 /**
@@ -56,28 +66,92 @@ function buildSystemPrompt(customEditablePart?: string): string {
 }
 
 /**
- * 构建用户提示词
+ * 构建用户提示词（支持动态长度控制）
  *
- * 将游戏信息和已有方向注入模板占位符。
- * 已有方向格式化为简洁的列表，让 AI 能快速理解现有风格覆盖范围。
+ * 策略：
+ * 1. 始终传入最近 20 个方向的名称列表（用于去重，固定长度）
+ * 2. 动态截取最近 N 个完整方向（N 由剩余容量决定）
+ * 3. 在日志中输出详细的长度信息用于调试
+ *
+ * @param project - 游戏项目信息
+ * @param context - 创意方向上下文（包含完整列表和名称列表）
+ * @param logger - 可选的日志输出函数
+ * @returns 构建好的用户提示词
  */
 function buildUserPrompt(
   project: Project,
-  existingDirections: Array<{ name: string; description: string }>
+  context: CreativeDirectionContext,
+  logger?: { info: (msg: string, meta?: any) => void }
 ): string {
-  // 将已有方向格式化为简洁的文本列表
-  const existingDirectionsText =
-    existingDirections.length === 0
-      ? '（暂无，这是第一个创意方向）'
-      : existingDirections
-          .map((d, i) => `${i + 1}. 【${d.name}】${d.description.slice(0, 40)}...`)
-          .join('\n');
+  const { recentNames, fullDirections } = context;
 
-  return CREATIVE_DIRECTION_AGENT_USER_PROMPT_TEMPLATE
+  // 1. 计算各部分长度（精确字符数）
+  const systemPrompt = buildSystemPrompt();
+  const systemLength = systemPrompt.length;
+
+  // 基础模板长度（不包含已有方向部分）
+  const baseTemplate = CREATIVE_DIRECTION_AGENT_USER_PROMPT_TEMPLATE
     .replace(/\{\{gameName\}\}/g, project.name)
     .replace(/\{\{gameType\}\}/g, project.gameType)
-    .replace(/\{\{sellingPoint\}\}/g, project.sellingPoint || '暂无')
+    .replace(/\{\{sellingPoint\}\}/g, project.sellingPoint || '暂无');
+  const baseLength = baseTemplate.replace(/\{\{existingDirections\}\}/g, '').length;
+
+  // 20 个标题列表的长度（固定传入）
+  const titlesSection = recentNames.length === 0
+    ? '（暂无）'
+    : recentNames.slice(0, 20).map((name, i) => `${i + 1}. ${name}`).join('\n');
+  const titlesLength = titlesSection.length;
+
+  // 安全上限：8000 字符（给输出留余量）
+  const SAFE_LIMIT = 8000;
+
+  // 2. 计算剩余可用容量
+  const usedLength = systemLength + baseLength + titlesLength;
+  const remainingCapacity = SAFE_LIMIT - usedLength;
+
+  // 每个完整方向平均约 250 字符（名称 20 + 描述 200 + 格式 30）
+  const AVG_DIRECTION_LENGTH = 250;
+  const maxFullDirections = Math.max(0, Math.floor(remainingCapacity / AVG_DIRECTION_LENGTH));
+
+  // 最多取 5 个完整方向（上限），但至少要有空间放一个
+  const fullDirectionsCount = Math.min(5, maxFullDirections, fullDirections.length);
+
+  // 3. 构建完整方向部分（最近 N 个）
+  const selectedFullDirections = fullDirections.slice(0, fullDirectionsCount);
+  const fullDirectionsText = selectedFullDirections.length === 0
+    ? '（暂无完整参考）'
+    : selectedFullDirections
+        .map((d, i) => `${i + 1}. 【${d.name}】${d.description}`)
+        .join('\n\n');
+
+  // 4. 组装最终提示词
+  const existingDirectionsText = `【最近 ${recentNames.length} 个创意方向名称】（避免重复）：
+${titlesSection}
+
+【最近 ${selectedFullDirections.length} 个创意方向详情】（参考风格）：
+${fullDirectionsText}`;
+
+  const finalPrompt = baseTemplate
     .replace(/\{\{existingDirections\}\}/g, existingDirectionsText);
+
+  // 5. 输出日志
+  if (logger) {
+    logger.info('[创意方向提示词长度统计]', {
+      systemPromptLength: systemLength,
+      userBaseLength: baseLength,
+      titlesSectionLength: titlesLength,
+      fullDirectionsLength: fullDirectionsText.length,
+      usedLength,
+      finalTotalLength: systemLength + finalPrompt.length,
+      remainingCapacity,
+      maxFullDirections,
+      selectedFullDirections: fullDirectionsCount,
+      totalExisting: fullDirections.length,
+      titlesCount: Math.min(recentNames.length, 20),
+    });
+  }
+
+  return finalPrompt;
 }
 
 // ─── 输出解析 ──────────────────────────────────────────────
@@ -117,19 +191,23 @@ function parseOutput(llmOutput: string): CreativeDirectionResult {
  *
  * 调用流程：
  * 1. 构建系统提示词（EDITABLE + LOCKED 合并）
- * 2. 构建用户提示词（注入游戏信息 + 已有方向）
+ * 2. 构建用户提示词（注入游戏信息 + 已有方向，动态长度控制）
  * 3. 调用 LLM（通过全局 provider，支持未来多模型切换）
  * 4. 解析输出，返回结构化的单个创意方向
  *
  * @param project - 游戏项目信息（name、gameType、sellingPoint）
+ * @param context - 创意方向上下文（包含完整列表和名称列表）
  * @param options - Agent 调用选项
+ * @param logger - 可选的日志输出函数
  * @returns 生成的创意方向（name、iconName、description）
  */
 export async function runCreativeDirectionAgent(
   project: Project,
-  options: CreativeDirectionAgentOptions = {}
+  context: CreativeDirectionContext,
+  options: CreativeDirectionAgentOptions = {},
+  logger?: { info: (msg: string, meta?: any) => void }
 ): Promise<CreativeDirectionResult> {
-  const { existingDirections = [], customEditablePart } = options;
+  const { customEditablePart } = options;
 
   // 步骤 1：获取 AI 提供商
   const provider = getGlobalProvider();
@@ -137,9 +215,9 @@ export async function runCreativeDirectionAgent(
     throw new Error('AI 提供商未初始化，请先在设置中配置 API Key');
   }
 
-  // 步骤 2：构建提示词
+  // 步骤 2：构建提示词（支持动态长度控制）
   const systemPrompt = buildSystemPrompt(customEditablePart);
-  const userPrompt = buildUserPrompt(project, existingDirections);
+  const userPrompt = buildUserPrompt(project, context, logger);
 
   // 步骤 3：调用 LLM
   // temperature 略高（0.85）以增加创意多样性，maxTokens 控制输出长度
