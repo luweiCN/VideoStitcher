@@ -197,7 +197,7 @@ const NodeCanvasInner = forwardRef<NodeCanvasHandle, NodeCanvasProps>(
     }, []);
 
     return (
-      <div className="flex-1 h-full" style={{ background: '#0b0d17' }}>
+      <div className="flex-1 h-full bg-slate-950">
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}
@@ -215,12 +215,12 @@ const NodeCanvasInner = forwardRef<NodeCanvasHandle, NodeCanvasProps>(
           selectionOnDrag={false}
           style={{ background: 'transparent' }}
         >
-          {/* 点阵背景：底色 #0b0d17（深海军蓝），点色 #252840（稍亮），形成明显点阵纹理 */}
+          {/* 点阵背景：与应用整体背景 slate-950(#020617) 统一，点色 #1e2235 形成柔和点阵纹理 */}
           <Background
             variant={BackgroundVariant.Dots}
             gap={24}
             size={1.5}
-            color="#252840"
+            color="#1e2235"
           />
           {/* 缩放控制条（左下角） */}
           <Controls
