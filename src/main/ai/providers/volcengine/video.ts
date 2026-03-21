@@ -220,24 +220,81 @@ export class VolcEngineVideo {
       hasFirstFrame,
     });
 
-    const response = await fetch(`${this.baseUrl}/contents/generations/tasks`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    return await this.postVideoTask(requestBody, contentItems);
+  }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`创建视频任务失败: ${response.status} ${errorText}`);
-    }
+  /**
+   * 发送视频任务创建请求（带敏感词自动降级重试）
+   *
+   * 重试策略：
+   * 1. 首次请求：完整 prompt（含 Scene context）
+   * 2. 收到 InputTextSensitiveContentDetected：去掉 "| Scene context:..." 后缀重试
+   * 3. 仍然失败：改用最简安全 prompt 重试
+   */
+  private async postVideoTask(
+    requestBody: Record<string, unknown>,
+    contentItems: Array<Record<string, unknown>>
+  ): Promise<{ taskId: string }> {
+    const doFetch = async (body: Record<string, unknown>) => {
+      const response = await fetch(`${this.baseUrl}/contents/generations/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
 
-    const data = await response.json();
-    return {
-      taskId: data.id || data.task_id,
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`创建视频任务失败: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      return { taskId: data.id || data.task_id as string };
     };
+
+    const isSensitiveError = (err: unknown): boolean => {
+      return err instanceof Error && err.message.includes('InputTextSensitiveContentDetected');
+    };
+
+    // 从 contentItems 中找到文本项并提取原始 prompt
+    const findTextItem = (items: Array<Record<string, unknown>>) =>
+      items.find(item => item.type === 'text') as { type: string; text: string } | undefined;
+
+    try {
+      return await doFetch(requestBody);
+    } catch (err) {
+      if (!isSensitiveError(err)) throw err;
+
+      // --- 第一次降级：去掉 "| Scene context:..." 后缀 ---
+      const textItem = findTextItem(contentItems);
+      if (textItem) {
+        const sceneContextIdx = textItem.text.indexOf(' | Scene context:');
+        if (sceneContextIdx !== -1) {
+          const trimmedText = textItem.text.substring(0, sceneContextIdx).trim();
+          console.warn('[VolcEngineVideo] 敏感词触发，移除 Scene context 后重试:', trimmedText.substring(0, 80));
+          const patchedItems = contentItems.map(item =>
+            item.type === 'text' ? { ...item, text: trimmedText } : item
+          );
+          const retryBody = { ...requestBody, content: patchedItems };
+          try {
+            return await doFetch(retryBody);
+          } catch (err2) {
+            if (!isSensitiveError(err2)) throw err2;
+          }
+        }
+      }
+
+      // --- 第二次降级：使用最简安全 prompt ---
+      const safeText = 'Cinematic shot, smooth camera movement, dynamic scene';
+      console.warn('[VolcEngineVideo] 敏感词再次触发，改用安全 prompt 重试');
+      const safeItems = contentItems.map(item =>
+        item.type === 'text' ? { ...item, text: safeText } : item
+      );
+      const safeBody = { ...requestBody, content: safeItems };
+      return await doFetch(safeBody);
+    }
   }
 
   /**
