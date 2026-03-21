@@ -109,8 +109,10 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
 
     const imageOptions: ImageGenerationOptions = {
       // 分镜图用最高分辨率，保证帧切割质量
-      // 16:9 → 4K（3840×2160，每帧 768×432）  9:16 → 1024x1792（每帧 204×358）
-      size: state.videoSpec?.aspectRatio === '9:16' ? '1024x1792' : '4K',
+      // 16:9 → 3840x2160（每帧 768x432，Seedream 5.0 lite 方式2支持）
+      // 9:16 → 2160x3840（每帧 432x768，Seedream 5.0 lite 方式2支持）
+      // 注意：Seedream 5.0 lite 不支持 '4K' 字符串，需用像素维度方式
+      size: state.videoSpec?.aspectRatio === '9:16' ? '2160x3840' : '3840x2160',
       quality: 'hd',
       numberOfImages: 1,
       ...(characterImageUrl ? { referenceImageUrl: characterImageUrl } : {}),

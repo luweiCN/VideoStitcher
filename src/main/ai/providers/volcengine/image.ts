@@ -61,17 +61,29 @@ const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY = 1000; // 1 秒
 
 /**
- * 支持的图片尺寸（火山引擎 Seedream 5.0）
+ * 支持的图片尺寸（火山引擎 Seedream 系列）
+ *
+ * 方式1（预设字符串）：
+ *   - Seedream 5.0 lite：2K、3K
+ *   - Seedream 4.5：2K、4K
+ *   - Seedream 4.0：1K、2K、4K
+ *
+ * 方式2（像素维度）：总像素/宽高比需符合各模型限制
+ *   - Seedream 5.0 lite：3686400~10404496 像素，宽高比 [1/16, 16]
+ *   - 3840x2160（16:9 超高清）和 2160x3840（9:16 竖版）均在范围内
  */
 const SUPPORTED_SIZES = [
   '1K',
   '2K',
+  '3K',
   '4K',
   '512x512',
   '768x768',
   '1024x1024',
   '1024x1792',
   '1792x1024',
+  '2160x3840', // 9:16 竖版超高清（Seedream 5.0 lite 支持）
+  '3840x2160', // 16:9 超高清（Seedream 5.0 lite 支持，~8.3M 像素）
 ] as const;
 
 /**
