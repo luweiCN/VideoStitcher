@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -7,62 +7,12 @@ import {
   Zap,
   Video,
   SlidersHorizontal,
-  FileText,
-  Palette,
-  Lightbulb,
+  Settings,
   Clock,
+  Wand2,
 } from 'lucide-react';
-import type { AgentConfig } from './agentStudio/types';
-import AgentStudioView from './agentStudio';
-import AgentConfigView from './agentStudio/TemplatesView';
 
-// ─── 视图类型 ──────────────────────────────────────────────
-
-type AICreativeView = 'hub' | 'agent-studio' | 'agent-config';
-
-// ─── Agent 配置（含 modelTypes 声明） ─────────────────────
-
-const AGENTS: AgentConfig[] = [
-  {
-    id: 'creative-direction-agent',
-    name: '创意方向生成 Agent',
-    role: '创意策划',
-    description:
-      '根据游戏名称、类型和核心卖点，自动生成项目专属的创意方向选项，替代通用预设，让每个项目都有量身定制的创作风格。',
-    icon: Lightbulb,
-    iconColor: 'text-amber-400',
-    bgColor: 'bg-amber-500/10 group-hover:bg-amber-500',
-    modelTypes: ['text'],
-  },
-  {
-    id: 'screenplay-agent',
-    name: '剧本写作 Agent',
-    role: '内容创作',
-    description:
-      '根据游戏信息、创意方向和目标受众，生成 15 秒短视频广告剧本。负责黄金 3 秒钩子、无厘头反转、B 面衔接三段式结构。',
-    icon: FileText,
-    iconColor: 'text-violet-400',
-    bgColor: 'bg-violet-500/10 group-hover:bg-violet-500',
-    modelTypes: ['text'],
-  },
-  {
-    id: 'art-director-agent',
-    name: '艺术总监 Agent',
-    role: '视觉设计',
-    description:
-      '分析剧本内容，设计角色形象与整体视觉风格，生成人物三视图图像提示词，为后续分镜和图像生成提供视觉方向指引。',
-    icon: Palette,
-    iconColor: 'text-blue-400',
-    bgColor: 'bg-blue-500/10 group-hover:bg-blue-500',
-    modelTypes: ['text', 'image'],
-  },
-];
-
-// ─── Hub 视图 ──────────────────────────────────────────────
-
-const HubView: React.FC<{
-  onNavigate: (view: AICreativeView) => void;
-}> = ({ onNavigate }) => {
+const AICreativePage: React.FC = () => {
   const navigate = useNavigate();
 
   const cards = [
@@ -134,147 +84,98 @@ const HubView: React.FC<{
       titleHover: 'group-hover:text-amber-400',
       bgIcon: 'text-amber-500/5',
       comingSoon: false,
-      onClick: () => onNavigate('agent-studio'),
+      onClick: () => navigate('/ai-creative/agent-studio'),
+    },
+    {
+      id: 'settings',
+      title: '设置',
+      desc: '地区文化档案、AI 供应商配置等全局设置',
+      icon: Settings,
+      hoverBorder: 'hover:border-slate-600',
+      hoverShadow: 'hover:shadow-slate-500/10',
+      iconBg: 'bg-slate-700/50 group-hover:bg-slate-600',
+      iconColor: 'text-slate-400',
+      titleHover: 'group-hover:text-slate-200',
+      bgIcon: 'text-slate-500/5',
+      comingSoon: false,
+      onClick: () => navigate('/ai-creative/settings'),
     },
   ];
-
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full max-w-4xl">
-      {cards.map((card) => {
-        const Icon = card.icon;
-        const isDisabled = card.comingSoon;
-
-        return (
-          <button
-            key={card.id}
-            onClick={card.onClick}
-            disabled={isDisabled}
-            className={`group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all ${
-              isDisabled
-                ? 'opacity-50 cursor-not-allowed'
-                : `cursor-pointer ${card.hoverBorder} hover:shadow-lg ${card.hoverShadow} hover:-translate-y-0.5`
-            }`}
-          >
-            <div className={`absolute top-0 right-0 p-3 opacity-10 transition-opacity ${card.bgIcon}`}>
-              <Icon className="w-16 h-16" />
-            </div>
-            {card.comingSoon && (
-              <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 bg-slate-700 rounded-full">
-                <Clock className="w-3 h-3 text-slate-400" />
-                <span className="text-xs text-slate-400 font-medium">开发中</span>
-              </div>
-            )}
-            <div className="relative z-10 space-y-3">
-              <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${card.iconBg} ${card.iconColor} group-hover:text-white`}
-              >
-                <Icon className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className={`text-lg font-bold mb-1 text-white transition-colors ${card.titleHover}`}>
-                  {card.title}
-                </h2>
-                <p className="text-slate-400 text-sm leading-relaxed">{card.desc}</p>
-              </div>
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-};
-
-// ─── 主页面 ───────────────────────────────────────────────
-
-const AICreativePage: React.FC = () => {
-  const navigate = useNavigate();
-  const [currentView, setCurrentView] = useState<AICreativeView>('hub');
-  const [selectedAgent, setSelectedAgent] = useState<AgentConfig | null>(null);
-
-  const handleBack = () => {
-    if (currentView === 'agent-config') {
-      setCurrentView('agent-studio');
-      setSelectedAgent(null);
-    } else if (currentView === 'agent-studio') {
-      setCurrentView('hub');
-    } else {
-      navigate('/');
-    }
-  };
-
-  const titles: Record<AICreativeView, string> = {
-    hub: 'AI 创意视频',
-    'agent-studio': 'Agent 定制',
-    'agent-config': selectedAgent?.name ?? '',
-  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans">
       <div className="flex items-center gap-3 px-8 py-6 border-b border-slate-800/60">
         <button
-          onClick={handleBack}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors cursor-pointer group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-          <span className="text-sm">
-            {currentView === 'hub'
-              ? '返回首页'
-              : currentView === 'agent-studio'
-                ? 'AI 创意视频'
-                : 'Agent 定制'}
-          </span>
+          <span className="text-sm">返回首页</span>
         </button>
         <span className="text-slate-700">/</span>
-        <h1 className="text-base font-semibold text-white">{titles[currentView]}</h1>
+        <h1 className="text-base font-semibold text-white">AI 创意视频</h1>
       </div>
 
       <div className="flex-1 flex flex-col items-center px-8 py-12">
-        {currentView === 'hub' && (
-          <>
-            <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-500/10 border border-violet-500/20 rounded-full mb-4">
-                <Sparkles className="w-4 h-4 text-violet-400" />
-                <span className="text-xs text-violet-400 font-medium">AI 驱动的创意视频生产</span>
-              </div>
-              <h2 className="text-3xl font-black text-white mb-3">AI 创意视频</h2>
-              <p className="text-slate-400 text-base max-w-lg">
-                从剧本创作到视频合成，全流程 AI 辅助生产工具
-              </p>
-            </div>
-            <HubView onNavigate={setCurrentView} />
-          </>
-        )}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-violet-500/10 border border-violet-500/20 rounded-full mb-4">
+            <Sparkles className="w-4 h-4 text-violet-400" />
+            <span className="text-xs text-violet-400 font-medium">AI 驱动的创意视频生产</span>
+          </div>
+          <h2 className="text-3xl font-black text-white mb-3">AI 创意视频</h2>
+          <p className="text-slate-400 text-base max-w-lg">从剧本创作到视频合成，全流程 AI 辅助生产工具</p>
+        </div>
 
-        {currentView === 'agent-studio' && (
-          <>
-            <div className="text-center mb-10">
-              <h2 className="text-2xl font-black text-white mb-3">Agent 定制</h2>
-              <p className="text-slate-400 text-sm max-w-lg">
-                为每个 Agent 配置模型与提示词，优化 AI 创作质量
-              </p>
-            </div>
-            <AgentStudioView
-              agents={AGENTS}
-              onSelectAgent={(agent) => {
-                setSelectedAgent(agent);
-                setCurrentView('agent-config');
-              }}
-            />
-          </>
-        )}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 w-full max-w-4xl">
+          {cards.map((card) => {
+            const Icon = card.icon;
+            const isDisabled = card.comingSoon;
 
-        {currentView === 'agent-config' && selectedAgent && (
-          <>
-            <div className="text-center mb-10">
-              <h2 className="text-2xl font-black text-white mb-3">Agent 配置</h2>
-              <p className="text-slate-400 text-sm max-w-lg">
-                配置模型与提示词模板，设定一个模板为生效状态供 Agent 使用
-              </p>
-            </div>
-            <AgentConfigView agent={selectedAgent} />
-          </>
-        )}
+            return (
+              <button
+                key={card.id}
+                onClick={card.onClick}
+                disabled={isDisabled}
+                className={`group relative overflow-hidden bg-slate-900 border border-slate-800 rounded-2xl p-5 text-left transition-all ${
+                  isDisabled
+                    ? 'opacity-50 cursor-not-allowed'
+                    : `cursor-pointer ${card.hoverBorder} hover:shadow-lg ${card.hoverShadow} hover:-translate-y-0.5`
+                }`}
+              >
+                <div className={`absolute top-0 right-0 p-3 opacity-10 transition-opacity ${card.bgIcon}`}>
+                  <Icon className="w-16 h-16" />
+                </div>
+                {card.comingSoon && (
+                  <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 bg-slate-700 rounded-full">
+                    <Clock className="w-3 h-3 text-slate-400" />
+                    <span className="text-xs text-slate-400 font-medium">开发中</span>
+                  </div>
+                )}
+                <div className="relative z-10 space-y-3">
+                  <div
+                    className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${card.iconBg} ${card.iconColor} group-hover:text-white`}
+                  >
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h2 className={`text-lg font-bold mb-1 text-white transition-colors ${card.titleHover}`}>
+                      {card.title}
+                    </h2>
+                    <p className="text-slate-400 text-sm leading-relaxed">{card.desc}</p>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      <footer className="py-6 text-slate-600 text-sm font-medium text-center">
+        <div className="inline-flex items-center gap-2">
+          <Wand2 className="w-3.5 h-3.5" />
+          <span>AI 创意视频生产流程</span>
+        </div>
+      </footer>
     </div>
   );
 };

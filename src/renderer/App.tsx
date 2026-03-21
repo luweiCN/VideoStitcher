@@ -17,6 +17,10 @@ import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
 import ASidePage from './pages/ASide';
 import AICreativePage from './pages/AICreative';
+import AgentStudioPage from './pages/AICreative/AgentStudioPage';
+import AgentConfigPage from './pages/AICreative/AgentConfigPage';
+import AICreativeSettingsPage from './pages/AICreative/AICreativeSettingsPage';
+import AICreativeRegionSettingsPage from './pages/AICreative/AICreativeRegionSettingsPage';
 import { TaskCenterProvider } from './contexts/TaskContext';
 import { TaskCenterListPage, TaskCenterDashboard, HomeTaskIndicator, TaskDetailPage } from './components/TaskCenter';
 
@@ -442,6 +446,10 @@ const AppContent: React.FC = () => {
         <Route path="/videoStitcher" element={<VideoStitcherMode />} />
         <Route path="/aside" element={<ASidePage />} />
         <Route path="/ai-creative" element={<AICreativePage />} />
+        <Route path="/ai-creative/agent-studio" element={<AgentStudioPage />} />
+        <Route path="/ai-creative/agent-studio/:agentId" element={<AgentConfigPage />} />
+        <Route path="/ai-creative/settings" element={<AICreativeSettingsPage />} />
+        <Route path="/ai-creative/settings/regions" element={<AICreativeRegionSettingsPage />} />
         <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
         <Route path="/tasks" element={<TaskCenterListPage />} />
