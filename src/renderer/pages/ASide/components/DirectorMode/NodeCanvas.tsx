@@ -197,7 +197,7 @@ const NodeCanvasInner = forwardRef<NodeCanvasHandle, NodeCanvasProps>(
     }, []);
 
     return (
-      <div className="flex-1 h-full">
+      <div className="flex-1 h-full" style={{ background: '#0b0d17' }}>
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}
@@ -213,13 +213,14 @@ const NodeCanvasInner = forwardRef<NodeCanvasHandle, NodeCanvasProps>(
           proOptions={{ hideAttribution: true }}
           nodesConnectable={false}
           selectionOnDrag={false}
+          style={{ background: 'transparent' }}
         >
-          {/* 点阵背景，对应原有 radial-gradient dot 效果 */}
+          {/* 点阵背景：底色 #0b0d17（深海军蓝），点色 #252840（稍亮），形成明显点阵纹理 */}
           <Background
             variant={BackgroundVariant.Dots}
             gap={24}
-            size={1}
-            color="#1a1b2e"
+            size={1.5}
+            color="#252840"
           />
           {/* 缩放控制条（左下角） */}
           <Controls
