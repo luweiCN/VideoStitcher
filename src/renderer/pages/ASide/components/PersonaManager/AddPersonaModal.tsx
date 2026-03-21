@@ -43,6 +43,10 @@ export function AddPersonaModal({ projectId, onClose, onAdd, initialData, isEdit
    * 逻辑：名称输入框有内容 → 按名称生成；无内容 → 通用生成
    */
   const handleAIGenerate = async () => {
+    if (!projectId) {
+      toast.warning('项目 ID 缺失，请先选择一个项目');
+      return;
+    }
     setIsGenerating(true);
     try {
       const userWriterName = name.trim() || undefined;
@@ -96,7 +100,7 @@ export function AddPersonaModal({ projectId, onClose, onAdd, initialData, isEdit
       >
         {/* 顶部标题栏 */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 sticky top-0 bg-[#0d0d12]">
-          <h2 className="text-sm font-semibold text-white tracking-wide">
+          <h2 className="text-base font-semibold text-white tracking-wide">
             {isEdit ? '编辑编剧' : '添加编剧'}
           </h2>
           <button
@@ -135,12 +139,11 @@ export function AddPersonaModal({ projectId, onClose, onAdd, initialData, isEdit
                   </p>
 
                   {/* 生成按钮 */}
-                  {/* ⚠️ 临时：这里需要传入 projectId，实际使用时从上下文获取 */}
                   <button
                     type="button"
                     onClick={handleAIGenerate}
                     disabled={isGenerating}
-                    className="group w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-pink-500/25 bg-pink-500/8 text-pink-300 text-sm font-medium hover:bg-pink-500/15 hover:border-pink-400/40 hover:text-pink-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="group w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-pink-500/25 bg-pink-500/8 text-pink-300 text-base font-medium hover:bg-pink-500/15 hover:border-pink-400/40 hover:text-pink-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isGenerating ? (
                       <>
@@ -178,7 +181,7 @@ export function AddPersonaModal({ projectId, onClose, onAdd, initialData, isEdit
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="例如：反转大师、幽默解构型"
-                className={`w-full px-3 py-2.5 rounded-lg text-sm text-slate-100 placeholder-slate-600 bg-white/[0.03] border outline-none transition-all ${
+                className={`w-full px-3 py-2.5 rounded-lg text-base text-slate-100 placeholder-slate-600 bg-white/[0.03] border outline-none transition-all ${
                   highlight
                     ? 'border-pink-500/60 bg-pink-500/5'
                     : 'border-white/[0.06] focus:border-white/15'
@@ -196,7 +199,7 @@ export function AddPersonaModal({ projectId, onClose, onAdd, initialData, isEdit
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="描述这位编剧是谁、擅长什么、怎么写剧本..."
                 rows={5}
-                className={`w-full px-3 py-2.5 rounded-lg text-sm text-slate-100 placeholder-slate-600 bg-white/[0.03] border outline-none transition-all resize-none ${
+                className={`w-full px-3 py-2.5 rounded-lg text-base text-slate-100 placeholder-slate-600 bg-white/[0.03] border outline-none transition-all resize-none ${
                   highlight
                     ? 'border-pink-500/60 bg-pink-500/5'
                     : 'border-white/[0.06] focus:border-white/15'
@@ -232,7 +235,7 @@ export function AddPersonaModal({ projectId, onClose, onAdd, initialData, isEdit
                     value={editingCharasText}
                     onChange={(e) => setEditingCharasText(e.target.value)}
                     placeholder="用逗号或换行分隔，如：反转、悬念、节奏快"
-                    className="w-full px-3 py-2.5 rounded-lg text-sm text-slate-100 placeholder-slate-600 bg-white/[0.03] border border-pink-500/30 outline-none focus:border-pink-400/50 transition-all"
+                    className="w-full px-3 py-2.5 rounded-lg text-base text-slate-100 placeholder-slate-600 bg-white/[0.03] border border-pink-500/30 outline-none focus:border-pink-400/50 transition-all"
                   />
                   <div className="flex gap-2 justify-end">
                     <button
@@ -273,13 +276,13 @@ export function AddPersonaModal({ projectId, onClose, onAdd, initialData, isEdit
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 text-sm text-slate-500 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:text-slate-300 hover:bg-white/[0.06] transition-colors"
+                className="flex-1 py-2.5 text-base text-slate-500 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:text-slate-300 hover:bg-white/[0.06] transition-colors"
               >
                 取消
               </button>
               <button
                 type="submit"
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm text-white font-medium rounded-lg bg-pink-600 hover:bg-pink-500 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-base text-white font-medium rounded-lg bg-pink-600 hover:bg-pink-500 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 {isEdit ? '保存' : '添加'}

@@ -61,7 +61,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
       >
         {/* 顶部标题栏 */}
         <div className="flex items-center justify-between px-5 pt-5 pb-4 sticky top-0 bg-[#0d0d12]">
-          <h2 className="text-sm font-semibold text-white tracking-wide">编辑编剧</h2>
+          <h2 className="text-base font-semibold text-white tracking-wide">编辑编剧</h2>
           <button
             onClick={onClose}
             className="w-7 h-7 flex items-center justify-center text-slate-600 hover:text-slate-300 hover:bg-white/5 rounded-lg transition-colors"
@@ -83,7 +83,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="例如：反转大师、幽默解构型"
-                className="w-full px-3 py-2.5 rounded-lg text-sm text-slate-100 placeholder-slate-600 bg-white/[0.03] border border-white/[0.06] outline-none focus:border-white/15 transition-all"
+                className="w-full px-3 py-2.5 rounded-lg text-base text-slate-100 placeholder-slate-600 bg-white/[0.03] border border-white/[0.06] outline-none focus:border-white/15 transition-all"
               />
             </div>
 
@@ -97,7 +97,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="描述这位编剧是谁、擅长什么、怎么写剧本..."
                 rows={5}
-                className="w-full px-3 py-2.5 rounded-lg text-sm text-slate-100 placeholder-slate-600 bg-white/[0.03] border border-white/[0.06] outline-none focus:border-white/15 transition-all resize-none"
+                className="w-full px-3 py-2.5 rounded-lg text-base text-slate-100 placeholder-slate-600 bg-white/[0.03] border border-white/[0.06] outline-none focus:border-white/15 transition-all resize-none"
               />
             </div>
 
@@ -129,7 +129,7 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
                     value={editingCharasText}
                     onChange={(e) => setEditingCharasText(e.target.value)}
                     placeholder="用逗号或换行分隔，如：反转、悬念、节奏快"
-                    className="w-full px-3 py-2.5 rounded-lg text-sm text-slate-100 placeholder-slate-600 bg-white/[0.03] border border-pink-500/30 outline-none focus:border-pink-400/50 transition-all"
+                    className="w-full px-3 py-2.5 rounded-lg text-base text-slate-100 placeholder-slate-600 bg-white/[0.03] border border-pink-500/30 outline-none focus:border-pink-400/50 transition-all"
                   />
                   <div className="flex gap-2 justify-end">
                     <button
@@ -170,13 +170,13 @@ export function EditPersonaModal({ persona, onClose, onSave }: EditPersonaModalP
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 text-sm text-slate-500 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:text-slate-300 hover:bg-white/[0.06] transition-colors"
+                className="flex-1 py-2.5 text-base text-slate-500 rounded-lg bg-white/[0.03] border border-white/[0.06] hover:text-slate-300 hover:bg-white/[0.06] transition-colors"
               >
                 取消
               </button>
               <button
                 type="submit"
-                className="flex-1 py-2.5 text-sm text-white font-medium rounded-lg bg-pink-600 hover:bg-pink-500 transition-colors"
+                className="flex-1 py-2.5 text-base text-white font-medium rounded-lg bg-pink-600 hover:bg-pink-500 transition-colors"
               >
                 保存
               </button>
