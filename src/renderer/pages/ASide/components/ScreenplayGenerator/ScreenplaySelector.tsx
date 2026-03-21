@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { X, Check, Film, Zap } from 'lucide-react';
+import { X, Check, Film, Zap, Pencil } from 'lucide-react';
 import type { Screenplay } from '@shared/types/aside';
 
 interface ScreenplaySelectorProps {
@@ -16,12 +16,14 @@ interface ScreenplaySelectorProps {
   onConfirm: (selected: Screenplay | Screenplay[]) => void;
   /** 取消回调 */
   onCancel: () => void;
+  /** 编辑剧本回调（可选） */
+  onEditScreenplay?: (screenplay: Screenplay) => void;
 }
 
 /**
  * 剧本选择弹窗
  */
-export function ScreenplaySelector({ screenplays, mode, onConfirm, onCancel }: ScreenplaySelectorProps) {
+export function ScreenplaySelector({ screenplays, mode, onConfirm, onCancel, onEditScreenplay }: ScreenplaySelectorProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const handleToggle = (screenplayId: string) => {
@@ -127,7 +129,7 @@ export function ScreenplaySelector({ screenplays, mode, onConfirm, onCancel }: S
                       </div>
                     )}
 
-                    {/* 序号 */}
+                    {/* 序号 + 编辑按钮 */}
                     <div className="flex items-center gap-2 mb-3">
                       <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm font-semibold ${
                         isSelected
@@ -146,6 +148,15 @@ export function ScreenplaySelector({ screenplays, mode, onConfirm, onCancel }: S
                           {screenplay.aiModel?.toUpperCase()} · {new Date(screenplay.createdAt).toLocaleString('zh-CN')}
                         </p>
                       </div>
+                      {onEditScreenplay && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onEditScreenplay(screenplay); }}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-orange-400 hover:bg-slate-700 transition-colors flex-shrink-0"
+                          title="编辑剧本"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      )}
                     </div>
 
                     {/* 剧本内容 */}

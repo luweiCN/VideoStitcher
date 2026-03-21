@@ -9,6 +9,7 @@ import { ChatPanel } from './ChatPanel';
 import { NodeCanvas, type NodeCanvasHandle } from './NodeCanvas';
 import { useDirectorMode } from '@renderer/pages/ASide/hooks/useDirectorMode';
 import { useASideStore } from '@renderer/stores/asideStore';
+import { ScreenplayEditModal } from '../ScreenplayGenerator/ScreenplayEditModal';
 
 interface DirectorModeProps {
   /** 剧本 ID */
@@ -78,6 +79,8 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
   const { selectedScreenplay } = useASideStore();
   const [isWorkflowInitialized, setIsWorkflowInitialized] = useState(false);
   const [previewItem, setPreviewItem] = useState<PreviewItem | null>(null);
+  /** 当前正在编辑的剧本 */
+  const [editingScreenplay, setEditingScreenplay] = useState<{ id: string; content: string } | null>(null);
 
   // 命令式画布句柄
   const canvasRef = useRef<NodeCanvasHandle>(null);
@@ -114,7 +117,7 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       x: CANVAS_CENTER_X - NODE_WIDTH / 2,
       y: 50,
       width: NODE_WIDTH,
-      data: { text: selectedScreenplay.content },
+      data: { text: selectedScreenplay.content, screenplayId: selectedScreenplay.id },
     });
   }, [selectedScreenplay]);
 
@@ -294,6 +297,26 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
     }
   };
 
+  /** 始终持有最新的剧本内容，避免 onEdit 闭包捕获旧值 */
+  const currentScreenplayContentRef = useRef(selectedScreenplay?.content ?? '');
+  useEffect(() => {
+    if (selectedScreenplay) {
+      currentScreenplayContentRef.current = selectedScreenplay.content;
+    }
+  }, [selectedScreenplay]);
+
+  // 处理节点编辑（当前仅 script 节点触发）
+  const handleNodeEdit = (_nodeId: string, data: any) => {
+    const sid = (data.screenplayId as string) ?? screenplayId;
+    setEditingScreenplay({ id: sid, content: currentScreenplayContentRef.current });
+  };
+
+  // 剧本编辑保存：更新画布节点的展示内容
+  const handleScreenplaySaved = (newContent: string) => {
+    currentScreenplayContentRef.current = newContent;
+    canvasRef.current?.updateNode('node_script', { text: newContent });
+  };
+
   // 初始化工作流状态
   useEffect(() => {
     const initWorkflow = async () => {
@@ -345,6 +368,7 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
         <NodeCanvas
           ref={canvasRef}
           onNodeRegenerate={handleNodeRegenerate}
+          onNodeEdit={handleNodeEdit}
           onPreview={setPreviewItem}
         />
       </div>
@@ -354,6 +378,16 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
         <MediaPreviewModal
           item={previewItem}
           onClose={() => setPreviewItem(null)}
+        />
+      )}
+
+      {/* 剧本编辑弹窗 */}
+      {editingScreenplay && (
+        <ScreenplayEditModal
+          screenplayId={editingScreenplay.id}
+          content={editingScreenplay.content}
+          onClose={() => setEditingScreenplay(null)}
+          onSaved={handleScreenplaySaved}
         />
       )}
     </div>

@@ -44,6 +44,7 @@ export interface CanvasNode {
   width: number;
   data: {
     text?: string;
+    screenplayId?: string;
     name?: string;
     charName?: string;
     description?: string;
@@ -86,6 +87,8 @@ export interface NodeCanvasHandle {
 interface NodeCanvasProps {
   onNodeRegenerate: (nodeId: string) => void;
   onPreview?: (item: { type: 'image' | 'video'; src: string; title?: string }) => void;
+  /** 节点编辑回调（当前仅 script 节点使用） */
+  onNodeEdit?: (nodeId: string, data: CanvasNode['data']) => void;
 }
 
 // ==================== 自定义类型映射（组件外定义，避免重渲染导致节点闪烁） ====================
@@ -106,7 +109,7 @@ const EDGE_TYPES = {
 // ==================== 内部 Canvas（需要在 ReactFlowProvider 内部才能用 useReactFlow） ====================
 
 const NodeCanvasInner = forwardRef<NodeCanvasHandle, NodeCanvasProps>(
-  function NodeCanvasInner({ onNodeRegenerate, onPreview }, ref) {
+  function NodeCanvasInner({ onNodeRegenerate, onPreview, onNodeEdit }, ref) {
     const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>([]);
     const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
     const { fitView } = useReactFlow();
@@ -116,6 +119,8 @@ const NodeCanvasInner = forwardRef<NodeCanvasHandle, NodeCanvasProps>(
     onNodeRegenerateRef.current = onNodeRegenerate;
     const onPreviewRef = useRef(onPreview);
     onPreviewRef.current = onPreview;
+    const onNodeEditRef = useRef(onNodeEdit);
+    onNodeEditRef.current = onNodeEdit;
     // fitView ref，供 onResize 内部使用（避免闭包捕获问题）
     const fitViewRef = useRef(fitView);
     fitViewRef.current = fitView;
@@ -150,6 +155,7 @@ const NodeCanvasInner = forwardRef<NodeCanvasHandle, NodeCanvasProps>(
         },
         onRegenerate: () => onNodeRegenerateRef.current(cn.id),
         onPreview: (item: any) => onPreviewRef.current?.(item),
+        onEdit: () => onNodeEditRef.current?.(cn.id, cn.data),
       },
       style: { width: cn.width },
     }), [setRfNodes]);

@@ -15,6 +15,7 @@ import { AddPersonaModal } from '../PersonaManager/AddPersonaModal';
 import { EditPersonaModal } from '../PersonaManager/EditPersonaModal';
 import { StepLayout } from '../StepLayout';
 import { ScreenplaySelector } from './ScreenplaySelector';
+import { ScreenplayEditModal } from './ScreenplayEditModal';
 import { useToastMessages } from '@renderer/components/Toast';
 import { useConfirm } from '@renderer/hooks/useConfirm';
 
@@ -26,6 +27,7 @@ export function ScreenplayGenerator() {
   const [addedScreenplayIds, setAddedScreenplayIds] = useState<Set<string>>(new Set());
   const [showScreenplaySelector, setShowScreenplaySelector] = useState(false);
   const [selectorMode, setSelectorMode] = useState<'single' | 'multiple'>('single');
+  const [editingLibraryScreenplay, setEditingLibraryScreenplay] = useState<Screenplay | null>(null);
 
   // 编剧管理状态
   const [personas, setPersonas] = useState<Persona[]>([]);
@@ -564,6 +566,22 @@ export function ScreenplayGenerator() {
           mode={selectorMode}
           onConfirm={handleSelectorConfirm}
           onCancel={() => setShowScreenplaySelector(false)}
+          onEditScreenplay={setEditingLibraryScreenplay}
+        />
+      )}
+
+      {/* 待产库剧本编辑弹窗 */}
+      {editingLibraryScreenplay && (
+        <ScreenplayEditModal
+          screenplayId={editingLibraryScreenplay.id}
+          content={editingLibraryScreenplay.content}
+          onClose={() => setEditingLibraryScreenplay(null)}
+          onSaved={(newContent) => {
+            setLibraryScripts(
+              libraryScripts.map((s: Screenplay) => s.id === editingLibraryScreenplay!.id ? { ...s, content: newContent } : s)
+            );
+            setEditingLibraryScreenplay(null);
+          }}
         />
       )}
     </StepLayout>

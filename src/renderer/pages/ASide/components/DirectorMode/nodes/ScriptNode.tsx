@@ -1,15 +1,12 @@
 /**
  * 剧本节点 - React Flow 自定义节点
+ * 点击铅笔图标触发外部弹窗编辑（通过 data.onEdit 回调），不再内联转换形态
  */
-import { useState } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { FileText, Pencil, Check, X } from 'lucide-react';
+import { FileText, Pencil } from 'lucide-react';
 import { ScreenplayCard } from '../../ScreenplayGenerator/ScreenplayCard';
 
 export function ScriptNode({ data, selected }: NodeProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState('');
-
   return (
     <div className={`p-5 rounded-2xl border shadow-xl bg-slate-800 transition-all ${
       selected
@@ -23,42 +20,18 @@ export function ScriptNode({ data, selected }: NodeProps) {
           <FileText size={14} className="text-blue-500" />
           剧本
         </h4>
-        {!isEditing && (
-          <button
-            onClick={() => { setIsEditing(true); setEditText((data.text as string) ?? ''); }}
-            className="text-slate-400 hover:text-orange-500 transition-colors p-1"
-          >
-            <Pencil size={14} />
-          </button>
-        )}
+        <button
+          onClick={() => (data.onEdit as Function)?.()}
+          className="text-slate-400 hover:text-orange-500 transition-colors p-1"
+          title="编辑剧本"
+        >
+          <Pencil size={14} />
+        </button>
       </div>
 
-      {isEditing ? (
-        <div className="flex flex-col gap-3">
-          <textarea
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-            className="w-full p-3 text-sm font-medium rounded-xl border bg-slate-900 border-slate-600 text-white focus:border-orange-500 outline-none resize-none"
-            rows={4}
-            autoFocus
-          />
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setIsEditing(false)} className="text-xs font-bold text-slate-500 hover:text-slate-300 px-3 py-1.5 flex items-center gap-1">
-              <X size={14} /> 取消
-            </button>
-            <button
-              onClick={() => { (data.onUpdate as Function)?.({ text: editText }); setIsEditing(false); }}
-              className="text-xs font-bold bg-orange-500 text-white px-4 py-1.5 rounded-lg hover:bg-orange-600 shadow-md flex items-center gap-1"
-            >
-              <Check size={14} /> 保存
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="min-h-[60px]">
-          <ScreenplayCard content={(data.text as string) ?? ''} showFull />
-        </div>
-      )}
+      <div className="min-h-[60px]">
+        <ScreenplayCard content={(data.text as string) ?? ''} showFull />
+      </div>
     </div>
   );
 }
