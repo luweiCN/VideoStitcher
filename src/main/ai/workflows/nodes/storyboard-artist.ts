@@ -105,7 +105,12 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
     // 构建图像生成提示词（火山引擎图像 API 限制 4000 字符；系统 prompt 已约束每帧 ≤15 词，25 帧合计约 1875 字符，安全余量充足）
     // 使用角色风格标签替代硬编码的卡通风格词，确保分镜图与角色形象图风格一致
     // 明确禁止边框/间距/白边，确保 5x5 网格切割准确
-    const storyboardPrompt = `Professional storyboard, 5x5 seamless grid of 25 frames in 5 rows and 5 columns, no borders, no padding, no white space, no black bars, no margins, no grid lines, edge-to-edge frames, tight layout, ${styleFragment}, each frame shows: ${frameDescriptions}, consistent character design, sequential narrative flow, no text, no numbers`;
+    // 竖版(9:16)需要明确告知模型生成竖版布局，否则模型默认横版排列
+    const isPortrait = state.videoSpec?.aspectRatio === '9:16';
+    const layoutHint = isPortrait
+      ? 'portrait orientation 9:16 vertical layout, each cell is taller than wide'
+      : 'landscape orientation 16:9 horizontal layout, each cell is wider than tall';
+    const storyboardPrompt = `Professional storyboard grid, exactly 5 rows and 5 columns of 25 panels, ${layoutHint}, zero gaps between panels, no borders no padding no margins no gutters no grid lines no black bars no white space, all panels flush edge-to-edge filling the entire image, ${styleFragment}, each panel shows: ${frameDescriptions}, consistent character design, sequential narrative flow, no text, no numbers`;
 
     const imageOptions: ImageGenerationOptions = {
       // 分镜图用最高分辨率，保证帧切割质量

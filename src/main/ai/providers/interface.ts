@@ -112,6 +112,11 @@ export interface SpeechSynthesisResult {
 
 /**
  * 视频生成选项
+ *
+ * 注意：Seedance API 的图片输入模式是互斥的：
+ * - i2v 模式：firstFrameImageUrl（首帧图生视频）
+ * - r2v 模式：referenceImageUrls（参考图生视频）
+ * 两者不能同时使用；优先级：firstFrameImageUrl > referenceImageUrls
  */
 export interface VideoGenerationOptions {
   /** 时长（秒） */
@@ -122,10 +127,24 @@ export interface VideoGenerationOptions {
   fps?: number;
   /** 分辨率 */
   resolution?: '720p' | '1080p' | '4k';
-  /** 参考图片 URL（图生视频，作为视觉参考/首帧） */
-  imageUrl?: string;
-  /** 多张参考图 URL 列表（按顺序对应提示词中的 [图1]、[图2]…）*/
+  /**
+   * 首帧图片（i2v 模式，role: first_frame）
+   * 支持 URL 或 base64 data URI
+   * 与 referenceImageUrls 互斥，设置后优先使用 i2v 模式
+   */
+  firstFrameImageUrl?: string;
+  /**
+   * 参考图片列表（r2v 模式，role: reference_image）
+   * 仅在 firstFrameImageUrl 未设置时生效
+   */
   referenceImageUrls?: string[];
+  /**
+   * 是否生成同步音频（仅 Seedance 1.5 pro 支持）
+   * true：生成与画面同步的人声/音效/背景音乐
+   * false：无声视频
+   * 默认 true（仅在支持音频的模型中生效）
+   */
+  generateAudio?: boolean;
 }
 
 /**

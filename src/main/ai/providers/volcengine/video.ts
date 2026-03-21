@@ -39,7 +39,8 @@ export class VolcEngineVideo {
   constructor(config: VolcEngineVideoConfig) {
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl || 'https://ark.cn-beijing.volces.com/api/v3';
-    this.model = config.model || 'doubao-seedance-1-0-lite-i2v-250428';
+    // Seedance 1.5 pro 支持音频生成；lite 版不支持
+    this.model = config.model || 'doubao-seedance-1-5-pro-i2v-250528';
 
     console.log('[VolcEngineVideo] 初始化视频生成客户端', {
       baseUrl: this.baseUrl,
@@ -142,13 +143,17 @@ export class VolcEngineVideo {
 
   /**
    * 创建视频生成任务（文生视频 or 图生视频）
+   *
+   * Seedance API 图片输入模式互斥：
+   * - i2v（首帧图生视频）：content 中 role = first_frame
+   * - r2v（参考图生视频）：content 中 role = reference_image
+   * 两者不能同时使用，优先 i2v
    */
   private async createVideoTask(
     imageUrl?: string,
     prompt?: string,
     options?: VideoGenerationOptions
   ): Promise<{ taskId: string }> {
-    // 构建 content 数组（与 OpenAI Chat API 格式一致）
     const contentItems: Array<Record<string, unknown>> = [];
 
     // 提示词（文本）
@@ -156,19 +161,20 @@ export class VolcEngineVideo {
       contentItems.push({ type: 'text', text: prompt });
     }
 
-    // 首帧图片（图生视频，可选）
-    if (imageUrl) {
+    // 判断使用哪种图片模式（i2v 和 r2v 互斥）
+    const firstFrameUrl = imageUrl || options?.firstFrameImageUrl;
+
+    if (firstFrameUrl) {
+      // i2v 模式：首帧图生视频（role: first_frame）
       contentItems.push({
         type: 'image_url',
-        image_url: { url: imageUrl },
+        image_url: { url: firstFrameUrl },
         role: 'first_frame',
       });
-    }
-
-    // 参考图片列表（role: reference_image → r2v 任务类型）
-    // 当前模型 doubao-seedance-1-0-lite-i2v-250428 支持 r2v（参考图生视频）
-    if (options?.referenceImageUrls && options.referenceImageUrls.length > 0) {
-      const refs = options.referenceImageUrls.slice(0, 4); // API 限制最多 4 张
+      console.log('[VolcEngineVideo] i2v 模式：使用首帧图片');
+    } else if (options?.referenceImageUrls && options.referenceImageUrls.length > 0) {
+      // r2v 模式：参考图生视频（role: reference_image，最多 4 张）
+      const refs = options.referenceImageUrls.slice(0, 4);
       for (const refUrl of refs) {
         contentItems.push({
           type: 'image_url',
@@ -176,8 +182,36 @@ export class VolcEngineVideo {
           role: 'reference_image',
         });
       }
-      console.log(`[VolcEngineVideo] 添加 ${refs.length} 张参考图（r2v 模式）`);
+      console.log(`[VolcEngineVideo] r2v 模式：使用 ${refs.length} 张参考图`);
+    } else {
+      console.log('[VolcEngineVideo] t2v 模式：纯文生视频');
     }
+
+    // 构建请求体
+    const requestBody: Record<string, unknown> = {
+      model: this.model,
+      content: contentItems,
+      duration: options?.duration || 5,
+      ratio: options?.aspectRatio || '16:9',
+      fps: options?.fps || 24,
+      resolution: options?.resolution || '720p',
+    };
+
+    // 音频生成（仅 Seedance 1.5 pro 支持）
+    // 默认 true，开启同步音频（人声/音效/背景音乐）
+    if (options?.generateAudio !== undefined) {
+      requestBody.generate_audio = options.generateAudio;
+    } else {
+      requestBody.generate_audio = true; // 默认开启
+    }
+
+    console.log('[VolcEngineVideo] 创建视频任务', {
+      model: this.model,
+      aspectRatio: requestBody.ratio,
+      duration: requestBody.duration,
+      generateAudio: requestBody.generate_audio,
+      contentCount: contentItems.length,
+    });
 
     const response = await fetch(`${this.baseUrl}/contents/generations/tasks`, {
       method: 'POST',
@@ -185,14 +219,7 @@ export class VolcEngineVideo {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.apiKey}`,
       },
-      body: JSON.stringify({
-        model: this.model,
-        content: contentItems,
-        duration: options?.duration || 5,
-        ratio: options?.aspectRatio || '16:9',
-        fps: options?.fps || 24,
-        resolution: options?.resolution || '720p',
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

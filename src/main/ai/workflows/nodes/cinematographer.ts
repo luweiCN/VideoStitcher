@@ -162,46 +162,43 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
       const firstFrameBase64: string | undefined = storyboardFrames[firstFrameIdx]?.base64;
       const storyboardImageUrl: string | undefined = storyboardOutput.imageUrl;
 
-      // 构建参考图列表：首帧 base64 → 角色图（可选）
-      const referenceImageUrls: string[] = [];
-      const refAnnotations: string[] = [];
+      // 确定实际使用的首帧图（用于日志）
+      const usedFirstFrame = firstFrameBase64
+        ? `分镜第 ${firstFrameIdx + 1} 帧 base64`
+        : storyboardImageUrl
+          ? '整张分镜大图 URL'
+          : '无（t2v 模式）';
 
-      if (firstFrameBase64) {
-        // i2v：使用对应分镜帧 base64 作为首帧
-        referenceImageUrls.push(firstFrameBase64);
-        refAnnotations.push(`[图${referenceImageUrls.length}]是该视频段的起始画面参考（分镜第 ${firstFrameIdx + 1} 帧）`);
-        console.log(`[Agent 5: 摄影师] 使用分镜第 ${firstFrameIdx + 1} 帧 base64 作为 i2v 参考`);
-      } else if (storyboardImageUrl) {
-        // 降级：使用整张分镜大图
-        referenceImageUrls.push(storyboardImageUrl);
-        refAnnotations.push(`[图${referenceImageUrls.length}]是场景的分镜构图参考`);
-        console.warn(`[Agent 5: 摄影师] 未找到帧 base64（index=${firstFrameIdx}），降级使用整张分镜图`);
-      }
-      if (characterImageUrl) {
-        referenceImageUrls.push(characterImageUrl);
-        refAnnotations.push(`[图${referenceImageUrls.length}]是角色的外观形象参考`);
-      }
-
-      // 构建最终提示词：[图N] 参考说明 + 运镜指令 + 分镜帧文字描述
-      const refPrefix = refAnnotations.length > 0 ? `${refAnnotations.join('，')}。` : '';
+      // 构建最终提示词：运镜指令 + 分镜帧文字描述
+      // i2v 模式下不需要 [图N] 注释——首帧图已经通过 firstFrameImageUrl 传递，
+      // 模型将直接从该帧开始动画，提示词只需描述动作/运镜
       const sceneContext = relevantFrameDescriptions
         ? ` | Scene context: ${relevantFrameDescriptions}`
         : '';
-      const fullPrompt = `${refPrefix}${renderTask.video_generation_prompt}${sceneContext}`;
+      const fullPrompt = `${renderTask.video_generation_prompt}${sceneContext}`;
 
       console.log(`[Agent 5: 摄影师] 开始生成第 ${renderTask.chunk_id} 段视频`, {
         duration: renderTask.duration_seconds,
         frames: `${startFrame}-${endFrame}`,
         firstFrameIndex: firstFrameIdx,
-        referenceImages: referenceImageUrls.length,
+        usedFirstFrame,
         promptPreview: fullPrompt.substring(0, 150),
       });
 
-      // 构建视频生成选项：传入参考图列表（首帧 base64 + 角色图）
+      // 构建视频生成选项
+      // 注意：i2v（首帧）和 r2v（参考图）互斥，优先使用 i2v（分镜首帧）
       const videoOptions: VideoGenerationOptions = {
         duration: renderTask.duration_seconds,
         aspectRatio: videoSpec?.aspectRatio || '16:9',
-        ...(referenceImageUrls.length > 0 ? { referenceImageUrls } : {}),
+        generateAudio: true, // 开启同步音频（需要 Seedance 1.5 pro 模型）
+        // i2v 模式：分镜首帧作为视频首帧，触发图生视频
+        ...(firstFrameBase64
+          ? { firstFrameImageUrl: firstFrameBase64 }
+          : storyboardImageUrl
+            ? { firstFrameImageUrl: storyboardImageUrl }
+            : {}),
+        // 注意：i2v 模式下不能同时传 referenceImageUrls（互斥）
+        // 角色参考图暂不传递，避免 API 报错
       };
 
       const videoResult = await provider.generateVideo(fullPrompt, videoOptions);
