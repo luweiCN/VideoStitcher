@@ -27,6 +27,7 @@ interface AddPersonaModalProps {
 }
 
 export function AddPersonaModal({ projectId, onClose, onAdd, initialData, isEdit }: AddPersonaModalProps) {
+  console.log('[AddPersonaModal] 收到的 projectId:', projectId, '类型:', typeof projectId);
   const [name, setName] = useState(initialData?.name ?? '');
   const [prompt, setPrompt] = useState(initialData?.prompt ?? '');
   const [characteristics, setCharacteristics] = useState<string[]>(
