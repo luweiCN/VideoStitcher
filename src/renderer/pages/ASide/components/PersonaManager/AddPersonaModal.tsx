@@ -7,7 +7,6 @@
  */
 
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
   X, Sparkles, Loader2, Plus, Pencil, Tags
 } from 'lucide-react';
@@ -27,10 +26,7 @@ interface AddPersonaModalProps {
   isEdit?: boolean;
 }
 
-export function AddPersonaModal({ projectId: projectIdProp, onClose, onAdd, initialData, isEdit }: AddPersonaModalProps) {
-  const [searchParams] = useSearchParams();
-  // 优先从 URL 读 projectId（可靠），fallback 到 prop（兼容编辑模式）
-  const projectId = searchParams.get('project') || projectIdProp;
+export function AddPersonaModal({ projectId, onClose, onAdd, initialData, isEdit }: AddPersonaModalProps) {
   const [name, setName] = useState(initialData?.name ?? '');
   const [prompt, setPrompt] = useState(initialData?.prompt ?? '');
   const [characteristics, setCharacteristics] = useState<string[]>(

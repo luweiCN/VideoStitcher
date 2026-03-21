@@ -118,11 +118,11 @@ export function ProjectLibrary() {
   };
 
   /**
-   * 进入项目（URL + store 同步导航）
+   * 进入项目（跳转到 Step 1）
    */
   const handleEnterProject = (project: Project) => {
     selectProject(project);
-    navigate(`/aside?project=${project.id}`);
+    setCurrentView('step1-direction');
   };
 
   return (
