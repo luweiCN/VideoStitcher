@@ -529,6 +529,7 @@ export interface ElectronAPI {
   asideAddCreativeDirection: (data: { projectId: string; name: string; description?: string; iconName?: string }) => Promise<{ success: boolean; direction: import('@shared/types/aside').CreativeDirection; error?: string }>;
   asideUpdateCreativeDirection: (directionId: string, data: { name?: string; description?: string; iconName?: string }) => Promise<{ success: boolean; error?: string }>;
   asideDeleteCreativeDirection: (directionId: string) => Promise<{ success: boolean; error?: string }>;
+  asideGenerateCreativeDirections: (projectId: string) => Promise<{ success: boolean; directions?: import('@shared/types/aside').CreativeDirection[]; error?: string }>;
 
   asideGetPersonas: (projectId: string) => Promise<{ success: boolean; personas: import('@shared/types/aside').Persona[]; error?: string }>;
   asideAddPersona: (data: { projectId: string; name: string; prompt: string }) => Promise<{ success: boolean; persona: import('@shared/types/aside').Persona; error?: string }>;

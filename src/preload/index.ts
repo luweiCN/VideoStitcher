@@ -461,6 +461,7 @@ export interface ElectronAPI {
   asideAddCreativeDirection: (data: { projectId: string; name: string; description?: string; iconName?: string }) => Promise<{ success: boolean; direction?: any; error?: string }>;
   asideUpdateCreativeDirection: (directionId: string, data: { name?: string; description?: string; iconName?: string }) => Promise<{ success: boolean; error?: string }>;
   asideDeleteCreativeDirection: (directionId: string) => Promise<{ success: boolean; error?: string }>;
+  asideGenerateCreativeDirections: (projectId: string) => Promise<{ success: boolean; directions?: any[]; error?: string }>;
 
   // 人设
   asideGetPersonas: (projectId: string) => Promise<{ success: boolean; personas?: any[]; error?: string }>;
@@ -807,6 +808,7 @@ const api: ElectronAPI = {
   asideAddCreativeDirection: (data) => ipcRenderer.invoke('aside:addCreativeDirection', data),
   asideUpdateCreativeDirection: (directionId, data) => ipcRenderer.invoke('aside:updateCreativeDirection', directionId, data),
   asideDeleteCreativeDirection: (directionId) => ipcRenderer.invoke('aside:deleteCreativeDirection', directionId),
+  asideGenerateCreativeDirections: (projectId) => ipcRenderer.invoke('aside:generateCreativeDirections', projectId),
 
   // 人设
   asideGetPersonas: (projectId) => ipcRenderer.invoke('aside:getPersonas', projectId),

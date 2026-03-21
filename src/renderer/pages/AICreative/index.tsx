@@ -15,9 +15,10 @@ import {
   Check,
   Edit2,
   Trash2,
-  MoreVertical,
   Clock,
+  Lock,
 } from 'lucide-react';
+import { BUILTIN_PROMPT_TEMPLATES } from '@shared/constants/promptTemplates';
 
 // ─── 类型定义 ─────────────────────────────────────────────
 
@@ -326,6 +327,61 @@ const PromptStudioView: React.FC<{
   );
 };
 
+// ─── 内置模板卡片（只读，可展开查看完整内容）──────────────
+
+const BuiltinTemplateCard: React.FC<{
+  template: (typeof BUILTIN_PROMPT_TEMPLATES)[number];
+  isActive: boolean;
+}> = ({ template, isActive }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-slate-900 border border-slate-700/50 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-3 p-4">
+        <Lock className="w-4 h-4 text-slate-500 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-300">{template.name}</span>
+            <span className="px-1.5 py-0.5 bg-slate-700 rounded text-xs text-slate-400">只读</span>
+          </div>
+          <div className="text-xs text-slate-500 mt-0.5">系统内置，不可删除或修改</div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isActive && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full text-xs text-emerald-400">
+              <Check className="w-3 h-3" />
+              生效中
+            </span>
+          )}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="text-xs text-slate-500 hover:text-white transition-colors cursor-pointer px-2 py-1 rounded hover:bg-slate-700"
+          >
+            {expanded ? '收起' : '查看内容'}
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-slate-800 p-4 space-y-3">
+          <div>
+            <div className="text-xs font-medium text-slate-400 mb-1.5">系统提示词</div>
+            <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap bg-slate-800/60 rounded-lg p-3 max-h-64 overflow-y-auto leading-relaxed">
+              {template.systemPrompt}
+            </pre>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-slate-400 mb-1.5">用户提示词模板</div>
+            <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap bg-slate-800/60 rounded-lg p-3 max-h-32 overflow-y-auto leading-relaxed">
+              {template.userPromptTemplate}
+            </pre>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── 子视图：模板列表 ─────────────────────────────────────
 
 const TemplatesView: React.FC<{
@@ -380,6 +436,10 @@ const TemplatesView: React.FC<{
 
   const Icon = agent.icon;
 
+  // 找到该 Agent 的内置模板（来自共享常量）
+  const builtinTemplate = BUILTIN_PROMPT_TEMPLATES.find((t) => t.agentId === agent.id);
+  const hasActiveCustom = templates.some((t) => t.isActive);
+
   return (
     <div className="w-full max-w-2xl space-y-4">
       {/* Agent 信息头部 */}
@@ -393,24 +453,31 @@ const TemplatesView: React.FC<{
         </div>
       </div>
 
-      {/* 内置提示词说明 */}
-      <div className="flex items-start gap-3 p-4 bg-slate-900 border border-slate-800 rounded-xl">
-        <div className="w-2 h-2 rounded-full bg-slate-500 mt-1.5 flex-shrink-0" />
-        <div>
-          <div className="text-sm font-medium text-slate-300 mb-0.5">内置提示词（只读）</div>
-          <div className="text-xs text-slate-500 leading-relaxed">
-            系统内置的默认提示词，不可编辑。若无自定义模板处于生效状态，Agent 将使用此提示词。
+      {/* 内置提示词（只读展示，带实际内容） */}
+      {builtinTemplate ? (
+        <BuiltinTemplateCard
+          template={builtinTemplate}
+          isActive={!hasActiveCustom}
+        />
+      ) : (
+        <div className="flex items-start gap-3 p-4 bg-slate-900 border border-slate-800 rounded-xl">
+          <div className="w-2 h-2 rounded-full bg-slate-500 mt-1.5 flex-shrink-0" />
+          <div>
+            <div className="text-sm font-medium text-slate-300 mb-0.5">内置提示词（只读）</div>
+            <div className="text-xs text-slate-500 leading-relaxed">
+              系统内置的默认提示词，不可编辑。若无自定义模板处于生效状态，Agent 将使用此提示词。
+            </div>
+          </div>
+          <div className="ml-auto flex-shrink-0">
+            {!hasActiveCustom && (
+              <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full text-xs text-emerald-400">
+                <Check className="w-3 h-3" />
+                生效中
+              </span>
+            )}
           </div>
         </div>
-        <div className="ml-auto flex-shrink-0">
-          {templates.every((t) => !t.isActive) && (
-            <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full text-xs text-emerald-400">
-              <Check className="w-3 h-3" />
-              生效中
-            </span>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* 自定义模板列表 */}
       {templates.map((t) => (

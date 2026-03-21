@@ -18,6 +18,11 @@ import { asideCreativeDirectionRepository } from '../database/repositories/aside
 import { asidePersonaRepository } from '../database/repositories/asidePersonaRepository';
 import { asideScreenplayRepository } from '../database/repositories/asideScreenplayRepository';
 import type { GameType, AIModel } from '@shared/types/aside';
+import {
+  CreativeDirectionAgentPrompts,
+  parseCreativeDirectionsOutput,
+} from '../ai/prompts/creative-direction-agent';
+import { getGlobalProvider } from '../ai/provider-manager';
 
 // 使用 logger
 const logger = log;
@@ -618,12 +623,72 @@ async function handleUpdateCreativeDirection(
   }
 }
 
-// ==================== 人设处理器 ====================
+// ==================== 创意方向 AI 生成处理器 ====================
 
 /**
- * 获取人设列表
+ * AI 生成创意方向
+ * 根据项目游戏信息，调用创意方向生成 Agent 生成 5 个专属创意方向并写入 DB
  */
-async function handleGetPersonas(
+async function handleGenerateCreativeDirections(
+  _event: any,
+  projectId: string
+): Promise<{ success: boolean; directions?: any[]; error?: string }> {
+  logger.info('[创意方向 AI 生成] 开始生成', { projectId });
+
+  try {
+    if (!projectId || projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    // 1. 加载项目信息
+    const project = asideProjectRepository.getProject(projectId);
+    if (!project) {
+      return { success: false, error: '项目不存在' };
+    }
+
+    // 2. 获取 AI 提供商
+    const provider = getGlobalProvider();
+    if (!provider) {
+      return { success: false, error: 'AI 提供商未初始化，请先在设置中配置 API Key' };
+    }
+
+    // 3. 构建提示词
+    const systemPrompt = CreativeDirectionAgentPrompts.buildSystemPrompt();
+    const userPrompt = CreativeDirectionAgentPrompts.buildUserPrompt(project);
+
+    logger.info('[创意方向 AI 生成] 调用 LLM', { game: project.name, type: project.gameType });
+
+    // 4. 调用 AI
+    const result = await provider.generateText(userPrompt, {
+      systemPrompt,
+      temperature: 0.85,
+      maxTokens: 2048,
+    });
+
+    // 5. 解析输出
+    const rawDirections = parseCreativeDirectionsOutput(result.content);
+    logger.info('[创意方向 AI 生成] 解析成功', { count: rawDirections.length });
+
+    // 6. 写入数据库
+    const created = rawDirections.map((d) =>
+      asideCreativeDirectionRepository.addCreativeDirection({
+        projectId,
+        name: d.name,
+        description: d.description,
+        iconName: d.iconName,
+      })
+    );
+
+    logger.info('[创意方向 AI 生成] 写入 DB 完成', { count: created.length });
+    return { success: true, directions: created };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[创意方向 AI 生成] 失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+// ==================== 人设处理器 ====================
   _event: any,
   projectId: string
 ): Promise<{ success: boolean; personas?: any[]; error?: string }> {
@@ -1120,6 +1185,7 @@ export function registerAsideHandlers(): void {
   ipcMain.handle('aside:addCreativeDirection', handleAddCreativeDirection);
   ipcMain.handle('aside:updateCreativeDirection', handleUpdateCreativeDirection);
   ipcMain.handle('aside:deleteCreativeDirection', handleDeleteCreativeDirection);
+  ipcMain.handle('aside:generateCreativeDirections', handleGenerateCreativeDirections);
 
   // 人设
   ipcMain.handle('aside:getPersonas', handleGetPersonas);

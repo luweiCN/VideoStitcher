@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Plus, LayoutGrid, List, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Plus, LayoutGrid, List, Wand2, Loader2 } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import { useConfirm } from '@renderer/hooks/useConfirm';
 import type { CreativeDirection } from '@shared/types/aside';
@@ -22,6 +22,7 @@ export function CreativeDirectionSelector() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingDirection, setEditingDirection] = useState<CreativeDirection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   const {
@@ -150,6 +151,27 @@ export function CreativeDirectionSelector() {
   };
 
   /**
+   * AI 批量生成创意方向
+   */
+  const handleAIGenerate = async () => {
+    if (!currentProject) return;
+    setIsGenerating(true);
+    try {
+      const result = await window.api.asideGenerateCreativeDirections(currentProject.id);
+      if (result.success && result.directions) {
+        await loadDirections();
+        console.log('[CreativeDirectionSelector] AI 生成创意方向成功:', result.directions.length);
+      } else {
+        console.error('[CreativeDirectionSelector] AI 生成失败:', result.error);
+      }
+    } catch (error) {
+      console.error('[CreativeDirectionSelector] AI 生成创意方向异常:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  /**
    * 进入下一步
    */
   const handleGoToNextStep = () => {
@@ -174,7 +196,7 @@ export function CreativeDirectionSelector() {
     </div>
   );
 
-  // 头部右侧内容：布局切换 + 添加按钮
+  // 头部右侧内容：布局切换 + AI 生成 + 添加按钮
   const rightContent = (
     <div className="flex items-center gap-3">
       {/* 视图切换按钮 */}
@@ -203,7 +225,22 @@ export function CreativeDirectionSelector() {
         </button>
       </div>
 
-      {/* 添加按钮 */}
+      {/* AI 生成按钮 */}
+      <button
+        onClick={handleAIGenerate}
+        disabled={isGenerating}
+        className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg hover:border-violet-500 hover:text-violet-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title="根据游戏信息 AI 生成 5 个专属创意方向"
+      >
+        {isGenerating ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Wand2 className="w-4 h-4" />
+        )}
+        <span>{isGenerating ? '生成中...' : 'AI 生成'}</span>
+      </button>
+
+      {/* 手动添加按钮 */}
       <button
         onClick={() => setIsAddModalOpen(true)}
         className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors"
@@ -216,6 +253,7 @@ export function CreativeDirectionSelector() {
 
   return (
     <StepLayout
+      title="选择创意方向"
       stepNumber={1}
       totalSteps={4}
       showLibrary={false}
