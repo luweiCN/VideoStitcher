@@ -15,6 +15,10 @@ export interface StepLayoutProps {
   stepNumber: number;
   totalSteps: number;
   showLibrary?: boolean;
+  /** 是否显示内置 header（外层已有导航栏时可设为 false） */
+  showHeader?: boolean;
+  /** main 区域是否允许整页滚动（左右分栏布局时设为 false，由子组件自管滚动） */
+  scrollable?: boolean;
   onPrev?: () => void;
   onNext?: () => void;
   nextButtons?: ReactNode; // 支持自定义下一步按钮
@@ -31,6 +35,8 @@ export function StepLayout({
   stepNumber,
   totalSteps,
   showLibrary = false,
+  showHeader = true,
+  scrollable = true,
   onPrev,
   onNext,
   nextButtons,
@@ -40,20 +46,22 @@ export function StepLayout({
 }: StepLayoutProps) {
   return (
     <div className="h-full flex flex-col bg-black text-slate-100">
-      {/* 头部 - 粘性 */}
-      <header className="sticky top-0 px-6 py-4 border-b border-slate-800 bg-black/50 z-10">
-        <StepHeader
-          title={title}
-          stepNumber={stepNumber}
-          totalSteps={totalSteps}
-          showLibrary={showLibrary}
-          leftContent={leftContent}
-          rightContent={rightContent}
-        />
-      </header>
+      {/* 头部 - 粘性（可选） */}
+      {showHeader && (
+        <header className="sticky top-0 px-6 py-4 border-b border-slate-800 bg-black/50 z-10">
+          <StepHeader
+            title={title}
+            stepNumber={stepNumber}
+            totalSteps={totalSteps}
+            showLibrary={showLibrary}
+            leftContent={leftContent}
+            rightContent={rightContent}
+          />
+        </header>
+      )}
 
-      {/* 主内容区 - 可滚动 */}
-      <main className="flex-1 overflow-y-auto">
+      {/* 主内容区 */}
+      <main className={`flex-1 ${scrollable ? 'overflow-y-auto' : 'overflow-hidden'}`}>
         {children}
       </main>
 

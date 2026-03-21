@@ -23,7 +23,6 @@ import { RegionSettingsPage } from './components/Settings/RegionSettingsPage';
 const ASidePage: React.FC = () => {
   const navigate = useNavigate();
   const { currentView, currentProject, selectedScreenplay, setCurrentView, goToPrevStep } = useASideStore();
-
   /**
    * 返回上一步或项目库
    */
@@ -54,15 +53,19 @@ const ASidePage: React.FC = () => {
       {(currentProject && currentView !== 'library') || isSettingsView ? (
         <header className="flex items-center justify-between px-6 py-3 border-b border-slate-800 bg-black/50">
           <div className="flex items-center gap-3">
-            {/* 返回按钮 - 所有步骤都显示 */}
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-2 text-slate-400 hover:text-slate-100 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-sm">返回</span>
-            </button>
-            <div className="h-5 w-px bg-slate-700" />
+            {/* 返回按钮 - 仅 Step1 和设置视图显示，其余步骤由 StepLayout 自带上一步按钮 */}
+            {(currentView === 'step1-direction' || isSettingsView) && (
+              <>
+                <button
+                  onClick={handleBack}
+                  className="flex items-center gap-2 text-slate-400 hover:text-slate-100 transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm">返回</span>
+                </button>
+                <div className="h-5 w-px bg-slate-700" />
+              </>
+            )}
             {isSettingsView ? (
               <>
                 <div className="w-8 h-8 bg-slate-700/50 text-slate-400 rounded-lg flex items-center justify-center">
