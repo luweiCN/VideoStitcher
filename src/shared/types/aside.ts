@@ -97,6 +97,9 @@ export interface Persona {
   /** 人设提示词（用于 AI 生成） */
   prompt: string;
 
+  /** 特点标签列表（如 ["反转", "悬念", "节奏快"]） */
+  characteristics?: string[];
+
   /** 是否为预设（系统内置） */
   isPreset: boolean;
 

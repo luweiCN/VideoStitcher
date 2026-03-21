@@ -19,6 +19,7 @@ import { asidePersonaRepository } from '../database/repositories/asidePersonaRep
 import { asideScreenplayRepository } from '../database/repositories/asideScreenplayRepository';
 import type { GameType, AIModel } from '@shared/types/aside';
 import { runCreativeDirectionAgent } from '../ai/agents/creative-direction';
+import { runWriterGeneratorAgent } from '../ai/agents/writer-generator';
 
 // 使用 logger
 const logger = log;
@@ -639,14 +640,17 @@ async function handleGenerateCreativeDirections(
     }
 
     // 1. 加载项目信息
-    const project = asideProjectRepository.getProject(projectId);
+    const project = asideProjectRepository.getProjectById(projectId);
     if (!project) {
       return { success: false, error: '项目不存在' };
     }
 
     // 2. 加载已有创意方向（作为上下文传给 Agent，避免生成重复风格）
     const existingResult = asideCreativeDirectionRepository.getCreativeDirections(projectId);
-    const existingDirections = existingResult.map((d) => ({
+
+    // 构建上下文：最近 20 个名称 + 完整列表（按时间倒序）
+    const recentNames = existingResult.map((d) => d.name);
+    const fullDirections = existingResult.map((d) => ({
       name: d.name,
       description: d.description,
     }));
@@ -654,11 +658,16 @@ async function handleGenerateCreativeDirections(
     logger.info('[创意方向 AI 生成] 调用 Agent', {
       game: project.name,
       type: project.gameType,
-      existingCount: existingDirections.length,
+      totalExisting: existingResult.length,
     });
 
     // 3. 调用创意方向生成 Agent（每次生成 1 个）
-    const direction = await runCreativeDirectionAgent(project, { existingDirections });
+    const direction = await runCreativeDirectionAgent(
+      project,
+      { recentNames, fullDirections },
+      {},
+      logger
+    );
 
     logger.info('[创意方向 AI 生成] 解析成功', { name: direction.name });
 
@@ -679,7 +688,62 @@ async function handleGenerateCreativeDirections(
   }
 }
 
+// ==================== 创意方向 AI 预览处理器 ====================
+
+/**
+ * AI 预览创意方向（生成但不存库）
+ *
+ * 仅调用 Agent 生成一个方向并返回给前端，由用户确认后再手动保存。
+ */
+async function handlePreviewCreativeDirection(
+  _event: any,
+  projectId: string
+): Promise<{ success: boolean; direction?: { name: string; description?: string; iconName?: string }; error?: string }> {
+  logger.info('[创意方向 AI 预览] 开始生成', { projectId });
+
+  try {
+    if (!projectId || projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    const project = asideProjectRepository.getProjectById(projectId);
+    if (!project) {
+      return { success: false, error: '项目不存在' };
+    }
+
+    const existingResult = asideCreativeDirectionRepository.getCreativeDirections(projectId);
+
+    // 构建上下文：最近 20 个名称 + 完整列表（按时间倒序）
+    const recentNames = existingResult.map((d) => d.name);
+    const fullDirections = existingResult.map((d) => ({
+      name: d.name,
+      description: d.description,
+    }));
+
+    logger.info('[创意方向 AI 预览] 调用 Agent', {
+      game: project.name,
+      type: project.gameType,
+      totalExisting: existingResult.length,
+    });
+
+    const direction = await runCreativeDirectionAgent(
+      project,
+      { recentNames, fullDirections },
+      {},
+      logger
+    );
+    logger.info('[创意方向 AI 预览] 生成成功', { name: direction.name });
+
+    return { success: true, direction };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[创意方向 AI 预览] 失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
 // ==================== 人设处理器 ====================
+async function handleGetPersonas(
   _event: any,
   projectId: string
 ): Promise<{ success: boolean; personas?: any[]; error?: string }> {
@@ -705,7 +769,7 @@ async function handleGenerateCreativeDirections(
  */
 async function handleAddPersona(
   _event: any,
-  data: { projectId: string; name: string; prompt: string }
+  data: { projectId: string; name: string; prompt: string; characteristics?: string[] }
 ): Promise<{ success: boolean; persona?: any; error?: string }> {
   logger.info('[人设处理器] 添加人设', data);
 
@@ -777,6 +841,61 @@ async function handleDeletePersona(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
     logger.error('[人设处理器] 删除人设失败', errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * AI 预览生成编剧人设
+ */
+async function handlePreviewPersona(
+  _event: any,
+  projectId: string,
+  userWriterName?: string
+): Promise<{
+  success: boolean;
+  persona?: { name: string; prompt: string; characteristics: string[] };
+  error?: string;
+}> {
+  logger.info('[编剧生成处理器] 开始生成', { projectId, userWriterName });
+
+  try {
+    if (!projectId || projectId.trim() === '') {
+      return { success: false, error: '项目 ID 不能为空' };
+    }
+
+    const project = asideProjectRepository.getProjectById(projectId);
+    if (!project) {
+      return { success: false, error: '项目不存在' };
+    }
+
+    // 加载已有编剧（用于去重和参考）
+    const existingPersonas = asidePersonaRepository.getPersonas(projectId);
+    const recentNames = existingPersonas.map((p) => p.name);
+    const fullWriters = existingPersonas.map((p) => ({
+      name: p.name,
+      prompt: p.prompt,
+    }));
+
+    logger.info('[编剧生成处理器] 调用 Agent', {
+      game: project.name,
+      type: project.gameType,
+      totalExisting: existingPersonas.length,
+      userWriterName: userWriterName || null,
+    });
+
+    const persona = await runWriterGeneratorAgent(
+      project,
+      { recentNames, fullWriters },
+      { userWriterName },
+      logger
+    );
+
+    logger.info('[编剧生成处理器] 生成成功', { name: persona.name });
+    return { success: true, persona };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '未知错误';
+    logger.error('[编剧生成处理器] 生成失败', errorMessage);
     return { success: false, error: errorMessage };
   }
 }
@@ -1177,12 +1296,14 @@ export function registerAsideHandlers(): void {
   ipcMain.handle('aside:updateCreativeDirection', handleUpdateCreativeDirection);
   ipcMain.handle('aside:deleteCreativeDirection', handleDeleteCreativeDirection);
   ipcMain.handle('aside:generateCreativeDirections', handleGenerateCreativeDirections);
+  ipcMain.handle('aside:previewCreativeDirection', handlePreviewCreativeDirection);
 
   // 人设
   ipcMain.handle('aside:getPersonas', handleGetPersonas);
   ipcMain.handle('aside:addPersona', handleAddPersona);
   ipcMain.handle('aside:updatePersona', handleUpdatePersona);
   ipcMain.handle('aside:deletePersona', handleDeletePersona);
+  ipcMain.handle('aside:previewPersona', handlePreviewPersona);
 
   // 脚本管理
   ipcMain.handle('aside:generateScreenplays', handleGenerateScreenplays);

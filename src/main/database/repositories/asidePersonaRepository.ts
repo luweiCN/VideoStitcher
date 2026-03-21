@@ -15,6 +15,7 @@ interface PersonaRow {
   project_id: string;
   name: string;
   prompt: string;
+  characteristics: string;
   is_preset: number;
   created_at: number;
 }
@@ -28,7 +29,6 @@ export class AsidePersonaRepository {
    * @returns 人设列表
    */
   getPersonas(projectId: string): Persona[] {
-    // 参数验证
     if (!projectId || projectId.trim() === '') {
       throw new Error('项目 ID 不能为空');
     }
@@ -36,7 +36,7 @@ export class AsidePersonaRepository {
     try {
       const db = getDatabase();
       const rows = db.prepare(`
-        SELECT id, project_id, name, prompt, is_preset, created_at
+        SELECT id, project_id, name, prompt, characteristics, is_preset, created_at
         FROM aside_personas
         WHERE project_id = ?
         ORDER BY created_at ASC
@@ -57,8 +57,12 @@ export class AsidePersonaRepository {
    * @param data 人设数据
    * @returns 新创建的人设
    */
-  addPersona(data: { projectId: string; name: string; prompt: string }): Persona {
-    // 参数验证
+  addPersona(data: {
+    projectId: string;
+    name: string;
+    prompt: string;
+    characteristics?: string[];
+  }): Persona {
     if (!data.projectId || data.projectId.trim() === '') {
       throw new Error('项目 ID 不能为空');
     }
@@ -74,27 +78,17 @@ export class AsidePersonaRepository {
     const db = getDatabase();
     const id = uuidv4();
     const now = Date.now();
+    const characteristics = JSON.stringify(data.characteristics ?? []);
 
     try {
-      const insertStatement = db.prepare(`
-        INSERT INTO aside_personas (id, project_id, name, prompt, is_preset, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
+      db.prepare(`
+        INSERT INTO aside_personas (id, project_id, name, prompt, characteristics, is_preset, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(id, data.projectId, data.name, data.prompt, characteristics, 0, now);
 
-      insertStatement.run(
-        id,
-        data.projectId,
-        data.name,
-        data.prompt,
-        0, // 用户创建的人设，is_preset = 0
-        now
-      );
-
-      // 查询并返回新创建的记录
       const row = db.prepare(`
-        SELECT id, project_id, name, prompt, is_preset, created_at
-        FROM aside_personas
-        WHERE id = ?
+        SELECT id, project_id, name, prompt, characteristics, is_preset, created_at
+        FROM aside_personas WHERE id = ?
       `).get(id) as PersonaRow;
 
       if (!row) {
@@ -116,8 +110,10 @@ export class AsidePersonaRepository {
    * @param id 人设 ID
    * @param data 更新数据
    */
-  updatePersona(id: string, data: { name?: string; prompt?: string }): void {
-    // 参数验证
+  updatePersona(
+    id: string,
+    data: { name?: string; prompt?: string; characteristics?: string[] }
+  ): void {
     if (!id || id.trim() === '') {
       throw new Error('人设 ID 不能为空');
     }
@@ -130,15 +126,17 @@ export class AsidePersonaRepository {
       throw new Error('人设提示词不能为空');
     }
 
-    // 至少需要更新一个字段
-    if (data.name === undefined && data.prompt === undefined) {
+    if (
+      data.name === undefined &&
+      data.prompt === undefined &&
+      data.characteristics === undefined
+    ) {
       throw new Error('至少需要提供一个要更新的字段');
     }
 
     try {
       const db = getDatabase();
 
-      // 检查人设是否存在
       const existing = db.prepare(`
         SELECT id FROM aside_personas WHERE id = ?
       `).get(id) as { id: string } | undefined;
@@ -147,7 +145,6 @@ export class AsidePersonaRepository {
         throw new Error(`人设不存在：ID ${id}`);
       }
 
-      // 构建动态更新语句
       const updates: string[] = [];
       const values: (string | number)[] = [];
 
@@ -161,16 +158,20 @@ export class AsidePersonaRepository {
         values.push(data.prompt);
       }
 
+      if (data.characteristics !== undefined) {
+        updates.push('characteristics = ?');
+        values.push(JSON.stringify(data.characteristics));
+      }
+
       values.push(id);
 
-      const updateStatement = db.prepare(`
+      db.prepare(`
         UPDATE aside_personas
         SET ${updates.join(', ')}
         WHERE id = ?
-      `);
+      `).run(...values);
 
-      const result = updateStatement.run(...values);
-      console.log(`[AsidePersonaRepository] 成功更新人设 ID: ${id}，影响行数: ${result.changes}`);
+      console.log(`[AsidePersonaRepository] 成功更新人设 ID: ${id}`);
     } catch (error) {
       console.error('[AsidePersonaRepository] 更新人设失败:', error);
       throw error;
@@ -185,7 +186,6 @@ export class AsidePersonaRepository {
    * @param id 人设 ID
    */
   deletePersona(id: string): void {
-    // 参数验证
     if (!id || id.trim() === '') {
       throw new Error('人设 ID 不能为空');
     }
@@ -193,7 +193,6 @@ export class AsidePersonaRepository {
     try {
       const db = getDatabase();
 
-      // 检查是否为预设
       const row = db.prepare(`
         SELECT is_preset FROM aside_personas WHERE id = ?
       `).get(id) as { is_preset: number } | undefined;
@@ -206,9 +205,8 @@ export class AsidePersonaRepository {
         throw new Error('无法删除预设人设');
       }
 
-      // 执行删除
-      const result = db.prepare(`DELETE FROM aside_personas WHERE id = ?`).run(id);
-      console.log(`[AsidePersonaRepository] 成功删除人设 ID: ${id}，影响行数: ${result.changes}`);
+      db.prepare(`DELETE FROM aside_personas WHERE id = ?`).run(id);
+      console.log(`[AsidePersonaRepository] 成功删除人设 ID: ${id}`);
     } catch (error) {
       console.error('[AsidePersonaRepository] 删除人设失败:', error);
       throw error;
@@ -219,15 +217,21 @@ export class AsidePersonaRepository {
 
   /**
    * 映射数据库行到人设对象
-   * @param row 数据库行
-   * @returns 人设对象
    */
   private mapRowToPersona(row: PersonaRow): Persona {
+    let characteristics: string[] = [];
+    try {
+      characteristics = JSON.parse(row.characteristics || '[]');
+    } catch {
+      characteristics = [];
+    }
+
     return {
       id: row.id,
       projectId: row.project_id,
       name: row.name,
       prompt: row.prompt,
+      characteristics,
       isPreset: row.is_preset === 1,
       createdAt: new Date(row.created_at).toISOString(),
     };

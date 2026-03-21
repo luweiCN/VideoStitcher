@@ -466,9 +466,10 @@ export interface ElectronAPI {
 
   // 人设
   asideGetPersonas: (projectId: string) => Promise<{ success: boolean; personas?: any[]; error?: string }>;
-  asideAddPersona: (data: { projectId: string; name: string; prompt: string }) => Promise<{ success: boolean; persona?: any; error?: string }>;
-  asideUpdatePersona: (personaId: string, data: { name?: string; prompt?: string }) => Promise<{ success: boolean; error?: string }>;
+  asideAddPersona: (data: { projectId: string; name: string; prompt: string; characteristics?: string[] }) => Promise<{ success: boolean; persona?: any; error?: string }>;
+  asideUpdatePersona: (personaId: string, data: { name?: string; prompt?: string; characteristics?: string[] }) => Promise<{ success: boolean; error?: string }>;
   asideDeletePersona: (personaId: string) => Promise<{ success: boolean; error?: string }>;
+  asidePreviewPersona: (projectId: string, userWriterName?: string) => Promise<{ success: boolean; persona?: { name: string; prompt: string; characteristics: string[] }; error?: string }>;
 
   // 脚本管理
   asideGenerateScreenplays: (data: { projectId: string; creativeDirectionId: string; personaId: string; aiModel: string; count: number; region?: string }) => Promise<{ success: boolean; screenplays?: any[]; error?: string }>;
@@ -824,6 +825,7 @@ const api: ElectronAPI = {
   asideAddPersona: (data) => ipcRenderer.invoke('aside:addPersona', data),
   asideUpdatePersona: (personaId, data) => ipcRenderer.invoke('aside:updatePersona', personaId, data),
   asideDeletePersona: (personaId) => ipcRenderer.invoke('aside:deletePersona', personaId),
+  asidePreviewPersona: (projectId, userWriterName) => ipcRenderer.invoke('aside:previewPersona', projectId, userWriterName),
 
   // 脚本管理
   asideGenerateScreenplays: (data) => ipcRenderer.invoke('aside:generateScreenplays', data),

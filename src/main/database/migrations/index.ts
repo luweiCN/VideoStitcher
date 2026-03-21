@@ -282,6 +282,14 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_regions_is_active ON regions(is_active);
     `,
   },
+  {
+    version: 6,
+    description: '人设表添加特点标签字段',
+    up: `
+      -- aside_personas 表添加 characteristics 字段（JSON 数组格式）
+      ALTER TABLE aside_personas ADD COLUMN characteristics TEXT DEFAULT '[]';
+    `,
+  },
 ];
 
 /**

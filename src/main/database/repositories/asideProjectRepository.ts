@@ -6,7 +6,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getDatabase } from '../index';
 import type { Project, GameType } from '@shared/types/aside';
-import { PRESET_CREATIVE_DIRECTIONS, PRESET_PERSONAS } from '@shared/constants/asidePresets';
 
 /**
  * 数据库行类型
@@ -48,7 +47,10 @@ export class AsideProjectRepository {
     const now = Date.now();
 
     try {
-      // 使用事务确保数据一致性
+      /**
+       * 使用事务确保数据一致性
+       * 创建项目时只插入预设人设，创意方向由 AI 按项目生成
+       */
       const transaction = db.transaction(() => {
         // 插入项目
         const insertProject = db.prepare(`
@@ -56,41 +58,6 @@ export class AsideProjectRepository {
           VALUES (?, ?, ?, ?, ?, ?)
         `);
         insertProject.run(id, name, gameType, sellingPoint || null, now, now);
-
-        // 插入预设创意方向（5个）
-        const insertDirection = db.prepare(`
-          INSERT INTO aside_creative_directions (id, project_id, name, description, icon_name, is_preset, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `);
-
-        for (const direction of PRESET_CREATIVE_DIRECTIONS) {
-          insertDirection.run(
-            uuidv4(),
-            id,
-            direction.name,
-            direction.description || null,
-            direction.iconName || null,
-            direction.isPreset ? 1 : 0,
-            now
-          );
-        }
-
-        // 插入预设人设（4个）
-        const insertPersona = db.prepare(`
-          INSERT INTO aside_personas (id, project_id, name, prompt, is_preset, created_at)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `);
-
-        for (const persona of PRESET_PERSONAS) {
-          insertPersona.run(
-            uuidv4(),
-            id,
-            persona.name,
-            persona.prompt,
-            persona.isPreset ? 1 : 0,
-            now
-          );
-        }
       });
 
       // 执行事务

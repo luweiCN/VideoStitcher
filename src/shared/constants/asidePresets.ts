@@ -52,21 +52,25 @@ export const PRESET_PERSONAS: Omit<Persona, 'id' | 'projectId' | 'createdAt'>[] 
   {
     name: '民俗老炮',
     prompt: '资深老玩家,混迹牌馆30年,说话接地气,懂民间智慧',
+    characteristics: ['接地气', '老练', '民间智慧'],
     isPreset: true
   },
   {
     name: '5G冲浪手',
     prompt: '玩梗大师,网感极强,喜欢用网络热词,语言新潮',
+    characteristics: ['网感', '玩梗', '新潮'],
     isPreset: true
   },
   {
     name: '故事大王',
     prompt: '擅长讲故事,能把一把牌讲成连续剧,语言生动',
+    characteristics: ['叙事', '生动', '连续剧'],
     isPreset: true
   },
   {
     name: '数据分析师',
     prompt: '理性分析派,喜欢用数据说话,逻辑清晰',
+    characteristics: ['理性', '逻辑', '数据'],
     isPreset: true
   }
 ];

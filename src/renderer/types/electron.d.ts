@@ -532,9 +532,10 @@ export interface ElectronAPI {
   asideGenerateCreativeDirections: (projectId: string) => Promise<{ success: boolean; directions?: import('@shared/types/aside').CreativeDirection[]; error?: string }>;
 
   asideGetPersonas: (projectId: string) => Promise<{ success: boolean; personas: import('@shared/types/aside').Persona[]; error?: string }>;
-  asideAddPersona: (data: { projectId: string; name: string; prompt: string }) => Promise<{ success: boolean; persona: import('@shared/types/aside').Persona; error?: string }>;
-  asideUpdatePersona: (personaId: string, data: { name?: string; prompt?: string }) => Promise<{ success: boolean; error?: string }>;
+  asideAddPersona: (data: { projectId: string; name: string; prompt: string; characteristics?: string[] }) => Promise<{ success: boolean; persona: import('@shared/types/aside').Persona; error?: string }>;
+  asideUpdatePersona: (personaId: string, data: { name?: string; prompt?: string; characteristics?: string[] }) => Promise<{ success: boolean; error?: string }>;
   asideDeletePersona: (personaId: string) => Promise<{ success: boolean; error?: string }>;
+  asidePreviewPersona: (projectId: string, userWriterName?: string) => Promise<{ success: boolean; persona?: { name: string; prompt: string; characteristics: string[] }; error?: string }>;
 
   asideGenerateScreenplays: (data: { projectId: string; creativeDirectionId: string; personaId: string; aiModel: string; count: number }) => Promise<{ success: boolean; screenplays: import('@shared/types/aside').Screenplay[]; error?: string }>;
   asideAddScreenplayToLibrary: (screenplayId: string) => Promise<{ success: boolean; screenplay: import('@shared/types/aside').Screenplay; newScreenplay?: import('@shared/types/aside').Screenplay; error?: string }>;

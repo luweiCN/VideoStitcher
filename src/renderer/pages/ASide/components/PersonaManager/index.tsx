@@ -12,9 +12,6 @@ import { PersonaCard } from './PersonaCard';
 import { AddPersonaModal } from './AddPersonaModal';
 import { EditPersonaModal } from './EditPersonaModal';
 
-/**
- * 人设管理器主组件
- */
 export function PersonaManager() {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -31,9 +28,6 @@ export function PersonaManager() {
     }
   }, [currentProject]);
 
-  /**
-   * 加载人设列表
-   */
   const loadPersonas = async () => {
     if (!currentProject) return;
 
@@ -50,10 +44,7 @@ export function PersonaManager() {
     }
   };
 
-  /**
-   * 添加人设
-   */
-  const handleAddPersona = async (name: string, prompt: string) => {
+  const handleAddPersona = async (name: string, prompt: string, characteristics?: string[]) => {
     if (!currentProject) return;
 
     try {
@@ -61,6 +52,7 @@ export function PersonaManager() {
         projectId: currentProject.id,
         name,
         prompt,
+        characteristics,
       });
       if (result.success && result.persona) {
         setPersonas([...personas, result.persona]);
@@ -72,14 +64,10 @@ export function PersonaManager() {
     }
   };
 
-  /**
-   * 编辑人设
-   */
-  const handleEditPersona = async (personaId: string, name: string, prompt: string) => {
+  const handleEditPersona = async (personaId: string, name: string, prompt: string, characteristics?: string[]) => {
     try {
-      const result = await window.api.asideUpdatePersona(personaId, { name, prompt });
+      const result = await window.api.asideUpdatePersona(personaId, { name, prompt, characteristics });
       if (result.success) {
-        // 重新加载列表
         await loadPersonas();
         setEditingPersona(null);
         console.log('[PersonaManager] 编辑人设成功');
@@ -89,9 +77,6 @@ export function PersonaManager() {
     }
   };
 
-  /**
-   * 删除人设
-   */
   const handleDeletePersona = async (personaId: string) => {
     const confirmed = await confirm({
       title: '确认删除人设',
@@ -125,7 +110,7 @@ export function PersonaManager() {
   return (
     <Tooltip.Provider delayDuration={200}>
       <div className="h-full flex flex-col bg-black text-slate-100">
-        {/* 头部 - 简化版 */}
+        {/* 头部 */}
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-semibold">人设管理</h2>
@@ -170,6 +155,7 @@ export function PersonaManager() {
         {/* 添加人设弹窗 */}
         {isAddModalOpen && (
           <AddPersonaModal
+            projectId={currentProject.id}
             onClose={() => setIsAddModalOpen(false)}
             onAdd={handleAddPersona}
           />
@@ -180,7 +166,9 @@ export function PersonaManager() {
           <EditPersonaModal
             persona={editingPersona}
             onClose={() => setEditingPersona(null)}
-            onSave={(name, prompt) => handleEditPersona(editingPersona.id, name, prompt)}
+            onSave={(name, prompt, characteristics) =>
+              handleEditPersona(editingPersona.id, name, prompt, characteristics)
+            }
           />
         )}
       </div>
