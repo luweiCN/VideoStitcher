@@ -12,17 +12,28 @@ import {
   Lightbulb,
   Clock,
 } from 'lucide-react';
-import type { AgentConfig } from './promptStudio/types';
-import PromptStudioView from './promptStudio';
-import TemplatesView from './promptStudio/TemplatesView';
+import type { AgentConfig } from './agentStudio/types';
+import AgentStudioView from './agentStudio';
+import AgentConfigView from './agentStudio/TemplatesView';
 
 // ─── 视图类型 ──────────────────────────────────────────────
 
-type AICreativeView = 'hub' | 'prompt-studio' | 'prompt-templates';
+type AICreativeView = 'hub' | 'agent-studio' | 'agent-config';
 
 // ─── Agent 配置（含 modelTypes 声明） ─────────────────────
 
 const AGENTS: AgentConfig[] = [
+  {
+    id: 'creative-direction-agent',
+    name: '创意方向生成 Agent',
+    role: '创意策划',
+    description:
+      '根据游戏名称、类型和核心卖点，自动生成项目专属的创意方向选项，替代通用预设，让每个项目都有量身定制的创作风格。',
+    icon: Lightbulb,
+    iconColor: 'text-amber-400',
+    bgColor: 'bg-amber-500/10 group-hover:bg-amber-500',
+    modelTypes: ['text'],
+  },
   {
     id: 'screenplay-agent',
     name: '剧本写作 Agent',
@@ -44,17 +55,6 @@ const AGENTS: AgentConfig[] = [
     iconColor: 'text-blue-400',
     bgColor: 'bg-blue-500/10 group-hover:bg-blue-500',
     modelTypes: ['text', 'image'],
-  },
-  {
-    id: 'creative-direction-agent',
-    name: '创意方向生成 Agent',
-    role: '创意策划',
-    description:
-      '根据游戏名称、类型和核心卖点，自动生成项目专属的创意方向选项，替代通用预设，让每个项目都有量身定制的创作风格。',
-    icon: Lightbulb,
-    iconColor: 'text-amber-400',
-    bgColor: 'bg-amber-500/10 group-hover:bg-amber-500',
-    modelTypes: ['text'],
   },
 ];
 
@@ -123,9 +123,9 @@ const HubView: React.FC<{
       onClick: undefined,
     },
     {
-      id: 'prompts',
-      title: '提示词定制',
-      desc: '管理各 Agent 的创作指令，团队协作调优',
+      id: 'agent-studio',
+      title: 'Agent 定制',
+      desc: '管理各 Agent 的模型与提示词，团队协作调优',
       icon: SlidersHorizontal,
       hoverBorder: 'hover:border-amber-500',
       hoverShadow: 'hover:shadow-amber-500/10',
@@ -134,7 +134,7 @@ const HubView: React.FC<{
       titleHover: 'group-hover:text-amber-400',
       bgIcon: 'text-amber-500/5',
       comingSoon: false,
-      onClick: () => onNavigate('prompt-studio'),
+      onClick: () => onNavigate('agent-studio'),
     },
   ];
 
@@ -192,10 +192,10 @@ const AICreativePage: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = useState<AgentConfig | null>(null);
 
   const handleBack = () => {
-    if (currentView === 'prompt-templates') {
-      setCurrentView('prompt-studio');
+    if (currentView === 'agent-config') {
+      setCurrentView('agent-studio');
       setSelectedAgent(null);
-    } else if (currentView === 'prompt-studio') {
+    } else if (currentView === 'agent-studio') {
       setCurrentView('hub');
     } else {
       navigate('/');
@@ -204,8 +204,8 @@ const AICreativePage: React.FC = () => {
 
   const titles: Record<AICreativeView, string> = {
     hub: 'AI 创意视频',
-    'prompt-studio': '提示词定制',
-    'prompt-templates': selectedAgent?.name ?? '',
+    'agent-studio': 'Agent 定制',
+    'agent-config': selectedAgent?.name ?? '',
   };
 
   return (
@@ -219,9 +219,9 @@ const AICreativePage: React.FC = () => {
           <span className="text-sm">
             {currentView === 'hub'
               ? '返回首页'
-              : currentView === 'prompt-studio'
+              : currentView === 'agent-studio'
                 ? 'AI 创意视频'
-                : '提示词定制'}
+                : 'Agent 定制'}
           </span>
         </button>
         <span className="text-slate-700">/</span>
@@ -245,33 +245,33 @@ const AICreativePage: React.FC = () => {
           </>
         )}
 
-        {currentView === 'prompt-studio' && (
+        {currentView === 'agent-studio' && (
           <>
             <div className="text-center mb-10">
-              <h2 className="text-2xl font-black text-white mb-3">提示词定制</h2>
+              <h2 className="text-2xl font-black text-white mb-3">Agent 定制</h2>
               <p className="text-slate-400 text-sm max-w-lg">
-                为每个 Agent 创建专属提示词模板，优化 AI 创作质量
+                为每个 Agent 配置模型与提示词，优化 AI 创作质量
               </p>
             </div>
-            <PromptStudioView
+            <AgentStudioView
               agents={AGENTS}
               onSelectAgent={(agent) => {
                 setSelectedAgent(agent);
-                setCurrentView('prompt-templates');
+                setCurrentView('agent-config');
               }}
             />
           </>
         )}
 
-        {currentView === 'prompt-templates' && selectedAgent && (
+        {currentView === 'agent-config' && selectedAgent && (
           <>
             <div className="text-center mb-10">
-              <h2 className="text-2xl font-black text-white mb-3">提示词模板</h2>
+              <h2 className="text-2xl font-black text-white mb-3">Agent 配置</h2>
               <p className="text-slate-400 text-sm max-w-lg">
-                创建多个模板进行对比，设定一个为生效状态供 Agent 使用
+                配置模型与提示词模板，设定一个模板为生效状态供 Agent 使用
               </p>
             </div>
-            <TemplatesView agent={selectedAgent} />
+            <AgentConfigView agent={selectedAgent} />
           </>
         )}
       </div>

@@ -1,0 +1,3 @@
+file 'https:/ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedream-5-0/video_temp/segment_0.mp4'
+file 'https:/ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedream-5-0/video_temp/segment_1.mp4'
+file 'https:/ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedream-5-0/video_temp/segment_2.mp4'
