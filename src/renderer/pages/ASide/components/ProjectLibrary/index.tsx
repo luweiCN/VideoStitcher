@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Folder, ArrowLeft, Settings } from 'lucide-react';
+import { Plus, Trash2, Folder, ArrowLeft } from 'lucide-react';
 import { useASideStore } from '@renderer/stores/asideStore';
 import { useConfirm } from '@renderer/hooks/useConfirm';
 import type { Project, GameType } from '@shared/types/aside';
@@ -16,7 +16,7 @@ import { EditProjectModal } from './EditProjectModal';
 /**
  * 项目库主组件
  */
-export function ProjectLibrary({ onOpenSettings }: { onOpenSettings?: () => void }) {
+export function ProjectLibrary() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -111,10 +111,10 @@ export function ProjectLibrary({ onOpenSettings }: { onOpenSettings?: () => void
   };
 
   /**
-   * 返回首页
+   * 返回上一页
    */
-  const handleBackToHome = () => {
-    navigate('/');
+  const handleBack = () => {
+    navigate(-1);
   };
 
   /**
@@ -131,7 +131,7 @@ export function ProjectLibrary({ onOpenSettings }: { onOpenSettings?: () => void
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
         <div className="flex items-center gap-4">
           <button
-            onClick={handleBackToHome}
+            onClick={handleBack}
             className="flex items-center gap-2 text-slate-400 hover:text-slate-100 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -150,15 +150,6 @@ export function ProjectLibrary({ onOpenSettings }: { onOpenSettings?: () => void
           <Plus className="w-4 h-4" />
           <span>创建项目</span>
         </button>
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            className="p-2 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
-            title="设置"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-        )}
       </header>
 
       {/* 项目列表 */}

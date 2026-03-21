@@ -97,7 +97,7 @@ const ASidePage: React.FC = () => {
       {/* 主内容区 */}
       <div className="flex-1 overflow-hidden">
         {currentView === 'library' && (
-          <ProjectLibrary onOpenSettings={() => setCurrentView('settings')} />
+          <ProjectLibrary />
         )}
         {currentView === 'step1-direction' && <CreativeDirectionSelector />}
         {currentView === 'step2-region' && <RegionSelector />}
