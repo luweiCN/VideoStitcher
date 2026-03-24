@@ -1,18 +1,24 @@
 /**
- * 选角导演 Agent
- * Agent 3: 为每个角色生成三视图（正面、侧面、动作）并调用图像生成 API
+ * 选角导演 Agent 节点
+ * Agent 3: 为每个角色生成三视图的图像生成提示词
  */
 
 import type { WorkflowState, StepOutput } from '../state';
-import type { AIProvider, TextGenerationOptions, ImageGenerationOptions } from '../../providers/interface';
+import type { AIProvider, TextGenerationOptions } from '../../providers/interface';
 import { getGlobalProvider } from '../../provider-manager';
-import { CastingDirectorAgentPrompts } from '../../prompts/casting-director-agent';
+import {
+  runCastingDirectorAgent,
+  type CastingDirectorContext,
+  type CastingDirectorAgentOptions,
+} from '../../agents/casting-director';
 
 /**
  * 选角导演 Agent 节点
  *
- * 注意：在导演模式下，角色图像生成由前端单独调用 aside:generate-character-image
- * 工作流中的选角导演节点只负责生成分镜师需要的上下文数据
+ * 职责：
+ * 1. 接收艺术总监的角色设定和场景描述
+ * 2. 调用选角导演 Agent 为每个角色生成三个视角的图像生成提示词
+ * 3. 返回包含图像提示词的结果供分镜师使用
  */
 export async function castingDirectorNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
   console.log('[Agent 3: 选角导演] 开始执行');
@@ -31,34 +37,59 @@ export async function castingDirectorNode(state: WorkflowState): Promise<Partial
       throw new Error('[Agent 3: 选角导演] 缺少艺术总监的角色输出');
     }
 
-    console.log(`[Agent 3: 选角导演] 准备上下文数据（角色图像由前端单独生成）`);
+    console.log(`[Agent 3: 选角导演] 为 ${artDirectorOutput.character_profiles.length} 个角色生成图像提示词`);
 
-    // 2. 直接使用艺术总监的输出作为选角导演的输出
-    // 前端会通过 aside:generate-character-image 单独生成图像并更新角色数据
+    // 2. 构建选角导演上下文
+    const context: CastingDirectorContext = {
+      characterProfiles: artDirectorOutput.character_profiles,
+      sceneBreakdowns: artDirectorOutput.scene_breakdowns || [],
+      scriptBrief: artDirectorOutput.script_brief,
+      visualStyleTags: artDirectorOutput.script_brief?.visual_style_tags,
+      overallTone: artDirectorOutput.script_brief?.overall_tone,
+    };
+
+    // 3. 调用选角导演 Agent
+    const agentOptions: CastingDirectorAgentOptions = {
+      // 可以传入自定义可编辑部分（来自 PromptStudio）
+      // customEditablePart: state.promptOverrides?.castingDirectorEditablePart,
+    };
+
+    const castingResult = await runCastingDirectorAgent(context, agentOptions, {
+      info: (msg: string, meta?: any) => console.log(msg, meta),
+    });
+
+    console.log(`[Agent 3: 选角导演] 成功生成 ${castingResult.character_images.length} 个角色的图像提示词`);
+
+    // 4. 构建输出
     const output: StepOutput<any> = {
       content: {
         character_profiles: artDirectorOutput.character_profiles,
+        character_images: castingResult.character_images,
+        global_style_guide: castingResult.global_style_guide,
         scene_breakdowns: artDirectorOutput.scene_breakdowns || [],
       },
       metadata: {
         timestamp: Date.now(),
         duration: Date.now() - startTime,
-        model: 'none', // 不调用 AI
-        tokens: 0,
+        model: 'casting-director-agent',
+        tokens: 0, // TODO: 从 provider 结果中获取
       },
     };
 
     const endTime = Date.now();
-    console.log(`[Agent 3: 选角导演] 完成（仅传递上下文），耗时 ${endTime - startTime}ms`);
+    console.log(`[Agent 3: 选角导演] 完成，耗时 ${endTime - startTime}ms`);
 
-    // 3. 返回状态更新
+    // 5. 返回状态更新
     const updates: Partial<WorkflowState> = {
       step3_storyboard: output,
       currentStep: 4,
     };
 
-    // 导演模式：不设置 humanApproval = false，让工作流继续执行到分镜师
-    // 分镜师节点会在完成后设置暂停
+    // 导演模式：设置 humanApproval 等待用户确认
+    if (state.executionMode === 'director') {
+      updates.humanApproval = false;
+    }
+
     return updates;
   } catch (error) {
     console.error('[Agent 3: 选角导演] 执行失败:', error);

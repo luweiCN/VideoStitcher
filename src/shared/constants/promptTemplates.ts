@@ -34,6 +34,14 @@ import {
   ART_DIRECTOR_AGENT_BUILTIN_TEMPLATE,
 } from './artDirectorTemplates';
 
+// 导入选角导演 Agent 提示词
+import {
+  CASTING_DIRECTOR_AGENT_EDITABLE_PART,
+  CASTING_DIRECTOR_AGENT_LOCKED_PART,
+  CASTING_DIRECTOR_AGENT_USER_PROMPT_TEMPLATE,
+  CASTING_DIRECTOR_AGENT_BUILTIN_TEMPLATE,
+} from './castingDirectorTemplates';
+
 /**
  * 支持的模型列表，用于 PromptStudio 中为每个 Agent 选择模型
  * 未来接入多供应商后在此扩展
@@ -206,6 +214,19 @@ export const BUILTIN_PROMPT_TEMPLATES = [
     editablePart: ART_DIRECTOR_AGENT_EDITABLE_PART,
     lockedPart: ART_DIRECTOR_AGENT_LOCKED_PART,
     userPromptTemplate: ART_DIRECTOR_AGENT_USER_PROMPT_TEMPLATE,
+    get systemPrompt() {
+      return `${this.editablePart}\n\n${this.lockedPart}`;
+    },
+  },
+  {
+    agentId: 'casting-director-agent',
+    agentName: '选角导演 Agent',
+    agentDescription: '根据艺术总监的角色描述，生成三视图图像提示词（正面、侧面、动作姿态）',
+    templateId: 'builtin-casting-director-v1',
+    name: '内置默认模板 v1',
+    editablePart: CASTING_DIRECTOR_AGENT_EDITABLE_PART,
+    lockedPart: CASTING_DIRECTOR_AGENT_LOCKED_PART,
+    userPromptTemplate: CASTING_DIRECTOR_AGENT_USER_PROMPT_TEMPLATE,
     get systemPrompt() {
       return `${this.editablePart}\n\n${this.lockedPart}`;
     },
