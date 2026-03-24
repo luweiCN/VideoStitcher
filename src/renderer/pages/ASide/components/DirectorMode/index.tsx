@@ -121,19 +121,26 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
     });
   }, [selectedScreenplay]);
 
-  // ── 人物节点 + 连线 ───────────────────────────────────────────────
+  // ── 人物节点 + 场景节点（同一排）─────────────────────────────────────
   useEffect(() => {
-    if (!characters?.length || !canvasRef.current) return;
+    if (!canvasRef.current) return;
     const canvas = canvasRef.current;
-    const count = characters.length;
     const y = 50 + PADDING_Y;
 
-    characters.forEach((char, index) => {
-      let x: number;
-      if (count === 1) x = CANVAS_CENTER_X - NODE_WIDTH / 2;
-      else if (count === 2) x = CANVAS_CENTER_X - PADDING_X / 2 - NODE_WIDTH / 2 + index * PADDING_X;
-      else if (count === 3) x = CANVAS_CENTER_X - PADDING_X - NODE_WIDTH / 2 + index * PADDING_X;
-      else { const tw = (count - 1) * PADDING_X; x = CANVAS_CENTER_X - tw / 2 + index * PADDING_X; }
+    // 计算总宽度和起始位置
+    const charCount = characters?.length || 0;
+    const sceneCount = sceneBreakdowns?.length || 0;
+    const totalCount = charCount + sceneCount;
+
+    if (totalCount === 0) return;
+
+    // 计算所有节点的总宽度（包括间距）
+    const totalWidth = (totalCount - 1) * PADDING_X;
+    const startX = CANVAS_CENTER_X - totalWidth / 2;
+
+    // 先添加人物节点
+    characters?.forEach((char, index) => {
+      const x = startX + index * PADDING_X;
 
       const roleTypeLabel = char.role_type === 'protagonist' ? '主角' :
         char.role_type === 'antagonist' ? '反派' : '配角';
@@ -154,52 +161,14 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       canvas.addEdge({ id: `edge_script_${char.id}`, source: 'node_script', target: `node_char_${char.id}` });
     });
 
-    // 共享形象节点
-    const sharedImageUrl = characters.find(c => c.imageUrl)?.imageUrl;
-    if (sharedImageUrl) {
-      canvas.addNode({
-        id: 'node_char_image_shared',
-        type: 'character-image',
-        x: CANVAS_CENTER_X - NODE_WIDTH_WIDE / 2,
-        y: y + NODE_HEIGHT_CHARACTER + 50,
-        width: NODE_WIDTH_WIDE,
-        data: {
-          name: characters.map(c => c.name).join(' / '),
-          imageUrl: sharedImageUrl,
-          characterId: 'shared',
-        },
-      });
-      characters.forEach((char) => {
-        canvas.addEdge({ id: `edge_char_${char.id}_image`, source: `node_char_${char.id}`, target: 'node_char_image_shared' });
-      });
-    }
-  }, [characters]);
-
-  // ── 人物形象图片更新（imageUrl 异步到来时更新已有节点） ──────────
-  useEffect(() => {
-    if (!characters || !canvasRef.current) return;
-    const sharedImageUrl = characters.find(c => c.imageUrl)?.imageUrl;
-    if (sharedImageUrl) {
-      canvasRef.current.updateNode('node_char_image_shared', { imageUrl: sharedImageUrl });
-    }
-  }, [characters]);
-
-  // ── 场景节点 + 连线 ───────────────────────────────────────────────
-  useEffect(() => {
-    if (!sceneBreakdowns?.length || !canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const sceneY = 50 + PADDING_Y * 2;
-    const count = sceneBreakdowns.length;
-
-    sceneBreakdowns.forEach((scene, index) => {
-      let x: number;
-      if (count === 1) x = CANVAS_CENTER_X - NODE_WIDTH / 2;
-      else { const tw = (count - 1) * PADDING_X; x = CANVAS_CENTER_X - tw / 2 + index * PADDING_X; }
+    // 再添加场景节点（紧挨着人物节点）
+    sceneBreakdowns?.forEach((scene, index) => {
+      const x = startX + (charCount + index) * PADDING_X;
 
       canvas.addNode({
         id: `node_scene_${scene.scene_number}`,
         type: 'scene',
-        x, y: sceneY,
+        x, y,
         width: NODE_WIDTH,
         data: {
           name: scene.scene_name,
@@ -215,19 +184,60 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
 
       canvas.addEdge({ id: `edge_script_scene_${scene.scene_number}`, source: 'node_script', target: `node_scene_${scene.scene_number}` });
     });
-  }, [sceneBreakdowns]);
+  }, [characters, sceneBreakdowns]);
 
-  // ── 分镜节点 + 连线 ───────────────────────────────────────────────
+  // ── 人物形象图片更新（imageUrl 异步到来时更新已有节点） ──────────
+  useEffect(() => {
+    if (!characters || !canvasRef.current) return;
+    const sharedImageUrl = characters.find(c => c.imageUrl)?.imageUrl;
+    if (sharedImageUrl) {
+      canvasRef.current.updateNode('node_char_image_shared', { imageUrl: sharedImageUrl });
+    }
+  }, [characters]);
+
+  // ── 共享形象节点（放在人物/场景节点下方）─────────────────────────────
+  useEffect(() => {
+    if (!characters?.length || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const sharedImageUrl = characters.find(c => c.imageUrl)?.imageUrl;
+    if (!sharedImageUrl) return;
+
+    const y = 50 + PADDING_Y + NODE_HEIGHT_CHARACTER + 50;
+
+    canvas.addNode({
+      id: 'node_char_image_shared',
+      type: 'character-image',
+      x: CANVAS_CENTER_X - NODE_WIDTH_WIDE / 2,
+      y,
+      width: NODE_WIDTH_WIDE,
+      data: {
+        name: characters.map(c => c.name).join(' / '),
+        imageUrl: sharedImageUrl,
+        characterId: 'shared',
+      },
+    });
+
+    // 所有人物节点连线到共享形象
+    characters.forEach((char) => {
+      canvas.addEdge({ id: `edge_char_${char.id}_image`, source: `node_char_${char.id}`, target: 'node_char_image_shared' });
+    });
+  }, [characters]);
+
+  // ── 分镜节点 + 连线（放在共享形象下方，场景和共享形象都连到分镜图）──────────
   useEffect(() => {
     if (!storyboard?.scenes?.length || !canvasRef.current) return;
     const canvas = canvasRef.current;
-    const y = 50 + PADDING_Y * 3;
+    // 分镜节点放在共享形象节点下方（如果有）或人物/场景节点下方
+    const hasCharImage = characters?.some(c => c.imageUrl);
+    const storyboardY = hasCharImage
+      ? 50 + PADDING_Y + NODE_HEIGHT_CHARACTER + 50 + 400 + 100  // 共享形象下方
+      : 50 + PADDING_Y + NODE_HEIGHT_CHARACTER + 100;            // 人物/场景节点下方
 
     canvas.addNode({
       id: 'node_storyboard',
       type: 'storyboard',
       x: CANVAS_CENTER_X - NODE_WIDTH_WIDE / 2,
-      y,
+      y: storyboardY,
       width: NODE_WIDTH_WIDE,
       data: {
         label: `分镜矩阵 (${storyboard.rows}×${storyboard.cols})`,
@@ -237,9 +247,19 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
       },
     });
 
+    // 场景节点连线到分镜图（所有场景都连）
     if (sceneBreakdowns?.length) {
-      canvas.addEdge({ id: 'edge_scene_storyboard', source: `node_scene_${sceneBreakdowns[0].scene_number}`, target: 'node_storyboard' });
-    } else if (characters?.some(c => c.imageUrl)) {
+      sceneBreakdowns.forEach((scene) => {
+        canvas.addEdge({
+          id: `edge_scene_${scene.scene_number}_storyboard`,
+          source: `node_scene_${scene.scene_number}`,
+          target: 'node_storyboard'
+        });
+      });
+    }
+
+    // 共享形象节点也连线到分镜图
+    if (hasCharImage) {
       canvas.addEdge({ id: 'edge_char_image_storyboard', source: 'node_char_image_shared', target: 'node_storyboard' });
     }
   }, [storyboard, sceneBreakdowns, characters]);
@@ -257,7 +277,12 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
   useEffect(() => {
     if (!videos?.length || !canvasRef.current) return;
     const canvas = canvasRef.current;
-    const videoY = 50 + PADDING_Y * 4;
+    // 视频节点放在分镜节点下方
+    const hasCharImage = characters?.some(c => c.imageUrl);
+    const storyboardY = hasCharImage
+      ? 50 + PADDING_Y + NODE_HEIGHT_CHARACTER + 50 + 400 + 100
+      : 50 + PADDING_Y + NODE_HEIGHT_CHARACTER + 100;
+    const videoY = storyboardY + 400 + 100; // 分镜节点高度约400 + 间距
     const count = videos.length;
 
     videos.forEach((video, index) => {
@@ -282,7 +307,7 @@ export function DirectorMode({ screenplayId, onComplete }: DirectorModeProps) {
         canvas.addEdge({ id: `edge_storyboard_video_${video.id}`, source: 'node_storyboard', target: `node_video_${video.id}` });
       }
     });
-  }, [videos, storyboard]);
+  }, [videos, storyboard, characters]);
 
   // 处理节点重新生成
   const handleNodeRegenerate = async (nodeId: string) => {

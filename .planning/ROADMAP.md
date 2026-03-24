@@ -13,6 +13,9 @@
 4. PromptStudio 能正确展示艺术总监 Agent 的编辑界面
 5. 工作流能正常调用新的艺术总监 Agent
 
+**Plans:**
+- [ ] 01-PLAN.md — 艺术总监 Agent 三层架构重构（4 tasks）
+
 ---
 
 ## Phase 2: 选角导演 Agent 重构 (Deferred)
@@ -41,14 +44,14 @@
 
 ## Traceability Matrix
 
-| Requirement | Phase | Success Criteria |
-|-------------|-------|------------------|
-| ARTDIR-01 | 1 | 提示词分层完成 |
-| ARTDIR-02 | 1 | 共享常量文件创建 |
-| ARTDIR-03 | 1 | Agent 实现目录创建 |
-| ARTDIR-04 | 1 | BUILTIN_PROMPT_TEMPLATES 注册 |
-| ARTDIR-05 | 1 | PromptStudio 展示验证 |
+| Requirement | Phase | Plan | Status |
+|-------------|-------|------|--------|
+| ARTDIR-01 | 1 | 01-PLAN.md | planned |
+| ARTDIR-02 | 1 | 01-PLAN.md | planned |
+| ARTDIR-03 | 1 | 01-PLAN.md | planned |
+| ARTDIR-04 | 1 | 01-PLAN.md | planned |
+| ARTDIR-05 | 1 | 01-PLAN.md | planned |
 
 ---
 
-*Last updated: 2026-03-24*
+*Last updated: 2026-03-25*

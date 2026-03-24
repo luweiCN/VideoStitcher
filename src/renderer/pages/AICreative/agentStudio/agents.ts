@@ -29,7 +29,7 @@ const AGENTS: AgentConfig[] = [
     name: '剧本写作 Agent',
     role: '内容创作',
     description:
-      '根据游戏信息、创意方向和目标受众，生成 15 秒短视频广告剧本。负责黄金 3 秒钩子、无厘头反转、B 面衔接三段式结构。',
+      '根据游戏信息、创意方向、编剧人设和文化档案，生成 15 秒短视频广告剧本。严格遵循「黄金 3 秒钩子 → 无厘头反转 → B 面衔接」三段式结构，支持自定义提示词模板优化创作风格。',
     icon: FileText,
     iconColor: 'text-violet-400',
     bgColor: 'bg-violet-500/10 group-hover:bg-violet-500',

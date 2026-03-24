@@ -3,10 +3,15 @@
  * 集中管理所有 Agent 的提示词配置
  */
 
+// 旧版提示词（已弃用，保留用于兼容性）
 export { ScreenplayAgentPrompts } from './screenplay-agent';
 export { ArtDirectorAgentPrompts } from './art-director-agent';
 export { StoryboardArtistAgentPrompts } from './storyboard-artist-agent';
 export { CinematographerAgentPrompts } from './cinematographer-agent';
+
+// 新版 Agent 函数（推荐）
+export { runScreenplayAgent } from '../agents/screenplay';
+export type { ScreenplayResult, ScreenplayAgentOptions, ScreenplayContext } from '../agents/screenplay';
 
 /**
  * Agent 类型定义

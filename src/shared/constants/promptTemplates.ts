@@ -26,6 +26,14 @@ import {
   WRITER_GENERATOR_BUILTIN_TEMPLATE,
 } from './writerGeneratorTemplates';
 
+// 导入艺术总监 Agent 提示词
+import {
+  ART_DIRECTOR_AGENT_EDITABLE_PART,
+  ART_DIRECTOR_AGENT_LOCKED_PART,
+  ART_DIRECTOR_AGENT_USER_PROMPT_TEMPLATE,
+  ART_DIRECTOR_AGENT_BUILTIN_TEMPLATE,
+} from './artDirectorTemplates';
+
 /**
  * 支持的模型列表，用于 PromptStudio 中为每个 Agent 选择模型
  * 未来接入多供应商后在此扩展
@@ -185,6 +193,19 @@ export const BUILTIN_PROMPT_TEMPLATES = [
     get userPromptTemplate() {
       return WRITER_GENERATOR_BUILTIN_TEMPLATE.userPromptTemplate;
     },
+    get systemPrompt() {
+      return `${this.editablePart}\n\n${this.lockedPart}`;
+    },
+  },
+  {
+    agentId: 'art-director-agent',
+    agentName: '艺术总监 Agent',
+    agentDescription: '根据剧本提炼精华、创作角色和场景，为后续分镜设计提供视觉简报',
+    templateId: 'builtin-art-director-v1',
+    name: '内置默认模板 v1',
+    editablePart: ART_DIRECTOR_AGENT_EDITABLE_PART,
+    lockedPart: ART_DIRECTOR_AGENT_LOCKED_PART,
+    userPromptTemplate: ART_DIRECTOR_AGENT_USER_PROMPT_TEMPLATE,
     get systemPrompt() {
       return `${this.editablePart}\n\n${this.lockedPart}`;
     },

@@ -438,10 +438,10 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized, dir
               {
                 kind: 'options',
                 text: `角色形象已生成（所有角色合并在一张图中，保证风格一致）。请查看右侧画板，效果满意吗？`,
-                options: chars.flatMap((c, idx) => [
-                  { label: `重生成 ${c.name}`, value: `regen-char-${idx}` },
-                  { label: `确认 ${c.name}`, value: `confirm-char-${idx}` },
-                ]),
+                options: [
+                  { label: '重新生成', value: 'regen-char-all' },
+                  { label: '确认', value: 'confirm-char-all' },
+                ],
               },
             ]);
           } else {
@@ -458,30 +458,27 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized, dir
 
     // ── 选角导演：确认/重生成角色形象 ────────────────
     if (step === 'casting-director-confirm') {
-      if (value.startsWith('regen-char-')) {
-        const idx = parseInt(value.replace('regen-char-', ''));
-        const char = directorMode.characters[idx];
-        if (!char) return;
-
-        addUser(`请重新生成 ${char.name} 的形象`);
+      if (value === 'regen-char-all') {
+        addUser('请重新生成角色形象');
         isProcessingRef.current = true;
 
         const typId = addMsg({ sender: 'casting-director', kind: 'typing' });
         try {
           const result = await window.api.asideGenerateCharacterImage({
             screenplayId,
-            characterId: char.id,
+            characterId: directorMode.characters[0]?.id,
             useReference: false,
           });
           removeById(typId);
           if (result.success && result.imageUrl) {
-            directorMode.updateCharacterImage(char.id, result.imageUrl);
+            // 为所有角色更新同一张图片
+            directorMode.characters.forEach(c => directorMode.updateCharacterImage(c.id, result.imageUrl!));
             await sendSeq('casting-director', [{
               kind: 'options',
-              text: `${char.name} 的形象已重新生成，请查看右侧画板。`,
+              text: '角色形象已重新生成，请查看右侧画板。',
               options: [
-                { label: `重生成 ${char.name}`, value: `regen-char-${idx}` },
-                { label: `确认 ${char.name}`, value: `confirm-char-${idx}` },
+                { label: '重新生成', value: 'regen-char-all' },
+                { label: '确认', value: 'confirm-char-all' },
               ],
             }]);
           }
@@ -491,58 +488,55 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized, dir
           await sendSeq('casting-director', [{ kind: 'text', text: `❌ 重生成失败：${(err as Error).message}` }]);
           isProcessingRef.current = false;
         }
-      } else if (value.startsWith('confirm-char-')) {
-        const idx = parseInt(value.replace('confirm-char-', ''));
-        const char = directorMode.characters[idx];
-        if (!char || charLockRef.current.has(char.id)) return;
+      } else if (value === 'confirm-char-all') {
+        addUser('确认角色形象');
 
-        charLockRef.current.add(char.id);
-        confirmedCharsRef.current.add(char.id);
-        addUser(`确认 ${char.name} 的形象`);
+        // 标记所有角色为已确认
+        directorMode.characters.forEach(char => {
+          charLockRef.current.add(char.id);
+          confirmedCharsRef.current.add(char.id);
+        });
 
-        // 全部确认后，邀请分镜师
-        if (charLockRef.current.size >= directorMode.characters.length) {
-          if (storyboardStartedRef.current) return;
-          storyboardStartedRef.current = true;
+        if (storyboardStartedRef.current) return;
+        storyboardStartedRef.current = true;
 
-          await sendSeq('casting-director', [
-            { kind: 'text', text: '太好了！所有演员形象已确认，接下来由分镜师绘制分镜图。' },
-          ]);
-          addSystem('艺术总监邀请分镜师加入群聊');
+        await sendSeq('casting-director', [
+          { kind: 'text', text: '太好了！所有演员形象已确认，接下来由分镜师绘制分镜图。' },
+        ]);
+        addSystem('艺术总监邀请分镜师加入群聊');
 
-          stepRef.current = 'storyboard-gen';
-          isProcessingRef.current = true;
+        stepRef.current = 'storyboard-gen';
+        isProcessingRef.current = true;
 
-          const typId = addMsg({ sender: 'storyboard-artist', kind: 'typing' });
-          try {
-            // 先自我介绍（替换 typing），再开始生成
-            await sleep(TYPING_MS);
-            setMessages(prev => prev.map(m => m.id === typId
-              ? { id: genId(), sender: 'storyboard-artist', kind: 'text', text: '大家好！我是这个项目的分镜师。我已了解剧本、人物和场景，马上开始分镜绘制…' } as ChatMsg
-              : m
-            ));
+        const typId = addMsg({ sender: 'storyboard-artist', kind: 'typing' });
+        try {
+          // 先自我介绍（替换 typing），再开始生成
+          await sleep(TYPING_MS);
+          setMessages(prev => prev.map(m => m.id === typId
+            ? { id: genId(), sender: 'storyboard-artist', kind: 'text', text: '大家好！我是这个项目的分镜师。我已了解剧本、人物和场景，马上开始分镜绘制…' } as ChatMsg
+            : m
+          ));
 
-            await sleep(400);
-            const typId2 = addMsg({ sender: 'storyboard-artist', kind: 'typing' });
-            await directorMode.generateStoryboard();
-            removeById(typId2);
+          await sleep(400);
+          const typId2 = addMsg({ sender: 'storyboard-artist', kind: 'typing' });
+          await directorMode.generateStoryboard();
+          removeById(typId2);
 
-            stepRef.current = 'storyboard-confirm';
-            isProcessingRef.current = false;
+          stepRef.current = 'storyboard-confirm';
+          isProcessingRef.current = false;
 
-            await sendSeq('storyboard-artist', [{
-              kind: 'options',
-              text: '分镜图（5×5）已绘制完成，请查看右侧画板，效果满意吗？',
-              options: [
-                { label: '重新生成', value: 'regen-storyboard' },
-                { label: '确认', value: 'confirm-storyboard' },
-              ],
-            }]);
-          } catch (err) {
-            removeById(typId);
-            await sendSeq('storyboard-artist', [{ kind: 'text', text: `❌ 分镜生成失败：${(err as Error).message}` }]);
-            isProcessingRef.current = false;
-          }
+          await sendSeq('storyboard-artist', [{
+            kind: 'options',
+            text: '分镜图（5×5）已绘制完成，请查看右侧画板，效果满意吗？',
+            options: [
+              { label: '重新生成', value: 'regen-storyboard' },
+              { label: '确认', value: 'confirm-storyboard' },
+            ],
+          }]);
+        } catch (err) {
+          removeById(typId);
+          await sendSeq('storyboard-artist', [{ kind: 'text', text: `❌ 分镜生成失败：${(err as Error).message}` }]);
+          isProcessingRef.current = false;
         }
       }
       return;
@@ -685,6 +679,11 @@ export function ChatPanel({ screenplayId, onComplete, isWorkflowInitialized, dir
       if (data.screenplayId !== screenplayId) return;
       removeByKind('typing', 'art-director');
       directorMode.updateCharacters(data.characters);
+
+      // 同步更新场景设定到画板
+      if (data.scene_breakdowns?.length > 0) {
+        directorMode.updateSceneBreakdowns(data.scene_breakdowns);
+      }
 
       const hasScenes = data.scene_breakdowns?.length > 0;
       const msgText = hasScenes

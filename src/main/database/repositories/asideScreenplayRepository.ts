@@ -8,7 +8,8 @@ import { getDatabase } from '../index';
 import type { Screenplay, AIModel, ScreenplayStatus } from '@shared/types/aside';
 import { asideCreativeDirectionRepository } from './asideCreativeDirectionRepository';
 import { asidePersonaRepository } from './asidePersonaRepository';
-import { getGlobalProvider } from '../../ai/provider-manager';
+import { asideRegionRepository } from './asideRegionRepository';
+import { runScreenplayAgent, type ScreenplayResult } from '../../ai/agents/screenplay';
 
 /**
  * 数据库行类型
@@ -90,7 +91,7 @@ export class AsideScreenplayRepository {
 
   /**
    * 生成剧本
-   * 使用 LangGraph AI 工作流生成真实剧本内容
+   * 使用剧本写作 Agent 生成真实剧本内容
    * @param data 生成参数
    * @returns 生成的剧本数组
    */
@@ -159,41 +160,41 @@ export class AsideScreenplayRepository {
         throw new Error(`人设不存在：ID ${data.personaId}`);
       }
 
-      // 获取 AI 提供商
-      const provider = getGlobalProvider();
-      const screenplays: Screenplay[] = [];
-      const region = data.region || 'universal';
+      // 获取地区文化档案
+      const regionId = data.region || 'universal';
+      const region = regionId !== 'universal'
+        ? await asideRegionRepository.getRegionById(regionId)
+        : null;
+      const cultureProfile = region?.culturalProfile ?? '';
 
       console.log(`[AsideScreenplayRepository] 开始使用 AI 生成 ${data.count} 个剧本`);
-      console.log(`[AsideScreenplayRepository] 项目: ${project.name}, 地区: ${region}`);
+      console.log(`[AsideScreenplayRepository] 项目: ${project.name}, 地区: ${region?.name || regionId}`);
 
-      // 动态导入提示词构建器
-      const { ScreenplayAgentPrompts } = await import('../../ai/prompts/screenplay-agent');
+      const screenplays: Screenplay[] = [];
 
       // 使用 for 循环生成指定数量的剧本
       for (let i = 0; i < data.count; i++) {
         const id = uuidv4();
         const now = Date.now();
 
-        // 使用新的提示词构建器
-        const systemPrompt = ScreenplayAgentPrompts.buildSystemPrompt(
-          project,
-          creativeDirection,
-          persona,
-          region
+        // 调用剧本写作 Agent
+        const result = await runScreenplayAgent(
+          {
+            project,
+            creativeDirection,
+            persona,
+            cultureProfile,
+            regionName: region?.name,
+          },
+          {
+            currentIndex: i + 1,
+            totalCount: data.count,
+          },
+          { info: console.log }
         );
-        const userPrompt = ScreenplayAgentPrompts.buildUserPrompt(i + 1, data.count);
 
-        console.log(`[AsideScreenplayRepository] 生成第 ${i + 1}/${data.count} 个剧本...`);
-
-        // 调用 AI 生成剧本
-        const result = await provider.generateText(userPrompt, {
-          temperature: 0.8,
-          maxTokens: 1024,
-          systemPrompt,
-        });
-
-        const screenplayContent = result.content;
+        // 将结果转换为 JSON 字符串存储
+        const screenplayContent = JSON.stringify(result, null, 2);
 
         // 插入数据库
         const insertStatement = db.prepare(`
@@ -209,7 +210,7 @@ export class AsideScreenplayRepository {
           data.personaId,
           data.aiModel,
           'draft',
-          region,
+          regionId,
           now
         );
 
@@ -232,6 +233,8 @@ export class AsideScreenplayRepository {
       throw error;
     }
   }
+
+  // ==================== 默认文化档案 ====================
 
   // ==================== 更新 ====================
 
@@ -393,7 +396,7 @@ export class AsideScreenplayRepository {
    * @param screenplayId 剧本 ID
    * @returns 重新生成的剧本
    */
-  regenerateScreenplay(screenplayId: string): Screenplay {
+  async regenerateScreenplay(screenplayId: string): Promise<Screenplay> {
     // 参数验证
     if (!screenplayId || screenplayId.trim() === '') {
       throw new Error('剧本 ID 不能为空');
@@ -434,15 +437,46 @@ export class AsideScreenplayRepository {
         throw new Error(`人设不存在：ID ${oldScreenplay.personaId}`);
       }
 
-      // 生成新的 mock 内容
-      const newContent = this.generateMockContent(
-        creativeDirection.name,
-        persona.name,
-        oldScreenplay.aiModel || 'gemini',
-        Date.now() // 使用时间戳作为随机种子
+      // 使用剧本写作 Agent 重新生成
+      const regionId = oldScreenplay.region || 'universal';
+      const region = regionId !== 'universal'
+        ? await asideRegionRepository.getRegionById(regionId)
+        : null;
+      const cultureProfile = region?.culturalProfile ?? '';
+
+      const projectRow = db.prepare(`
+        SELECT id, name, game_type, selling_point
+        FROM aside_projects
+        WHERE id = ?
+      `).get(oldScreenplay.projectId) as { id: string; name: string; game_type: string; selling_point: string | null };
+
+      if (!projectRow) {
+        throw new Error(`项目不存在：ID ${oldScreenplay.projectId}`);
+      }
+
+      const project = {
+        id: projectRow.id,
+        name: projectRow.name,
+        gameType: projectRow.game_type,
+        sellingPoint: projectRow.selling_point || undefined,
+      };
+
+      // 调用剧本写作 Agent
+      const result = await runScreenplayAgent(
+        {
+          project,
+          creativeDirection,
+          persona,
+          cultureProfile,
+          regionName: region?.name,
+        },
+        { currentIndex: 1, totalCount: 1 },
+        { info: console.log }
       );
 
       // 更新剧本内容
+      const newContent = JSON.stringify(result, null, 2);
+
       const updateStatement = db.prepare(`
         UPDATE aside_screenplays
         SET content = ?
@@ -467,60 +501,6 @@ export class AsideScreenplayRepository {
   }
 
   // ==================== 工具方法 ====================
-
-  /**
-   * 生成 mock 内容
-   * @param creativeDirectionName 创意方向名称
-   * @param personaName 人设名称
-   * @param aiModel AI 模型
-   * @param seed 随机种子
-   * @returns mock 脚本内容
-   */
-  private generateMockContent(
-    creativeDirectionName: string,
-    personaName: string,
-    aiModel: string,
-    seed: number
-  ): string {
-    return `# 脚本标题 - ${seed}
-
-这是一个生成的脚本内容。
-
-**创意方向：** ${creativeDirectionName}
-**人设：** ${personaName}
-**AI 模型：** ${aiModel}
-
----
-
-## 场景1
-
-（这里是对话内容）
-
-**角色 A：** 今天天气真不错啊！
-
-**角色 B：** 是啊，很适合出去走走。
-
----
-
-## 场景2
-
-（这里是旁白内容）
-
-随着太阳缓缓升起，新的一天开始了...
-
----
-
-## 场景3
-
-**角色 A：** 我们去公园吧！
-
-**角色 B：** 好主意！
-
----
-
-*生成时间: ${new Date().toLocaleString('zh-CN')}*
-`;
-  }
 
   /**
    * 映射数据库行到脚本对象
