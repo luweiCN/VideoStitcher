@@ -39,7 +39,7 @@
 
 ---
 
-## Phase 3: 分镜设计 Agent 重构 (In Progress)
+## Phase 3: 分镜设计 Agent 重构 ✅
 
 **Goal:** 将分镜设计 Agent 的提示词改造成三层架构，同时迁移图像生成和 sharp 切割逻辑到 Agent 内部。
 
@@ -48,15 +48,15 @@
 **Success Criteria:**
 1. `storyboardArtistTemplates.ts` 文件创建，包含三层提示词（EDITABLE + LOCKED + DYNAMIC）✅
 2. `storyboard-artist/` Agent 目录创建，实现完整的 Agent 调用逻辑（LLM + 图像生成 + sharp 切割）✅
-3. `BUILTIN_PROMPT_TEMPLATES` 已注册分镜设计 Agent
-4. PromptStudio 能正确展示分镜设计 Agent 的编辑界面
-5. 工作流能正常调用新的分镜设计 Agent
-6. 导演模式支持两次 `humanApproval` 暂停（LLM 后 + 图像生成后）
+3. `BUILTIN_PROMPT_TEMPLATES` 已注册分镜设计 Agent ✅
+4. PromptStudio 能正确展示分镜设计 Agent 的编辑界面 ✅
+5. 工作流能正常调用新的分镜设计 Agent ✅
+6. 导演模式支持 `humanApproval` 暂停 ✅
 
 **Plans:**
 - [x] 03-01-PLAN.md — 创建 storyboardArtistTemplates.ts 三层提示词常量文件（STORY-01, STORY-02）
 - [x] 03-02-PLAN.md — 创建 storyboard-artist/index.ts Agent 实现（STORY-03）
-- [ ] 03-03-PLAN.md — 注册 BUILTIN_PROMPT_TEMPLATES 并重构 LangGraph Node（STORY-04, STORY-05）
+- [x] 03-03-PLAN.md — 注册 BUILTIN_PROMPT_TEMPLATES 并重构 LangGraph Node（STORY-04, STORY-05）
 
 ---
 
@@ -85,8 +85,8 @@
 | STORY-01 | 3 | 03-01-PLAN.md | completed |
 | STORY-02 | 3 | 03-01-PLAN.md | completed |
 | STORY-03 | 3 | 03-02-PLAN.md | completed |
-| STORY-04 | 3 | 03-03-PLAN.md | planned |
-| STORY-05 | 3 | 03-03-PLAN.md | planned |
+| STORY-04 | 3 | 03-03-PLAN.md | completed |
+| STORY-05 | 3 | 03-03-PLAN.md | completed |
 
 ---
 
