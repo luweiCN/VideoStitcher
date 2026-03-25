@@ -42,6 +42,14 @@ import {
   CASTING_DIRECTOR_AGENT_BUILTIN_TEMPLATE,
 } from './castingDirectorTemplates';
 
+// 导入分镜设计 Agent 提示词
+import {
+  STORYBOARD_ARTIST_AGENT_EDITABLE_PART,
+  STORYBOARD_ARTIST_AGENT_LOCKED_PART,
+  STORYBOARD_ARTIST_AGENT_USER_PROMPT_TEMPLATE,
+  STORYBOARD_ARTIST_AGENT_BUILTIN_TEMPLATE,
+} from './storyboardArtistTemplates';
+
 /**
  * 支持的模型列表，用于 PromptStudio 中为每个 Agent 选择模型
  * 未来接入多供应商后在此扩展
@@ -227,6 +235,19 @@ export const BUILTIN_PROMPT_TEMPLATES = [
     editablePart: CASTING_DIRECTOR_AGENT_EDITABLE_PART,
     lockedPart: CASTING_DIRECTOR_AGENT_LOCKED_PART,
     userPromptTemplate: CASTING_DIRECTOR_AGENT_USER_PROMPT_TEMPLATE,
+    get systemPrompt() {
+      return `${this.editablePart}\n\n${this.lockedPart}`;
+    },
+  },
+  {
+    agentId: 'storyboard-artist-agent',
+    agentName: '分镜设计 Agent',
+    agentDescription: '根据剧本和角色参考图，生成 5x5 分镜网格图和 25 张单帧图',
+    templateId: 'builtin-storyboard-artist-v1',
+    name: '内置默认模板 v1',
+    editablePart: STORYBOARD_ARTIST_AGENT_EDITABLE_PART,
+    lockedPart: STORYBOARD_ARTIST_AGENT_LOCKED_PART,
+    userPromptTemplate: STORYBOARD_ARTIST_AGENT_USER_PROMPT_TEMPLATE,
     get systemPrompt() {
       return `${this.editablePart}\n\n${this.lockedPart}`;
     },
