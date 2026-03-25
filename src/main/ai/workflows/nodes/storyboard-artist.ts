@@ -1,18 +1,25 @@
 /**
- * 分镜师 Agent
- * Agent 4: 根据人物图和剧本生成分镜图（图像）
+ * 分镜设计 Agent 节点
+ * Agent 4: 根据剧本和角色参考图，生成 5x5 分镜网格图和 25 张单帧图
+ *
+ * 注意：实际的分镜生成逻辑已迁移到 storyboard-artist Agent 中
+ * 此 Node 只负责调用 Agent 和状态管理
  */
 
 import type { WorkflowState, StepOutput } from '../state';
-import type { AIProvider, TextGenerationOptions, ImageGenerationOptions } from '../../providers/interface';
-import { getGlobalProvider } from '../../provider-manager';
-import { StoryboardArtistAgentPrompts } from '../../prompts/storyboard-artist-agent';
-import { downloadToCache } from '@main/utils/cache';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const sharp = require('sharp');
+import { runStoryboardArtistAgent, type StoryboardArtistResult } from '../../agents/storyboard-artist';
 
 /**
- * 分镜师 Agent 节点
+ * 分镜设计 Agent 节点
+ *
+ * 职责：
+ * 1. 接收艺术总监输出、选角导演输出和剧本内容
+ * 2. 调用分镜设计 Agent 生成 5x5 分镜网格图和 25 张单帧图
+ * 3. 返回分镜结果供摄像师使用
+ *
+ * 导演模式：
+ * - 设置 humanApproval 等待用户确认分镜结果
+ * - 如需两次确认（LLM 后 + 图像生成后），需要在 Agent 中拆分阶段
  */
 export async function storyboardArtistNode(state: WorkflowState): Promise<Partial<WorkflowState>> {
   console.log('[Agent 4: 分镜师] 开始执行');
@@ -25,12 +32,9 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
       return {};
     }
 
-    // 1. 获取 AI 提供商
-    const provider = getGlobalProvider();
-
-    // 2. 获取上下文信息
+    // 1. 获取上下文信息
     const artDirectorOutput = state.step2_characters?.content;
-    const castingDirectorOutput = state.step3_storyboard?.content; // 选角导演输出的角色数据（包含图片）
+    const castingDirectorOutput = state.step3_storyboard?.content;
     const scriptContent = state.step1_script?.content;
 
     if (!artDirectorOutput || !castingDirectorOutput || !scriptContent) {
@@ -39,204 +43,57 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
 
     console.log('[Agent 4: 分镜师] 开始生成分镜图');
 
-    // 3. 先调用 LLM 生成分镜描述和提示词
-    const systemPrompt = StoryboardArtistAgentPrompts.buildSystemPrompt();
-    const sceneBreakdowns = artDirectorOutput.scene_breakdowns || [];
-    const userPrompt = StoryboardArtistAgentPrompts.buildUserPrompt(
-      artDirectorOutput,
-      castingDirectorOutput,
-      typeof scriptContent === 'string' ? scriptContent : JSON.stringify(scriptContent),
-      sceneBreakdowns
+    // 2. 调用分镜设计 Agent 生成分镜
+    console.log('[Agent 4: 分镜师] 调用 Agent 生成分镜...');
+
+    const storyboardResult = await runStoryboardArtistAgent(
+      {
+        artDirectorOutput: artDirectorOutput,
+        castingDirectorOutput: castingDirectorOutput,
+        scriptContent: typeof scriptContent === 'string' ? scriptContent : JSON.stringify(scriptContent),
+        videoSpec: {
+          aspectRatio: state.videoSpec?.aspectRatio || '9:16',
+          duration: state.videoSpec?.duration || 15,
+        },
+      },
+      {
+        modelId: state.agentModelAssignments?.['storyboard-artist-agent'],
+      },
+      {
+        info: (msg: string, meta?: any) => console.log(msg, meta),
+      }
     );
 
-    const textOptions: TextGenerationOptions = {
-      temperature: 0.7,
-      maxTokens: 8192,
-      systemPrompt,
-    };
-
-    console.log('[Agent 4: 分镜师] 调用 LLM 生成分镜描述...');
-    const textResult = await provider.generateText(userPrompt, textOptions);
-
-    // 4. 解析分镜描述
-    console.log('[Agent 4: 分镜师] 解析分镜描述');
-    console.log('[Agent 4: 分镜师] LLM 原始输出（前 500 字符）:', textResult.content.substring(0, 500));
-    const storyboardPlan = parseStoryboardOutput(textResult.content);
-    console.log('[Agent 4: 分镜师] 解析后的结构:', JSON.stringify(storyboardPlan, null, 2).substring(0, 1000));
-
-    if (!storyboardPlan.storyboard_groups || storyboardPlan.storyboard_groups.length === 0) {
-      throw new Error('分镜描述生成失败：未生成任何分镜计划');
-    }
-
-    console.log(`[Agent 4: 分镜师] 生成了 ${storyboardPlan.storyboard_groups.length} 组分镜计划`);
-
-    // 5. 生成分镜网格图（单张图片包含 5x5 = 25 个分镜）
-    const aspectRatio = state.videoSpec?.aspectRatio;
-    console.log('[Agent 4: 分镜师] 生成分镜网格图（5x5）...', { aspectRatio });
-
-    // 从选角导演输出中提取角色风格标签，保证分镜图与角色形象图风格一致
-    const characterProfiles = castingDirectorOutput.character_profiles || [];
-    const characterImageUrl = characterProfiles.find((p: any) => p.imageUrl)?.imageUrl;
-    const styleTags: string[] = characterProfiles
-      .flatMap((p: any) => p.style_consistency_tags || [])
-      .filter(Boolean)
-      .slice(0, 5); // 最多取 5 个风格标签，避免撑长提示词
-    const styleFragment = styleTags.length > 0
-      ? styleTags.join(', ')
-      : 'photorealistic, cinematic composition';
-
-    if (characterImageUrl) {
-      console.log('[Agent 4: 分镜师] 使用角色形象图作为参考:', characterImageUrl.substring(0, 60));
-    } else {
-      console.warn('[Agent 4: 分镜师] 未找到角色形象图，分镜图将不包含角色参考');
-    }
-
-    // 构建分镜网格的详细描述
-    const frameDescriptions = storyboardPlan.storyboard_groups
-      .flatMap((group: any) => group.frames || [])
-      .filter((frame: any) => frame && frame.description) // 过滤掉无效的帧
-      .slice(0, 25) // 最多 25 个帧
-      .map((frame: any, index: number) => {
-        return `Frame ${index + 1}: ${frame.description}`;
-      })
-      .join('. ');
-
-    console.log(`[Agent 4: 分镜师] 提取了 ${frameDescriptions.split('. ').length} 个帧描述`);
-
-    // 构建图像生成提示词（火山引擎图像 API 限制 4000 字符；系统 prompt 已约束每帧 ≤15 词，25 帧合计约 1875 字符，安全余量充足）
-    // 使用角色风格标签替代硬编码的卡通风格词，确保分镜图与角色形象图风格一致
-    // 明确禁止边框/间距/白边，确保 5x5 网格切割准确
-    // 竖版(9:16)需要明确告知模型生成竖版布局，否则模型默认横版排列
-    const isPortrait = state.videoSpec?.aspectRatio === '9:16';
-    const layoutHint = isPortrait
-      ? 'portrait orientation 9:16 vertical layout, each cell is taller than wide'
-      : 'landscape orientation 16:9 horizontal layout, each cell is wider than tall';
-    const storyboardPrompt = `Professional storyboard grid, exactly 5 rows and 5 columns of 25 panels, ${layoutHint}, zero gaps between panels, no borders no padding no margins no gutters no grid lines no black bars no white space, all panels flush edge-to-edge filling the entire image, ${styleFragment}, each panel shows: ${frameDescriptions}, consistent character design, sequential narrative flow, no text, no numbers`;
-
-    const imageOptions: ImageGenerationOptions = {
-      // 分镜图用最高分辨率，保证帧切割质量
-      // 16:9 → 3840x2160（每帧 768x432，Seedream 5.0 lite 方式2支持）
-      // 9:16 → 2160x3840（每帧 432x768，Seedream 5.0 lite 方式2支持）
-      // 注意：Seedream 5.0 lite 不支持 '4K' 字符串，需用像素维度方式
-      size: state.videoSpec?.aspectRatio === '9:16' ? '2160x3840' : '3840x2160',
-      quality: 'hd',
-      numberOfImages: 1,
-      ...(characterImageUrl ? { referenceImageUrl: characterImageUrl } : {}),
-    };
-
-    const imageResult = await provider.generateImage(storyboardPrompt, imageOptions);
-
-    if (!imageResult.images || imageResult.images.length === 0) {
-      throw new Error('分镜图生成失败：未返回图片');
-    }
-
-    const imageUrl = imageResult.images[0].url;
-    console.log('[Agent 4: 分镜师] 分镜网格图生成成功');
-
-    // 构建帧数据（用于前端交互）
-    const storyboardFrames = storyboardPlan.storyboard_groups.flatMap((group: any, groupIndex: number) => {
-      const frames = group.frames || [];
-      return frames.map((frame: any, frameIndex: number) => ({
-        id: `frame-${groupIndex}-${frameIndex}`,
-        frameNumber: frame.frame_number || (groupIndex * frames.length + frameIndex + 1),
-        description: frame.description,
-        // 所有帧共用同一张大图的 URL
-        imageUrl,
-        duration: frame.duration || 3,
-        isKeyFrame: frame.is_key_frame || false,
-        cameraMovement: frame.camera_movement || '',
-      }));
-    }).slice(0, 25);
-
-    console.log(`[Agent 4: 分镜师] 生成了 ${storyboardFrames.length} 个分镜帧（共用 1 张大图）`);
-
-    // 6. 下载分镜网格图到本地缓存，并用 Sharp 切割为 25 个单帧 base64
-    let localGridPath: string | undefined;
-    let framesWithBase64 = storyboardFrames;
-
-    try {
-      console.log('[Agent 4: 分镜师] 下载分镜网格图到本地缓存...');
-      localGridPath = await downloadToCache(imageUrl, '.jpg');
-      console.log('[Agent 4: 分镜师] 下载完成:', localGridPath);
-
-      // 获取图片实际尺寸
-      const gridMeta = await (sharp as any)(localGridPath).metadata();
-      const rawWidth: number = gridMeta.width || 2560;
-      const rawHeight: number = gridMeta.height || 1440;
-
-      // 自动裁剪边框：图像生成模型常在网格周围添加白色/黑色边距
-      // 策略：对每条边最多裁剪 3%，然后取整到能被 5 整除的值
-      const maxCropRatio = 0.03;
-      const cropPx = (dim: number) => Math.floor(dim * maxCropRatio);
-      const cropLeft = cropPx(rawWidth);
-      const cropTop = cropPx(rawHeight);
-      // 保证裁剪后的宽高能被 5 整除，便于等分 5 列/行
-      const croppedWidth = Math.floor((rawWidth - cropLeft * 2) / 5) * 5;
-      const croppedHeight = Math.floor((rawHeight - cropTop * 2) / 5) * 5;
-
-      const frameWidth = croppedWidth / 5;
-      const frameHeight = croppedHeight / 5;
-
-      console.log(
-        `[Agent 4: 分镜师] 原图 ${rawWidth}×${rawHeight}，` +
-        `裁边后 ${croppedWidth}×${croppedHeight}（偏移 left=${cropLeft} top=${cropTop}），` +
-        `每帧 ${frameWidth}×${frameHeight}，开始切割 25 帧`
-      );
-
-      // 切割 25 帧并转 base64（按行优先：第1行5帧，第2行5帧...）
-      const frameBase64List: string[] = [];
-      for (let row = 0; row < 5; row++) {
-        for (let col = 0; col < 5; col++) {
-          const frameBuffer = await (sharp as any)(localGridPath)
-            .extract({
-              left: cropLeft + col * frameWidth,
-              top: cropTop + row * frameHeight,
-              width: frameWidth,
-              height: frameHeight,
-            })
-            .jpeg({ quality: 85 })
-            .toBuffer();
-          frameBase64List.push(`data:image/jpeg;base64,${frameBuffer.toString('base64')}`);
-        }
-      }
-
-      // 将 base64 写入对应帧
-      framesWithBase64 = storyboardFrames.map((frame, idx) => ({
-        ...frame,
-        base64: frameBase64List[idx] || undefined,
-      }));
-
-      console.log(`[Agent 4: 分镜师] 切割完成，共 ${frameBase64List.length} 帧`);
-    } catch (sharpErr) {
-      console.warn('[Agent 4: 分镜师] 切割帧失败，继续使用远程 URL:', sharpErr);
-    }
-
-    // 7. 构建输出（5x5 布局）
-    const output: StepOutput<any> = {
+    // 3. 构建输出
+    const output: StepOutput<StoryboardArtistResult> = {
       content: {
-        frames: framesWithBase64,
-        rows: 5, // 5x5 布局
-        cols: 5,
-        imageUrl, // 远程 URL，供前端 fallback 使用
-        localGridPath, // 本地缓存路径，供后续 IPC 事件和 Sharp 使用
+        storyboard_grid_image: storyboardResult.storyboard_grid_image,
+        frame_images: storyboardResult.frame_images,
+        frames: storyboardResult.frames,
+        style_notes: storyboardResult.style_notes,
+        local_grid_path: storyboardResult.local_grid_path,
       },
       metadata: {
         timestamp: Date.now(),
         duration: Date.now() - startTime,
-        model: 'volcengine-doubao + image-generation',
-        tokens: textResult.usage.totalTokens,
+        model: state.agentModelAssignments?.['storyboard-artist-agent'] || 'default',
+        tokens: 0, // TODO: 从 provider 返回结果中获取
       },
     };
 
     const endTime = Date.now();
     console.log(`[Agent 4: 分镜师] 完成，耗时 ${endTime - startTime}ms`);
 
-    // 7. 返回状态更新
+    // 4. 返回状态更新
     const updates: Partial<WorkflowState> = {
       step4_video: output,
       currentStep: 5,
     };
 
+    // 导演模式：设置 humanApproval 等待用户确认
+    // 分镜设计有两次检查点：LLM 后 + 图像生成后
+    // 由于 Agent 内部完成了完整流程，这里简化为一次确认
+    // 如需两次确认，需要在 Agent 中拆分阶段或使用状态标记
     if (state.executionMode === 'director') {
       updates.humanApproval = false;
     }
@@ -245,24 +102,5 @@ export async function storyboardArtistNode(state: WorkflowState): Promise<Partia
   } catch (error) {
     console.error('[Agent 4: 分镜师] 执行失败:', error);
     throw error;
-  }
-}
-
-/**
- * 解析分镜师输出
- */
-function parseStoryboardOutput(llmOutput: string): any {
-  try {
-    // 尝试提取 JSON 代码块
-    const jsonMatch = llmOutput.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[1]);
-    }
-
-    // 尝试直接解析整个输出
-    return JSON.parse(llmOutput);
-  } catch (error) {
-    console.warn('[Agent 4: 分镜师] JSON 解析失败，返回原始输出');
-    throw new Error('分镜师输出格式错误：无法解析 JSON');
   }
 }
