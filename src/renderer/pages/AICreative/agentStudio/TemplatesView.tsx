@@ -62,6 +62,8 @@ const TemplatesView: React.FC<{ agent: AgentConfig }> = ({ agent }) => {
   const Icon = agent.icon;
   const builtinTemplate = BUILTIN_PROMPT_TEMPLATES.find((t) => t.agentId === agent.id);
   const hasActiveCustom = templates.some((t) => t.isActive);
+  // 检查是否使用内置提示词（不可编辑）
+  const isBuiltinPrompts = (builtinTemplate as { builtinPrompts?: boolean } | undefined)?.builtinPrompts === true;
 
   return (
     <div className="w-full max-w-2xl space-y-4">
@@ -86,33 +88,50 @@ const TemplatesView: React.FC<{ agent: AgentConfig }> = ({ agent }) => {
         onChange={handleModelChange}
       />
 
-      {/* 内置模板 */}
-      {builtinTemplate ? (
-        <BuiltinTemplateCard
-          template={builtinTemplate}
-          isActive={!hasActiveCustom}
-          onSetActive={() => { clearActiveTemplate(agent.id); refresh(); }}
-        />
-      ) : (
-        <div className="flex items-start gap-3 p-4 bg-slate-900 border border-slate-800 rounded-xl">
-          <div className="w-2 h-2 rounded-full bg-slate-500 mt-1.5 flex-shrink-0" />
+      {/* 内置模板 - 仅对非 builtinPrompts 的 Agent 显示 */}
+      {!isBuiltinPrompts && (
+        <>
+          {builtinTemplate ? (
+            <BuiltinTemplateCard
+              template={builtinTemplate}
+              isActive={!hasActiveCustom}
+              onSetActive={() => { clearActiveTemplate(agent.id); refresh(); }}
+            />
+          ) : (
+            <div className="flex items-start gap-3 p-4 bg-slate-900 border border-slate-800 rounded-xl">
+              <div className="w-2 h-2 rounded-full bg-slate-500 mt-1.5 flex-shrink-0" />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-slate-300 mb-0.5">内置提示词（只读）</div>
+                <div className="text-xs text-slate-500 leading-relaxed">
+                  系统内置的默认提示词，不可编辑。若无自定义模板处于生效状态，Agent 将使用此提示词。
+                </div>
+              </div>
+              {!hasActiveCustom && (
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full text-xs text-emerald-400 flex-shrink-0">
+                  <Check className="w-3 h-3" />
+                  生效中
+                </span>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* 内置提示词提示 - 仅对 builtinPrompts 的 Agent 显示 */}
+      {isBuiltinPrompts && (
+        <div className="flex items-start gap-3 p-4 bg-slate-900/50 border border-slate-800 rounded-xl">
+          <div className="w-2 h-2 rounded-full bg-orange-400 mt-1.5 flex-shrink-0" />
           <div className="flex-1">
-            <div className="text-sm font-medium text-slate-300 mb-0.5">内置提示词（只读）</div>
+            <div className="text-sm font-medium text-slate-300 mb-0.5">内置提示词</div>
             <div className="text-xs text-slate-500 leading-relaxed">
-              系统内置的默认提示词，不可编辑。若无自定义模板处于生效状态，Agent 将使用此提示词。
+              此 Agent 使用内置提示词，不可编辑。提示词已针对专业场景优化，确保最佳输出质量。
             </div>
           </div>
-          {!hasActiveCustom && (
-            <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 rounded-full text-xs text-emerald-400 flex-shrink-0">
-              <Check className="w-3 h-3" />
-              生效中
-            </span>
-          )}
         </div>
       )}
 
-      {/* 自定义模板列表 */}
-      {templates.map((t) =>
+      {/* 自定义模板列表 - 仅对非 builtinPrompts 的 Agent 显示 */}
+      {!isBuiltinPrompts && templates.map((t) =>
         editingId === t.id ? (
           <div key={t.id} className="bg-slate-900 border border-violet-500/30 rounded-xl p-4 space-y-3">
             <input
@@ -159,51 +178,55 @@ const TemplatesView: React.FC<{ agent: AgentConfig }> = ({ agent }) => {
         )
       )}
 
-      {/* 新建模板 */}
-      {isCreating ? (
-        <div className="bg-slate-900 border border-violet-500/30 rounded-xl p-4 space-y-3">
-          <div className="text-sm font-medium text-white">新建模板</div>
-          <p className="text-xs text-slate-500">
-            自定义模板只需填写「可编辑层」内容（Agent 人设、创意指南、示例），锁定层由系统自动追加。
-          </p>
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="模板名称，如：游戏广告增强版"
-            autoFocus
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
-          />
-          <textarea
-            value={newContent}
-            onChange={(e) => setNewContent(e.target.value)}
-            placeholder="在此粘贴或输入可编辑层提示词内容..."
-            rows={8}
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 font-mono resize-y"
-          />
-          <div className="flex gap-2 justify-end">
+      {/* 新建模板 - 仅对非 builtinPrompts 的 Agent 显示 */}
+      {!isBuiltinPrompts && (
+        <>
+          {isCreating ? (
+            <div className="bg-slate-900 border border-violet-500/30 rounded-xl p-4 space-y-3">
+              <div className="text-sm font-medium text-white">新建模板</div>
+              <p className="text-xs text-slate-500">
+                自定义模板只需填写「可编辑层」内容（Agent 人设、创意指南、示例），锁定层由系统自动追加。
+              </p>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="模板名称，如：游戏广告增强版"
+                autoFocus
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500"
+              />
+              <textarea
+                value={newContent}
+                onChange={(e) => setNewContent(e.target.value)}
+                placeholder="在此粘贴或输入可编辑层提示词内容..."
+                rows={8}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 font-mono resize-y"
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => { setIsCreating(false); setNewName(''); setNewContent(''); }}
+                  className="px-3 py-1.5 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:border-slate-500 transition-colors cursor-pointer"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleCreate}
+                  disabled={!newName.trim() || !newContent.trim()}
+                  className="px-3 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer"
+                >
+                  创建
+                </button>
+              </div>
+            </div>
+          ) : (
             <button
-              onClick={() => { setIsCreating(false); setNewName(''); setNewContent(''); }}
-              className="px-3 py-1.5 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-lg hover:border-slate-500 transition-colors cursor-pointer"
+              onClick={() => setIsCreating(true)}
+              className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-slate-700 rounded-xl text-slate-500 hover:text-white hover:border-slate-500 transition-colors text-sm cursor-pointer"
             >
-              取消
+              <Plus className="w-4 h-4" />
+              新建模板
             </button>
-            <button
-              onClick={handleCreate}
-              disabled={!newName.trim() || !newContent.trim()}
-              className="px-3 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-colors cursor-pointer"
-            >
-              创建
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setIsCreating(true)}
-          className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-slate-700 rounded-xl text-slate-500 hover:text-white hover:border-slate-500 transition-colors text-sm cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          新建模板
-        </button>
+          )}
+        </>
       )}
     </div>
   );
