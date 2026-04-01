@@ -181,6 +181,17 @@ export interface WorkflowState {
   /** 目标地区 */
   region?: string;
 
+  // ===== Agent 配置选项 =====
+  /** 选角导演 Agent 配置选项 */
+  castingDirectorOptions?: {
+    /** 是否使用多阶段模式（Planner + Visualizer），默认 false 保持向后兼容 */
+    useMultiStage?: boolean;
+    /** Planner 阶段模型 ID */
+    plannerModelId?: string;
+    /** Visualizer 阶段图像生成模型 ID */
+    visualizerModelId?: string;
+  };
+
   // ===== 消息历史 =====
   /** LangChain 消息历史（用于 LLM 上下文） */
   messages: BaseMessage[];
