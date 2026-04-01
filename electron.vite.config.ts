@@ -45,6 +45,9 @@ export default defineConfig({
   },
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
+    server: {
+      port: 5678,
+    },
     build: {
       rollupOptions: {
         input: {
