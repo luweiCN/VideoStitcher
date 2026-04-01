@@ -4,12 +4,13 @@
  *
  * 流程：
  * 1. 接收 Agent 5（摄像师）节点调用
- * 2. 检测 useMultiStage 选项（多阶段/单阶段模式）
- * 3. 调用 runCinematographerAgent 生成视频
- *    - 多阶段模式：Planner 生成渲染计划 -> Executor 生成视频片段
- *    - 单阶段模式：使用旧版提示词直接生成（向后兼容）
- * 4. 使用 ffmpeg 拼接视频（如果有多段）
- * 5. 返回最终视频 URL
+ * 2. 读取 textModel 和 videoModel 配置
+ * 3. 根据 videoModel 能力自动选择工作流模式
+ *    - 支持参考图：单阶段模式（直接使用分镜图生成）
+ *    - 只支持首尾帧：多阶段模式（Planner -> Executor）
+ * 4. 调用 runCinematographerAgent 生成视频
+ * 5. 使用 ffmpeg 拼接视频（如果有多段）
+ * 6. 返回最终视频 URL
  *
  * 注意：实际的视频生成逻辑已迁移到 cinematographer Agent 中
  * 此 Node 只负责调用 Agent 和状态管理
@@ -59,23 +60,37 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
 
     console.log('[Agent 5: 摄像师] 开始生成视频');
 
-    // 2. 获取模型能力配置（从状态中读取）
-    const modelCapabilities = state.modelCapabilities || {
-      supportsFirstFrame: true,
-      supportsLastFrame: false,
+    // 2. 读取双模型配置（优先使用新的 cinematographerOptions）
+    const textModel = state.cinematographerOptions?.textModel ?? 'default';
+    const videoModel = state.cinematographerOptions?.videoModel ?? 'default';
+    const videoModelConfig = state.cinematographerOptions?.videoModelConfig ?? {
       supportsReferenceImage: false,
       maxDuration: 15,
+      supportsFirstFrame: true,
+      supportsLastFrame: false,
       supportedAspectRatios: ['16:9', '9:16'],
-      provider: 'seedance',
+      provider: 'seedance' as const,
     };
 
-    // 根据模型能力自动决定工作流模式
-    const useMultiStage = !modelCapabilities.supportsReferenceImage;
+    // 向后兼容：如果新的配置不存在，使用旧的 modelCapabilities
+    const modelCapabilities = state.modelCapabilities || {
+      supportsFirstFrame: videoModelConfig.supportsFirstFrame ?? true,
+      supportsLastFrame: videoModelConfig.supportsLastFrame ?? false,
+      supportsReferenceImage: videoModelConfig.supportsReferenceImage,
+      maxDuration: videoModelConfig.maxDuration,
+      supportedAspectRatios: videoModelConfig.supportedAspectRatios ?? ['16:9', '9:16'],
+      provider: videoModelConfig.provider ?? 'seedance',
+    };
+
+    // 根据视频模型能力自动决定工作流模式
+    const useMultiStage = !videoModelConfig.supportsReferenceImage;
 
     if (useMultiStage) {
-      console.log('[Agent 5: 摄像师] 模型不支持参考图，使用多阶段模式');
+      console.log('[Agent 5: 摄像师] 视频模型不支持参考图，使用多阶段模式');
+      console.log(`[Agent 5: 摄像师] 文字模型: ${textModel}, 视频模型: ${videoModel}`);
     } else {
-      console.log('[Agent 5: 摄像师] 模型支持参考图，使用单阶段模式');
+      console.log('[Agent 5: 摄像师] 视频模型支持参考图，使用单阶段模式');
+      console.log(`[Agent 5: 摄像师] 视频模型: ${videoModel}`);
     }
 
     // 3. 准备输入数据
@@ -95,12 +110,19 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
 
     // 4. 调用摄像师 Agent
     console.log('[Agent 5: 摄像师] 调用摄像师 Agent...');
+    console.log(`[Agent 5: 摄像师] 配置: textModel=${textModel}, videoModel=${videoModel}, useMultiStage=${useMultiStage}`);
 
     const cinematographerResult: CinematographerResult = await runCinematographerAgent(
       storyboardData,
       videoSpecData,
       modelCapabilities,
       {
+        // 新的双模型配置
+        textModel,
+        videoModel,
+        videoModelConfig,
+        useMultiStage,
+        // 向后兼容
         modelId: state.agentModelAssignments?.['cinematographer-agent'],
         directorMode: true, // D-01: 导演模式不暂停
       },
@@ -124,7 +146,8 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
       metadata: {
         timestamp: Date.now(),
         duration: Date.now() - startTime,
-        model: state.agentModelAssignments?.['cinematographer-agent'] || 'default',
+        textModel,
+        videoModel,
         workflowMode: useMultiStage ? 'multiStage' : 'singleStage',
       },
     };

@@ -192,7 +192,30 @@ export interface WorkflowState {
     visualizerModelId?: string;
   };
 
-  /** 模型能力配置（用于摄像师 Agent 自动选择工作流模式） */
+  /** 摄像师 Agent 配置选项（双模型选择） */
+  cinematographerOptions?: {
+    /** Planner 使用的文字模型 ID */
+    textModel?: string;
+    /** 视频生成模型 ID */
+    videoModel: string;
+    /** 视频模型配置 */
+    videoModelConfig?: {
+      /** 是否支持参考图 */
+      supportsReferenceImage: boolean;
+      /** 最大视频时长（秒） */
+      maxDuration: number;
+      /** 是否支持首帧图 */
+      supportsFirstFrame?: boolean;
+      /** 是否支持尾帧图 */
+      supportsLastFrame?: boolean;
+      /** 支持的画幅比例 */
+      supportedAspectRatios?: string[];
+      /** 提供商名称 */
+      provider?: 'seedance' | 'kling' | 'other';
+    };
+  };
+
+  /** 模型能力配置（用于摄像师 Agent 自动选择工作流模式，向后兼容） */
   modelCapabilities?: {
     /** 是否支持首帧图 */
     supportsFirstFrame: boolean;
@@ -208,7 +231,7 @@ export interface WorkflowState {
     provider: 'seedance' | 'kling' | 'other';
   };
 
-  /** Agent 模型分配 */
+  /** Agent 模型分配（向后兼容） */
   agentModelAssignments?: Record<string, string>;
 
   // ===== 消息历史 =====
