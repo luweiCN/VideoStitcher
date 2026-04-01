@@ -84,7 +84,7 @@
 
 ## Phase 4: 摄像师 Agent 重构 (✅ Completed)
 
-**Goal:** 将摄像师 Agent 的提示词改造成三层架构，实现多阶段架构（Planner + Executor）。
+**Goal:** 将摄像师 Agent 的提示词改造成三层架构，实现多阶段架构（Planner + Executor），并重新设计为单一 Agent + 内置提示词 + 双模型选择。
 
 **Requirements:** CINE-01 ~ CINE-05
 
@@ -96,13 +96,17 @@
 5. 工作流能正常调用新的摄像师 Agent ✅
 6. 支持多阶段模式（Planner + Executor）✅
 7. 工作流模式根据模型能力自动选择 ✅
+8. PromptStudio 只显示一个「摄像师 Agent」（替代 Planner + Executor）✅
+9. 提示词内置不可编辑，PromptStudio 不显示提示词编辑界面 ✅
+10. 支持双模型选择（textModel + videoModel）✅
 
 **Plans:**
-4/4 plans complete
+5/5 plans complete
 - [x] 04-01-PLAN.md — 创建 cinematographerTemplates.ts 三层提示词常量文件（CINE-01, CINE-02）
 - [x] 04-02-PLAN.md — 实现 cinematographer 多阶段 Agent（CINE-03）
 - [x] 04-03-PLAN.md — 注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node（CINE-04, CINE-05）
 - [x] 04-04-PLAN.md — 修复 UAT 问题（agents.ts + 自动检测工作流模式）
+- [x] 04-05-PLAN.md — 重新设计：单一 Agent + 内置提示词 + 双模型选择
 
 ---
 
@@ -138,4 +142,4 @@
 
 ---
 
-*Last updated: 2026-04-01 after 04-04 completion*
+*Last updated: 2026-04-01 after 04-05 completion*
