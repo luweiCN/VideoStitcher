@@ -2,22 +2,22 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-last_updated: "2026-04-01T06:15:09.105Z"
+status: in_progress
+last_updated: "2026-04-01T15:45:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 14
+  completed_plans: 11
 ---
 
 # Project State
 
 ## Current Phase
 
-**Phase 2.5:** 选角导演多阶段架构重构
+**Phase 4:** 摄像师 Agent 重构
 
-Status: **Completed** — All Plans Done (02.5-01, 02.5-02, 02.5-03)
+Status: **In Progress** — Plan 04-02 已完成
 
 ## Phase Progress
 
@@ -27,32 +27,32 @@ Status: **Completed** — All Plans Done (02.5-01, 02.5-02, 02.5-03)
 | 2 | **completed** | 5/5 | 选角导演 Agent 重构完成（含图像生成） |
 | 2.5 | **completed** | 5/5 | 选角导演多阶段架构重构完成 |
 | 3 | **completed** | 5/5 | 分镜设计 Agent — 03-01、03-02、03-03 全部完成 |
-| 4 | ready | - | 摄像师 Agent 待开始 |
+| 4 | **in_progress** | 1/3 | 摄像师 Agent — 04-02 完成 |
 
 ## Context
 
 ### Last Action
 
-完成 Plan 02.5-03：注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node
+完成 Plan 04-02：实现摄像师多阶段 Agent
 
-- ✅ 确认 BUILTIN_PROMPT_TEMPLATES 已注册 casting-director-planner 和 casting-director-visualizer
-- ✅ 添加 WorkflowState.castingDirectorOptions 类型定义
-- ✅ 更新 casting-director.ts Node 支持 useMultiStage 选项
+- ✅ 创建 `src/main/ai/agents/cinematographer/index.ts`
+- ✅ 实现 `runCinematographerPlannerAgent` 函数
+- ✅ 实现 `runCinematographerExecutorAgent` 函数
+- ✅ 实现 `runCinematographerAgent` 函数（支持多阶段/单阶段模式）
+- ✅ 包含 ffmpeg 拼接逻辑 `concatenateVideos`
 
-### Completed Plans in Phase 2.5
+### Completed Plans in Phase 4
 
 | Plan | Description | Commit |
 |------|-------------|--------|
-| 02.5-01 | 创建 castingDirectorMultiTemplates.ts 三层提示词常量文件 | 7e503dc |
-| 02.5-02 | 实现 casting-director 多阶段 Agent | bf4ef9f |
-| 02.5-03 | 注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node | fbd1712, 5e017b2 |
+| 04-02 | 实现摄像师多阶段 Agent | 9584e9a |
 
-### Key Decisions for Phase 2.5
+### Key Decisions for Phase 4
 
-1. **多阶段架构**：Planner（生成视觉规格 JSON）+ Visualizer（生成图像）
+1. **多阶段架构**：Planner（生成渲染计划）+ Executor（生成视频片段）
 2. **向后兼容**：`useMultiStage` 选项默认 false，保持单阶段行为
-3. **导演模式在 Node 层处理**：与 storyboard-artist 模式一致
-4. **图像尺寸自适应**：根据角色数量计算 Nx3 网格尺寸
+3. **导演模式不暂停**：humanApproval = false（D-01）
+4. **视频生成在 Agent 内部**：调用 provider.generateVideo（D-07）
 
 ### Blockers
 
@@ -60,15 +60,15 @@ None
 
 ### Decisions Pending
 
-None — Phase 2.5 已完成
+None
 
 ## Active Workstream
 
-Main workstream: Phase 2.5 (选角导演多阶段架构) 已完成
+Main workstream: Phase 4 — 摄像师 Agent 重构
 
-Next: Phase 4 — 摄像师 Agent 重构（待规划）
+Next: 04-03 — 注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node
 
-Context file: `.planning/phases/02.5-agent-casting-multi/02.5-CONTEXT.md`
+Context file: `.planning/phases/04-agent/04-CONTEXT.md`
 
 ## Backlog
 
@@ -76,4 +76,4 @@ Context file: `.planning/phases/02.5-agent-casting-multi/02.5-CONTEXT.md`
 
 ---
 
-*Auto-generated: 2026-03-25*
+*Auto-generated: 2026-04-01*
