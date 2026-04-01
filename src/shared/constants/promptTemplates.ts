@@ -42,13 +42,46 @@ import {
   CASTING_DIRECTOR_AGENT_BUILTIN_TEMPLATE,
 } from './castingDirectorTemplates';
 
-// 导入分镜设计 Agent 提示词
+// 导入选角导演多阶段 Agent 提示词
 import {
+  CASTING_PLANNER_AGENT_EDITABLE_PART,
+  CASTING_PLANNER_AGENT_LOCKED_PART,
+  CASTING_PLANNER_AGENT_USER_PROMPT_TEMPLATE,
+  CASTING_PLANNER_AGENT_BUILTIN_TEMPLATE,
+  CASTING_VISUALIZER_AGENT_EDITABLE_PART,
+  CASTING_VISUALIZER_AGENT_LOCKED_PART,
+  CASTING_VISUALIZER_AGENT_USER_PROMPT_TEMPLATE,
+  CASTING_VISUALIZER_AGENT_BUILTIN_TEMPLATE,
+} from './castingDirectorMultiTemplates';
+
+// 导入分镜设计 Agent 提示词（多阶段）
+import {
+  STORYBOARD_PLANNER_AGENT_EDITABLE_PART,
+  STORYBOARD_PLANNER_AGENT_LOCKED_PART,
+  STORYBOARD_PLANNER_AGENT_USER_PROMPT_TEMPLATE,
+  STORYBOARD_PLANNER_AGENT_BUILTIN_TEMPLATE,
+  STORYBOARD_VISUALIZER_AGENT_EDITABLE_PART,
+  STORYBOARD_VISUALIZER_AGENT_LOCKED_PART,
+  STORYBOARD_VISUALIZER_AGENT_USER_PROMPT_TEMPLATE,
+  STORYBOARD_VISUALIZER_AGENT_BUILTIN_TEMPLATE,
+  // 向后兼容导出
   STORYBOARD_ARTIST_AGENT_EDITABLE_PART,
   STORYBOARD_ARTIST_AGENT_LOCKED_PART,
   STORYBOARD_ARTIST_AGENT_USER_PROMPT_TEMPLATE,
   STORYBOARD_ARTIST_AGENT_BUILTIN_TEMPLATE,
 } from './storyboardArtistTemplates';
+
+// 导入摄像师 Agent 提示词（多阶段）
+import {
+  CINEMATOGRAPHER_PLANNER_AGENT_EDITABLE_PART,
+  CINEMATOGRAPHER_PLANNER_AGENT_LOCKED_PART,
+  CINEMATOGRAPHER_PLANNER_AGENT_USER_PROMPT_TEMPLATE,
+  CINEMATOGRAPHER_PLANNER_AGENT_BUILTIN_TEMPLATE,
+  CINEMATOGRAPHER_EXECUTOR_AGENT_EDITABLE_PART,
+  CINEMATOGRAPHER_EXECUTOR_AGENT_LOCKED_PART,
+  CINEMATOGRAPHER_EXECUTOR_AGENT_USER_PROMPT_TEMPLATE,
+  CINEMATOGRAPHER_EXECUTOR_AGENT_BUILTIN_TEMPLATE,
+} from './cinematographerTemplates';
 
 /**
  * 支持的模型列表，用于 PromptStudio 中为每个 Agent 选择模型
@@ -239,15 +272,121 @@ export const BUILTIN_PROMPT_TEMPLATES = [
       return `${this.editablePart}\n\n${this.lockedPart}`;
     },
   },
+  // 选角导演 Agent - 多阶段架构
+  {
+    agentId: 'casting-director-planner',
+    agentName: '选角导演 - 规划器',
+    agentDescription: '根据艺术总监输出和剧本，生成角色视觉规格 JSON（外貌、服装、姿势）',
+    templateId: 'builtin-casting-planner-v1',
+    name: '内置默认模板 v1',
+    // 模型配置
+    defaultModel: 'default',
+    supportedModelTypes: ['llm'],
+    // 提示词层
+    editablePart: CASTING_PLANNER_AGENT_EDITABLE_PART,
+    lockedPart: CASTING_PLANNER_AGENT_LOCKED_PART,
+    userPromptTemplate: CASTING_PLANNER_AGENT_USER_PROMPT_TEMPLATE,
+    get systemPrompt() {
+      return `${this.editablePart}\n\n${this.lockedPart}`;
+    },
+  },
+  {
+    agentId: 'casting-director-visualizer',
+    agentName: '选角导演 - 可视化器',
+    agentDescription: '根据角色视觉规格生成角色参考图（图像生成）',
+    templateId: 'builtin-casting-visualizer-v1',
+    name: '内置默认模板 v1',
+    // 模型配置
+    defaultModel: 'default',
+    supportedModelTypes: ['image_generation'],
+    // 提示词层
+    editablePart: CASTING_VISUALIZER_AGENT_EDITABLE_PART,
+    lockedPart: CASTING_VISUALIZER_AGENT_LOCKED_PART,
+    userPromptTemplate: CASTING_VISUALIZER_AGENT_USER_PROMPT_TEMPLATE,
+    get systemPrompt() {
+      return `${this.editablePart}\n\n${this.lockedPart}`;
+    },
+  },
+  // 分镜设计 Agent - 多阶段架构
+  {
+    agentId: 'storyboard-artist-planner',
+    agentName: '分镜设计 - 规划器',
+    agentDescription: '根据剧本和角色参考图，生成 25 帧分镜的详细描述（JSON 格式）',
+    templateId: 'builtin-storyboard-planner-v1',
+    name: '内置默认模板 v1',
+    // 模型配置
+    defaultModel: 'default',
+    supportedModelTypes: ['llm'],
+    // 提示词层
+    editablePart: STORYBOARD_PLANNER_AGENT_EDITABLE_PART,
+    lockedPart: STORYBOARD_PLANNER_AGENT_LOCKED_PART,
+    userPromptTemplate: STORYBOARD_PLANNER_AGENT_USER_PROMPT_TEMPLATE,
+    get systemPrompt() {
+      return `${this.editablePart}\n\n${this.lockedPart}`;
+    },
+  },
+  {
+    agentId: 'storyboard-artist-visualizer',
+    agentName: '分镜设计 - 可视化器',
+    agentDescription: '根据分镜描述生成 5×5 分镜网格图（图像生成）',
+    templateId: 'builtin-storyboard-visualizer-v1',
+    name: '内置默认模板 v1',
+    // 模型配置
+    defaultModel: 'default',
+    supportedModelTypes: ['image_generation'],
+    // 提示词层
+    editablePart: STORYBOARD_VISUALIZER_AGENT_EDITABLE_PART,
+    lockedPart: STORYBOARD_VISUALIZER_AGENT_LOCKED_PART,
+    userPromptTemplate: STORYBOARD_VISUALIZER_AGENT_USER_PROMPT_TEMPLATE,
+    get systemPrompt() {
+      return `${this.editablePart}\n\n${this.lockedPart}`;
+    },
+  },
+  // 向后兼容：旧版单阶段分镜设计 Agent
   {
     agentId: 'storyboard-artist-agent',
-    agentName: '分镜设计 Agent',
-    agentDescription: '根据剧本和角色参考图，生成 5x5 分镜网格图和 25 张单帧图',
+    agentName: '分镜设计 Agent（兼容版）',
+    agentDescription: '根据剧本和角色参考图，生成 5x5 分镜网格图和 25 张单帧图（单阶段兼容版）',
     templateId: 'builtin-storyboard-artist-v1',
-    name: '内置默认模板 v1',
+    name: '内置默认模板 v1（兼容版）',
     editablePart: STORYBOARD_ARTIST_AGENT_EDITABLE_PART,
     lockedPart: STORYBOARD_ARTIST_AGENT_LOCKED_PART,
     userPromptTemplate: STORYBOARD_ARTIST_AGENT_USER_PROMPT_TEMPLATE,
+    get systemPrompt() {
+      return `${this.editablePart}\n\n${this.lockedPart}`;
+    },
+  },
+  // 摄像师 Agent - 多阶段架构
+  {
+    agentId: 'cinematographer-planner',
+    agentName: '摄像师 - 规划器',
+    agentDescription: '根据分镜输出和模型能力配置，生成视频渲染计划（分段策略、运镜指令）',
+    templateId: 'builtin-cinematographer-planner-v1',
+    name: '内置默认模板 v1',
+    // 模型配置
+    defaultModel: 'default',
+    supportedModelTypes: ['llm'],
+    // 提示词层
+    editablePart: CINEMATOGRAPHER_PLANNER_AGENT_EDITABLE_PART,
+    lockedPart: CINEMATOGRAPHER_PLANNER_AGENT_LOCKED_PART,
+    userPromptTemplate: CINEMATOGRAPHER_PLANNER_AGENT_USER_PROMPT_TEMPLATE,
+    get systemPrompt() {
+      return `${this.editablePart}\n\n${this.lockedPart}`;
+    },
+  },
+  {
+    agentId: 'cinematographer-executor',
+    agentName: '摄像师 - 执行器',
+    agentDescription: '根据渲染计划生成视频片段（调用视频生成 API）',
+    templateId: 'builtin-cinematographer-executor-v1',
+    name: '内置默认模板 v1',
+    // 模型配置
+    defaultModel: 'default',
+    supportedModelTypes: ['video_generation'],
+    // 提示词层
+    editablePart: CINEMATOGRAPHER_EXECUTOR_AGENT_EDITABLE_PART,
+    lockedPart: CINEMATOGRAPHER_EXECUTOR_AGENT_LOCKED_PART,
+    userPromptTemplate: CINEMATOGRAPHER_EXECUTOR_AGENT_USER_PROMPT_TEMPLATE,
     get systemPrompt() {
       return `${this.editablePart}\n\n${this.lockedPart}`;
     },
