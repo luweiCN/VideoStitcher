@@ -192,6 +192,25 @@ export interface WorkflowState {
     visualizerModelId?: string;
   };
 
+  /** 模型能力配置（用于摄像师 Agent 自动选择工作流模式） */
+  modelCapabilities?: {
+    /** 是否支持首帧图 */
+    supportsFirstFrame: boolean;
+    /** 是否支持尾帧图 */
+    supportsLastFrame: boolean;
+    /** 是否支持参考图（用于单阶段模式） */
+    supportsReferenceImage: boolean;
+    /** 最大视频时长（秒） */
+    maxDuration: number;
+    /** 支持的画幅比例 */
+    supportedAspectRatios: string[];
+    /** 提供商名称 */
+    provider: 'seedance' | 'kling' | 'other';
+  };
+
+  /** Agent 模型分配 */
+  agentModelAssignments?: Record<string, string>;
+
   // ===== 消息历史 =====
   /** LangChain 消息历史（用于 LLM 上下文） */
   messages: BaseMessage[];

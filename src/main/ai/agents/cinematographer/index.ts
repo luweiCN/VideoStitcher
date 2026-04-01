@@ -72,6 +72,8 @@ export interface ModelCapabilities {
   supportsFirstFrame: boolean;
   /** 是否支持尾帧图 */
   supportsLastFrame: boolean;
+  /** 是否支持参考图（用于单阶段模式） */
+  supportsReferenceImage: boolean;
   /** 最大视频时长（秒） */
   maxDuration: number;
   /** 支持的画幅比例 */
@@ -255,8 +257,6 @@ export interface CinematographerAgentOptions {
   planner?: CinematographerPlannerOptions;
   /** Executor 阶段选项 */
   executor?: CinematographerExecutorOptions;
-  /** 是否使用多阶段模式 */
-  useMultiStage?: boolean;
   /** 指定模型 ID（向后兼容） */
   modelId?: string;
   /** 自定义系统提示词（向后兼容） */
@@ -843,18 +843,23 @@ function convertLegacyToRenderPlan(legacy: LegacyCinematographerOutput): RenderP
 /**
  * 运行完整的摄像师 Agent
  *
- * 调用流程（多阶段模式，useMultiStage=true）：
+ * 调用流程（多阶段模式，模型不支持参考图）：
  * 1. Planner 阶段：调用 LLM 生成渲染计划（RenderPlan）
  * 2. Executor 阶段：调用视频生成 API 生成视频片段并拼接
  * 3. 返回完整结果
  *
- * 调用流程（单阶段模式，默认）：
+ * 调用流程（单阶段模式，模型支持参考图）：
  * 1. 使用旧版 CinematographerAgentPrompts 生成视频合成计划
  * 2. 直接生成视频片段
  * 3. 返回结果（向后兼容）
  *
+ * 工作流模式自动选择：
+ * - 模型支持参考图（supportsReferenceImage=true）→ 单阶段模式
+ * - 模型不支持参考图 → 多阶段模式
+ *
  * @param storyboardOutput - 分镜输出
  * @param videoSpec - 视频规格
+ * @param modelCapabilities - 模型能力配置
  * @param options - Agent 调用选项
  * @param logger - 可选的日志输出函数
  * @returns 生成的视频结果
@@ -862,24 +867,19 @@ function convertLegacyToRenderPlan(legacy: LegacyCinematographerOutput): RenderP
 export async function runCinematographerAgent(
   storyboardOutput: StoryboardOutput,
   videoSpec: VideoSpec,
+  modelCapabilities: ModelCapabilities,
   options: CinematographerAgentOptions = {},
   logger?: { info: (msg: string, meta?: any) => void }
 ): Promise<CinematographerResult> {
   const startTime = Date.now();
-  const { useMultiStage = false, planner, executor, directorMode = true } = options;
+  const { planner, executor, directorMode = true } = options;
+
+  // 根据模型能力自动决定工作流模式
+  const useMultiStage = !modelCapabilities.supportsReferenceImage;
 
   // 多阶段模式
   if (useMultiStage) {
     logger?.info('[摄像师 Agent] 使用多阶段模式（Planner + Executor）');
-
-    // 准备模型能力配置（默认值）
-    const modelCapabilities: ModelCapabilities = {
-      supportsFirstFrame: true,
-      supportsLastFrame: false,
-      maxDuration: 15,
-      supportedAspectRatios: ['16:9', '9:16'],
-      provider: 'seedance',
-    };
 
     // Stage 1: Planner 阶段
     logger?.info('[摄像师 Agent] ========== Stage 1: Planner ==========');

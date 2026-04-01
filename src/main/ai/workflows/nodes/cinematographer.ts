@@ -59,9 +59,24 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
 
     console.log('[Agent 5: 摄像师] 开始生成视频');
 
-    // 2. 检测 useMultiStage 选项（从配置中读取，默认 false 保持向后兼容）
-    const useMultiStage = state.config?.cinematographerOptions?.useMultiStage ?? false;
-    console.log(`[Agent 5: 摄像师] 使用 ${useMultiStage ? '多阶段' : '单阶段'} 模式`);
+    // 2. 获取模型能力配置（从状态中读取）
+    const modelCapabilities = state.modelCapabilities || {
+      supportsFirstFrame: true,
+      supportsLastFrame: false,
+      supportsReferenceImage: false,
+      maxDuration: 15,
+      supportedAspectRatios: ['16:9', '9:16'],
+      provider: 'seedance',
+    };
+
+    // 根据模型能力自动决定工作流模式
+    const useMultiStage = !modelCapabilities.supportsReferenceImage;
+
+    if (useMultiStage) {
+      console.log('[Agent 5: 摄像师] 模型不支持参考图，使用多阶段模式');
+    } else {
+      console.log('[Agent 5: 摄像师] 模型支持参考图，使用单阶段模式');
+    }
 
     // 3. 准备输入数据
     const storyboardData: StoryboardOutput = {
@@ -70,10 +85,12 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
       styleNotes: storyboardOutput.style_notes,
     };
 
+    // 转换视频规格（workflow state 的 duration 是 'short'|'long'，需要转换为秒数）
+    const durationValue = videoSpec?.duration === 'short' ? 15 : 30;
     const videoSpecData: VideoSpec = {
       aspectRatio: videoSpec?.aspectRatio || '9:16',
-      duration: videoSpec?.duration || 15,
-      resolution: videoSpec?.resolution || '1080p',
+      duration: durationValue,
+      resolution: '1080p',
     };
 
     // 4. 调用摄像师 Agent
@@ -82,8 +99,8 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
     const cinematographerResult: CinematographerResult = await runCinematographerAgent(
       storyboardData,
       videoSpecData,
+      modelCapabilities,
       {
-        useMultiStage,
         modelId: state.agentModelAssignments?.['cinematographer-agent'],
         directorMode: true, // D-01: 导演模式不暂停
       },
@@ -108,7 +125,7 @@ export async function cinematographerNode(state: WorkflowState): Promise<Partial
         timestamp: Date.now(),
         duration: Date.now() - startTime,
         model: state.agentModelAssignments?.['cinematographer-agent'] || 'default',
-        useMultiStage,
+        workflowMode: useMultiStage ? 'multiStage' : 'singleStage',
       },
     };
 
