@@ -1,4 +1,4 @@
-import { FileText, Palette, Lightbulb, Sparkles } from 'lucide-react';
+import { FileText, Palette, Lightbulb, Sparkles, Users, Video, Film } from 'lucide-react';
 import type { AgentConfig } from './types';
 
 const AGENTS: AgentConfig[] = [
@@ -45,6 +45,39 @@ const AGENTS: AgentConfig[] = [
     iconColor: 'text-blue-400',
     bgColor: 'bg-blue-500/10 group-hover:bg-blue-500',
     modelTypes: ['text', 'image'],
+  },
+  {
+    id: 'casting-director-agent',
+    name: '选角导演 Agent',
+    role: '角色设计',
+    description:
+      '根据艺术总监的角色描述，为每个角色生成三个视角（正面、侧面、动作姿态）的图像生成提示词，确保角色形象的一致性和可生成性。',
+    icon: Users,
+    iconColor: 'text-emerald-400',
+    bgColor: 'bg-emerald-500/10 group-hover:bg-emerald-500',
+    modelTypes: ['text'],
+  },
+  {
+    id: 'cinematographer-planner-agent',
+    name: '摄像师 - 规划器',
+    role: '视频规划',
+    description:
+      '分析分镜输出，根据视频生成模型能力制定渲染计划（分几段、每段时长、镜头运动）。支持参考图的模型用单阶段，只支持首尾帧的用多阶段。',
+    icon: Video,
+    iconColor: 'text-orange-400',
+    bgColor: 'bg-orange-500/10 group-hover:bg-orange-500',
+    modelTypes: ['text'],
+  },
+  {
+    id: 'cinematographer-executor-agent',
+    name: '摄像师 - 执行器',
+    role: '视频生成',
+    description:
+      '根据渲染计划逐段生成视频片段，使用 ffmpeg 拼接成最终视频。支持首帧图和尾帧图作为关键帧参考。',
+    icon: Film,
+    iconColor: 'text-red-400',
+    bgColor: 'bg-red-500/10 group-hover:bg-red-500',
+    modelTypes: ['video'],
   },
 ];
 
