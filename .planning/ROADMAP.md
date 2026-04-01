@@ -101,12 +101,13 @@
 10. 支持双模型选择（textModel + videoModel）✅
 
 **Plans:**
-5/5 plans complete
+6/6 plans complete
 - [x] 04-01-PLAN.md — 创建 cinematographerTemplates.ts 三层提示词常量文件（CINE-01, CINE-02）
 - [x] 04-02-PLAN.md — 实现 cinematographer 多阶段 Agent（CINE-03）
 - [x] 04-03-PLAN.md — 注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node（CINE-04, CINE-05）
 - [x] 04-04-PLAN.md — 修复 UAT 问题（agents.ts + 自动检测工作流模式）
 - [x] 04-05-PLAN.md — 重新设计：单一 Agent + 内置提示词 + 双模型选择
+- [x] 04-06-PLAN.md — PromptStudio UI 修复（builtinPrompts 标记）
 
 ---
 
@@ -142,4 +143,4 @@
 
 ---
 
-*Last updated: 2026-04-01 after 04-05 completion*
+*Last updated: 2026-04-01 after 04-06 completion*
