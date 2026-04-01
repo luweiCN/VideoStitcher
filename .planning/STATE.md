@@ -33,18 +33,18 @@ Status: **Completed** — All Plans Done (02.5-01, 02.5-02, 02.5-03)
 
 ### Last Action
 
-完成 Plan 02.5-02：实现选角导演多阶段 Agent
+完成 Plan 02.5-01：创建选角导演多阶段提示词常量文件
 
-- ✅ 实现 runCastingPlannerAgent 函数：生成角色视觉规格
-- ✅ 实现 runCastingVisualizerAgent 函数：生成图像和提示词
-- ✅ 更新 runCastingDirectorAgent：支持 useMultiStage 选项
-- ✅ 保持单阶段模式向后兼容
+- ✅ 创建 castingDirectorMultiTemplates.ts 文件
+- ✅ 添加 Planner 阶段三层提示词（EDITABLE、LOCKED、DYNAMIC）
+- ✅ 添加 Visualizer 阶段三层提示词（EDITABLE、LOCKED、DYNAMIC）
+- ✅ 导出两个阶段的 BUILTIN_TEMPLATE 元数据
 
 ### Completed Plans in Phase 2.5
 
 | Plan | Description | Commit |
 |------|-------------|--------|
-| 02.5-01 | 创建 castingDirectorMultiTemplates.ts 三层提示词常量文件 | (已有) |
+| 02.5-01 | 创建 castingDirectorMultiTemplates.ts 三层提示词常量文件 | 7e503dc |
 | 02.5-02 | 实现 casting-director 多阶段 Agent | bf4ef9f |
 | 02.5-03 | 注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node | (已有) |
 

@@ -39,6 +39,28 @@
 
 ---
 
+## Phase 2.5: 选角导演多阶段架构重构 (✅ Completed)
+
+**Goal:** 将选角导演 Agent 从单阶段拆分为多阶段架构（Planner + Visualizer），与分镜设计 Agent 保持一致。
+
+**Requirements:** CASTM-01, CASTM-02, CASTM-03, CASTM-04, CASTM-05
+
+**Success Criteria:**
+1. `castingDirectorMultiTemplates.ts` 文件创建，包含 Planner 和 Visualizer 的提示词 ✅
+2. `casting-director/index.ts` 实现多阶段调用函数 ✅
+3. `BUILTIN_PROMPT_TEMPLATES` 已注册 Planner 和 Visualizer ✅
+4. PromptStudio 能分别配置两个阶段 ✅
+5. 工作流支持 `useMultiStage` 选项调用多阶段选角导演 ✅
+6. 导演模式支持两个阶段的 `humanApproval` 暂停 ✅
+
+**Plans:**
+3/3 plans executed
+- [x] 02.5-01-PLAN.md — 创建 castingDirectorMultiTemplates.ts 三层提示词常量文件（CASTM-01, CASTM-02）
+- [x] 02.5-02-PLAN.md — 实现 casting-director 多阶段 Agent（CASTM-03）
+- [x] 02.5-03-PLAN.md — 注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node（CASTM-04, CASTM-05）
+
+---
+
 ## Phase 3: 分镜设计 Agent 重构 ✅
 
 **Goal:** 将分镜设计 Agent 的提示词改造成三层架构，同时迁移图像生成和 sharp 切割逻辑到 Agent 内部。
@@ -82,6 +104,11 @@
 | CAST-03 | 2 | 02-02-PLAN.md | completed |
 | CAST-04 | 2 | 02-03-PLAN.md | completed |
 | CAST-05 | 2 | 02-03-PLAN.md | completed |
+| CASTM-01 | 2.5 | 02.5-01-PLAN.md | completed |
+| CASTM-02 | 2.5 | 02.5-01-PLAN.md | completed |
+| CASTM-03 | 2.5 | 02.5-02-PLAN.md | completed |
+| CASTM-04 | 2.5 | 02.5-03-PLAN.md | completed |
+| CASTM-05 | 2.5 | 02.5-03-PLAN.md | completed |
 | STORY-01 | 3 | 03-01-PLAN.md | completed |
 | STORY-02 | 3 | 03-01-PLAN.md | completed |
 | STORY-03 | 3 | 03-02-PLAN.md | completed |
@@ -90,4 +117,4 @@
 
 ---
 
-*Last updated: 2026-03-25*
+*Last updated: 2026-04-01*
