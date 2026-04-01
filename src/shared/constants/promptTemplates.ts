@@ -357,6 +357,8 @@ export const BUILTIN_PROMPT_TEMPLATES = [
     // 模型配置
     defaultModel: 'default',
     supportedModelTypes: ['text', 'video'],  // 需要两种模型
+    // 提示词内置标记：不显示模板编辑 UI
+    builtinPrompts: true,
     // 提示词内置在代码中，不在此处定义
     editablePart: '',  // 空，不可编辑
     lockedPart: '',    // 空，内置在代码中
