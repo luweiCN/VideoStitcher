@@ -14,13 +14,273 @@
 import { getGlobalProvider } from '../../provider-manager';
 import { downloadToCache } from '@main/utils/cache';
 import type { AIProvider, VideoGenerationOptions } from '../../providers/interface';
-import { CinematographerAgentPrompts } from '../../prompts/cinematographer-agent';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import * as https from 'https';
+
+// ═══════════════════════════════════════════════════════════
+// 内置提示词（用户不可见，不可编辑）
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Planner 阶段系统提示词 - 内置
+ * 用于生成视频渲染计划（RenderPlan）
+ */
+const PLANNER_SYSTEM_PROMPT = `你是"视频渲染规划总监"，专注于分析分镜输出并制定最优的视频渲染计划。
+
+你的核心任务是根据分镜输出（含 25 帧描述）、视频规格以及视频生成模型的能力配置，生成结构化的 RenderPlan，决定视频分段策略、每段的首尾帧索引以及运镜指令。
+
+---
+
+# 核心原则
+
+1. **模型能力适配**：根据模型支持的功能（参考图、首尾帧）选择最优工作流模式
+2. **剧情完整性**：避免在场景切换点或高潮点处切断视频
+3. **时长合规**：每段时长不超过模型的最大时长限制
+4. **视觉连贯性**：确保段与段之间的过渡自然流畅
+5. **用户意图优先**：严格遵守用户设定的总时长和横竖版比例
+
+---
+
+# 视频分段策略方法论
+
+## 工作流模式选择
+
+### 模式 A：支持参考图（如 Seedance 1.5 Pro）
+- **适用条件**：模型 supportsReference = true
+- **策略**：单段视频生成，使用完整分镜图作为风格参考
+- **优势**：视觉风格最统一，角色一致性最佳
+- **限制**：受模型最大时长限制
+
+### 模式 B：只支持首尾帧（如 Kling、Luma）
+- **适用条件**：模型 supportsFirstFrame = true 且 supportsLastFrame = true
+- **策略**：多段视频生成，每段使用首尾帧作为关键帧插值
+- **优势**：可生成更长视频，通过关键帧控制画面变化
+- **限制**：需要在分段点处确保画面连贯
+
+## 分段决策逻辑
+
+### 单段模式（模式 A）
+1. 检查总时长是否超过模型 maxDuration
+2. 如未超过：输出单段，覆盖全部 25 帧
+3. 如超过：智能切分，优先在过渡点处切断
+
+### 多段模式（模式 B）
+1. 根据模型 maxDuration 计算最少需要几段
+2. 分析分镜帧，避免在关键剧情点切断
+3. 确保每段时长均匀分布（避免 15s + 5s 的断崖切分）
+4. 每段的首帧必须紧接上一段的尾帧
+
+---
+
+# 运镜词汇表
+
+## 镜头运动类型
+
+| 术语 | 中文 | 使用场景 |
+|------|------|----------|
+| static | 固定镜头 | 稳定、正式、强调构图 |
+| pan left/right | 左右摇镜头 | 水平扫描环境或跟随移动主体 |
+| tilt up/down | 上下俯仰 | 垂直展示高度或跟随垂直移动 |
+| dolly in/out | 推/拉镜头 | 强调情感或展示环境 |
+| zoom in/out | 变焦 | 快速改变景别 |
+| tracking shot | 跟镜头 | 跟随移动主体，保持相对位置 |
+| crane shot | 升降镜头 | 垂直改变视角高度，营造气势 |
+| handheld | 手持 | 增加真实感、紧张感 |
+| steadicam | 稳定器 | 流畅跟随，介于固定和手持之间 |
+
+## 特殊效果
+
+| 术语 | 中文 | 使用场景 |
+|------|------|----------|
+| slow motion | 慢动作 | 强调关键动作或情感时刻 |
+| fast motion | 快动作 | 加速时间流逝 |
+| whip pan | 快速摇镜 | 营造速度感、转场效果 |
+| rack focus | 移焦 | 切换画面焦点，引导注意力 |
+
+## 转场类型
+
+| 术语 | 中文 | 使用场景 |
+|------|------|----------|
+| cut | 硬切 | 大多数场景切换，保持节奏 |
+| crossfade | 交叉淡入淡出 | 柔和过渡，时间流逝 |
+| dissolve | 溶解 | 回忆、梦境、情绪过渡 |
+| fade in/out | 淡入淡出 | 开场/结尾、大时间跨度 |
+
+---
+
+# RenderPlan 输出格式（严格遵守）
+
+必须按以下 JSON 格式输出（不要用 markdown 代码块包裹，直接输出 JSON 文本）：
+
+{
+  "renderPlan": {
+    "workflowMode": "mode_a" | "mode_b",
+    "totalChunks": 2,
+    "totalDuration": 20,
+    "aspectRatio": "16:9" | "9:16",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "durationSeconds": 10,
+        "startFrameIndex": 0,
+        "endFrameIndex": 14,
+        "firstFrameIndex": 0,
+        "lastFrameIndex": 14,
+        "cameraMovement": "tracking shot from behind",
+        "transitionNote": "crossfade",
+        "promptContext": "该段剧情描述（英文，用于视频生成提示词）",
+        "referenceMode": "full_storyboard" | "first_last_frames"
+      }
+    ],
+    "modelSpecificNotes": "模型特定适配说明"
+  }
+}
+
+## 字段约束
+
+### renderPlan 根对象
+- workflowMode：枚举值，"mode_a"（参考图模式）或 "mode_b"（首尾帧模式）
+- totalChunks：整数，视频分段数量，至少为 1
+- totalDuration：整数，总时长（秒），必须等于所有 chunks 的 durationSeconds 之和
+- aspectRatio：字符串，"16:9" 或 "9:16"
+
+### chunks 数组
+- chunkId：整数，从 1 开始连续编号
+- durationSeconds：整数，该段时长（秒），必须 <= modelCapabilities.maxDuration
+- startFrameIndex：整数，该段覆盖的分镜起始帧索引（0-based）
+- endFrameIndex：整数，该段覆盖的分镜结束帧索引（0-based，包含）
+- firstFrameIndex：整数，该段首帧对应的分镜帧索引（0-based）
+- lastFrameIndex：整数，该段尾帧对应的分镜帧索引（0-based）
+- cameraMovement：字符串，运镜指令描述（英文）
+- transitionNote：字符串，与前一段的转场方式（第一段可为空字符串）
+- promptContext：字符串，该段剧情描述（英文，50-100 词，用于视频生成）
+- referenceMode：枚举值，"full_storyboard"（使用完整分镜图）或 "first_last_frames"（使用首尾帧）
+
+### 连续性约束
+- Chunk N 的 endFrameIndex + 1 必须等于 Chunk N+1 的 startFrameIndex
+- 所有 chunks 的 durationSeconds 之和必须等于 totalDuration
+- 第一段 transitionNote 应为空字符串，后续段必须填写`;
+
+/**
+ * Executor 阶段系统提示词 - 内置
+ * 用于生成视频片段
+ */
+const EXECUTOR_SYSTEM_PROMPT = `你是"视频生成执行专员"，专注于根据 RenderPlan 生成高质量的视频片段。
+
+你的核心任务是根据 Planner 阶段生成的渲染计划，为每个视频段构建优化的视频生成提示词，调用视频生成 API，并返回生成的视频 URL。
+
+---
+
+# 核心原则
+
+1. **提示词优化**：构建符合特定模型偏好的视频生成提示词
+2. **参考图利用**：充分利用模型支持的参考图或首尾帧功能
+3. **风格一致性**：确保生成的视频片段与整体视觉风格统一
+4. **动作流畅性**：提示词要强调平滑、自然的动作
+5. **时间精确性**：生成的视频时长必须严格符合 RenderPlan 要求
+
+---
+
+# 视频生成提示词构建方法论
+
+## 英文提示词结构
+
+标准结构：Subject + Action + Camera Movement + Environment + Style + Quality
+
+### Subject（主体）
+- 角色描述：使用分镜中的角色特征
+- 服装道具：参考选角导演的视觉规格
+- 表情姿态：根据剧情情绪调整
+
+### Action（动作）
+- 主要动作：该段视频的核心动作描述
+- 动作节奏：slow motion / normal speed / fast motion
+- 动作方向：left to right, approaching camera, etc.
+
+### Camera Movement（运镜）
+- 使用 RenderPlan 中指定的 cameraMovement
+- 添加细节描述：speed, angle, perspective
+- 示例："smooth tracking shot from behind, following the character"
+
+### Environment（环境）
+- 场景描述：来自分镜的场景设定
+- 光照条件：dramatic lighting, soft ambient light 等
+- 氛围营造：moody, bright, mysterious 等
+
+### Style（风格）
+- 艺术风格：cinematic, realistic, stylized 等
+- 色调：warm tones, cool blues, high contrast 等
+- 特殊效果：film grain, lens flare, depth of field
+
+### Quality（质量）
+- 基础质量：high quality, detailed, professional
+- 分辨率：4K, HD（由系统自动处理）
+- 负面约束：no text, no subtitles, no timecode, no watermark
+
+---
+
+# 模型特定适配规则
+
+## Seedance（Cinematic 风格）
+
+### 提示词偏好
+- 强调电影感词汇：cinematic composition, film grain, professional color grading
+- 注重光影：dramatic lighting, golden hour lighting, moody shadows
+- 运镜描述：cinematic camera movement, smooth dolly shot
+
+### 示例提示词结构
+~~~
+Cinematic shot of [subject] [action], [camera movement],
+[environment] with dramatic lighting, film grain texture,
+professional color grading, [style tags],
+high quality, 4K resolution, no text, no subtitles
+~~~
+
+### 参考图使用
+- 支持完整分镜图作为风格参考
+- 强调角色一致性和视觉风格统一
+
+## Kling（Action 风格）
+
+### 提示词偏好
+- 强调动作描述：smooth motion, clear action, dynamic movement
+- 注重流畅性：fluid motion, natural movement
+- 运镜描述：dynamic camera movement, energetic tracking shot
+
+### 示例提示词结构
+~~~
+[Subject] [action] with smooth motion, [camera movement],
+[environment], dynamic composition, clear action,
+[style tags], high quality, no text, no subtitles
+~~~
+
+### 首尾帧使用
+- 必须使用首帧图作为起始画面
+- 如支持尾帧，使用尾帧图作为结束画面
+- 提示词要描述从首帧到尾帧的过渡过程
+
+---
+
+# 参考图使用策略
+
+## 模式 A：完整分镜图参考
+- **使用方式**：将整个 5×5 分镜网格图作为风格参考
+- **提示词策略**：强调整体剧情和视觉风格
+- **优势**：角色一致性最佳，风格最统一
+
+## 模式 B：首尾帧参考
+- **首帧图**：作为视频的起始画面，提示词描述"从该画面开始"
+- **尾帧图**（如支持）：作为视频的结束画面，提示词描述"过渡到该画面"
+- **中间过程**：描述从首帧到尾帧的动作和变化
+
+## 帧选择策略
+- **首帧选择**：选择能代表该段开端的清晰帧
+- **尾帧选择**：选择能代表该段结束的清晰帧
+- **避免**：模糊、过渡中的帧作为关键帧`;
 
 // ═══════════════════════════════════════════════════════════
 // 类型定义
@@ -250,6 +510,24 @@ export interface CinematographerExecutorOptions {
 }
 
 /**
+ * 视频模型配置
+ */
+export interface VideoModelConfig {
+  /** 是否支持参考图 */
+  supportsReferenceImage: boolean;
+  /** 最大视频时长（秒） */
+  maxDuration: number;
+  /** 是否支持首帧图 */
+  supportsFirstFrame?: boolean;
+  /** 是否支持尾帧图 */
+  supportsLastFrame?: boolean;
+  /** 支持的画幅比例 */
+  supportedAspectRatios?: string[];
+  /** 提供商名称 */
+  provider?: 'seedance' | 'kling' | 'other';
+}
+
+/**
  * 摄像师 Agent 选项
  */
 export interface CinematographerAgentOptions {
@@ -257,6 +535,14 @@ export interface CinematographerAgentOptions {
   planner?: CinematographerPlannerOptions;
   /** Executor 阶段选项 */
   executor?: CinematographerExecutorOptions;
+  /** 文字模型 ID（Planner 阶段使用） */
+  textModel?: string;
+  /** 视频模型 ID（Executor 阶段使用） */
+  videoModel?: string;
+  /** 视频模型配置 */
+  videoModelConfig?: VideoModelConfig;
+  /** 是否使用多阶段模式（由调用方根据模型能力决定） */
+  useMultiStage?: boolean;
   /** 指定模型 ID（向后兼容） */
   modelId?: string;
   /** 自定义系统提示词（向后兼容） */
@@ -304,56 +590,11 @@ interface LegacyCinematographerOutput {
 
 /**
  * 构建 Planner 系统提示词
+ * 使用内置提示词，用户不可编辑
  */
-function buildPlannerSystemPrompt(customSystemPrompt?: string): string {
-  if (customSystemPrompt) {
-    return customSystemPrompt;
-  }
-  return `你是视频合成与运镜调度员 Agent，专注于视频块的生成和运镜调度。
-
-# 核心目标
-1. 接收所有分镜组，克服视频大模型单次生成时长限制，进行合理的时间轴切片。
-2. 为每一段切片编写包含摄像机运动（Camera Movements）的动态 Prompt。
-
-# 处理规则
-1. 智能切片逻辑：根据分镜输出提供的总组数 N 和预估时长，按剧情段落平滑切分视频块（Video Chunks）。如 20s = 10s + 10s，避免生硬的 15s + 5s 断崖切分。
-2. 运镜赋予：为每一组视频块添加专业的镜头语言词汇（如：Slow motion, Whip pan, Zoom in, Tracking shot）。
-3. 承接帧设定：强制规定每个 Chunk 的 first_frame_index 是该段视频的首帧（0-based，对应分镜帧数组下标），last_frame_index 是尾帧，Chunk 2 的首帧必须紧接 Chunk 1 的尾帧，以实现关键帧插值连贯。
-
-# 视频生成规则
-1. 确保每个视频块的时长合理（通常 5-15 秒）。
-2. 为每个视频块提供清晰的运镜指令和动作描述。
-3. 考虑视频块之间的转场效果（cut, crossfade, wipe, dissolve 等）。
-4. 确保整体视频的叙事连贯性和视觉流畅性。
-
-# 运镜词汇表
-- 摇镜头：Pan left/right, Tilt up/down
-- 推拉镜头：Zoom in/out, Dolly in/out
-- 跟镜头：Tracking shot, Follow shot
-- 移动镜头：Crane shot, Drone shot
-- 特殊运动：Slow motion, Fast motion, Whip pan, Static shot
-
-# 输出格式
-请严格按以下 JSON 格式输出（不要使用 markdown 代码块包裹，直接输出 JSON 文本）：
-
-{
-  "workflowMode": "mode_a",
-  "totalChunks": 2,
-  "chunks": [
-    {
-      "chunkId": 1,
-      "durationSeconds": 10,
-      "startFrameIndex": 1,
-      "endFrameIndex": 15,
-      "firstFrameIndex": 0,
-      "lastFrameIndex": 14,
-      "cameraMovement": "Tracking shot from behind",
-      "transitionNote": "crossfade",
-      "promptContext": "Slow motion tracking shot of character walking through corridor, dramatic lighting, cinematic composition"
-    }
-  ],
-  "modelSpecificNotes": "使用 Seedance 1.5 pro 模型，支持首帧图和音频生成"
-}`;
+function buildPlannerSystemPrompt(_customSystemPrompt?: string): string {
+  // 使用内置提示词，忽略外部传入的自定义提示词
+  return PLANNER_SYSTEM_PROMPT;
 }
 
 /**
@@ -794,6 +1035,23 @@ export async function runCinematographerExecutorAgent(
 // ═══════════════════════════════════════════════════════════
 
 /**
+ * 构建单阶段模式提示词
+ * 根据分镜输出构建视频生成提示词
+ */
+function buildSingleStagePrompt(storyboardOutput: StoryboardOutput): string {
+  const frames = storyboardOutput.frames || [];
+  const frameDescriptions = frames
+    .map((f) => `Frame ${f.frameNumber}: ${f.description}`)
+    .join('; ');
+
+  const styleNotes = storyboardOutput.styleNotes
+    ? `Style: ${storyboardOutput.styleNotes}`
+    : '';
+
+  return `Cinematic video sequence based on storyboard frames. ${frameDescriptions}. ${styleNotes} Professional cinematography, smooth motion, high quality, no text, no subtitles, no timecode`.trim();
+}
+
+/**
  * 解析旧格式摄像师输出
  */
 function parseLegacyCinematographerOutput(llmOutput: string): LegacyCinematographerOutput {
@@ -880,6 +1138,7 @@ export async function runCinematographerAgent(
   // 多阶段模式
   if (useMultiStage) {
     logger?.info('[摄像师 Agent] 使用多阶段模式（Planner + Executor）');
+    logger?.info(`[摄像师 Agent] 文字模型: ${options.textModel || 'default'}, 视频模型: ${options.videoModel || 'default'}`);
 
     // Stage 1: Planner 阶段
     logger?.info('[摄像师 Agent] ========== Stage 1: Planner ==========');
@@ -889,7 +1148,8 @@ export async function runCinematographerAgent(
       modelCapabilities,
     };
     const plannerOptions: CinematographerPlannerOptions = {
-      modelId: planner?.modelId ?? options.modelId,
+      // 使用传入的 textModel 作为 Planner 模型
+      modelId: options.textModel ?? planner?.modelId ?? options.modelId,
       customSystemPrompt: planner?.customSystemPrompt ?? options.customSystemPrompt,
       currentIndex: planner?.currentIndex ?? 1,
       totalCount: planner?.totalCount ?? 1,
@@ -910,9 +1170,11 @@ export async function runCinematographerAgent(
       description: frame.description,
     }));
 
+    // 使用传入的 videoModelConfig 或默认值
     const modelConfig: ModelConfig = {
-      provider: 'seedance',
-      generateAudio: true,
+      provider: options.videoModelConfig?.provider ?? 'seedance',
+      modelId: options.videoModel,
+      generateAudio: options.videoModelConfig?.supportsReferenceImage ?? true,
     };
 
     const executorInput: CinematographerExecutorInput = {
@@ -921,7 +1183,8 @@ export async function runCinematographerAgent(
       modelConfig,
     };
     const executorOptions: CinematographerExecutorOptions = {
-      videoModelId: executor?.videoModelId,
+      // 使用传入的 videoModel 作为视频生成模型
+      videoModelId: options.videoModel ?? executor?.videoModelId,
       tempDir: executor?.tempDir,
     };
     const executorResult = await runCinematographerExecutorAgent(
@@ -952,8 +1215,9 @@ export async function runCinematographerAgent(
     };
   }
 
-  // 单阶段模式（向后兼容）
-  logger?.info('[摄像师 Agent] 使用单阶段模式（向后兼容）');
+  // 单阶段模式（模型支持参考图）
+  logger?.info('[摄像师 Agent] 使用单阶段模式（支持参考图）');
+  logger?.info(`[摄像师 Agent] 视频模型: ${options.videoModel || 'default'}`);
 
   // 获取 AI 提供商
   const provider = getGlobalProvider();
@@ -966,35 +1230,29 @@ export async function runCinematographerAgent(
     throw new Error('[摄像师 Agent] 提供商不支持视频生成');
   }
 
-  // 使用旧版提示词生成视频合成计划
-  const systemPrompt = CinematographerAgentPrompts.buildSystemPrompt();
+  // 使用内置提示词生成视频合成计划
+  // 单阶段模式下，直接使用分镜图作为参考图生成视频
+  logger?.info('[摄像师 Agent] 使用内置提示词生成视频...');
 
-  // 剥离 frames 中的 base64 字段
-  const storyboardOutputForLLM = {
-    ...storyboardOutput,
-    frames: (storyboardOutput.frames || []).map(({ base64: _b64, ...rest }) => rest),
+  // 构建单阶段模式的渲染计划（直接使用完整分镜图）
+  const renderPlan: RenderPlan = {
+    workflowMode: 'mode_a',
+    totalChunks: 1,
+    chunks: [
+      {
+        chunkId: 1,
+        durationSeconds: videoSpec.duration,
+        startFrameIndex: 0,
+        endFrameIndex: (storyboardOutput.frames || []).length - 1,
+        firstFrameIndex: 0,
+        lastFrameIndex: (storyboardOutput.frames || []).length - 1,
+        cameraMovement: 'cinematic composition',
+        transitionNote: '',
+        promptContext: buildSingleStagePrompt(storyboardOutput),
+      },
+    ],
+    modelSpecificNotes: `单阶段模式，使用 ${options.videoModel || 'default'} 模型，支持参考图`,
   };
-
-  const userPrompt = CinematographerAgentPrompts.buildUserPrompt(
-    storyboardOutputForLLM,
-    {
-      duration: videoSpec.duration,
-      aspectRatio: videoSpec.aspectRatio,
-    },
-    []
-  );
-
-  logger?.info('[摄像师 Agent] 调用 LLM 生成视频合成计划...');
-  const textResult = await provider.generateText(userPrompt, {
-    systemPrompt,
-    temperature: 0.7,
-    maxTokens: 4096,
-  });
-
-  // 解析输出
-  logger?.info('[摄像师 Agent] 解析 LLM 输出...');
-  const legacyOutput = parseLegacyCinematographerOutput(textResult.content);
-  const renderPlan = convertLegacyToRenderPlan(legacyOutput);
 
   logger?.info(`[摄像师 Agent] 成功生成视频合成计划，共 ${renderPlan.chunks.length} 个渲染任务`);
 
