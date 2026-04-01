@@ -82,25 +82,27 @@
 
 ---
 
-## Phase 4: 摄像师 Agent 重构 (In Progress)
+## Phase 4: 摄像师 Agent 重构 (✅ Completed)
 
 **Goal:** 将摄像师 Agent 的提示词改造成三层架构，实现多阶段架构（Planner + Executor）。
 
 **Requirements:** CINE-01 ~ CINE-05
 
 **Success Criteria:**
-1. `cinematographerTemplates.ts` 文件创建，包含三层提示词
-2. `cinematographer/` Agent 目录创建，实现完整的 Agent 调用逻辑
-3. `BUILTIN_PROMPT_TEMPLATES` 已注册摄像师 Agent
-4. PromptStudio 能正确展示摄像师 Agent 的编辑界面
-5. 工作流能正常调用新的摄像师 Agent
-6. 支持多阶段模式（Planner + Executor）
+1. `cinematographerTemplates.ts` 文件创建，包含三层提示词 ✅
+2. `cinematographer/` Agent 目录创建，实现完整的 Agent 调用逻辑 ✅
+3. `BUILTIN_PROMPT_TEMPLATES` 已注册摄像师 Agent ✅
+4. PromptStudio 能正确展示摄像师 Agent 的编辑界面 ✅
+5. 工作流能正常调用新的摄像师 Agent ✅
+6. 支持多阶段模式（Planner + Executor）✅
+7. 工作流模式根据模型能力自动选择 ✅
 
 **Plans:**
-3/3 plans complete
+4/4 plans complete
 - [x] 04-01-PLAN.md — 创建 cinematographerTemplates.ts 三层提示词常量文件（CINE-01, CINE-02）
 - [x] 04-02-PLAN.md — 实现 cinematographer 多阶段 Agent（CINE-03）
 - [x] 04-03-PLAN.md — 注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node（CINE-04, CINE-05）
+- [x] 04-04-PLAN.md — 修复 UAT 问题（agents.ts + 自动检测工作流模式）
 
 ---
 
@@ -128,12 +130,12 @@
 | STORY-03 | 3 | 03-02-PLAN.md | completed |
 | STORY-04 | 3 | 03-03-PLAN.md | completed |
 | STORY-05 | 3 | 03-03-PLAN.md | completed |
-| CINE-01 | 4 | 04-01-PLAN.md | pending |
-| CINE-02 | 4 | 04-01-PLAN.md | pending |
+| CINE-01 | 4 | 04-01-PLAN.md | completed |
+| CINE-02 | 4 | 04-01-PLAN.md | completed |
 | CINE-03 | 4 | 04-02-PLAN.md | completed |
-| CINE-04 | 4 | 04-03-PLAN.md | pending |
-| CINE-05 | 4 | 04-03-PLAN.md | pending |
+| CINE-04 | 4 | 04-03-PLAN.md | completed |
+| CINE-05 | 4 | 04-03-PLAN.md | completed |
 
 ---
 
-*Last updated: 2026-04-01*
+*Last updated: 2026-04-01 after 04-04 completion*

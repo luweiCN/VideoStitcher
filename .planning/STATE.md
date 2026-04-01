@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-last_updated: "2026-04-01T08:02:53.641Z"
+last_updated: "2026-04-01T16:30:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 5
-  total_plans: 13
-  completed_plans: 13
+  completed_phases: 4
+  total_plans: 15
+  completed_plans: 14
 ---
 
 # Project State
@@ -27,18 +27,17 @@ Status: **Completed** — Plan 04-03 已完成，Phase 4 全部完成
 | 2 | **completed** | 5/5 | 选角导演 Agent 重构完成（含图像生成） |
 | 2.5 | **completed** | 5/5 | 选角导演多阶段架构重构完成 |
 | 3 | **completed** | 5/5 | 分镜设计 Agent — 03-01、03-02、03-03 全部完成 |
-| 4 | **completed** | 3/3 | 摄像师 Agent — 04-01、04-02、04-03 全部完成 |
+| 4 | **completed** | 3/3 | 摄像师 Agent — 04-01、04-02、04-03、04-04 全部完成 |
 
 ## Context
 
 ### Last Action
 
-完成 Plan 04-03：注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node
+完成 Plan 04-04：修复 UAT 发现的三个问题
 
-- ✅ 在 BUILTIN_PROMPT_TEMPLATES 中注册 cinematographer-planner
-- ✅ 在 BUILTIN_PROMPT_TEMPLATES 中注册 cinematographer-executor
-- ✅ 更新 cinematographer.ts Node 支持 useMultiStage 选项
-- ✅ 重构 Node 代码，调用 runCinematographerAgent 进行视频生成
+- ✅ 在 agents.ts 中添加 cinematographer-planner 和 cinematographer-executor 配置
+- ✅ 将 useMultiStage 从配置选项改为根据 modelCapabilities.supportsReferenceImage 自动检测
+- ✅ 更新 WorkflowState 添加 modelCapabilities 和 agentModelAssignments
 
 ### Completed Plans in Phase 4
 
@@ -47,13 +46,15 @@ Status: **Completed** — Plan 04-03 已完成，Phase 4 全部完成
 | 04-01 | 创建摄像师 Agent 模板常量 | [commit-hash] |
 | 04-02 | 实现摄像师多阶段 Agent | 9584e9a |
 | 04-03 | 注册 BUILTIN_PROMPT_TEMPLATES 并更新 Node | a35e329, d2059b4 |
+| 04-04 | 修复 UAT 问题（agents.ts + 自动检测工作流模式） | c5efb8a, f9c8998 |
 
 ### Key Decisions for Phase 4
 
 1. **多阶段架构**：Planner（生成渲染计划）+ Executor（生成视频片段）
-2. **向后兼容**：`useMultiStage` 选项默认 false，保持单阶段行为
+2. **工作流模式自动检测**：根据 `modelCapabilities.supportsReferenceImage` 自动选择单阶段/多阶段
 3. **导演模式不暂停**：humanApproval = false（D-01）
 4. **视频生成在 Agent 内部**：调用 provider.generateVideo（D-07）
+5. **模型能力驱动**：工作流行为由模型能力决定，而非用户配置
 
 ### Blockers
 
