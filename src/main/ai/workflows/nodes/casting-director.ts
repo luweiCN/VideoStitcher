@@ -50,6 +50,8 @@ export async function castingDirectorNode(state: WorkflowState): Promise<Partial
 
     // 3. 调用选角导演 Agent
     const agentOptions: CastingDirectorAgentOptions = {
+      // 检测是否使用多阶段模式
+      useMultiStage: state.castingDirectorOptions?.useMultiStage ?? false,
       // 可以传入自定义可编辑部分（来自 PromptStudio）
       // customEditablePart: state.promptOverrides?.castingDirectorEditablePart,
     };
@@ -58,14 +60,15 @@ export async function castingDirectorNode(state: WorkflowState): Promise<Partial
       info: (msg: string, meta?: any) => console.log(msg, meta),
     });
 
-    console.log(`[Agent 3: 选角导演] 成功生成 ${castingResult.character_images.length} 个角色的图像提示词`);
+    console.log(`[Agent 3: 选角导演] 成功生成角色参考图，共 ${castingResult.character_reference_sheet.total_characters} 个角色`);
 
     // 4. 构建输出
     const output: StepOutput<any> = {
       content: {
         character_profiles: artDirectorOutput.character_profiles,
-        character_images: castingResult.character_images,
-        global_style_guide: castingResult.global_style_guide,
+        character_reference_sheet: castingResult.character_reference_sheet,
+        image_url: castingResult.character_reference_sheet.image_url,
+        style_guide: castingResult.character_reference_sheet.style_guide,
         scene_breakdowns: artDirectorOutput.scene_breakdowns || [],
       },
       metadata: {
