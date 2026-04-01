@@ -97,10 +97,10 @@
 6. 支持多阶段模式（Planner + Executor）
 
 **Plans:**
-2/3 plans executed
+3/3 plans complete
 - [x] 04-01-PLAN.md — 创建 cinematographerTemplates.ts 三层提示词常量文件（CINE-01, CINE-02）
 - [x] 04-02-PLAN.md — 实现 cinematographer 多阶段 Agent（CINE-03）
-- [ ] 04-03-PLAN.md — 注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node（CINE-04, CINE-05）
+- [x] 04-03-PLAN.md — 注册 BUILTIN_PROMPT_TEMPLATES 并更新 LangGraph Node（CINE-04, CINE-05）
 
 ---
 
