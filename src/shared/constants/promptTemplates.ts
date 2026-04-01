@@ -71,17 +71,8 @@ import {
   STORYBOARD_ARTIST_AGENT_BUILTIN_TEMPLATE,
 } from './storyboardArtistTemplates';
 
-// 导入摄像师 Agent 提示词（多阶段）
-import {
-  CINEMATOGRAPHER_PLANNER_AGENT_EDITABLE_PART,
-  CINEMATOGRAPHER_PLANNER_AGENT_LOCKED_PART,
-  CINEMATOGRAPHER_PLANNER_AGENT_USER_PROMPT_TEMPLATE,
-  CINEMATOGRAPHER_PLANNER_AGENT_BUILTIN_TEMPLATE,
-  CINEMATOGRAPHER_EXECUTOR_AGENT_EDITABLE_PART,
-  CINEMATOGRAPHER_EXECUTOR_AGENT_LOCKED_PART,
-  CINEMATOGRAPHER_EXECUTOR_AGENT_USER_PROMPT_TEMPLATE,
-  CINEMATOGRAPHER_EXECUTOR_AGENT_BUILTIN_TEMPLATE,
-} from './cinematographerTemplates';
+// 摄像师 Agent 提示词已内置在代码中，不在 PromptStudio 展示
+// 如需修改提示词，请编辑 src/main/ai/agents/cinematographer/index.ts
 
 /**
  * 支持的模型列表，用于 PromptStudio 中为每个 Agent 选择模型
@@ -356,39 +347,23 @@ export const BUILTIN_PROMPT_TEMPLATES = [
       return `${this.editablePart}\n\n${this.lockedPart}`;
     },
   },
-  // 摄像师 Agent - 多阶段架构
+  // 摄像师 Agent - 提示词内置，不在 PromptStudio 展示
   {
-    agentId: 'cinematographer-planner',
-    agentName: '摄像师 - 规划器',
-    agentDescription: '根据分镜输出和模型能力配置，生成视频渲染计划（分段策略、运镜指令）',
-    templateId: 'builtin-cinematographer-planner-v1',
+    agentId: 'cinematographer-agent',
+    agentName: '摄像师 Agent',
+    agentDescription: '根据分镜输出生成视频，自动选择最佳工作流',
+    templateId: 'builtin-cinematographer-agent-v1',
     name: '内置默认模板 v1',
     // 模型配置
     defaultModel: 'default',
-    supportedModelTypes: ['llm'],
-    // 提示词层
-    editablePart: CINEMATOGRAPHER_PLANNER_AGENT_EDITABLE_PART,
-    lockedPart: CINEMATOGRAPHER_PLANNER_AGENT_LOCKED_PART,
-    userPromptTemplate: CINEMATOGRAPHER_PLANNER_AGENT_USER_PROMPT_TEMPLATE,
+    supportedModelTypes: ['text', 'video'],  // 需要两种模型
+    // 提示词内置在代码中，不在此处定义
+    editablePart: '',  // 空，不可编辑
+    lockedPart: '',    // 空，内置在代码中
+    userPromptTemplate: '',  // 空，由代码动态构建
     get systemPrompt() {
-      return `${this.editablePart}\n\n${this.lockedPart}`;
-    },
-  },
-  {
-    agentId: 'cinematographer-executor',
-    agentName: '摄像师 - 执行器',
-    agentDescription: '根据渲染计划生成视频片段（调用视频生成 API）',
-    templateId: 'builtin-cinematographer-executor-v1',
-    name: '内置默认模板 v1',
-    // 模型配置
-    defaultModel: 'default',
-    supportedModelTypes: ['video_generation'],
-    // 提示词层
-    editablePart: CINEMATOGRAPHER_EXECUTOR_AGENT_EDITABLE_PART,
-    lockedPart: CINEMATOGRAPHER_EXECUTOR_AGENT_LOCKED_PART,
-    userPromptTemplate: CINEMATOGRAPHER_EXECUTOR_AGENT_USER_PROMPT_TEMPLATE,
-    get systemPrompt() {
-      return `${this.editablePart}\n\n${this.lockedPart}`;
+      // 提示词内置在 Agent 实现中
+      return '';
     },
   },
 ] as const;
