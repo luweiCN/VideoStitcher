@@ -5,6 +5,7 @@ completed: 2025-03-25T05:40:00+08:00
 artifacts_modified:
   - src/shared/constants/promptTemplates.ts
   - src/main/ai/workflows/nodes/casting-director.ts
+  - src/renderer/pages/AICreative/agentStudio/agents.ts
 verification_status: passed
 ---
 
@@ -31,7 +32,21 @@ verification_status: passed
 - 返回包含 character_images 和 global_style_guide 的输出
 - 添加导演模式 humanApproval 逻辑（executionMode === 'director' 时设置 humanApproval = false）
 
-### 3. 文件头注释更新
+### 3. 在 PromptStudio 中注册选角导演 Agent
+
+修改 `src/renderer/pages/AICreative/agentStudio/agents.ts`：
+- 导入 Users 图标（lucide-react）
+- 在 AGENTS 数组中添加选角导演 Agent 配置：
+  - id: 'casting-director-agent'
+  - name: '选角导演 Agent'
+  - role: '角色设计'
+  - description: '根据艺术总监的角色描述，为每个角色生成三个视角（正面、侧面、动作姿态）的图像生成提示词'
+  - icon: Users
+  - iconColor: 'text-emerald-400'
+  - bgColor: 'bg-emerald-500/10 group-hover:bg-emerald-500'
+  - modelTypes: ['text']
+
+### 4. 文件头注释更新
 - 更新为说明「工作流只生成提示词，不直接调用图像生成 API」
 
 ## 关键决策
@@ -45,3 +60,4 @@ verification_status: passed
 - BUILTIN_PROMPT_TEMPLATES 包含 casting-director-agent 条目 ✅
 - Node 正确导入并调用 runCastingDirectorAgent ✅
 - 导演模式 humanApproval = false 逻辑已添加 ✅
+- PromptStudio 的 agents.ts 包含 casting-director-agent 配置 ✅
