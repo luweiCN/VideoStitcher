@@ -1,4 +1,4 @@
-import { FileText, Palette, Lightbulb, Sparkles, Users, Video, Film } from 'lucide-react';
+import { FileText, Palette, Lightbulb, Sparkles, Users, Video } from 'lucide-react';
 import type { AgentConfig } from './types';
 
 const AGENTS: AgentConfig[] = [
@@ -58,26 +58,15 @@ const AGENTS: AgentConfig[] = [
     modelTypes: ['text'],
   },
   {
-    id: 'cinematographer-planner-agent',
-    name: '摄像师 - 规划器',
-    role: '视频规划',
+    id: 'cinematographer-agent',
+    name: '摄像师 Agent',
+    role: '视频生成',
     description:
-      '分析分镜输出，根据视频生成模型能力制定渲染计划（分几段、每段时长、镜头运动）。支持参考图的模型用单阶段，只支持首尾帧的用多阶段。',
+      '根据分镜输出和视频规格生成最终视频。自动根据所选视频模型能力选择最佳工作流：支持参考图的模型直接使用分镜图生成；只支持首尾帧的模型自动分段、切图、生成并拼接。',
     icon: Video,
     iconColor: 'text-orange-400',
     bgColor: 'bg-orange-500/10 group-hover:bg-orange-500',
-    modelTypes: ['text'],
-  },
-  {
-    id: 'cinematographer-executor-agent',
-    name: '摄像师 - 执行器',
-    role: '视频生成',
-    description:
-      '根据渲染计划逐段生成视频片段，使用 ffmpeg 拼接成最终视频。支持首帧图和尾帧图作为关键帧参考。',
-    icon: Film,
-    iconColor: 'text-red-400',
-    bgColor: 'bg-red-500/10 group-hover:bg-red-500',
-    modelTypes: ['video'],
+    modelTypes: ['text', 'video'],  // 需要选择文字模型和视频模型
   },
 ];
 
