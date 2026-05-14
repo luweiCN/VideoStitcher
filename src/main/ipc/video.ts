@@ -54,7 +54,7 @@ interface Task {
   id: number;
   status: string;
   files: TaskFile[];
-  config: { orientation: string; aPosition?: Position; bPosition?: Position; bgPosition?: Position; coverPosition?: Position };
+  config: { orientation: string; aPosition?: Position; bPosition?: Position; cPosition?: Position; bgPosition?: Position; coverPosition?: Position };
   outputDir: string;
   concurrency: number;
 }

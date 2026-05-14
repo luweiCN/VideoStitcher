@@ -153,10 +153,19 @@ export function getInitialPositions(
     height: coverHeight,
   };
 
+  // 5. C面视频：默认铺满全屏（落版通常是全屏展示）
+  const cVideo: Position = {
+    x: 0,
+    y: 0,
+    width,
+    height,
+  };
+
   return {
     bgImage,
     aVideo,
     bVideo,
+    cVideo,
     coverImage,
   };
 }

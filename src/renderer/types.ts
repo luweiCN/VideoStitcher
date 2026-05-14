@@ -43,6 +43,7 @@ export interface ProcessResult {
 export interface MaterialPositions {
   aVideo: Position;    // A面视频位置
   bVideo: Position;    // B面视频位置
+  cVideo: Position;    // C面视频位置
   bgImage: Position;   // 背景图位置
   coverImage: Position;// 封面图位置
 }

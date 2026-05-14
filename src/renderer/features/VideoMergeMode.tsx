@@ -109,35 +109,34 @@ const VideoMergeMode: React.FC = () => {
   const [covers, setCovers] = useState<string[]>([]);
 
   const maxCombinations = useMemo(() => {
-    return (
-      bVideos.length *
-      (covers.length > 0 ? covers.length : 1) *
-      (aVideos.length > 0 ? aVideos.length : 1)
-    );
-  }, [bVideos.length, covers.length, aVideos.length]);
+    // 封面图完全不参与生成数量算法，最大数量由 B面视频（必选）和 A面视频（可选）的组合数决定
+    const videoCombinations = bVideos.length * (aVideos.length > 0 ? aVideos.length : 1);
+    return videoCombinations > 0 ? videoCombinations : 0;
+  }, [bVideos.length, aVideos.length]);
 
   const taskSources = useMemo(
-    () => [
-      {
-        name: "B",
-        count: bVideos.length,
-        color: "violet" as const,
-        required: true,
-      },
-      {
-        name: "A",
-        count: aVideos.length,
-        color: "indigo" as const,
-        required: false,
-      },
-      {
-        name: "封面",
-        count: covers.length,
-        color: "amber" as const,
-        required: false,
-      },
-    ],
-    [bVideos.length, aVideos.length, covers.length],
+    () => {
+      const sources = [
+        {
+          name: "A",
+          count: aVideos.length,
+          color: "indigo" as const,
+          required: false,
+        },
+        {
+          name: "B",
+          count: bVideos.length,
+          color: "violet" as const,
+          required: true,
+        },
+      ];
+      // 如果有封面图，单独显示，但不参与乘法标识（在 TaskCountSlider 中）
+      // 实际上 TaskCountSlider 会对所有传入的 sources 进行乘法展示
+      // 为了符合用户“封面不参与生成数量算法”的直观感受，我们这里只传入 A 和 B
+      // 但为了确保用户能看到封面数量，我们可以把封面作为一个 info 传入或者特殊处理
+      return sources;
+    },
+    [bVideos.length, aVideos.length],
   );
 
   const [bVideoMetadata, setBVideoMetadata] = useState<
@@ -251,8 +250,9 @@ const VideoMergeMode: React.FC = () => {
     onLog: (message, type) => addLog(message, type),
   });
 
+  // 当画布方向改变时，重置所有素材到初始位置以适配新画布
   useEffect(() => {
-    setMaterialPositions(getInitialPositions(canvasConfig));
+    setMaterialPositions(getInitialPositions(canvasConfig, bVideoMetadata, aVideoMetadata));
   }, [canvasConfig]);
 
   useEffect(() => {
@@ -279,7 +279,7 @@ const VideoMergeMode: React.FC = () => {
     };
     const timer = setTimeout(calculateBestFitZoom, 100);
     return () => clearTimeout(timer);
-  }, [canvasConfig, tasks]);
+  }, [canvasConfig]);
 
   const fetchVideoMetadata = useCallback(
     async (filePath: string) => {
@@ -301,19 +301,10 @@ const VideoMergeMode: React.FC = () => {
         const metadata = await fetchVideoMetadata(files[0]);
         if (metadata) {
           setBVideoMetadata(metadata);
-          const newPositions = getInitialPositions(
-            canvasConfig,
-            metadata,
-          );
-          setMaterialPositions((prev) => ({
-            ...prev,
-            bVideo: newPositions.bVideo,
-          }));
+          // 移除自动重置位置的逻辑，保持用户手动调整后的位置
         }
         const newMax =
-          files.length *
-          (covers.length > 0 ? covers.length : 1) *
-          (aVideos.length > 0 ? aVideos.length : 1);
+          files.length * (aVideos.length > 0 ? aVideos.length : 1);
         if (newMax > 0) {
           setTaskCount(newMax);
         }
@@ -341,9 +332,7 @@ const VideoMergeMode: React.FC = () => {
         setAVideoMetadata(undefined);
       }
       const newMax =
-        bVideos.length *
-        (covers.length > 0 ? covers.length : 1) *
-        (files.length > 0 ? files.length : 1);
+        bVideos.length * (files.length > 0 ? files.length : 1);
       if (newMax > 0) {
         setTaskCount(newMax);
       }
@@ -351,7 +340,6 @@ const VideoMergeMode: React.FC = () => {
     [
       addLog,
       bVideos.length,
-      covers.length,
       fetchVideoMetadata,
     ],
   );
@@ -360,7 +348,7 @@ const VideoMergeMode: React.FC = () => {
     async (files: string[]) => {
       setBgImages(files);
       if (files.length > 0) {
-        addLog(`已选择背景图: ${files[0]}`, "info");
+        addLog(`已选择视频套图: ${files[0]}`, "info");
       }
     },
     [addLog],
@@ -372,20 +360,17 @@ const VideoMergeMode: React.FC = () => {
       if (files.length > 0) {
         addLog(`已选择 ${files.length} 个封面`, "info");
       }
-      const newMax =
-        bVideos.length *
-        (files.length > 0 ? files.length : 1) *
-        (aVideos.length > 0 ? aVideos.length : 1);
-      if (newMax > 0) {
-        setTaskCount(newMax);
-      }
+      // 封面图不参与数量计算，移除 setTaskCount 逻辑
     },
-    [
-      addLog,
-      bVideos.length,
-      aVideos.length,
-    ],
+    [addLog],
   );
+
+  // 确保任务数量始终不超过最大可选值
+  useEffect(() => {
+    if (taskCount > maxCombinations && maxCombinations > 0) {
+      setTaskCount(maxCombinations);
+    }
+  }, [maxCombinations, taskCount]);
 
   const handleBVideoPositionChange = (
     position: { x: number; y: number; width: number; height: number },
@@ -637,7 +622,7 @@ return 'B';
             "支持横竖屏一体化的视频合成工具，采用SmartBlend™智能均衡算法，确保素材组合的最大多样性。",
           details: [
             "支持横屏（1920×1080）和竖屏（1080×1920）两种输出尺寸",
-            "支持四种素材：背景图，B面视频（必选）、A面视频、封面图",
+            "支持四种素材：封面图、视频套图、A面视频、B面视频（必选）",
             "在预览区拖拽调整素材位置，支持重置框位和铺满全屏",
             "采用SmartBlend™智能均衡算法，均匀分配素材组合，确保每个素材都被充分利用",
             "实时预览合成效果，所见即所得",
@@ -686,26 +671,25 @@ return 'B';
             <FileSelectorGroup ref={fileSelectorGroupRef}>
               <div className="space-y-4">
                 <FileSelector
+                  id="cover"
+                  name="封面图 (可选)"
+                  accept="image"
+                  multiple
+                  showList
+                  themeColor={primaryColor}
+                  directoryCache
+                  onChange={handleCoversChange}
+                />
+
+                <FileSelector
                   id="bgImage"
-                  name="背景图 (可选)"
+                  name="视频套图 (可选)"
                   accept="image"
                   multiple={false}
                   showList
                   themeColor={primaryColor}
                   directoryCache
                   onChange={handleBgImagesChange}
-                />
-
-                <FileSelector
-                  id="bVideo"
-                  name="主视频 (B面 - 必选)"
-                  accept="video"
-                  multiple
-                  showList
-                  themeColor={primaryColor}
-                  directoryCache
-                  required
-                  onChange={handleBVideosChange}
                 />
 
                 <FileSelector
@@ -720,14 +704,15 @@ return 'B';
                 />
 
                 <FileSelector
-                  id="cover"
-                  name="封面图 (可选)"
-                  accept="image"
+                  id="bVideo"
+                  name="主视频 (B面 - 必选)"
+                  accept="video"
                   multiple
                   showList
                   themeColor={primaryColor}
                   directoryCache
-                  onChange={handleCoversChange}
+                  required
+                  onChange={handleBVideosChange}
                 />
               </div>
             </FileSelectorGroup>

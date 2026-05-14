@@ -22,6 +22,7 @@ interface StitchTaskParams {
 interface MergeTaskParams {
   bVideos: string[];
   aVideos?: string[];
+  cVideos?: string[];
   covers?: string[];
   bgImages?: string[];
   count: number;
@@ -287,45 +288,47 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
     return { success: true, tasks: [] };
   }
 
-  const timestamp = Date.now();
-  const sources: string[][] = [];
-
-  // 添加封面（可选）
   const validCovers = covers && covers.length > 0 ? covers : null;
   const validAVideos = aVideos && aVideos.length > 0 ? aVideos : null;
   const validBgImages = bgImages && bgImages.length > 0 ? bgImages : null;
 
-  if (validCovers) {
-    sources.push(validCovers);
-  }
-  // 添加 A 视频（可选）
+  const videoSources: string[][] = [];
   if (validAVideos) {
-    sources.push(validAVideos);
+    videoSources.push(validAVideos);
   }
-  // 添加 B 视频（必需）
-  sources.push(bVideos);
+  videoSources.push(bVideos);
 
-  // 计算实际任务数量
-  const actualCount = Math.min(count, sources.reduce((acc, s) => acc * s.length, 1));
+  const videoMax = videoSources.reduce((acc, s) => acc * s.length, 1);
+  
+  // 封面图采用平铺算法，不参与笛卡尔积。
+  // 任务总数由渲染进程传入的 count 决定（渲染进程已处理 max(videoMax, covers.length)）。
+  const actualCount = count;
 
-  // 排序优先级：封面 > A > B
-  const priority = Array.from({ length: sources.length }, (_, i) => i);
-  const combinations = generateBalancedCombinations(sources, actualCount, {
-    priority,
-  });
+  // 生成视频组合。如果 actualCount > videoMax，需要分批生成以填满数量
+  const videoCombinations: number[][] = [];
+  let remainingCount = actualCount;
+  
+  while (remainingCount > 0) {
+    const batchCount = Math.min(remainingCount, videoMax);
+    const priority = Array.from({ length: videoSources.length }, (_, i) => i);
+    const batch = generateBalancedCombinations(videoSources, batchCount, { priority });
+    videoCombinations.push(...batch);
+    remainingCount -= batchCount;
+  }
 
-  const tasks: Task[] = combinations.map((indices) => {
+  const tasks: Task[] = videoCombinations.map((indices, i) => {
     const files: TaskFile[] = [];
     let idx = 0;
 
+    // 封面图：平铺分配 (Round-robin)
     if (validCovers) {
+      const coverIdx = i % validCovers.length;
       files.push({
-        path: validCovers[indices[idx]],
-        index: indices[idx] + 1,
+        path: validCovers[coverIdx],
+        index: coverIdx + 1,
         category: "cover",
         category_name: "封面",
       });
-      idx++;
     }
 
     if (validAVideos) {
@@ -532,3 +535,4 @@ export {
   generateCoverFormatTasks,
   generateLosslessGridTasks,
 };
+

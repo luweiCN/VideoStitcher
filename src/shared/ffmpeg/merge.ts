@@ -1,6 +1,6 @@
 /**
  * 视频合成模块
- * 支持背景图、封面图、A/B 视频的合成
+ * 支持背景图、封面图、A/B/C 视频的合成
  */
 
 import { FFMPEG_CONSTANTS, type VideoMergeConfig, type Position, type StitchQuality } from './types';
@@ -29,11 +29,13 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
   const {
     aPath,
     bPath,
+    cPath,
     outPath,
     bgImage,
     coverImage,
     aPosition,
     bPosition,
+    cPosition,
     bgPosition,
     coverPosition,
     orientation = 'horizontal',
@@ -85,6 +87,7 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
 
   const aPos = scalePosition(aPosition || defaultBgPosition)!;
   const bPos = scalePosition(bPosition || defaultBPosition)!;
+  const cPos = scalePosition(cPosition || defaultBgPosition)!;
   const bgPos = scalePosition(bgPosition || defaultBgPosition)!;
   const cvPos = scalePosition(coverPosition || defaultBgPosition)!;
 
@@ -100,7 +103,7 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
     inputs.push("-i", aPath);
   }
 
-  // A 面视频第二段（支持裁剪，用于前后5秒效果）
+  // A 面视频 second part（支持裁剪，用于前后5秒效果）
   const a2Index = aPath && (trim?.a2Start !== undefined || trim?.a2Duration !== undefined) ? nextIndex++ : -1;
   if (a2Index >= 0 && aPath) {
     if (trim?.a2Start !== undefined) inputs.push("-ss", String(trim.a2Start));
@@ -113,6 +116,14 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
   if (trim?.bStart !== undefined) inputs.push("-ss", String(trim.bStart));
   if (trim?.bDuration !== undefined) inputs.push("-t", String(trim.bDuration));
   inputs.push("-i", bPath);
+
+  // C 面视频（支持裁剪）
+  const cIndex = cPath ? nextIndex++ : -1;
+  if (cPath) {
+    if (trim?.cStart !== undefined) inputs.push("-ss", String(trim.cStart));
+    if (trim?.cDuration !== undefined) inputs.push("-t", String(trim.cDuration));
+    inputs.push("-i", cPath);
+  }
 
   // 背景图
   const bgIndex = bgImage ? nextIndex++ : -1;
@@ -134,6 +145,9 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
     filters.push(`[${a2Index}:a]${audioFormat}[a0_2];`);
   }
   filters.push(`[${bIndex}:a]${audioFormat}[a1];`);
+  if (cIndex >= 0) {
+    filters.push(`[${cIndex}:a]${audioFormat}[a2];`);
+  }
 
   // 生成画布背景
   if (bgIndex >= 0) {
@@ -146,22 +160,28 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
     filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[canvas_with_bg];`);
   }
 
-  // A视频段处理
-  if (aIndex >= 0) {
-    // 当有 A2 时需要 3 路分割，否则只需要 2 路
-    if (a2Index >= 0) {
-      filters.push('[canvas_with_bg]split=3[bg_for_a1][bg_for_a2][bg_for_b];');
-      filters.push(`[${aIndex}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a_scaled];`);
-      filters.push(`[bg_for_a1][a_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a_temp];`);
-      filters.push('[v_a_temp]settb=1/30,setpts=N/30/TB[v_a];');
-    } else {
-      filters.push('[canvas_with_bg]split=2[bg_for_a][bg_for_b];');
-      filters.push(`[${aIndex}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a_scaled];`);
-      filters.push(`[bg_for_a][a_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a_temp];`);
-      filters.push('[v_a_temp]settb=1/30,setpts=N/30/TB[v_a];');
-    }
+  // 分发背景给各个视频段
+  let splitCount = 1; // B 段
+  if (aIndex >= 0) splitCount++;
+  if (a2Index >= 0) splitCount++;
+  if (cIndex >= 0) splitCount++;
+
+  if (splitCount > 1) {
+    const bgTags = [];
+    if (aIndex >= 0) bgTags.push('[bg_for_a]');
+    if (a2Index >= 0) bgTags.push('[bg_for_a2]');
+    bgTags.push('[bg_for_b]');
+    if (cIndex >= 0) bgTags.push('[bg_for_c]');
+    filters.push(`[canvas_with_bg]split=${splitCount}${bgTags.join('')};`);
   } else {
     filters.push('[canvas_with_bg]null[bg_for_b];');
+  }
+
+  // A视频段处理
+  if (aIndex >= 0) {
+    filters.push(`[${aIndex}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a_scaled];`);
+    filters.push(`[bg_for_a][a_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a_temp];`);
+    filters.push('[v_a_temp]settb=1/30,setpts=N/30/TB[v_a];');
   }
 
   // A2视频段处理（第二段A视频，用于前后5秒效果）
@@ -175,6 +195,13 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
   filters.push(`[${bIndex}:v]scale=${bPos.width}:${bPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled];`);
   filters.push(`[bg_for_b][b_scaled]overlay=${bPos.x}:${bPos.y}:shortest=1[v_b_temp];`);
   filters.push('[v_b_temp]settb=1/30,setpts=N/30/TB[v_b];');
+
+  // C视频段处理
+  if (cIndex >= 0) {
+    filters.push(`[${cIndex}:v]scale=${cPos.width}:${cPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[c_scaled];`);
+    filters.push(`[bg_for_c][c_scaled]overlay=${cPos.x}:${cPos.y}:shortest=1[v_c_temp];`);
+    filters.push('[v_c_temp]settb=1/30,setpts=N/30/TB[v_c];');
+  }
 
   // 封面图处理
   if (coverIndex >= 0) {
@@ -206,6 +233,9 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
     concatSegments.push({ v: '[v_a2]', a: '[a0_2]' });
   }
   concatSegments.push({ v: '[v_b]', a: '[a1]' });
+  if (cIndex >= 0) {
+    concatSegments.push({ v: '[v_c]', a: '[a2]' });
+  }
 
   const useConcat = concatSegments.length > 1;
   if (useConcat) {

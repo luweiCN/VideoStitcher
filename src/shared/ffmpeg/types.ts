@@ -99,11 +99,13 @@ export interface Position {
 export interface VideoMergeConfig {
   aPath?: string;
   bPath: string;
+  cPath?: string;
   outPath: string;
   bgImage?: string;
   coverImage?: string;
   aPosition?: Position;
   bPosition?: Position;
+  cPosition?: Position;
   bgPosition?: Position;
   coverPosition?: Position;
   orientation?: 'horizontal' | 'vertical';
@@ -113,7 +115,7 @@ export interface VideoMergeConfig {
   trim?: TrimConfig | null;
   /** 封面图持续时间（秒） */
   coverDuration?: number;
-  /** 画质选项 */
+  /** 画画质选项 */
   quality?: 'low' | 'medium' | 'high';
   /** FFmpeg 线程数 */
   threads?: number;
@@ -132,6 +134,8 @@ export interface PreviewConfig {
  * 裁剪配置
  * aStart/aDuration: A视频第一段裁剪
  * a2Start/a2Duration: A视频第二段裁剪（用于前后5秒效果）
+ * bStart/bDuration: B视频裁剪
+ * cStart/cDuration: C视频裁剪
  */
 export interface TrimConfig {
   aStart?: number;
@@ -140,6 +144,8 @@ export interface TrimConfig {
   a2Duration?: number;
   bStart?: number;
   bDuration?: number;
+  cStart?: number;
+  cDuration?: number;
 }
 
 /**
