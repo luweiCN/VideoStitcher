@@ -195,14 +195,6 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
       }),
       [onChange]);
 
-    // 使用文件处理 hook
-    const {
-      processFiles,
-      processPaths,
-      detectFileType,
-      buildNotificationMessage,
-    } = useFileProcessor();
-
     // 获取 FileSelectorGroup Context（可能在 Group 外部使用，所以可能为 null）
     const groupContext: SelectorContext | null = useContext(
       FileSelectorGroupContext,
