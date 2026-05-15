@@ -359,9 +359,24 @@ const VideoMergeMode: React.FC = () => {
       setBgImages(files);
       if (files.length > 0) {
         addLog(`已选择视频套图: ${files[0]}`, "info");
+        // 自动检测图片宽高比并切换横竖屏模式
+        try {
+          const dimensions = await window.api.getImageDimensions(files[0]);
+          if (dimensions) {
+            if (dimensions.orientation === 'landscape' && orientation !== 'horizontal') {
+              setOrientation('horizontal');
+              addLog("检测到横版套图，已自动切换至横屏模式", "info");
+            } else if (dimensions.orientation === 'portrait' && orientation !== 'vertical') {
+              setOrientation('vertical');
+              addLog("检测到竖版套图，已自动切换至竖屏模式", "info");
+            }
+          }
+        } catch (err) {
+          console.error("无法获取图片尺寸:", err);
+        }
       }
     },
-    [addLog],
+    [addLog, orientation],
   );
 
   const handleCoversChange = useCallback(
