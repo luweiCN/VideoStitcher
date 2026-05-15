@@ -136,28 +136,31 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
   // 构建 filter_complex 滤镜链
   const filters: string[] = [];
 
-  // 音频处理
+  // ================= 音频规范化处理 =================
   const audioFormat = 'aresample=48000,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS';
+  
+  // 恢复最稳定版本的写法：仅对实际存在的文件应用音频滤镜，绝不凭空生成 anullsrc
   if (aIndex >= 0) {
-    filters.push(`[${aIndex}:a]${audioFormat}[a0];`);
+    filters.push(`[${aIndex}:a]${audioFormat}[a0]`);
   }
   if (a2Index >= 0) {
-    filters.push(`[${a2Index}:a]${audioFormat}[a0_2];`);
+    filters.push(`[${a2Index}:a]${audioFormat}[a0_2]`);
   }
-  filters.push(`[${bIndex}:a]${audioFormat}[a1];`);
+  // B段音频始终生成 [a1]
+  filters.push(`[${bIndex}:a]${audioFormat}[a1]`);
   if (cIndex >= 0) {
-    filters.push(`[${cIndex}:a]${audioFormat}[a2];`);
+    filters.push(`[${cIndex}:a]${audioFormat}[a2]`);
   }
 
   // 生成画布背景
   if (bgIndex >= 0) {
     const centerX = '(iw-' + bgPos.width + ')/2';
     const centerY = '(ih-' + bgPos.height + ')/2';
-    filters.push(`[${bgIndex}:v]loop=-1:size=1:start=0,scale=${bgPos.width}:${bgPos.height}:force_original_aspect_ratio=increase,crop=${bgPos.width}:${bgPos.height}:${centerX}:${centerY},setsar=1:1,fps=30,format=yuv420p[bg_processed];`);
-    filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[canvas_bg];`);
-    filters.push(`[canvas_bg][bg_processed]overlay=${bgPos.x}:${bgPos.y}[canvas_with_bg];`);
+    filters.push(`[${bgIndex}:v]loop=-1:size=1:start=0,scale=${bgPos.width}:${bgPos.height}:force_original_aspect_ratio=increase,crop=${bgPos.width}:${bgPos.height}:${centerX}:${centerY},setsar=1:1,fps=30,format=yuv420p[bg_processed]`);
+    filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[canvas_bg]`);
+    filters.push(`[canvas_bg][bg_processed]overlay=${bgPos.x}:${bgPos.y}[canvas_with_bg]`);
   } else {
-    filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[canvas_with_bg];`);
+    filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[canvas_with_bg]`);
   }
 
   // 分发背景给各个视频段
@@ -172,84 +175,92 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
     if (a2Index >= 0) bgTags.push('[bg_for_a2]');
     bgTags.push('[bg_for_b]');
     if (cIndex >= 0) bgTags.push('[bg_for_c]');
-    filters.push(`[canvas_with_bg]split=${splitCount}${bgTags.join('')};`);
+    filters.push(`[canvas_with_bg]split=${splitCount}${bgTags.join('')}`);
   } else {
-    filters.push('[canvas_with_bg]null[bg_for_b];');
+    filters.push('[canvas_with_bg]null[bg_for_b]');
   }
 
   // A视频段处理
   if (aIndex >= 0) {
-    filters.push(`[${aIndex}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a_scaled];`);
-    filters.push(`[bg_for_a][a_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a_temp];`);
-    filters.push('[v_a_temp]settb=1/30,setpts=N/30/TB[v_a];');
+    filters.push(`[${aIndex}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a_scaled]`);
+    filters.push(`[bg_for_a][a_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a_temp]`);
+    filters.push('[v_a_temp]settb=1/30,setpts=N/30/TB[v_a]');
   }
 
-  // A2视频段处理（第二段A视频，用于前后5秒效果）
+  // A2视频段处理
   if (a2Index >= 0) {
-    filters.push(`[${a2Index}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a2_scaled];`);
-    filters.push(`[bg_for_a2][a2_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a2_temp];`);
-    filters.push('[v_a2_temp]settb=1/30,setpts=N/30/TB[v_a2];');
+    filters.push(`[${a2Index}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a2_scaled]`);
+    filters.push(`[bg_for_a2][a2_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a2_temp]`);
+    filters.push('[v_a2_temp]settb=1/30,setpts=N/30/TB[v_a2]');
   }
 
   // B视频段处理
-  filters.push(`[${bIndex}:v]scale=${bPos.width}:${bPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled];`);
-  filters.push(`[bg_for_b][b_scaled]overlay=${bPos.x}:${bPos.y}:shortest=1[v_b_temp];`);
-  filters.push('[v_b_temp]settb=1/30,setpts=N/30/TB[v_b];');
+  filters.push(`[${bIndex}:v]scale=${bPos.width}:${bPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled]`);
+  filters.push(`[bg_for_b][b_scaled]overlay=${bPos.x}:${bPos.y}:shortest=1[v_b_temp]`);
+  filters.push('[v_b_temp]settb=1/30,setpts=N/30/TB[v_b]');
 
   // C视频段处理
   if (cIndex >= 0) {
-    filters.push(`[${cIndex}:v]scale=${cPos.width}:${cPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[c_scaled];`);
-    filters.push(`[bg_for_c][c_scaled]overlay=${cPos.x}:${cPos.y}:shortest=1[v_c_temp];`);
-    filters.push('[v_c_temp]settb=1/30,setpts=N/30/TB[v_c];');
+    filters.push(`[${cIndex}:v]scale=${cPos.width}:${cPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[c_scaled]`);
+    filters.push(`[bg_for_c][c_scaled]overlay=${cPos.x}:${cPos.y}:shortest=1[v_c_temp]`);
+    filters.push('[v_c_temp]settb=1/30,setpts=N/30/TB[v_c]');
   }
 
   // 封面图处理
   if (coverIndex >= 0) {
     const cvCenterX = '(iw-' + cvPos.width + ')/2';
     const cvCenterY = '(ih-' + cvPos.height + ')/2';
-    filters.push(`[${coverIndex}:v]scale=${cvPos.width}:${cvPos.height}:force_original_aspect_ratio=increase,crop=${cvPos.width}:${cvPos.height}:${cvCenterX}:${cvCenterY},setsar=1:1,fps=30,format=yuv420p[cv_scaled];`);
-    filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[cv_bg];`);
-    filters.push(`[cv_bg][cv_scaled]overlay=${cvPos.x}:${cvPos.y}:shortest=1[cover_final_v_temp];`);
-    filters.push('[cover_final_v_temp]settb=1/30,setpts=N/30/TB[cover_final_v];');
+    filters.push(`[${coverIndex}:v]scale=${cvPos.width}:${cvPos.height}:force_original_aspect_ratio=increase,crop=${cvPos.width}:${cvPos.height}:${cvCenterX}:${cvCenterY},setsar=1:1,fps=30,format=yuv420p[cv_scaled]`);
+    filters.push(`color=black:s=${W}x${H}:r=30,format=yuv420p[cv_bg]`);
+    filters.push(`[cv_bg][cv_scaled]overlay=${cvPos.x}:${cvPos.y}:shortest=1[cover_final_v_temp]`);
+    filters.push('[cover_final_v_temp]settb=1/30,setpts=N/30/TB[cover_final_v]');
 
     // 封面持续帧数
     const coverFrames = isPreview
       ? Math.max(1, Math.round(coverDuration * 30) - 1)
       : Math.round(coverDuration * 30);
-    filters.push(`[cover_final_v]loop=${coverFrames}:size=1:start=0[cover_v];`);
-    filters.push('anullsrc=r=48000:cl=stereo,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[cover_silent];');
-    filters.push(`[cover_silent]atrim=0:${coverDuration},asetpts=PTS-STARTPTS[cover_a];`);
+    filters.push(`[cover_final_v]loop=${coverFrames}:size=1:start=0[cover_v]`);
+    filters.push('anullsrc=r=48000:cl=stereo,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[cover_silent]');
+    filters.push(`[cover_silent]atrim=0:${coverDuration},asetpts=PTS-STARTPTS[cover_a]`);
   }
 
-  // 最终拼接
+  // ================= 最终拼接与映射 =================
   const concatSegments: Array<{ v: string; a: string }> = [];
+  
+  // 1. 封面
   if (coverIndex >= 0) {
     concatSegments.push({ v: '[cover_v]', a: '[cover_a]' });
   }
+  // 2. A 面 (第一部分)
   if (aIndex >= 0) {
     concatSegments.push({ v: '[v_a]', a: '[a0]' });
   }
+  // 3. A 面 (第二部分)
   if (a2Index >= 0) {
     concatSegments.push({ v: '[v_a2]', a: '[a0_2]' });
   }
+  // 4. B 面
   concatSegments.push({ v: '[v_b]', a: '[a1]' });
+  // 5. C 面 (落版)
   if (cIndex >= 0) {
     concatSegments.push({ v: '[v_c]', a: '[a2]' });
   }
 
+  // 只要片段大于 1 就是拼接
   const useConcat = concatSegments.length > 1;
+
   if (useConcat) {
     const concatInputs = concatSegments.map(s => s.v + s.a).join('');
-    filters.push(`${concatInputs}concat=n=${concatSegments.length}:v=1:a=1[final_v][final_a];`);
+    filters.push(`${concatInputs}concat=n=${concatSegments.length}:v=1:a=1[final_v][final_a]`);
   }
 
-  const filterComplex = filters.join('');
+  const filterComplex = filters.join(';');
 
   const args = [
     "-y",
     ...(threads ? ["-threads", String(threads)] : []),
     ...inputs,
-    "-filter_complex", filterComplex,
+    ...(filters.length > 0 ? ["-filter_complex", filterComplex] : []),
     "-map", useConcat ? "[final_v]" : "[v_b]",
     "-map", useConcat ? "[final_a]" : "[a1]",
     "-r", "30",

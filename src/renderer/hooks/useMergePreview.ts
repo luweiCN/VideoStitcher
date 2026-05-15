@@ -16,6 +16,8 @@ export interface MergePreviewConfig {
   bVideo: string;
   /** A面视频路径（可选） */
   aVideo?: string;
+  /** 落版视频路径（可选） */
+  cVideo?: string;
   /** 背景图路径（可选） */
   bgImage?: string;
   /** 封面图路径（可选） */
@@ -26,6 +28,8 @@ export interface MergePreviewConfig {
   aPosition?: { x: number; y: number; width: number; height: number };
   /** B面视频位置 */
   bPosition?: { x: number; y: number; width: number; height: number };
+  /** 落版视频位置 */
+  cPosition?: { x: number; y: number; width: number; height: number };
   /** 封面位置 */
   coverPosition?: { x: number; y: number; width: number; height: number };
   /** A面视频时长（秒） */
@@ -122,11 +126,13 @@ export function useMergePreview(
     window.api.previewMergeFast({
       bVideo: config.bVideo,
       aVideo: config.aVideo,
+      cVideo: config.cVideo,
       bgImage: config.bgImage,
       coverImage: config.coverImage,
       orientation: config.orientation,
       aPosition: config.aPosition,
       bPosition: config.bPosition,
+      cPosition: config.cPosition,
       coverPosition: config.coverPosition,
     }).then((result: { success: boolean; previewPath?: string; error?: string; elapsed?: string }) => {
       // 检查是否被取消
@@ -163,11 +169,13 @@ export function useMergePreview(
     enabled,
     config?.bVideo,
     config?.aVideo,
+    config?.cVideo,
     config?.bgImage,
     config?.coverImage,
     config?.orientation,
     config?.aPosition,
     config?.bPosition,
+    config?.cPosition,
     config?.coverPosition,
   ]);
 

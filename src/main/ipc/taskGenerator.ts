@@ -277,6 +277,7 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
   const {
     bVideos,
     aVideos,
+    cVideos,
     covers,
     bgImages,
     count,
@@ -290,6 +291,7 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
 
   const validCovers = covers && covers.length > 0 ? covers : null;
   const validAVideos = aVideos && aVideos.length > 0 ? aVideos : null;
+  const validCVideos = cVideos && cVideos.length > 0 ? cVideos : null;
   const validBgImages = bgImages && bgImages.length > 0 ? bgImages : null;
 
   const videoSources: string[][] = [];
@@ -300,7 +302,7 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
 
   const videoMax = videoSources.reduce((acc, s) => acc * s.length, 1);
   
-  // 封面图采用平铺算法，不参与笛卡尔积。
+  // 封面图和落版视频采用平铺算法，不参与笛卡尔积。
   // 任务总数由渲染进程传入的 count 决定（渲染进程已处理 max(videoMax, covers.length)）。
   const actualCount = count;
 
@@ -347,6 +349,17 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
       category: "B",
       category_name: "B",
     });
+
+    // 落版视频：平铺分配 (Round-robin)
+    if (validCVideos) {
+      const cIdx = i % validCVideos.length;
+      files.push({
+        path: validCVideos[cIdx],
+        index: cIdx + 1,
+        category: "C",
+        category_name: "落版",
+      });
+    }
 
     // 背景图（固定）
     if (validBgImages) {

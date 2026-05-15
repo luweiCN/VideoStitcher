@@ -119,6 +119,14 @@ export interface VideoMergeConfig {
   quality?: 'low' | 'medium' | 'high';
   /** FFmpeg 线程数 */
   threads?: number;
+  /** 音频流探测标记 */
+  hasAudioA?: boolean;
+  hasAudioB?: boolean;
+  hasAudioC?: boolean;
+  /** 视频时长（秒） */
+  durationA?: number;
+  durationB?: number;
+  durationC?: number;
 }
 
 /**

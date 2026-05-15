@@ -285,6 +285,7 @@ export async function executeSingleMergeTask(
       orientation?: string;
       aPosition?: Position;
       bPosition?: Position;
+      cPosition?: Position;
       bgPosition?: Position;
       coverPosition?: Position;
     };
@@ -303,6 +304,7 @@ export async function executeSingleMergeTask(
 
   const aFile = files?.find(f => f.category === 'A');
   const bFile = files?.find(f => f.category === 'B');
+  const cFile = files?.find(f => f.category === 'C');
   const coverFile = files?.find(f => f.category === 'cover');
   const bgFile = files?.find(f => f.category === 'bg');
 
@@ -312,36 +314,58 @@ export async function executeSingleMergeTask(
 
   const aPath = aFile?.path;
   const bPath = bFile.path;
+  const cPath = cFile?.path;
   const coverImage = coverFile?.path;
   const bgImage = bgFile?.path;
 
   const aPosition = config?.aPosition;
   const bPosition = config?.bPosition;
+  const cPosition = config?.cPosition;
   const bgPosition = config?.bgPosition;
   const coverPosition = config?.coverPosition;
 
   const bName = path.parse(bPath).name;
   const aName = aPath ? path.parse(aPath).name : undefined;
+  const cName = cPath ? path.parse(cPath).name : undefined;
   const suffix = orientation === 'vertical' ? '竖' : '横';
-  const rawBaseName = aName ? `${aName}__${bName}_${suffix}` : `${bName}_${suffix}`;
+  
+  let rawBaseName = aName ? `${aName}__${bName}` : `${bName}`;
+  if (cName) rawBaseName += `__${cName}`;
+  rawBaseName += `_${suffix}`;
 
   const safeBaseName = generateFileName(outputDir, rawBaseName, { extension: '.mp4', reserveSuffixSpace: 5 });
   const safeOutput = new SafeOutput(outputDir, 'merge');
   const tempPath = safeOutput.getTempOutputPath(safeBaseName, 0);
 
   try {
+    // 探测各个视频元数据，用于音频补全
+    const [metaA, metaB, metaC] = await Promise.all([
+      aPath ? getVideoMetadata(aPath) : Promise.resolve(null),
+      getVideoMetadata(bPath),
+      cPath ? getVideoMetadata(cPath) : Promise.resolve(null),
+    ]);
+
     const args = buildMergeCommand({
       aPath,
       bPath,
+      cPath,
       outPath: tempPath,
       bgImage,
       coverImage,
       aPosition,
       bPosition,
+      cPosition,
       bgPosition,
       coverPosition,
       orientation: orientation as 'horizontal' | 'vertical',
       threads,
+      // 传递音频存在性标记
+      hasAudioA: !!metaA?.audio,
+      hasAudioB: !!metaB?.audio,
+      hasAudioC: !!metaC?.audio,
+      durationA: metaA?.duration,
+      durationB: metaB?.duration,
+      durationC: metaC?.duration,
     });
 
     const result = await runFfmpeg(args, (log: string) => {
@@ -609,9 +633,20 @@ async function handleVerticalPreview(
  */
 async function handleMergePreviewFast(
   event: IpcMainInvokeEvent,
-  config: { bVideo: string; aVideo?: string; bgImage?: string; coverImage?: string; orientation: string; aPosition?: Position; bPosition?: Position; coverPosition?: Position }
+  config: { 
+    bVideo: string; 
+    aVideo?: string; 
+    cVideo?: string;
+    bgImage?: string; 
+    coverImage?: string; 
+    orientation: string; 
+    aPosition?: Position; 
+    bPosition?: Position; 
+    cPosition?: Position;
+    coverPosition?: Position 
+  }
 ): Promise<{ success: boolean; previewPath?: string; elapsed?: string; error?: string }> {
-  const { bVideo, aVideo, bgImage, coverImage, orientation, aPosition, bPosition, coverPosition } = config;
+  const { bVideo, aVideo, cVideo, bgImage, coverImage, orientation, aPosition, bPosition, cPosition, coverPosition } = config;
   const tempDir = path.join(os.tmpdir(), 'videostitcher-preview');
 
   if (!bVideo) {
@@ -685,10 +720,18 @@ async function handleMergePreviewFast(
       ? { width: 1280, height: 720, crf: 28 }
       : { width: 720, height: 1280, crf: 28 };
 
+    // 探测音频流（预防预览报错）
+    const [metaA, metaB] = await Promise.all([
+      aVideo ? getVideoMetadata(aVideo) : Promise.resolve(null),
+      getVideoMetadata(bVideo),
+    ]);
+
     const args = buildMergeCommand({
       aPath: aVideo, bPath: bVideo, outPath: previewPath, bgImage, coverImage,
       aPosition, bPosition, coverPosition, orientation: orientation as 'vertical' | 'horizontal',
       preview: previewConfig, trim, coverDuration: 0.3,
+      hasAudioA: !!metaA?.audio, hasAudioB: !!metaB?.audio,
+      durationA: metaA?.duration, durationB: metaB?.duration,
     });
 
     console.log('[预览] 生成极速合成预览:', previewPath);

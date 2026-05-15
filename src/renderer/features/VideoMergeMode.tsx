@@ -106,10 +106,11 @@ const VideoMergeMode: React.FC = () => {
   const [bgImages, setBgImages] = useState<string[]>([]);
   const [bVideos, setBVideos] = useState<string[]>([]);
   const [aVideos, setAVideos] = useState<string[]>([]);
+  const [cVideos, setCVideos] = useState<string[]>([]);
   const [covers, setCovers] = useState<string[]>([]);
 
   const maxCombinations = useMemo(() => {
-    // 封面图完全不参与生成数量算法，最大数量由 B面视频（必选）和 A面视频（可选）的组合数决定
+    // 封面图和落版视频完全不参与生成数量算法，最大数量由 B面视频（必选）和 A面视频（可选）的组合数决定
     const videoCombinations = bVideos.length * (aVideos.length > 0 ? aVideos.length : 1);
     return videoCombinations > 0 ? videoCombinations : 0;
   }, [bVideos.length, aVideos.length]);
@@ -130,10 +131,7 @@ const VideoMergeMode: React.FC = () => {
           required: true,
         },
       ];
-      // 如果有封面图，单独显示，但不参与乘法标识（在 TaskCountSlider 中）
-      // 实际上 TaskCountSlider 会对所有传入的 sources 进行乘法展示
-      // 为了符合用户“封面不参与生成数量算法”的直观感受，我们这里只传入 A 和 B
-      // 但为了确保用户能看到封面数量，我们可以把封面作为一个 info 传入或者特殊处理
+      // 封面图和落版视频不参与乘法标识
       return sources;
     },
     [bVideos.length, aVideos.length],
@@ -196,10 +194,11 @@ const VideoMergeMode: React.FC = () => {
     () => ({
       aVideo: aVideos.length > 0 ? aVideos[0] : undefined,
       bVideo: bVideos.length > 0 ? bVideos[0] : undefined,
+      cVideo: cVideos.length > 0 ? cVideos[0] : undefined,
       bgImage: bgImages.length > 0 ? bgImages[0] : undefined,
       coverImage: covers.length > 0 ? covers[0] : undefined,
     }),
-    [aVideos, bVideos, bgImages, covers],
+    [aVideos, bVideos, cVideos, bgImages, covers],
   );
 
   // 当前任务的素材（用于预览）
@@ -215,6 +214,7 @@ const VideoMergeMode: React.FC = () => {
     return {
       aVideo: getFileByCategory('A'),
       bVideo: getFileByCategory('B') || materials.bVideo,
+      cVideo: getFileByCategory('C'),
       bgImage: getFileByCategory('bg') || materials.bgImage,
       coverImage: getFileByCategory('cover'),
     };
@@ -226,11 +226,13 @@ const VideoMergeMode: React.FC = () => {
     return {
       bVideo: currentTaskMaterials.bVideo,
       aVideo: currentTaskMaterials.aVideo,
+      cVideo: currentTaskMaterials.cVideo,
       bgImage: currentTaskMaterials.bgImage,
       coverImage: currentTaskMaterials.coverImage,
       orientation,
       aPosition: materialPositions.aVideo,
       bPosition: materialPositions.bVideo,
+      cPosition: materialPositions.cVideo,
       coverPosition: materialPositions.coverImage,
       aDuration: aVideoMetadata?.duration,
       bDuration: bVideoMetadata?.duration,
@@ -312,9 +314,7 @@ const VideoMergeMode: React.FC = () => {
     },
     [
       fetchVideoMetadata,
-      canvasConfig,
       addLog,
-      covers.length,
       aVideos.length,
     ],
   );
@@ -342,6 +342,16 @@ const VideoMergeMode: React.FC = () => {
       bVideos.length,
       fetchVideoMetadata,
     ],
+  );
+
+  const handleCVideosChange = useCallback(
+    async (files: string[]) => {
+      setCVideos(files);
+      if (files.length > 0) {
+        addLog(`已选择 ${files.length} 个落版视频`, "info");
+      }
+    },
+    [addLog],
   );
 
   const handleBgImagesChange = useCallback(
@@ -398,6 +408,7 @@ const VideoMergeMode: React.FC = () => {
       bgImage: { ...maxPosition },
       aVideo: { ...maxPosition },
       bVideo: { ...maxPosition },
+      cVideo: { ...maxPosition },
       coverImage: { ...maxPosition },
     });
     addLog("已设置素材铺满全屏", "info");
@@ -422,6 +433,7 @@ const VideoMergeMode: React.FC = () => {
     const result = await window.api.generateMergeTasks({
       bVideos,
       aVideos: aVideos.length > 0 ? aVideos : undefined,
+      cVideos: cVideos.length > 0 ? cVideos : undefined,
       covers: covers.length > 0 ? covers : undefined,
       bgImages: bgImages.length > 0 ? bgImages : undefined,
       count: taskCount,
@@ -445,6 +457,7 @@ const VideoMergeMode: React.FC = () => {
   }, [
     bVideos,
     aVideos,
+    cVideos,
     covers,
     bgImages,
     taskCount,
@@ -468,6 +481,7 @@ const VideoMergeMode: React.FC = () => {
     const result = await window.api.generateMergeTasks({
       bVideos,
       aVideos: aVideos.length > 0 ? aVideos : undefined,
+      cVideos: cVideos.length > 0 ? cVideos : undefined,
       covers: covers.length > 0 ? covers : undefined,
       bgImages: bgImages.length > 0 ? bgImages : undefined,
       count: taskCount,
@@ -486,6 +500,7 @@ const VideoMergeMode: React.FC = () => {
   }, [
     bVideos,
     aVideos,
+    cVideos,
     covers,
     bgImages,
     taskCount,
@@ -498,6 +513,7 @@ const VideoMergeMode: React.FC = () => {
   }, [
     bVideos.length,
     aVideos.length,
+    cVideos.length,
     covers.length,
     bgImages.length,
     taskCount,
@@ -523,14 +539,15 @@ const VideoMergeMode: React.FC = () => {
     if (covers.length > 0) types.push('image');
     if (aVideos.length > 0) types.push('video');
     types.push('video');
+    if (cVideos.length > 0) types.push('video');
     if (bgImages.length > 0) types.push('image');
     return types;
-  }, [covers.length, aVideos.length, bgImages.length]);
+  }, [covers.length, aVideos.length, cVideos.length, bgImages.length]);
 
   const thumbnailSource = useMemo(() => {
     if (covers.length > 0) return 'cover';
     if (aVideos.length > 0) return 'A';
-return 'B';
+    return 'B';
   }, [covers.length, aVideos.length]);
 
   // 添加任务到任务中心 - 核心逻辑
@@ -549,6 +566,7 @@ return 'B';
           orientation,
           aPosition: materialPositions.aVideo,
           bPosition: materialPositions.bVideo,
+          cPosition: materialPositions.cVideo,
           bgPosition: materialPositions.bgImage,
           coverPosition: materialPositions.coverImage,
         },
@@ -600,6 +618,7 @@ return 'B';
     // 清空本地状态
     setBVideos([]);
     setAVideos([]);
+    setCVideos([]);
     setBgImages([]);
     setCovers([]);
     setTasks([]);
@@ -622,7 +641,7 @@ return 'B';
             "支持横竖屏一体化的视频合成工具，采用SmartBlend™智能均衡算法，确保素材组合的最大多样性。",
           details: [
             "支持横屏（1920×1080）和竖屏（1080×1920）两种输出尺寸",
-            "支持四种素材：封面图、视频套图、A面视频、B面视频（必选）",
+            "支持五种素材：封面图、视频套图、A面视频、B面视频（必选）、落版视频",
             "在预览区拖拽调整素材位置，支持重置框位和铺满全屏",
             "采用SmartBlend™智能均衡算法，均匀分配素材组合，确保每个素材都被充分利用",
             "实时预览合成效果，所见即所得",
@@ -713,6 +732,17 @@ return 'B';
                   directoryCache
                   required
                   onChange={handleBVideosChange}
+                />
+
+                <FileSelector
+                  id="cVideo"
+                  name="落版视频 (可选)"
+                  accept="video"
+                  multiple
+                  showList
+                  themeColor={primaryColor}
+                  directoryCache
+                  onChange={handleCVideosChange}
                 />
               </div>
             </FileSelectorGroup>
@@ -869,6 +899,7 @@ return 'B';
                             : currentTaskMaterials.aVideo
                               ? 'A后5秒 + B前5秒'
                               : 'B前5秒'}
+                          {currentTaskMaterials.cVideo && ' (成品将包含落版)'}
                         </p>
                         <div
                           className="bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800"

@@ -67,11 +67,13 @@ export interface ElectronAPI {
   previewMergeFast: (config: {
     bVideo: string;
     aVideo?: string;
+    cVideo?: string;
     bgImage?: string;
     coverImage?: string;
     orientation: "horizontal" | "vertical";
     aPosition?: { x: number; y: number; width: number; height: number };
     bPosition?: { x: number; y: number; width: number; height: number };
+    cPosition?: { x: number; y: number; width: number; height: number };
     coverPosition?: { x: number; y: number; width: number; height: number };
   }) => Promise<{ success: boolean; previewPath?: string; error?: string; elapsed?: string }>;
   clearPreviews: () => Promise<{ success: boolean; error?: string }>;
@@ -297,6 +299,7 @@ export interface ElectronAPI {
   generateMergeTasks: (config: {
     bVideos: string[];
     aVideos?: string[];
+    cVideos?: string[];
     covers?: string[];
     bgImages?: string[];
     count: number;
