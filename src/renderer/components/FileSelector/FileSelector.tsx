@@ -83,6 +83,8 @@ export interface FileSelectorProps {
   disabled?: boolean;
   /** 默认文件路径 */
   defaultValue?: string[];
+  /** 初始文件路径列表（用于状态恢复） */
+  initialFiles?: string[];
   /** 外部控制的文件列表（受控模式） */
   value?: FileItem[];
   /** 主题颜色 */
@@ -144,6 +146,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
       maxHeight = 240,
       disabled = false,
       defaultValue = [],
+      initialFiles = [],
       themeColor = "blue",
       directoryCache = true,
       required = false,
@@ -155,13 +158,22 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
     // 单选时默认为1，多选时使用传入值或无限（Infinity）
     const actualMaxCount = multiple ? (maxCount ?? Infinity) : 1;
 
-    const [files, setFiles] = useState<FileItem[]>(() =>
-      defaultValue.map((path) => ({
+    // 使用文件处理 hook
+    const {
+      processFiles,
+      processPaths,
+      detectFileType,
+      buildNotificationMessage,
+    } = useFileProcessor();
+
+    const [files, setFiles] = useState<FileItem[]>(() => {
+      const initialPaths = initialFiles.length > 0 ? initialFiles : defaultValue;
+      return initialPaths.map((path) => ({
         path,
-        name: path.split("/").pop() || path,
+        name: path.split(/[/\\]/).pop() || path,
         type: detectFileType(path),
-      })),
-    );
+      }));
+    });
     const [isDragging, setIsDragging] = useState(false);
     const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
     const [showPreview, setShowPreview] = useState(false);

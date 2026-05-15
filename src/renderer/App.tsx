@@ -15,6 +15,7 @@ import VideoStitcherMode from './features/VideoStitcherMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
 import { TaskCenterProvider } from './contexts/TaskContext';
+import { VideoMergeProvider } from './contexts/VideoMergeContext';
 import { TaskCenterListPage, TaskCenterDashboard, HomeTaskIndicator, TaskDetailPage } from './components/TaskCenter';
 
 interface UpdateInfo {
@@ -439,13 +440,15 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <TaskCenterProvider>
-      <ToastProvider>
-        <Tooltip.Provider>
-          <HashRouter>
-            <AppContent />
-          </HashRouter>
-        </Tooltip.Provider>
-      </ToastProvider>
+      <VideoMergeProvider>
+        <ToastProvider>
+          <Tooltip.Provider>
+            <HashRouter>
+              <AppContent />
+            </HashRouter>
+          </Tooltip.Provider>
+        </ToastProvider>
+      </VideoMergeProvider>
     </TaskCenterProvider>
   );
 };

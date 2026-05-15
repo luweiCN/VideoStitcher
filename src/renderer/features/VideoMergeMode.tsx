@@ -18,6 +18,7 @@ import {
   ArrowDown,
   ArrowUp,
   XCircle,
+  Trash2,
 } from "lucide-react";
 import useEmblaCarousel from 'embla-carousel-react';
 import { MaterialPositions } from "../types";
@@ -37,6 +38,7 @@ import { useOperationLogs } from "../hooks/useOperationLogs";
 import { useMergePreview } from "../hooks/useMergePreview";
 import { setGlobalIsPlaying } from "../hooks/useStitchPreview";
 import { useTaskContext } from "../contexts/TaskContext";
+import { useVideoMergeContext } from "../contexts/VideoMergeContext";
 import {
   getCanvasConfig,
   getInitialPositions,
@@ -47,9 +49,11 @@ const VideoMergeMode: React.FC = () => {
   // 文件选择器组 ref，用于清空所有文件
   const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
   
-  const [orientation, setOrientation] = useState<"horizontal" | "vertical">(
-    "horizontal",
-  );
+  const { state, setState, clearState } = useVideoMergeContext();
+
+  const orientation = state.orientation;
+  const setOrientation = (o: "horizontal" | "vertical") => setState({ orientation: o });
+
   const canvasConfig = useMemo(
     () => getCanvasConfig(orientation),
     [orientation],
@@ -57,7 +61,10 @@ const VideoMergeMode: React.FC = () => {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [taskCount, setTaskCount] = useState(1);
+
+  const taskCount = state.taskCount;
+  const setTaskCount = (c: number) => setState({ taskCount: c });
+
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
 
   // 轮播状态：0 = 编辑视图，1 = 预览视图
@@ -103,11 +110,20 @@ const VideoMergeMode: React.FC = () => {
     };
   }, [emblaApi]);
 
-  const [bgImages, setBgImages] = useState<string[]>([]);
-  const [bVideos, setBVideos] = useState<string[]>([]);
-  const [aVideos, setAVideos] = useState<string[]>([]);
-  const [cVideos, setCVideos] = useState<string[]>([]);
-  const [covers, setCovers] = useState<string[]>([]);
+  const bgImages = state.bgImages;
+  const setBgImages = (files: string[]) => setState({ bgImages: files });
+  
+  const bVideos = state.bVideos;
+  const setBVideos = (files: string[]) => setState({ bVideos: files });
+
+  const aVideos = state.aVideos;
+  const setAVideos = (files: string[]) => setState({ aVideos: files });
+
+  const cVideos = state.cVideos;
+  const setCVideos = (files: string[]) => setState({ cVideos: files });
+
+  const covers = state.covers;
+  const setCovers = (files: string[]) => setState({ covers: files });
 
   const maxCombinations = useMemo(() => {
     // 封面图和落版视频完全不参与生成数量算法，最大数量由 B面视频（必选）和 A面视频（可选）的组合数决定
@@ -630,15 +646,12 @@ const VideoMergeMode: React.FC = () => {
   const clearEditor = () => {
     // 清空文件选择器中的所有文件
     fileSelectorGroupRef.current?.clearAll();
-    // 清空本地状态
-    setBVideos([]);
-    setAVideos([]);
-    setCVideos([]);
-    setBgImages([]);
-    setCovers([]);
+    // 清空全局状态
+    clearState();
+    // 清空本地任务状态
     setTasks([]);
     setCurrentIndex(0);
-    addLog("已清空编辑区域", "info");
+    addLog("已清空所有已选素材和配置", "info");
   };
 
   const primaryColor = "violet";
@@ -692,7 +705,7 @@ const VideoMergeMode: React.FC = () => {
       />
 
       <main className="flex-1 flex overflow-hidden">
-        <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+        <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             <TaskCountSlider
               value={taskCount}
@@ -712,6 +725,7 @@ const VideoMergeMode: React.FC = () => {
                   showList
                   themeColor={primaryColor}
                   directoryCache
+                  initialFiles={covers}
                   onChange={handleCoversChange}
                 />
 
@@ -723,6 +737,7 @@ const VideoMergeMode: React.FC = () => {
                   showList
                   themeColor={primaryColor}
                   directoryCache
+                  initialFiles={bgImages}
                   onChange={handleBgImagesChange}
                 />
 
@@ -734,6 +749,7 @@ const VideoMergeMode: React.FC = () => {
                   showList
                   themeColor={primaryColor}
                   directoryCache
+                  initialFiles={aVideos}
                   onChange={handleAVideosChange}
                 />
 
@@ -746,6 +762,7 @@ const VideoMergeMode: React.FC = () => {
                   themeColor={primaryColor}
                   directoryCache
                   required
+                  initialFiles={bVideos}
                   onChange={handleBVideosChange}
                 />
 
@@ -757,10 +774,21 @@ const VideoMergeMode: React.FC = () => {
                   showList
                   themeColor={primaryColor}
                   directoryCache
+                  initialFiles={cVideos}
                   onChange={handleCVideosChange}
                 />
               </div>
             </FileSelectorGroup>
+          </div>
+          
+          <div className="p-4 border-t border-slate-800 bg-black/50">
+            <button
+              onClick={clearEditor}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-800 bg-slate-900/50 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/5 transition-all duration-300 text-sm font-medium group"
+            >
+              <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              一键清空所有已选
+            </button>
           </div>
         </div>
 
