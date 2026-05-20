@@ -17,6 +17,8 @@ import { useOperationLogs } from '@/hooks/useOperationLogs';
 import { useVideoVolumeCache } from '@/hooks/useVideoVolumeCache';
 import { useTaskContext } from '@/contexts/TaskContext';
 import useVideoMaterials from '@/hooks/useVideoMaterials';
+import { usePageTheme } from '@/hooks/usePageTheme';
+import PageThemeToggle from '@/components/PageThemeToggle';
 import { PreviewArea } from './ResizeMode/components/PreviewArea';
 
 type ResizeModeType = 'siya' | 'fishing' | 'unify_h' | 'unify_v';
@@ -31,6 +33,7 @@ const MODE_CONFIG = {
 const ResizeMode: React.FC = () => {
   const navigate = useNavigate();
   const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
+  const { isLightTheme, togglePageTheme } = usePageTheme();
 
   // 视频文件列表
   const [videos, setVideos] = useState<string[]>([]);
@@ -257,11 +260,13 @@ const ResizeMode: React.FC = () => {
   } : null;
 
   return (
-    <div className="h-screen bg-black text-slate-100 flex flex-col overflow-hidden">
+    <div className={`h-screen flex flex-col overflow-hidden ${
+      isLightTheme ? 'theme-light-page bg-[#eef3f8] text-slate-900' : 'bg-black text-slate-100'
+    }`}>
       <PageHeader
         title="智能改尺寸"
         icon={Maximize2}
-        iconColor="text-rose-400"
+        iconColor={isLightTheme ? "text-rose-600" : "text-rose-400"}
         description="Siya/海外捕鱼/尺寸统一，智能模糊背景填充"
         featureInfo={{
           title: '智能改尺寸',
@@ -275,6 +280,9 @@ const ResizeMode: React.FC = () => {
           ],
           themeColor: 'rose',
         }}
+        rightContent={
+          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
+        }
       />
 
       {/* Main Content - 三栏布局 */}

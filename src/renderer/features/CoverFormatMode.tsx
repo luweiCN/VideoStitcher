@@ -13,11 +13,14 @@ import { useOutputDirCache } from "../hooks/useOutputDirCache";
 import { useOperationLogs } from "../hooks/useOperationLogs";
 import { useImageMaterials } from "../hooks/useImageMaterials";
 import { useTaskContext } from "../contexts/TaskContext";
+import { usePageTheme } from "../hooks/usePageTheme";
+import PageThemeToggle from "../components/PageThemeToggle";
 import { QualitySelector, CoverPreview, type ImageFile } from "./CoverFormatMode/components";
 
 const CoverFormatMode: React.FC = () => {
   const navigate = useNavigate();
   const { batchCreateTasks } = useTaskContext();
+  const { isLightTheme, togglePageTheme } = usePageTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -180,11 +183,13 @@ const CoverFormatMode: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-black text-slate-100 flex flex-col">
+    <div className={`h-screen flex flex-col ${
+      isLightTheme ? "theme-light-page bg-[#eef3f8] text-slate-900" : "bg-black text-slate-100"
+    }`}>
       <PageHeader
         title="封面格式转换"
         icon={Layers}
-        iconColor="text-fuchsia-400"
+        iconColor={isLightTheme ? "text-fuchsia-600" : "text-fuchsia-400"}
         description="自动检测比例，横版转1920x1080，竖版转1080x1920"
         featureInfo={{
           title: "封面格式转换",
@@ -198,6 +203,9 @@ const CoverFormatMode: React.FC = () => {
           ],
           themeColor: "fuchsia",
         }}
+        rightContent={
+          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
+        }
       />
 
       <div className="flex-1 flex overflow-hidden">

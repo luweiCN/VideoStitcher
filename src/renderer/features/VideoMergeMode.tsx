@@ -39,6 +39,8 @@ import { useMergePreview } from "../hooks/useMergePreview";
 import { setGlobalIsPlaying } from "../hooks/useStitchPreview";
 import { useTaskContext } from "../contexts/TaskContext";
 import { useVideoMergeContext } from "../contexts/VideoMergeContext";
+import PageThemeToggle from "../components/PageThemeToggle";
+import { usePageTheme } from "../hooks/usePageTheme";
 import {
   getCanvasConfig,
   getInitialPositions,
@@ -61,6 +63,7 @@ const VideoMergeMode: React.FC = () => {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { isLightTheme, togglePageTheme } = usePageTheme();
 
   const taskCount = state.taskCount;
   const setTaskCount = (c: number) => setState({ taskCount: c });
@@ -657,11 +660,15 @@ const VideoMergeMode: React.FC = () => {
   const primaryColor = "violet";
 
   return (
-    <div className="h-screen flex flex-col bg-black text-slate-100 font-sans overflow-hidden">
+    <div className={`h-screen flex flex-col font-sans overflow-hidden transition-colors duration-300 ${
+      isLightTheme
+        ? "theme-light-page bg-[#eef3f8] text-slate-900"
+        : "bg-black text-slate-100"
+    }`}>
       <PageHeader
         title="极速合成"
         icon={Layers3}
-        iconColor="text-violet-400"
+        iconColor={isLightTheme ? "text-violet-600" : "text-violet-400"}
         description="横竖屏一体，图层管理，所有素材独立位置调整"
         featureInfo={{
           title: "极速合成",
@@ -677,29 +684,39 @@ const VideoMergeMode: React.FC = () => {
           themeColor: "violet",
         }}
         rightContent={
-          <div className="flex items-center bg-black rounded-lg p-0.5 border border-slate-800">
-            <button
-              onClick={() => setOrientation("horizontal")}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                orientation === "horizontal"
-                  ? "bg-violet-600 text-white shadow-lg shadow-violet-900/20"
-                  : "text-slate-400 hover:text-white"
-              }`}
-              type="button"
-            >
-              横屏
-            </button>
-            <button
-              onClick={() => setOrientation("vertical")}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
-                orientation === "vertical"
-                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20"
-                  : "text-slate-400 hover:text-white"
-              }`}
-              type="button"
-            >
-              竖屏
-            </button>
+          <div className="flex items-center gap-2">
+            <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
+
+            <div className={`flex items-center rounded-lg p-0.5 border ${
+              isLightTheme ? "bg-slate-100/90 border-slate-300/80" : "bg-black border-slate-800"
+            }`}>
+              <button
+                onClick={() => setOrientation("horizontal")}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                  orientation === "horizontal"
+                    ? "bg-violet-600 text-white shadow-lg shadow-violet-900/20"
+                    : isLightTheme
+                      ? "text-slate-500 hover:text-slate-900"
+                      : "text-slate-400 hover:text-white"
+                }`}
+                type="button"
+              >
+                横屏
+              </button>
+              <button
+                onClick={() => setOrientation("vertical")}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                  orientation === "vertical"
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20"
+                    : isLightTheme
+                      ? "text-slate-500 hover:text-slate-900"
+                      : "text-slate-400 hover:text-white"
+                }`}
+                type="button"
+              >
+                竖屏
+              </button>
+            </div>
           </div>
         }
       />
@@ -784,7 +801,11 @@ const VideoMergeMode: React.FC = () => {
           <div className="p-4 border-t border-slate-800 bg-black/50">
             <button
               onClick={clearEditor}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-800 bg-slate-900/50 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/5 transition-all duration-300 text-sm font-medium group"
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all duration-300 text-sm font-medium group ${
+                isLightTheme
+                  ? "border-slate-300/80 bg-slate-100/90 text-slate-600 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50/80"
+                  : "border-slate-800 bg-slate-900/50 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/5"
+              }`}
             >
               <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
               一键清空所有已选
@@ -819,17 +840,21 @@ const VideoMergeMode: React.FC = () => {
             {materials.bVideo && (
               <button
                 onClick={toggleView}
-                className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-2 bg-black/80 backdrop-blur-sm border border-slate-700 rounded-lg hover:bg-slate-800 transition-colors"
+                className={`absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-2 backdrop-blur-sm border rounded-lg transition-colors ${
+                  isLightTheme
+                    ? "bg-slate-100/90 border-slate-300/80 text-slate-700 hover:bg-slate-50"
+                    : "bg-black/80 border-slate-700 hover:bg-slate-800"
+                }`}
               >
                 {activeView === 0 ? (
                   <>
                     <ArrowDown className="w-4 h-4 text-violet-400" />
-                    <span className="text-xs text-slate-300">查看预览</span>
+                    <span className={`text-xs ${isLightTheme ? "text-slate-700" : "text-slate-300"}`}>查看预览</span>
                   </>
                 ) : (
                   <>
                     <ArrowUp className="w-4 h-4 text-violet-400" />
-                    <span className="text-xs text-slate-300">返回编辑</span>
+                    <span className={`text-xs ${isLightTheme ? "text-slate-700" : "text-slate-300"}`}>返回编辑</span>
                   </>
                 )}
               </button>
@@ -857,45 +882,65 @@ const VideoMergeMode: React.FC = () => {
                         />
                       </div>
                       <div className="mt-8 flex flex-col items-center gap-4">
-                        <div className="flex items-center gap-6 bg-slate-900/80 backdrop-blur-sm border border-slate-800 px-6 py-4 rounded-xl">
+                        <div className={`flex items-center gap-6 backdrop-blur-sm border px-6 py-4 rounded-xl ${
+                          isLightTheme
+                            ? "bg-slate-100/90 border-slate-300/80 shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
+                            : "bg-slate-900/80 border-slate-800"
+                        }`}>
                           <button
                             onClick={resetPositions}
-                            className="text-[10px] font-black text-slate-400 hover:text-white flex items-center gap-2"
+                            className={`text-[10px] font-black flex items-center gap-2 ${
+                              isLightTheme ? "text-slate-500 hover:text-slate-900" : "text-slate-400 hover:text-white"
+                            }`}
                           >
                             <RefreshCcw className="w-3 h-3" />
                             重置框位
                           </button>
-                          <div className="w-px h-4 bg-slate-800" />
+                          <div className={`w-px h-4 ${isLightTheme ? "bg-slate-300" : "bg-slate-800"}`} />
                           <button
                             onClick={maximizePositions}
-                            className="text-[10px] font-black text-slate-400 hover:text-white flex items-center gap-2"
+                            className={`text-[10px] font-black flex items-center gap-2 ${
+                              isLightTheme ? "text-slate-500 hover:text-slate-900" : "text-slate-400 hover:text-white"
+                            }`}
                           >
                             <Maximize className="w-3 h-3" />
                             铺满全屏
                           </button>
-                          <div className="w-px h-4 bg-slate-800" />
+                          <div className={`w-px h-4 ${isLightTheme ? "bg-slate-300" : "bg-slate-800"}`} />
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() =>
                                 setCanvasZoom((prev) => Math.max(10, prev - 5))
                               }
-                              className="w-7 h-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded flex items-center justify-center text-white"
+                              className={`w-7 h-7 border rounded flex items-center justify-center transition-colors ${
+                                isLightTheme
+                                  ? "bg-slate-50 hover:bg-white border-slate-300 text-slate-700"
+                                  : "bg-slate-800 hover:bg-slate-700 border-slate-700 text-white"
+                              }`}
                             >
                               <ZoomOut className="w-3.5 h-3.5" />
                             </button>
-                            <div className="bg-slate-800 px-3 py-1 rounded border border-slate-700 min-w-[60px] text-center text-xs font-bold text-white">
+                            <div className={`px-3 py-1 rounded border min-w-[60px] text-center text-xs font-bold ${
+                              isLightTheme
+                                ? "bg-slate-50 border-slate-300 text-slate-800"
+                                : "bg-slate-800 border-slate-700 text-white"
+                            }`}>
                               {canvasZoom}%
                             </div>
                             <button
                               onClick={() =>
                                 setCanvasZoom((prev) => Math.min(200, prev + 5))
                               }
-                              className="w-7 h-7 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded flex items-center justify-center text-white"
+                              className={`w-7 h-7 border rounded flex items-center justify-center transition-colors ${
+                                isLightTheme
+                                  ? "bg-slate-50 hover:bg-white border-slate-300 text-slate-700"
+                                  : "bg-slate-800 hover:bg-slate-700 border-slate-700 text-white"
+                              }`}
                             >
                               <ZoomIn className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                          <div className="w-px h-4 bg-slate-800" />
+                          <div className={`w-px h-4 ${isLightTheme ? "bg-slate-300" : "bg-slate-800"}`} />
                           <p className="text-[11px] font-mono text-violet-400">
                             分辨率: {canvasConfig.width} × {canvasConfig.height}
                           </p>

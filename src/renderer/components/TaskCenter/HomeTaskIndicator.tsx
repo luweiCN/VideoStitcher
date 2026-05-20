@@ -9,10 +9,12 @@ import { cn } from '@renderer/lib/utils';
 
 interface HomeTaskIndicatorProps {
   onClick: () => void;
+  theme?: 'light' | 'dark';
 }
 
-const HomeTaskIndicator: React.FC<HomeTaskIndicatorProps> = ({ onClick }) => {
+const HomeTaskIndicator: React.FC<HomeTaskIndicatorProps> = ({ onClick, theme = 'light' }) => {
   const { runningTasks, queueStatus, formatRunTime } = useTaskContext();
+  const isDarkTheme = theme === 'dark';
 
   const hasRunningTasks = runningTasks.length > 0;
   const runningCount = runningTasks.length;
@@ -29,31 +31,41 @@ const HomeTaskIndicator: React.FC<HomeTaskIndicatorProps> = ({ onClick }) => {
     <button
       onClick={onClick}
       className={cn(
-        'group relative flex items-center gap-3 px-4 py-2.5 backdrop-blur-xl rounded-xl transition-all duration-300 shadow-lg',
+        'group relative flex h-16 items-center gap-3 rounded-2xl px-7 backdrop-blur-xl transition-all duration-300',
+        isDarkTheme
+          ? 'shadow-[0_8px_24px_rgba(0,0,0,0.24)]'
+          : 'shadow-[0_8px_24px_rgba(15,23,42,0.08)]',
         hasRunningTasks
-          ? 'bg-slate-900/90 border border-violet-500/40 hover:border-violet-400/60 hover:shadow-violet-500/20'
-          : 'bg-slate-900/80 border border-slate-700/50 hover:border-purple-500/50 hover:bg-slate-800/80 hover:shadow-purple-500/10'
+          ? isDarkTheme
+            ? 'bg-slate-900/90 border border-blue-500/40 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(14,165,233,0.14)]'
+            : 'bg-white/95 border border-blue-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(14,165,233,0.16)]'
+          : isDarkTheme
+            ? 'bg-slate-900/80 border border-slate-700/70 hover:-translate-y-0.5 hover:border-blue-400/50 hover:shadow-[0_16px_36px_rgba(14,165,233,0.12)]'
+            : 'bg-white/90 border border-slate-200/80 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_16px_36px_rgba(14,165,233,0.14)]'
       )}
     >
       {/* 图标容器 - 与系统管理保持一致 */}
       <div
         className={cn(
-          'w-8 h-8 rounded-lg flex items-center justify-center shadow-md transition-all',
+          'w-7 h-7 rounded-lg flex items-center justify-center transition-all',
           hasRunningTasks
-            ? 'bg-gradient-to-br from-blue-600 to-cyan-600 shadow-blue-600/20 group-hover:shadow-blue-600/30'
-            : 'bg-gradient-to-br from-blue-600 to-cyan-600 shadow-blue-600/20 group-hover:shadow-blue-600/30'
+            ? isDarkTheme ? 'text-blue-300' : 'text-blue-500'
+            : isDarkTheme ? 'text-sky-300' : 'text-sky-500'
         )}
       >
         {hasRunningTasks ? (
-          <Loader2 className="w-4 h-4 text-white animate-spin" />
+          <Loader2 className="w-7 h-7 animate-spin" />
         ) : (
-          <ClipboardList className="w-4 h-4 text-white" />
+          <ClipboardList className="w-7 h-7" />
         )}
       </div>
 
       {/* 文字区域 */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors whitespace-nowrap">
+        <span className={cn(
+          'text-base font-semibold transition-colors whitespace-nowrap',
+          isDarkTheme ? 'text-slate-200 group-hover:text-white' : 'text-slate-700 group-hover:text-slate-950'
+        )}>
           任务中心
         </span>
 
@@ -85,16 +97,22 @@ const HomeTaskIndicator: React.FC<HomeTaskIndicatorProps> = ({ onClick }) => {
 
       {/* 运行时显示进度条（覆盖在底部） */}
       {hasRunningTasks && (
-        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-slate-800 rounded-b-xl overflow-hidden">
+        <div className={cn(
+          'absolute bottom-0 left-3 right-3 h-0.5 rounded-b-xl overflow-hidden',
+          isDarkTheme ? 'bg-slate-800' : 'bg-slate-100'
+        )}>
           <div
-            className="h-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-300"
+            className="h-full bg-gradient-to-r from-blue-500 to-sky-500 transition-all duration-300"
             style={{ width: `${avgProgress}%` }}
           />
         </div>
       )}
 
       {/* 箭头 */}
-      <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors ml-auto flex-shrink-0" />
+      <ChevronRight className={cn(
+        'w-4 h-4 transition-colors ml-auto flex-shrink-0',
+        isDarkTheme ? 'text-slate-500 group-hover:text-white' : 'text-slate-400 group-hover:text-slate-700'
+      )} />
     </button>
   );
 };

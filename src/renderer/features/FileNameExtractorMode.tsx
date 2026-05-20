@@ -12,6 +12,8 @@ import { FilePreviewModal } from '@/components/FilePreviewModal';
 import { Button } from '@/components/Button/Button';
 import { useOperationLogs } from '@/hooks/useOperationLogs';
 import { useToastMessages } from '@/components/Toast/Toast';
+import { usePageTheme } from '@/hooks/usePageTheme';
+import PageThemeToggle from '@/components/PageThemeToggle';
 
 /**
  * 文件信息接口
@@ -36,6 +38,7 @@ interface VideoFile {
 type ExportFormat = 'text' | 'md_list' | 'md_table' | 'json';
 
 const FileNameExtractorMode: React.FC = () => {
+  const { isLightTheme, togglePageTheme } = usePageTheme();
   // 状态管理
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [copied, setCopied] = useState(false);
@@ -655,12 +658,14 @@ const FileNameExtractorMode: React.FC = () => {
   ];
 
   return (
-    <div className="h-screen bg-black text-slate-100 flex flex-col">
+    <div className={`h-screen flex flex-col ${
+      isLightTheme ? 'theme-light-page bg-[#eef3f8] text-slate-900' : 'bg-black text-slate-100'
+    }`}>
       {/* Header */}
       <PageHeader
         title="文件名提取"
         icon={FileText}
-        iconColor="text-pink-400"
+        iconColor={isLightTheme ? "text-pink-600" : "text-pink-400"}
         description="批量提取文件名，一键生成列表"
         featureInfo={{
           title: '文件名提取',
@@ -674,6 +679,9 @@ const FileNameExtractorMode: React.FC = () => {
           ],
           themeColor: 'pink',
         }}
+        rightContent={
+          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
+        }
       />
 
       <div className="flex-1 flex overflow-hidden">

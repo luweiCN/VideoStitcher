@@ -20,12 +20,15 @@ import { useOperationLogs } from '@/hooks/useOperationLogs';
 import { useTaskContext } from '@/contexts/TaskContext';
 import useVideoMaterials, { type VideoMaterial } from '@/hooks/useVideoMaterials';
 import useStitchPreview from '@/hooks/useStitchPreview';
+import { usePageTheme } from '@/hooks/usePageTheme';
+import PageThemeToggle from '@/components/PageThemeToggle';
 
 type Orientation = 'landscape' | 'portrait';
 
 const VideoStitcherMode: React.FC = () => {
   const navigate = useNavigate();
   const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
+  const { isLightTheme, togglePageTheme } = usePageTheme();
 
   // 配置状态
   const { outputDir, setOutputDir } = useOutputDirCache('VideoStitcherMode');
@@ -359,12 +362,14 @@ const VideoStitcherMode: React.FC = () => {
   const previewFile = previewType === 'a' ? currentAMaterial : currentBMaterial;
 
   return (
-    <div className="h-screen flex flex-col bg-black text-slate-100">
+    <div className={`h-screen flex flex-col ${
+      isLightTheme ? 'theme-light-page bg-[#eef3f8] text-slate-900' : 'bg-black text-slate-100'
+    }`}>
       {/* Header */}
       <PageHeader
         title="A+B 前后拼接"
         icon={Link2}
-        iconColor="text-pink-500"
+        iconColor={isLightTheme ? "text-pink-600" : "text-pink-500"}
         description="将两个视频前后拼接成一个完整视频"
         featureInfo={{
           title: 'A+B 前后拼接',
@@ -379,31 +384,40 @@ const VideoStitcherMode: React.FC = () => {
           themeColor: 'pink',
         }}
         rightContent={
-          <div className="flex items-center bg-black rounded-lg p-0.5 border border-slate-800">
-            <button
-              onClick={() => setOrientation('landscape')}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
-                orientation === 'landscape'
-                  ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              type="button"
-            >
-              <Monitor className="w-3.5 h-3.5" />
-              横版
-            </button>
-            <button
-              onClick={() => setOrientation('portrait')}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
-                orientation === 'portrait'
-                  ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-              type="button"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              竖版
-            </button>
+          <div className="flex items-center gap-2">
+            <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
+            <div className={`flex items-center rounded-lg p-0.5 border ${
+              isLightTheme ? 'bg-slate-100/90 border-slate-300/80' : 'bg-black border-slate-800'
+            }`}>
+              <button
+                onClick={() => setOrientation('landscape')}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
+                  orientation === 'landscape'
+                    ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20'
+                    : isLightTheme
+                      ? 'text-slate-500 hover:text-slate-900'
+                      : 'text-slate-400 hover:text-white'
+                }`}
+                type="button"
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                横版
+              </button>
+              <button
+                onClick={() => setOrientation('portrait')}
+                className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
+                  orientation === 'portrait'
+                    ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20'
+                    : isLightTheme
+                      ? 'text-slate-500 hover:text-slate-900'
+                      : 'text-slate-400 hover:text-white'
+                }`}
+                type="button"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                竖版
+              </button>
+            </div>
           </div>
         }
       />

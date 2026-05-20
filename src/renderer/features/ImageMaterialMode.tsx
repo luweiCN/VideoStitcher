@@ -12,6 +12,8 @@ import TaskList, { type Task, type OutputConfig } from "../components/TaskList";
 import { useOutputDirCache } from "../hooks/useOutputDirCache";
 import { useOperationLogs } from "../hooks/useOperationLogs";
 import { useTaskContext } from "../contexts/TaskContext";
+import { usePageTheme } from "../hooks/usePageTheme";
+import PageThemeToggle from "../components/PageThemeToggle";
 import { loadImageAsElement } from "../utils/image";
 import {
   LogoControls,
@@ -28,6 +30,7 @@ const ImageMaterialMode: React.FC = () => {
 
   const navigate = useNavigate();
   const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
+  const { isLightTheme, togglePageTheme } = usePageTheme();
 
   // 配置状态
   const { outputDir, setOutputDir } = useOutputDirCache("ImageMaterialMode");
@@ -374,11 +377,13 @@ const ImageMaterialMode: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-black text-slate-100 flex flex-col">
+    <div className={`h-screen flex flex-col ${
+      isLightTheme ? "theme-light-page bg-[#eef3f8] text-slate-900" : "bg-black text-slate-100"
+    }`}>
       <PageHeader
         title="图片素材处理"
         icon={Layers}
-        iconColor="text-amber-400"
+        iconColor={isLightTheme ? "text-amber-600" : "text-amber-400"}
         description="批量加Logo，导出九宫格切片和预览图"
         featureInfo={{
           title: "图片素材处理",
@@ -392,6 +397,9 @@ const ImageMaterialMode: React.FC = () => {
           ],
           themeColor: "amber",
         }}
+        rightContent={
+          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
+        }
       />
 
       <div className="flex-1 flex overflow-hidden">

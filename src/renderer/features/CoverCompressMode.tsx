@@ -17,6 +17,8 @@ import { useConcurrencyCache } from '@/hooks/useConcurrencyCache';
 import { useOperationLogs } from '@/hooks/useOperationLogs';
 import { useImageProcessingEvents } from '@/hooks/useImageProcessingEvents';
 import { useImageMaterials } from '@/hooks/useImageMaterials';
+import { usePageTheme } from '@/hooks/usePageTheme';
+import PageThemeToggle from '@/components/PageThemeToggle';
 
 /**
  * 图片文件状态
@@ -43,6 +45,7 @@ interface ImageFile {
 const CoverCompressMode: React.FC = () => {
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { isLightTheme, togglePageTheme } = usePageTheme();
   const { outputDir, setOutputDir } = useOutputDirCache('CoverCompressMode');
   const { concurrency, setConcurrency } = useConcurrencyCache('CoverCompressMode');
   const [targetSizeKB, setTargetSizeKB] = useState(380);
@@ -338,11 +341,13 @@ const CoverCompressMode: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-black text-slate-100 flex flex-col">
+    <div className={`h-screen flex flex-col ${
+      isLightTheme ? 'theme-light-page bg-[#eef3f8] text-slate-900' : 'bg-black text-slate-100'
+    }`}>
       <PageHeader
         title="封面压缩"
         icon={Shrink}
-        iconColor="text-emerald-400"
+        iconColor={isLightTheme ? "text-emerald-600" : "text-emerald-400"}
         description={`智能压缩，自动调整质量与尺寸至 ~${targetSizeKB}KB`}
         showTaskIndicator={false}
         featureInfo={{
@@ -357,6 +362,9 @@ const CoverCompressMode: React.FC = () => {
           ],
           themeColor: 'emerald',
         }}
+        rightContent={
+          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
+        }
       />
 
       {/* Main Content */}

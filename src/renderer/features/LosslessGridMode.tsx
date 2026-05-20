@@ -13,11 +13,14 @@ import { useOutputDirCache } from "../hooks/useOutputDirCache";
 import { useOperationLogs } from "../hooks/useOperationLogs";
 import { useImageMaterials } from "../hooks/useImageMaterials";
 import { useTaskContext } from "../contexts/TaskContext";
+import { usePageTheme } from "../hooks/usePageTheme";
+import PageThemeToggle from "../components/PageThemeToggle";
 import { GridPreview } from "./LosslessGridMode/components";
 
 const LosslessGridMode: React.FC = () => {
   const navigate = useNavigate();
   const { batchCreateTasks } = useTaskContext();
+  const { isLightTheme, togglePageTheme } = usePageTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -267,11 +270,13 @@ const LosslessGridMode: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-black text-slate-100 flex flex-col">
+    <div className={`h-screen flex flex-col ${
+      isLightTheme ? "theme-light-page bg-[#eef3f8] text-slate-900" : "bg-black text-slate-100"
+    }`}>
       <PageHeader
         title="专业无损多宫格"
         icon={Grid3X3}
-        iconColor="text-cyan-400"
+        iconColor={isLightTheme ? "text-cyan-600" : "text-cyan-400"}
         description="自定义横竖线条，自由裁切图片"
         featureInfo={{
           title: "专业无损多宫格",
@@ -284,6 +289,9 @@ const LosslessGridMode: React.FC = () => {
           ],
           themeColor: "cyan",
         }}
+        rightContent={
+          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
+        }
       />
 
       <div className="flex-1 flex overflow-hidden">
