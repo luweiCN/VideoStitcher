@@ -28,6 +28,7 @@ import OutputDirSelector from "../components/OutputDirSelector";
 import OperationLogPanel from "../components/OperationLogPanel";
 import TaskAddedDialog from "../components/TaskAddedDialog";
 import TaskCountConfirmDialog from "../components/TaskCountConfirmDialog";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { FileSelector, FileSelectorGroup, useFileSelectorGroup, type FileSelectorGroupRef } from "../components/FileSelector";
 import { Button } from "../components/Button";
 import TaskList, { type Task, type OutputConfig } from "../components/TaskList";
@@ -45,6 +46,8 @@ import {
   getCanvasConfig,
   getInitialPositions,
 } from "../utils/positionCalculator";
+
+const BG_IMAGE_NOTICE_KEY = "video-merge-bg-image-layout-notice-dismissed";
 
 const VideoMergeMode: React.FC = () => {
   const navigate = useNavigate();
@@ -177,6 +180,15 @@ const VideoMergeMode: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showCountConfirmDialog, setShowCountConfirmDialog] = useState(false);
+  const [showBgImageNotice, setShowBgImageNotice] = useState(false);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const resetKey = `${BG_IMAGE_NOTICE_KEY}-dev-reset-done`;
+    if (sessionStorage.getItem(resetKey) === "true") return;
+    localStorage.removeItem(BG_IMAGE_NOTICE_KEY);
+    sessionStorage.setItem(resetKey, "true");
+  }, []);
 
   const {
     logs,
@@ -377,7 +389,7 @@ const VideoMergeMode: React.FC = () => {
     async (files: string[]) => {
       setBgImages(files);
       if (files.length > 0) {
-        addLog(`已选择视频套图: ${files[0]}`, "info");
+        addLog(`视频套图已启用多选：${files.length} 个素材将按任务顺序平铺使用`, "info");
         // 自动检测图片宽高比并切换横竖屏模式
         try {
           const dimensions = await window.api.getImageDimensions(files[0]);
@@ -397,6 +409,19 @@ const VideoMergeMode: React.FC = () => {
     },
     [addLog, orientation],
   );
+
+  const handleBgImageBeforeSelect = useCallback(() => {
+    if (localStorage.getItem(BG_IMAGE_NOTICE_KEY) === "true") {
+      return true;
+    }
+    setShowBgImageNotice(true);
+    return false;
+  }, []);
+
+  const confirmBgImageNotice = useCallback(() => {
+    localStorage.setItem(BG_IMAGE_NOTICE_KEY, "true");
+    setShowBgImageNotice(false);
+  }, []);
 
   const handleCoversChange = useCallback(
     async (files: string[]) => {
@@ -660,7 +685,7 @@ const VideoMergeMode: React.FC = () => {
   const primaryColor = "violet";
 
   return (
-    <div className={`h-screen flex flex-col font-sans overflow-hidden transition-colors duration-300 ${
+    <div className={`video-merge-metal h-screen flex flex-col font-sans overflow-hidden transition-colors duration-300 ${
       isLightTheme
         ? "theme-light-page bg-[#eef3f8] text-slate-900"
         : "bg-black text-slate-100"
@@ -694,7 +719,7 @@ const VideoMergeMode: React.FC = () => {
                 onClick={() => setOrientation("horizontal")}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
                   orientation === "horizontal"
-                    ? "bg-violet-600 text-white shadow-lg shadow-violet-900/20"
+                    ? "metal-primary bg-violet-600 text-white shadow-lg shadow-violet-900/20"
                     : isLightTheme
                       ? "text-slate-500 hover:text-slate-900"
                       : "text-slate-400 hover:text-white"
@@ -707,7 +732,7 @@ const VideoMergeMode: React.FC = () => {
                 onClick={() => setOrientation("vertical")}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
                   orientation === "vertical"
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/20"
+                    ? "metal-primary bg-indigo-600 text-white shadow-lg shadow-indigo-900/20"
                     : isLightTheme
                       ? "text-slate-500 hover:text-slate-900"
                       : "text-slate-400 hover:text-white"
@@ -721,8 +746,8 @@ const VideoMergeMode: React.FC = () => {
         }
       />
 
-      <main className="flex-1 flex overflow-hidden">
-        <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-hidden">
+      <main className="flex-1 flex gap-2 overflow-hidden p-2">
+        <div className="metal-panel metal-sidebar w-80 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             <TaskCountSlider
               value={taskCount}
@@ -750,11 +775,12 @@ const VideoMergeMode: React.FC = () => {
                   id="bgImage"
                   name="视频套图 (可选)"
                   accept="image"
-                  multiple={false}
+                  multiple
                   showList
                   themeColor={primaryColor}
                   directoryCache
                   initialFiles={bgImages}
+                  onBeforeSelect={handleBgImageBeforeSelect}
                   onChange={handleBgImagesChange}
                 />
 
@@ -813,7 +839,7 @@ const VideoMergeMode: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-black">
+        <div className="metal-panel metal-workspace flex-1 flex flex-col overflow-hidden min-w-0 border border-slate-800 rounded-2xl">
           {isGeneratingTasks ? (
             <div className="h-[164px] flex items-center justify-center border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-3">
@@ -840,7 +866,7 @@ const VideoMergeMode: React.FC = () => {
             {materials.bVideo && (
               <button
                 onClick={toggleView}
-                className={`absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-2 backdrop-blur-sm border rounded-lg transition-colors ${
+                className={`metal-top-switch absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-2 backdrop-blur-sm border rounded-lg transition-colors ${
                   isLightTheme
                     ? "bg-slate-100/90 border-slate-300/80 text-slate-700 hover:bg-slate-50"
                     : "bg-black/80 border-slate-700 hover:bg-slate-800"
@@ -869,7 +895,7 @@ const VideoMergeMode: React.FC = () => {
                     <div className="h-full w-full flex flex-col items-center justify-center py-4">
                       <div
                         ref={previewContainerRef}
-                        className="flex-1 w-full flex items-center justify-center min-h-0 overflow-auto"
+                        className="metal-canvas-shell flex-1 w-full flex items-center justify-center min-h-0 overflow-auto border border-slate-800"
                       >
                         <VideoEditor
                           canvasWidth={canvasConfig.width}
@@ -882,7 +908,7 @@ const VideoMergeMode: React.FC = () => {
                         />
                       </div>
                       <div className="mt-8 flex flex-col items-center gap-4">
-                        <div className={`flex items-center gap-6 backdrop-blur-sm border px-6 py-4 rounded-xl ${
+                        <div className={`metal-control flex items-center gap-6 backdrop-blur-sm border px-6 py-4 rounded-xl ${
                           isLightTheme
                             ? "bg-slate-100/90 border-slate-300/80 shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
                             : "bg-slate-900/80 border-slate-800"
@@ -1025,7 +1051,7 @@ const VideoMergeMode: React.FC = () => {
           </div>
         </div>
 
-        <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+        <div className="metal-panel metal-sidebar w-80 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             <OutputDirSelector
               value={outputDir}
@@ -1060,6 +1086,7 @@ const VideoMergeMode: React.FC = () => {
               variant="primary"
               size="md"
               fullWidth
+              className="metal-cta-button"
               loading={isAdding}
               leftIcon={!isAdding && <Plus className="w-4 h-4" />}
             >
@@ -1091,6 +1118,18 @@ const VideoMergeMode: React.FC = () => {
               doAddToTaskCenter();
             }}
             onCancel={() => setShowCountConfirmDialog(false)}
+          />
+
+          <ConfirmDialog
+            open={showBgImageNotice}
+            className="bg-image-layout-notice-dialog"
+            title="视频套图使用提醒"
+            message="请确保视频套图预留的视频框位置保持一致，否则会出现位置对不上的错误"
+            confirmText="我知道了"
+            cancelText="关闭"
+            type="warning"
+            onConfirm={confirmBgImageNotice}
+            onCancel={confirmBgImageNotice}
           />
         </div>
       </main>

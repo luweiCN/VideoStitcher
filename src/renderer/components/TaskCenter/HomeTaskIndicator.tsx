@@ -31,17 +31,17 @@ const HomeTaskIndicator: React.FC<HomeTaskIndicatorProps> = ({ onClick, theme = 
     <button
       onClick={onClick}
       className={cn(
-        'group relative flex h-16 items-center gap-3 rounded-2xl px-7 backdrop-blur-xl transition-all duration-300',
+        'group relative flex h-14 items-center gap-3 rounded-md px-7 backdrop-blur-xl transition-all duration-300',
         isDarkTheme
           ? 'shadow-[0_8px_24px_rgba(0,0,0,0.24)]'
-          : 'shadow-[0_8px_24px_rgba(15,23,42,0.08)]',
+          : 'shadow-[0_8px_20px_rgba(15,23,42,0.22)]',
         hasRunningTasks
           ? isDarkTheme
             ? 'bg-slate-900/90 border border-blue-500/40 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(14,165,233,0.14)]'
-            : 'bg-white/95 border border-blue-200 hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(14,165,233,0.16)]'
+            : 'bg-slate-200/40 border border-white/40 hover:-translate-y-0.5 hover:bg-slate-100/50 hover:border-white/70 hover:shadow-[0_16px_28px_rgba(15,23,42,0.25)]'
           : isDarkTheme
             ? 'bg-slate-900/80 border border-slate-700/70 hover:-translate-y-0.5 hover:border-blue-400/50 hover:shadow-[0_16px_36px_rgba(14,165,233,0.12)]'
-            : 'bg-white/90 border border-slate-200/80 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-[0_16px_36px_rgba(14,165,233,0.14)]'
+            : 'bg-slate-200/40 border border-white/40 hover:-translate-y-0.5 hover:bg-slate-100/50 hover:border-white/70 hover:shadow-[0_16px_28px_rgba(15,23,42,0.25)]'
       )}
     >
       {/* 图标容器 - 与系统管理保持一致 */}

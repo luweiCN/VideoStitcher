@@ -71,7 +71,7 @@ const OutputDirSelector: React.FC<OutputDirSelectorProps> = ({
   const depth = getDepth();
 
   return (
-    <div className={className}>
+    <div className={`output-dir-selector ${className}`}>
       {/* 标签栏 - 与 ConcurrencySelector 一致 */}
       <div className="flex items-center justify-between mb-2">
         <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">

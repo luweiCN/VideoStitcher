@@ -364,8 +364,8 @@ function generateMergeTasks(_event: Electron.IpcMainInvokeEvent, params: MergeTa
     // 背景图（固定）
     if (validBgImages) {
       files.push({
-        path: validBgImages[0],
-        index: 1,
+        path: validBgImages[i % validBgImages.length],
+        index: (i % validBgImages.length) + 1,
         category: "bg",
         category_name: "背景",
       });

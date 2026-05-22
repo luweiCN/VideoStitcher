@@ -299,7 +299,7 @@ export const TaskList: React.FC<TaskListProps> = ({
   }, [previewFileIndex, previewAllFiles.length]);
 
   return (
-    <div className="flex flex-col overflow-hidden shrink-0">
+    <div className="task-list-panel flex flex-col overflow-hidden shrink-0">
       {/* 任务列表 Header */}
       <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-black/50 shrink-0">
         <h2 className="font-bold text-sm text-slate-300 flex items-center gap-2">

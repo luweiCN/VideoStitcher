@@ -333,9 +333,9 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
       {/* 顶部标签 */}
       <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap">
-        <div className="flex items-center gap-2 bg-slate-900/80 border border-slate-700 px-3 py-1 rounded-full backdrop-blur-md">
-          <div className="w-2 h-2 rounded-full bg-fuchsia-500"></div>
-          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+        <div className="canvas-resolution-badge flex items-center gap-2 bg-slate-900/80 border border-slate-700 px-3 py-1 rounded-full backdrop-blur-md">
+          <div className="canvas-resolution-dot w-2 h-2 rounded-full bg-fuchsia-500"></div>
+          <span className="canvas-resolution-text text-[10px] font-bold text-slate-300 uppercase tracking-widest">
             合成画布分辨率: {canvasWidth} x {canvasHeight}
           </span>
         </div>

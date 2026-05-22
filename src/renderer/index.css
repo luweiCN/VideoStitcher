@@ -1,6 +1,342 @@
 @import "tailwindcss";
 
 /* ============================================
+   极速合成金属磁贴主题
+   ============================================ */
+
+.video-merge-metal {
+  --metal-border: rgba(226, 232, 240, 0.48);
+  --metal-glow: rgba(168, 85, 247, 0.52);
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 48% 8%, rgba(168, 85, 247, 0.2), transparent 30%),
+    radial-gradient(circle at 16% 16%, rgba(148, 163, 184, 0.18), transparent 28%),
+    linear-gradient(110deg, rgba(255, 255, 255, 0.12), transparent 22%, rgba(255, 255, 255, 0.06) 48%, transparent 72%),
+    linear-gradient(135deg, #202a36 0%, #0d131b 45%, #03060b 100%);
+}
+
+.video-merge-metal::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.16) 18%, transparent 34%, rgba(255, 255, 255, 0.08) 55%, transparent 78%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0, rgba(255, 255, 255, 0.035) 1px, transparent 1px, transparent 7px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 132px);
+  opacity: 0.78;
+}
+
+.video-merge-metal::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 9%, transparent 82%, rgba(255, 255, 255, 0.08)),
+    radial-gradient(circle at 50% 50%, transparent 48%, rgba(0, 0, 0, 0.28) 100%);
+}
+
+.video-merge-metal > * {
+  position: relative;
+  z-index: 1;
+}
+
+.video-merge-metal header,
+.video-merge-metal .metal-panel,
+.video-merge-metal .metal-tile,
+.video-merge-metal .metal-control,
+.video-merge-metal .metal-canvas-shell,
+.video-merge-metal [class*="bg-black"],
+.video-merge-metal [class*="bg-slate-900"] {
+  background:
+    linear-gradient(105deg, rgba(255, 255, 255, 0.18), transparent 20%, rgba(255, 255, 255, 0.08) 48%, transparent 74%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.038) 0, rgba(255, 255, 255, 0.038) 1px, transparent 1px, transparent 7px),
+    linear-gradient(145deg, rgba(58, 68, 82, 0.96), rgba(12, 17, 25, 0.96) 58%, rgba(3, 7, 13, 0.98)) !important;
+}
+
+.video-merge-metal header,
+.video-merge-metal .metal-panel,
+.video-merge-metal .metal-tile,
+.video-merge-metal .metal-control,
+.video-merge-metal .metal-canvas-shell {
+  border-color: var(--metal-border) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 -18px 38px rgba(0, 0, 0, 0.42),
+    0 16px 34px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.video-merge-metal header {
+  height: 64px;
+  border-bottom-width: 1px;
+}
+
+.video-merge-metal button,
+.video-merge-metal [role="button"] {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.26),
+    0 8px 18px rgba(0, 0, 0, 0.28);
+}
+
+.video-merge-metal button:hover {
+  filter: brightness(1.09);
+}
+
+.video-merge-metal button[class*="from-pink-600"],
+.video-merge-metal button[class*="from-violet-600"],
+.video-merge-metal .metal-primary {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 38%),
+    linear-gradient(135deg, #9b5cff 0%, #5b21b6 52%, #321074 100%) !important;
+  border: 1px solid rgba(196, 181, 253, 0.5);
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -12px 24px rgba(49, 16, 119, 0.46),
+    0 0 0 1px rgba(196, 181, 253, 0.3),
+    0 0 18px rgba(168, 85, 247, 0.46),
+    0 12px 28px rgba(91, 33, 182, 0.5);
+}
+
+.video-merge-metal input {
+  background:
+    linear-gradient(180deg, rgba(8, 13, 21, 0.92), rgba(2, 5, 10, 0.98)) !important;
+  border-color: rgba(148, 163, 184, 0.38) !important;
+  box-shadow: inset 0 1px 8px rgba(0, 0, 0, 0.48);
+}
+
+.video-merge-metal .custom-scrollbar::-webkit-scrollbar-thumb,
+.video-merge-metal .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.42);
+}
+
+.video-merge-metal .metal-sidebar {
+  background:
+    linear-gradient(100deg, rgba(255, 255, 255, 0.16), transparent 24%, rgba(255, 255, 255, 0.065) 70%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.034) 0, rgba(255, 255, 255, 0.034) 1px, transparent 1px, transparent 7px),
+    linear-gradient(180deg, rgba(36, 45, 57, 0.98), rgba(7, 11, 18, 0.98)) !important;
+}
+
+.video-merge-metal .metal-workspace {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(168, 85, 247, 0.16), transparent 26%),
+    linear-gradient(100deg, rgba(255, 255, 255, 0.1), transparent 26%, rgba(255, 255, 255, 0.04) 72%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.024) 0, rgba(255, 255, 255, 0.024) 1px, transparent 1px, transparent 10px),
+    linear-gradient(180deg, rgba(16, 23, 34, 0.98), rgba(3, 7, 13, 0.99)) !important;
+}
+
+.video-merge-metal .metal-canvas-shell {
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.22), transparent 24%),
+    linear-gradient(102deg, rgba(255, 255, 255, 0.18), transparent 20%, rgba(255, 255, 255, 0.06) 62%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.028) 0, rgba(255, 255, 255, 0.028) 1px, transparent 1px, transparent 8px),
+    linear-gradient(125deg, rgba(72, 84, 101, 0.88), rgba(11, 16, 24, 0.94) 50%, rgba(3, 7, 13, 0.96)) !important;
+}
+
+.video-merge-metal .metal-top-switch {
+  border-color: rgba(167, 139, 250, 0.5) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 1px rgba(139, 92, 246, 0.2),
+    0 10px 28px rgba(0, 0, 0, 0.38);
+}
+
+.video-merge-metal .metal-panel .rounded-2xl,
+.video-merge-metal .metal-panel .rounded-xl,
+.video-merge-metal .metal-panel .rounded-lg {
+  border-radius: 10px;
+}
+
+.video-merge-metal [data-selector-id] {
+  border-color: rgba(255, 255, 255, 0.36) !important;
+  color: #ffffff !important;
+  filter: saturate(1.18) contrast(1.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -18px 28px rgba(0, 0, 0, 0.24),
+    0 14px 22px rgba(0, 0, 0, 0.36),
+    0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.video-merge-metal [data-selector-id] > div:first-child,
+.video-merge-metal [data-selector-id] [class*="border-dashed"] {
+  background: rgba(0, 0, 0, 0.22) !important;
+}
+
+.video-merge-metal [data-selector-id="cover"],
+.video-merge-metal [data-selector-id="bVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 38%),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.18), transparent 26%, rgba(255, 255, 255, 0.08) 68%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0, rgba(255, 255, 255, 0.045) 1px, transparent 1px, transparent 7px),
+    linear-gradient(135deg, rgba(39, 194, 38, 0.98), rgba(17, 125, 27, 0.98) 58%, rgba(4, 66, 18, 0.99)) !important;
+}
+
+.video-merge-metal [data-selector-id="bgImage"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 38%),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.18), transparent 26%, rgba(255, 255, 255, 0.08) 68%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0, rgba(255, 255, 255, 0.045) 1px, transparent 1px, transparent 7px),
+    linear-gradient(135deg, rgba(255, 161, 35, 0.99), rgba(230, 86, 0, 0.99) 58%, rgba(139, 36, 0, 0.99)) !important;
+}
+
+.video-merge-metal [data-selector-id="aVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 38%),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.18), transparent 26%, rgba(255, 255, 255, 0.08) 68%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0, rgba(255, 255, 255, 0.045) 1px, transparent 1px, transparent 7px),
+    linear-gradient(135deg, rgba(167, 80, 255, 0.99), rgba(111, 32, 219, 0.99) 58%, rgba(55, 18, 128, 0.99)) !important;
+}
+
+.video-merge-metal [data-selector-id="cVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 38%),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.18), transparent 26%, rgba(255, 255, 255, 0.08) 68%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0, rgba(255, 255, 255, 0.045) 1px, transparent 1px, transparent 7px),
+    linear-gradient(135deg, rgba(45, 142, 255, 0.99), rgba(16, 91, 220, 0.99) 58%, rgba(18, 58, 156, 0.99)) !important;
+}
+
+.video-merge-metal [data-selector-id] label,
+.video-merge-metal [data-selector-id] span,
+.video-merge-metal [data-selector-id] p,
+.video-merge-metal [data-selector-id] div {
+  font-weight: 700;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.86),
+    0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.video-merge-metal [data-selector-id] label,
+.video-merge-metal [data-selector-id] [class*="text-slate-100"],
+.video-merge-metal [data-selector-id] [class*="text-slate-200"],
+.video-merge-metal [data-selector-id] [class*="text-slate-300"],
+.video-merge-metal [data-selector-id] [class*="text-slate-400"] {
+  color: #ffffff !important;
+}
+
+.video-merge-metal [data-selector-id] [class*="text-slate-500"],
+.video-merge-metal [data-selector-id] [class*="text-slate-600"] {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.video-merge-metal [data-selector-id] [class*="bg-black/50"],
+.video-merge-metal [data-selector-id] [class*="bg-slate-900"] {
+  background: rgba(4, 8, 14, 0.36) !important;
+}
+
+.video-merge-metal .metal-workspace [class*="text-slate-500"],
+.video-merge-metal .metal-workspace [class*="text-slate-600"],
+.video-merge-metal .metal-sidebar [class*="text-slate-500"],
+.video-merge-metal .metal-sidebar [class*="text-slate-600"] {
+  color: rgba(241, 245, 249, 0.88) !important;
+  font-weight: 600;
+}
+
+.video-merge-metal .metal-workspace [class*="text-slate-100"],
+.video-merge-metal .metal-workspace [class*="text-slate-200"],
+.video-merge-metal .metal-workspace [class*="text-slate-300"],
+.video-merge-metal .metal-sidebar [class*="text-slate-100"],
+.video-merge-metal .metal-sidebar [class*="text-slate-200"],
+.video-merge-metal .metal-sidebar [class*="text-slate-300"] {
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.video-merge-metal .metal-control {
+  color: #f8fafc;
+  background:
+    linear-gradient(105deg, rgba(255, 255, 255, 0.18), transparent 26%, rgba(255, 255, 255, 0.08) 66%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0, rgba(255, 255, 255, 0.04) 1px, transparent 1px, transparent 7px),
+    linear-gradient(180deg, rgba(43, 50, 61, 0.96), rgba(10, 14, 21, 0.98)) !important;
+}
+
+.video-merge-metal .metal-control button,
+.video-merge-metal .metal-top-switch,
+.video-merge-metal .metal-sidebar button {
+  border-color: rgba(226, 232, 240, 0.32) !important;
+}
+
+.video-merge-metal header h1 span,
+.video-merge-metal header p,
+.video-merge-metal .metal-panel h2,
+.video-merge-metal .metal-panel h3,
+.video-merge-metal .metal-control,
+.video-merge-metal .metal-top-switch {
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.88),
+    0 0 12px rgba(255, 255, 255, 0.08);
+}
+
+.video-merge-metal header h1 span,
+.video-merge-metal .metal-panel h2,
+.video-merge-metal .metal-panel h3 {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+.video-merge-metal header p,
+.video-merge-metal .metal-panel p,
+.video-merge-metal .metal-panel span,
+.video-merge-metal .metal-control span,
+.video-merge-metal .metal-control p {
+  color: rgba(248, 250, 252, 0.92) !important;
+}
+
+.video-merge-metal .metal-panel button,
+.video-merge-metal .metal-control button,
+.video-merge-metal .metal-top-switch {
+  font-weight: 700;
+}
+
+.video-merge-metal [class*="text-violet-400"],
+.video-merge-metal [class*="text-fuchsia-400"] {
+  color: #c084fc !important;
+}
+
+/* ============================================
+   首页磁贴背景
+   ============================================ */
+
+.home-lumia-surface {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0.18) 36%, rgba(82,91,101,0.26) 100%),
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,0.92), rgba(255,255,255,0.18) 28%, transparent 56%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.08) 0, rgba(255,255,255,0.08) 1px, transparent 1px, transparent 9px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.06) 0, rgba(255,255,255,0.06) 1px, transparent 1px, transparent 11px),
+    linear-gradient(135deg, #f3f4f4 0%, #c6cbd0 48%, #858d95 100%);
+}
+
+.home-lumia-dark {
+  background:
+    radial-gradient(circle at 20% 18%, rgba(71,85,105,0.45), transparent 38%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 10px),
+    linear-gradient(135deg, #101722 0%, #1f2937 52%, #0f172a 100%);
+}
+
+.home-lumia-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.18), transparent 42%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 7px);
+  opacity: 0.68;
+}
+
+.home-lumia-tile > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================
    文本折叠
    ============================================ */
 
@@ -345,4 +681,1642 @@
 
 [data-radix-toast][data-swipe='end'] {
   animation: toast-fade-in 0.2s ease-out forwards;
+}
+
+/* ============================================
+   极速合成清晰金属版覆盖
+   ============================================ */
+
+.video-merge-metal {
+  --metal-text-main: rgba(255, 255, 255, 0.94);
+  --metal-text-sub: rgba(255, 255, 255, 0.72);
+  --metal-text-weak: rgba(255, 255, 255, 0.5);
+  --metal-edge: rgba(255, 255, 255, 0.2);
+  --metal-edge-strong: rgba(255, 255, 255, 0.3);
+  font-family: system-ui, "Microsoft YaHei", "PingFang SC", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  background:
+    radial-gradient(ellipse at 22% 18%, rgba(148, 163, 184, 0.18) 0%, transparent 28%),
+    radial-gradient(ellipse at 64% 6%, rgba(139, 92, 246, 0.14) 0%, transparent 24%),
+    linear-gradient(96deg, transparent 0%, rgba(255, 255, 255, 0.1) 18%, transparent 30%, rgba(255, 255, 255, 0.045) 54%, transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0, rgba(255, 255, 255, 0.045) 1px, rgba(255, 255, 255, 0) 1px, rgba(255, 255, 255, 0) 5px),
+    linear-gradient(135deg, #18212b 0%, #0a1018 44%, #02050a 100%) !important;
+}
+
+.video-merge-metal::before {
+  background:
+    linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.14) 17%, transparent 28%, rgba(255, 255, 255, 0.055) 55%, transparent 76%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0, rgba(255, 255, 255, 0.035) 1px, transparent 1px, transparent 6px) !important;
+  opacity: 0.48 !important;
+}
+
+.video-merge-metal::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 8%, transparent 86%, rgba(255, 255, 255, 0.05)),
+    radial-gradient(circle at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.34) 100%) !important;
+}
+
+.video-merge-metal header,
+.video-merge-metal .metal-panel,
+.video-merge-metal .metal-control,
+.video-merge-metal .metal-top-switch,
+.video-merge-metal .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.105), transparent 26%),
+    linear-gradient(100deg, rgba(255, 255, 255, 0.105), transparent 24%, rgba(255, 255, 255, 0.035) 66%, transparent 82%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.026) 0, rgba(255, 255, 255, 0.026) 1px, transparent 1px, transparent 6px),
+    rgba(8, 13, 22, 0.82) !important;
+  border: 1px solid var(--metal-edge) !important;
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.72) !important;
+}
+
+.video-merge-metal header {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 32%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12), transparent 24%, rgba(139, 92, 246, 0.1) 50%, transparent 78%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.032) 0, rgba(255, 255, 255, 0.032) 1px, transparent 1px, transparent 5px),
+    rgba(10, 15, 24, 0.9) !important;
+}
+
+.video-merge-metal .metal-panel {
+  border-radius: 13px !important;
+}
+
+.video-merge-metal .metal-sidebar,
+.video-merge-metal .metal-workspace {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), transparent 24%),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.09), transparent 26%, rgba(255, 255, 255, 0.03) 70%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 6px),
+    rgba(6, 11, 18, 0.88) !important;
+}
+
+.video-merge-metal .metal-canvas-shell {
+  background:
+    radial-gradient(ellipse at 18% 16%, rgba(148, 163, 184, 0.22), transparent 25%),
+    linear-gradient(108deg, rgba(255, 255, 255, 0.12), transparent 22%, rgba(255, 255, 255, 0.035) 70%, transparent),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.022) 0, rgba(255, 255, 255, 0.022) 1px, transparent 1px, transparent 7px),
+    linear-gradient(135deg, #1b2530 0%, #09101a 48%, #03070d 100%) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.58),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 36px rgba(255, 255, 255, 0.035) !important;
+}
+
+.video-merge-metal [data-selector-id] {
+  border-radius: 12px !important;
+  border-color: rgba(255, 255, 255, 0.26) !important;
+  box-shadow:
+    0 11px 24px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -16px 26px rgba(0, 0, 0, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.065) !important;
+  filter: saturate(1.32) contrast(1.13);
+}
+
+.video-merge-metal [data-selector-id] [class*="border-dashed"] {
+  border-color: rgba(255, 255, 255, 0.38) !important;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.24)) !important;
+}
+
+.video-merge-metal [data-selector-id="cover"],
+.video-merge-metal [data-selector-id="bVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 20% 0%, rgba(139, 255, 122, 0.24), transparent 34%),
+    linear-gradient(135deg, #34d52f 0%, #157d1b 58%, #043f10 100%) !important;
+}
+
+.video-merge-metal [data-selector-id="bgImage"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 20% 0%, rgba(255, 219, 130, 0.26), transparent 34%),
+    linear-gradient(135deg, #ffb11f 0%, #e25a00 56%, #842200 100%) !important;
+}
+
+.video-merge-metal [data-selector-id="aVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), transparent 34%),
+    radial-gradient(circle at 20% 0%, rgba(216, 180, 254, 0.26), transparent 34%),
+    linear-gradient(135deg, #b35cff 0%, #7020db 56%, #35117c 100%) !important;
+}
+
+.video-merge-metal [data-selector-id="cVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 20% 0%, rgba(125, 211, 252, 0.24), transparent 34%),
+    linear-gradient(135deg, #2f97ff 0%, #0f5bdc 56%, #123a9c 100%) !important;
+}
+
+.video-merge-metal button[class*="from-pink-600"],
+.video-merge-metal button[class*="from-violet-600"],
+.video-merge-metal .metal-primary {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 36%),
+    linear-gradient(135deg, #a855f7 0%, #6d28d9 52%, #3b0f91 100%) !important;
+  border-color: rgba(221, 214, 254, 0.58) !important;
+  box-shadow:
+    0 0 18px rgba(139, 92, 246, 0.58),
+    0 12px 26px rgba(76, 29, 149, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -10px 22px rgba(49, 16, 119, 0.52) !important;
+}
+
+.video-merge-metal button:hover,
+.video-merge-metal [role="button"]:hover {
+  filter: brightness(1.16) saturate(1.08);
+}
+
+.video-merge-metal,
+.video-merge-metal * {
+  text-shadow: none;
+}
+
+.video-merge-metal h1,
+.video-merge-metal h2,
+.video-merge-metal h3,
+.video-merge-metal h4,
+.video-merge-metal label,
+.video-merge-metal button,
+.video-merge-metal [class*="text-slate-100"],
+.video-merge-metal [class*="text-slate-200"],
+.video-merge-metal [class*="text-slate-300"] {
+  color: var(--metal-text-main) !important;
+  font-weight: 700;
+}
+
+.video-merge-metal [class*="text-slate-400"],
+.video-merge-metal [class*="text-slate-500"] {
+  color: var(--metal-text-sub) !important;
+  font-weight: 600;
+}
+
+.video-merge-metal [class*="text-slate-600"] {
+  color: var(--metal-text-weak) !important;
+}
+
+.video-merge-metal svg {
+  color: currentColor;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.12));
+}
+
+.video-merge-metal [data-selector-id] label,
+.video-merge-metal [data-selector-id] span,
+.video-merge-metal [data-selector-id] p,
+.video-merge-metal [data-selector-id] div {
+  color: rgba(255, 255, 255, 0.96) !important;
+  font-weight: 750;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72);
+}
+
+.video-merge-metal .metal-canvas-shell [class*="border-fuchsia-400"] {
+  background:
+    linear-gradient(180deg, rgba(177, 96, 255, 0.82), rgba(91, 33, 182, 0.78)) !important;
+  border-color: rgba(232, 121, 249, 0.95) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 0 22px rgba(217, 70, 239, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+.video-merge-metal .metal-canvas-shell [class*="border-white"] {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.video-merge-metal .metal-canvas-shell [class*="bg-black/50"],
+.video-merge-metal .metal-canvas-shell [class*="bg-slate-900"] {
+  background: rgba(11, 16, 26, 0.72) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 左侧素材卡片精修：结构更清晰，边界更锐利 */
+.video-merge-metal .metal-sidebar [data-selector-id] {
+  overflow: hidden;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.46),
+    0 0 0 1px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    inset 0 0 26px rgba(255, 255, 255, 0.035) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child {
+  min-height: 48px;
+  padding: 12px 14px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.035)) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.13) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child label {
+  color: rgba(245, 248, 255, 0.86) !important;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.5),
+    0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child [class*="rounded-full"] {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(5, 9, 16, 0.34)) !important;
+  color: rgba(235, 241, 250, 0.78) !important;
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 6px rgba(0, 0, 0, 0.24);
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child .w-2.h-2 {
+  width: 8px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.12),
+    0 0 8px rgba(255, 255, 255, 0.32);
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] {
+  margin: 14px !important;
+  padding: 15px 16px !important;
+  border-width: 1px !important;
+  border-style: dashed !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  border-radius: 10px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(2, 6, 12, 0.24)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.075),
+    inset 0 0 16px rgba(0, 0, 0, 0.18);
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"]:hover {
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(2, 6, 12, 0.24)) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] svg {
+  width: 28px;
+  height: 28px;
+  color: rgba(232, 239, 250, 0.72) !important;
+  filter:
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.1));
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] span {
+  color: rgba(236, 242, 252, 0.74) !important;
+  font-weight: 700;
+  line-height: 1.45;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.46);
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] span:last-child {
+  color: rgba(222, 231, 244, 0.62) !important;
+  font-weight: 650;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="cover"],
+.video-merge-metal .metal-sidebar [data-selector-id="bVideo"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.025) 42%, rgba(0, 0, 0, 0.08)),
+    radial-gradient(circle at 18% 0%, rgba(95, 255, 115, 0.2), transparent 36%),
+    linear-gradient(180deg, rgba(23, 126, 45, 0.88), rgba(6, 60, 23, 0.96)) !important;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.46),
+    0 0 12px rgba(34, 197, 94, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="bgImage"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.025) 42%, rgba(0, 0, 0, 0.08)),
+    radial-gradient(circle at 18% 0%, rgba(255, 190, 78, 0.22), transparent 36%),
+    linear-gradient(180deg, rgba(177, 82, 12, 0.9), rgba(106, 31, 5, 0.97)) !important;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.46),
+    0 0 12px rgba(249, 115, 22, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="aVideo"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.025) 42%, rgba(0, 0, 0, 0.08)),
+    radial-gradient(circle at 18% 0%, rgba(196, 150, 255, 0.22), transparent 36%),
+    linear-gradient(180deg, rgba(105, 53, 188, 0.9), rgba(45, 17, 99, 0.97)) !important;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.46),
+    0 0 12px rgba(139, 92, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="cVideo"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.025) 42%, rgba(0, 0, 0, 0.08)),
+    radial-gradient(circle at 18% 0%, rgba(94, 190, 255, 0.22), transparent 36%),
+    linear-gradient(180deg, rgba(32, 103, 196, 0.9), rgba(10, 44, 122, 0.97)) !important;
+  box-shadow:
+    0 10px 22px rgba(0, 0, 0, 0.46),
+    0 0 12px rgba(59, 130, 246, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35) !important;
+}
+
+/* 右下角主操作按钮精修 */
+.video-merge-metal .metal-cta-button {
+  min-height: 48px;
+  border-radius: 11px !important;
+  border: 1px solid rgba(255, 255, 255, 0.36) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+  font-size: 14px;
+  font-weight: 800 !important;
+  letter-spacing: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.18) 26%, transparent 39%),
+    linear-gradient(180deg, #d2a4ff 0%, #9b5cff 42%, #5b21b6 100%) !important;
+  box-shadow:
+    0 0 0 1px rgba(221, 214, 254, 0.42),
+    0 0 18px rgba(150, 80, 255, 0.56),
+    0 7px 18px rgba(0, 0, 0, 0.45),
+    0 13px 26px rgba(49, 16, 119, 0.54),
+    inset 0 1px 0 rgba(255, 255, 255, 0.56),
+    inset 0 0 16px rgba(255, 255, 255, 0.1),
+    inset 0 -11px 20px rgba(35, 10, 83, 0.5) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.46);
+}
+
+.video-merge-metal .metal-cta-button svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.8;
+  color: rgba(255, 255, 255, 0.98) !important;
+  filter:
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.42))
+    drop-shadow(0 0 4px rgba(255, 255, 255, 0.16));
+}
+
+.video-merge-metal .metal-cta-button:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.48) !important;
+  filter: brightness(1.11) saturate(1.08);
+  box-shadow:
+    0 0 0 1px rgba(237, 233, 254, 0.5),
+    0 0 20px rgba(150, 80, 255, 0.66),
+    0 7px 18px rgba(0, 0, 0, 0.44),
+    0 14px 28px rgba(49, 16, 119, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    inset 0 0 18px rgba(255, 255, 255, 0.12),
+    inset 0 -10px 18px rgba(35, 10, 83, 0.48) !important;
+}
+
+.video-merge-metal .metal-cta-button:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.3),
+    0 0 10px rgba(139, 92, 246, 0.38),
+    0 7px 16px rgba(49, 16, 119, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 8px 16px rgba(35, 10, 83, 0.34) !important;
+}
+
+.video-merge-metal .metal-cta-button:disabled {
+  opacity: 1 !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 36%),
+    linear-gradient(135deg, rgba(92, 52, 164, 0.5), rgba(45, 20, 101, 0.62)) !important;
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+.video-merge-metal .metal-sidebar > div:last-child {
+  border-top-color: rgba(255, 255, 255, 0.18) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(2, 6, 12, 0.3)) !important;
+}
+
+/* 第四轮微调：左侧素材文字更克制 */
+.video-merge-metal .metal-sidebar [data-selector-id] label {
+  color: rgba(245, 248, 255, 0.88) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child span {
+  color: rgba(232, 239, 250, 0.74) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] span:first-child {
+  color: rgba(236, 242, 252, 0.76) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] span:last-child {
+  color: rgba(222, 231, 244, 0.64) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] svg {
+  color: rgba(232, 239, 250, 0.78) !important;
+}
+
+/* 第五轮精修：深色玻璃素材卡片与更聚焦主按钮 */
+.video-merge-metal .metal-sidebar [data-selector-id] label {
+  color: rgba(245, 248, 255, 0.86) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child span {
+  color: rgba(235, 241, 250, 0.78) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] span:first-child {
+  color: rgba(236, 242, 252, 0.74) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] span:last-child {
+  color: rgba(222, 231, 244, 0.62) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] svg {
+  color: rgba(232, 239, 250, 0.72) !important;
+}
+
+.video-merge-metal .metal-cta-button {
+  color: rgba(255, 255, 255, 0.96) !important;
+}
+
+.video-merge-metal .metal-cta-button span {
+  color: inherit !important;
+}
+
+/* 第六轮精修：真实金属拉丝背景与通透度 */
+.video-merge-metal {
+  background:
+    radial-gradient(ellipse at 54% 10%, rgba(139, 92, 246, 0.13), transparent 28%),
+    radial-gradient(ellipse at 18% 12%, rgba(203, 213, 225, 0.14), transparent 26%),
+    linear-gradient(180deg, rgba(3, 7, 13, 0.18), rgba(3, 7, 13, 0.38)),
+    url("./assets/metal-bg.png") center / cover no-repeat,
+    linear-gradient(135deg, #050a12 0%, #0b111a 48%, #02050a 100%) !important;
+}
+
+.video-merge-metal::before {
+  background:
+    linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.1) 18%, transparent 32%, rgba(139, 92, 246, 0.035) 58%, transparent 78%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 10%, transparent 82%, rgba(255, 255, 255, 0.035)) !important;
+  opacity: 0.42 !important;
+}
+
+.video-merge-metal::after {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.045), transparent 34%),
+    radial-gradient(circle at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.24) 100%) !important;
+}
+
+.video-merge-metal header,
+.video-merge-metal .metal-panel,
+.video-merge-metal .metal-control,
+.video-merge-metal .metal-top-switch,
+.video-merge-metal .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), transparent 24%),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.095), transparent 28%, rgba(255, 255, 255, 0.028) 70%, transparent),
+    rgba(7, 12, 20, 0.76) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.46),
+    0 0 0 1px rgba(0, 0, 0, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.62) !important;
+}
+
+.video-merge-metal .metal-sidebar,
+.video-merge-metal .metal-workspace {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent 22%),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.075), transparent 30%, rgba(139, 92, 246, 0.025) 72%, transparent),
+    rgba(5, 10, 17, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.video-merge-metal .metal-canvas-shell {
+  background:
+    radial-gradient(ellipse at 20% 16%, rgba(255, 255, 255, 0.16), transparent 24%),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.11), transparent 26%, rgba(255, 255, 255, 0.025) 70%, transparent),
+    rgba(5, 10, 17, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.26) !important;
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.56),
+    0 0 0 1px rgba(255, 255, 255, 0.075),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 0 30px rgba(255, 255, 255, 0.035) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] {
+  filter: saturate(1.12) contrast(1.06);
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow:
+    0 11px 22px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
+    inset 0 0 22px rgba(255, 255, 255, 0.04) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="cover"],
+.video-merge-metal .metal-sidebar [data-selector-id="bVideo"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 42%, rgba(0, 0, 0, 0.06)),
+    radial-gradient(circle at 16% 0%, rgba(105, 255, 125, 0.24), transparent 36%),
+    linear-gradient(180deg, rgba(30, 142, 51, 0.9), rgba(7, 68, 25, 0.96)) !important;
+  box-shadow:
+    0 11px 22px rgba(0, 0, 0, 0.42),
+    0 0 14px rgba(34, 197, 94, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="bgImage"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 42%, rgba(0, 0, 0, 0.06)),
+    radial-gradient(circle at 16% 0%, rgba(255, 196, 92, 0.26), transparent 36%),
+    linear-gradient(180deg, rgba(196, 91, 13, 0.92), rgba(116, 35, 7, 0.97)) !important;
+  box-shadow:
+    0 11px 22px rgba(0, 0, 0, 0.42),
+    0 0 14px rgba(249, 115, 22, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="aVideo"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 42%, rgba(0, 0, 0, 0.06)),
+    radial-gradient(circle at 16% 0%, rgba(203, 163, 255, 0.26), transparent 36%),
+    linear-gradient(180deg, rgba(118, 63, 204, 0.92), rgba(51, 20, 111, 0.97)) !important;
+  box-shadow:
+    0 11px 22px rgba(0, 0, 0, 0.42),
+    0 0 14px rgba(139, 92, 246, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="cVideo"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.035) 42%, rgba(0, 0, 0, 0.06)),
+    radial-gradient(circle at 16% 0%, rgba(106, 199, 255, 0.26), transparent 36%),
+    linear-gradient(180deg, rgba(38, 116, 210, 0.92), rgba(12, 52, 138, 0.97)) !important;
+  box-shadow:
+    0 11px 22px rgba(0, 0, 0, 0.42),
+    0 0 14px rgba(59, 130, 246, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32) !important;
+}
+
+/* 第七轮微调：只提亮左侧素材卡片文字与图标 */
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child label {
+  color: rgba(255, 255, 255, 0.93) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child [class*="rounded-full"],
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child span {
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] > div:first-child .w-2.h-2 {
+  background: rgba(255, 255, 255, 0.96) !important;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.12),
+    0 0 7px rgba(255, 255, 255, 0.28);
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] {
+  border-color: rgba(255, 255, 255, 0.34) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] svg {
+  color: rgba(255, 255, 255, 0.86) !important;
+  filter:
+    drop-shadow(0 1px 1px rgba(0, 0, 0, 0.46))
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.12));
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] span:first-child {
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] [class*="border-dashed"] span:last-child {
+  color: rgba(255, 255, 255, 0.76) !important;
+}
+
+/* 第八轮：金属背景显性版，减少遮罩和伪纹理 */
+.video-merge-metal {
+  background:
+    linear-gradient(180deg, rgba(3, 7, 13, 0.08), rgba(3, 7, 13, 0.18)),
+    radial-gradient(ellipse at 50% 18%, rgba(180, 198, 220, 0.08), transparent 30%),
+    url("./assets/metal-bg.png") center / cover no-repeat,
+    linear-gradient(135deg, #050a12 0%, #0b111a 48%, #02050a 100%) !important;
+}
+
+.video-merge-metal::before {
+  background:
+    linear-gradient(105deg, transparent 0%, rgba(255, 255, 255, 0.055) 18%, transparent 34%, rgba(139, 92, 246, 0.018) 60%, transparent 78%) !important;
+  opacity: 0.24 !important;
+}
+
+.video-merge-metal::after {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 62%, rgba(0, 0, 0, 0.18) 100%) !important;
+}
+
+.video-merge-metal header,
+.video-merge-metal .metal-panel,
+.video-merge-metal .metal-control,
+.video-merge-metal .metal-top-switch,
+.video-merge-metal .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 24%),
+    rgba(5, 10, 18, 0.58) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.42),
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.52) !important;
+}
+
+.video-merge-metal .metal-sidebar,
+.video-merge-metal .metal-workspace {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), transparent 22%),
+    rgba(4, 8, 15, 0.56) !important;
+}
+
+.video-merge-metal .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 24%),
+    rgba(5, 10, 18, 0.46) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+.video-merge-metal [class*="bg-black"],
+.video-merge-metal [class*="bg-slate-900"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 28%),
+    rgba(4, 8, 15, 0.54) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id] {
+  backdrop-filter: blur(6px);
+}
+
+/* 第九轮微调：极速合成整体轻微提亮 */
+.video-merge-metal {
+  background:
+    linear-gradient(180deg, rgba(3, 7, 13, 0.03), rgba(3, 7, 13, 0.12)),
+    radial-gradient(ellipse at 50% 18%, rgba(210, 225, 245, 0.11), transparent 30%),
+    url("./assets/metal-bg.png") center / cover no-repeat,
+    linear-gradient(135deg, #070d16 0%, #0e1722 48%, #03070d 100%) !important;
+}
+
+.video-merge-metal::before {
+  opacity: 0.18 !important;
+}
+
+.video-merge-metal::after {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 66%, rgba(0, 0, 0, 0.14) 100%) !important;
+}
+
+.video-merge-metal header,
+.video-merge-metal .metal-panel,
+.video-merge-metal .metal-control,
+.video-merge-metal .metal-top-switch,
+.video-merge-metal .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.125), transparent 24%),
+    rgba(8, 14, 24, 0.54) !important;
+  border-color: rgba(255, 255, 255, 0.24) !important;
+}
+
+.video-merge-metal .metal-sidebar,
+.video-merge-metal .metal-workspace {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.095), transparent 22%),
+    rgba(6, 11, 19, 0.52) !important;
+}
+
+.video-merge-metal [class*="text-slate-400"],
+.video-merge-metal [class*="text-slate-500"] {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.video-merge-metal [class*="text-slate-600"] {
+  color: rgba(255, 255, 255, 0.58) !important;
+}
+
+/* 白天模式：浅色铝材拉丝质感 */
+.video-merge-metal.theme-light-page {
+  color: #111827 !important;
+  background:
+    radial-gradient(ellipse at 18% 10%, rgba(255, 255, 255, 0.68), transparent 30%),
+    radial-gradient(ellipse at 70% 22%, rgba(255, 255, 255, 0.45), transparent 28%),
+    linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.42) 18%, transparent 34%, rgba(255, 255, 255, 0.28) 58%, transparent 76%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.3) 0, rgba(255, 255, 255, 0.3) 1px, rgba(148, 163, 184, 0.11) 1px, rgba(148, 163, 184, 0.11) 3px, transparent 3px, transparent 7px),
+    linear-gradient(135deg, #f8fafc 0%, #d8dee6 48%, #eef2f7 100%) !important;
+}
+
+.video-merge-metal.theme-light-page::before {
+  background:
+    linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.42) 18%, transparent 32%, rgba(148, 163, 184, 0.14) 60%, transparent 78%),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.045) 0, rgba(15, 23, 42, 0.045) 1px, transparent 1px, transparent 8px) !important;
+  opacity: 0.42 !important;
+}
+
+.video-merge-metal.theme-light-page::after {
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.28), transparent 40%),
+    radial-gradient(circle at 50% 52%, transparent 62%, rgba(100, 116, 139, 0.12) 100%) !important;
+}
+
+.video-merge-metal.theme-light-page header,
+.video-merge-metal.theme-light-page .metal-panel,
+.video-merge-metal.theme-light-page .metal-control,
+.video-merge-metal.theme-light-page .metal-top-switch,
+.video-merge-metal.theme-light-page .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.42) 34%, rgba(226, 232, 240, 0.58)),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.38), transparent 30%, rgba(148, 163, 184, 0.1) 72%, transparent) !important;
+  border-color: rgba(71, 85, 105, 0.28) !important;
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 12px 30px rgba(15, 23, 42, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.78),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(100, 116, 139, 0.22) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar,
+.video-merge-metal.theme-light-page .metal-workspace {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(241, 245, 249, 0.46)),
+    linear-gradient(105deg, rgba(255, 255, 255, 0.32), transparent 32%, rgba(148, 163, 184, 0.08) 72%, transparent) !important;
+  border-color: rgba(71, 85, 105, 0.24) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-canvas-shell {
+  background:
+    radial-gradient(ellipse at 20% 16%, rgba(255, 255, 255, 0.55), transparent 26%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.72), rgba(226, 232, 240, 0.5)),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.035) 0, rgba(15, 23, 42, 0.035) 1px, transparent 1px, transparent 8px) !important;
+  border-color: rgba(71, 85, 105, 0.32) !important;
+}
+
+.video-merge-metal.theme-light-page [class*="bg-black"],
+.video-merge-metal.theme-light-page [class*="bg-slate-900"],
+.video-merge-metal.theme-light-page [class*="bg-slate-800"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(226, 232, 240, 0.46)) !important;
+}
+
+.video-merge-metal.theme-light-page h1,
+.video-merge-metal.theme-light-page h2,
+.video-merge-metal.theme-light-page h3,
+.video-merge-metal.theme-light-page h4,
+.video-merge-metal.theme-light-page label,
+.video-merge-metal.theme-light-page button,
+.video-merge-metal.theme-light-page [class*="text-slate-100"],
+.video-merge-metal.theme-light-page [class*="text-slate-200"],
+.video-merge-metal.theme-light-page [class*="text-slate-300"] {
+  color: rgba(15, 23, 42, 0.92) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page [class*="text-slate-400"],
+.video-merge-metal.theme-light-page [class*="text-slate-500"] {
+  color: rgba(51, 65, 85, 0.82) !important;
+}
+
+.video-merge-metal.theme-light-page [class*="text-slate-600"] {
+  color: rgba(71, 85, 105, 0.72) !important;
+}
+
+.video-merge-metal.theme-light-page [class*="text-violet-400"],
+.video-merge-metal.theme-light-page [class*="text-fuchsia-400"] {
+  color: #7c3aed !important;
+}
+
+.video-merge-metal.theme-light-page [data-selector-id] {
+  border-color: rgba(15, 23, 42, 0.16) !important;
+  filter: saturate(0.92) contrast(1.02);
+  box-shadow:
+    0 10px 22px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.58),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.18) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] > div:first-child {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.12)) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.14) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] label,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] span,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] p,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] div {
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.34);
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.34) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] svg {
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+
+/* 白天模式文字修正：浅色面板用深色文字，彩色素材卡保持浅色文字 */
+.video-merge-metal.theme-light-page,
+.video-merge-metal.theme-light-page header,
+.video-merge-metal.theme-light-page .metal-panel,
+.video-merge-metal.theme-light-page .metal-workspace,
+.video-merge-metal.theme-light-page .metal-control,
+.video-merge-metal.theme-light-page .metal-top-switch,
+.video-merge-metal.theme-light-page .metal-canvas-shell {
+  color: rgba(15, 23, 42, 0.92) !important;
+}
+
+.video-merge-metal.theme-light-page h1,
+.video-merge-metal.theme-light-page h2,
+.video-merge-metal.theme-light-page h3,
+.video-merge-metal.theme-light-page h4,
+.video-merge-metal.theme-light-page label,
+.video-merge-metal.theme-light-page p,
+.video-merge-metal.theme-light-page span,
+.video-merge-metal.theme-light-page button,
+.video-merge-metal.theme-light-page div,
+.video-merge-metal.theme-light-page [class*="text-slate-100"],
+.video-merge-metal.theme-light-page [class*="text-slate-200"],
+.video-merge-metal.theme-light-page [class*="text-slate-300"],
+.video-merge-metal.theme-light-page [class*="text-slate-400"],
+.video-merge-metal.theme-light-page [class*="text-slate-500"],
+.video-merge-metal.theme-light-page [class*="text-slate-600"] {
+  color: rgba(15, 23, 42, 0.9) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page .metal-panel [class*="text-slate-500"],
+.video-merge-metal.theme-light-page .metal-panel [class*="text-slate-600"],
+.video-merge-metal.theme-light-page .metal-workspace [class*="text-slate-500"],
+.video-merge-metal.theme-light-page .metal-workspace [class*="text-slate-600"] {
+  color: rgba(51, 65, 85, 0.78) !important;
+}
+
+.video-merge-metal.theme-light-page [class*="text-violet-400"],
+.video-merge-metal.theme-light-page [class*="text-fuchsia-400"] {
+  color: #6d28d9 !important;
+}
+
+.video-merge-metal.theme-light-page svg {
+  color: currentColor;
+}
+
+.video-merge-metal.theme-light-page .metal-primary,
+.video-merge-metal.theme-light-page .metal-primary *,
+.video-merge-metal.theme-light-page button[class*="from-pink-600"],
+.video-merge-metal.theme-light-page button[class*="from-pink-600"] *,
+.video-merge-metal.theme-light-page button[class*="from-violet-600"],
+.video-merge-metal.theme-light-page button[class*="from-violet-600"] *,
+.video-merge-metal.theme-light-page .metal-cta-button,
+.video-merge-metal.theme-light-page .metal-cta-button * {
+  color: rgba(255, 255, 255, 0.96) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] *,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] label,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] span,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] p,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] div {
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.34) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] span:first-child {
+  color: rgba(255, 255, 255, 0.86) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] span:last-child {
+  color: rgba(255, 255, 255, 0.74) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] svg {
+  color: rgba(255, 255, 255, 0.84) !important;
+}
+
+/* 白天模式最终文字策略：普通区域深色，彩色卡片和紫色按钮白色 */
+.video-merge-metal.theme-light-page :where(
+  header,
+  main,
+  .metal-panel,
+  .metal-workspace,
+  .metal-control,
+  .metal-top-switch,
+  .metal-canvas-shell
+) :where(h1, h2, h3, h4, p, span, label, div, button, svg, input) {
+  color: rgba(15, 23, 42, 0.94) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page :where(
+  .metal-panel,
+  .metal-workspace,
+  .metal-control,
+  .metal-top-switch,
+  .metal-canvas-shell
+) :where([class*="text-slate-400"], [class*="text-slate-500"], [class*="text-slate-600"]) {
+  color: rgba(51, 65, 85, 0.82) !important;
+}
+
+.video-merge-metal.theme-light-page :where(
+  .metal-primary,
+  .metal-primary *,
+  .metal-cta-button,
+  .metal-cta-button *,
+  button[class*="from-pink-600"],
+  button[class*="from-pink-600"] *,
+  button[class*="from-violet-600"],
+  button[class*="from-violet-600"] *,
+  .metal-sidebar [data-selector-id],
+  .metal-sidebar [data-selector-id] *
+) {
+  color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] span:last-child {
+  color: rgba(255, 255, 255, 0.76) !important;
+}
+
+/* 白天模式修正：左侧素材卡片已是浅色卡片，必须使用深色文字 */
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] *,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] label,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] span,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] p,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] div,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] button,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] svg {
+  color: rgba(15, 23, 42, 0.88) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] > div:first-child label {
+  color: rgba(15, 23, 42, 0.94) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] > div:first-child [class*="rounded-full"],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] > div:first-child span {
+  color: rgba(30, 41, 59, 0.78) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] span:first-child {
+  color: rgba(30, 41, 59, 0.82) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] span:last-child {
+  color: rgba(51, 65, 85, 0.68) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] svg {
+  color: rgba(51, 65, 85, 0.72) !important;
+}
+
+/* 白天模式按稿图收敛：亮铝材、浮雕面板、清晰浅色控制台 */
+.video-merge-metal.theme-light-page {
+  color: rgba(31, 41, 55, 0.96) !important;
+  background:
+    radial-gradient(ellipse at 18% 8%, rgba(255, 255, 255, 0.72), transparent 30%),
+    radial-gradient(ellipse at 66% 18%, rgba(255, 255, 255, 0.42), transparent 28%),
+    linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.45) 18%, transparent 34%, rgba(148, 163, 184, 0.14) 62%, transparent 80%),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.035) 0, rgba(15, 23, 42, 0.035) 1px, rgba(255, 255, 255, 0.12) 1px, rgba(255, 255, 255, 0.12) 5px),
+    linear-gradient(135deg, #f9fafb 0%, #d7dde5 50%, #f2f5f8 100%) !important;
+}
+
+.video-merge-metal.theme-light-page::before {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.58), transparent 24%, rgba(255, 255, 255, 0.22) 52%, transparent 78%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.18) 0, rgba(255, 255, 255, 0.18) 1px, transparent 1px, transparent 7px) !important;
+  opacity: 0.42 !important;
+}
+
+.video-merge-metal.theme-light-page::after {
+  background:
+    radial-gradient(circle at 48% 42%, rgba(255, 255, 255, 0.26), transparent 42%),
+    radial-gradient(circle at 50% 54%, transparent 66%, rgba(71, 85, 105, 0.16) 100%) !important;
+}
+
+.video-merge-metal.theme-light-page header {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(226, 232, 240, 0.58)),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.035) 0, rgba(15, 23, 42, 0.035) 1px, transparent 1px, transparent 7px) !important;
+  border-color: rgba(71, 85, 105, 0.24) !important;
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(71, 85, 105, 0.2) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-panel,
+.video-merge-metal.theme-light-page .metal-control,
+.video-merge-metal.theme-light-page .metal-top-switch,
+.video-merge-metal.theme-light-page .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(226, 232, 240, 0.52)),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.026) 0, rgba(15, 23, 42, 0.026) 1px, transparent 1px, transparent 7px) !important;
+  border-color: rgba(71, 85, 105, 0.28) !important;
+  box-shadow:
+    0 10px 24px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.78),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(71, 85, 105, 0.2) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar,
+.video-merge-metal.theme-light-page .metal-workspace {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(203, 213, 225, 0.42)),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.026) 0, rgba(15, 23, 42, 0.026) 1px, transparent 1px, transparent 7px) !important;
+  border-color: rgba(71, 85, 105, 0.28) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(226, 232, 240, 0.46)),
+    radial-gradient(ellipse at 18% 12%, rgba(255, 255, 255, 0.5), transparent 28%),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.03) 0, rgba(15, 23, 42, 0.03) 1px, transparent 1px, transparent 7px) !important;
+  border-color: rgba(71, 85, 105, 0.34) !important;
+}
+
+.video-merge-metal.theme-light-page :where(
+  header,
+  main,
+  .metal-panel,
+  .metal-workspace,
+  .metal-control,
+  .metal-top-switch,
+  .metal-canvas-shell
+) :where(h1, h2, h3, h4, p, span, label, div, button, svg, input) {
+  color: rgba(31, 41, 55, 0.96) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page :where(
+  .metal-panel,
+  .metal-workspace,
+  .metal-control,
+  .metal-top-switch,
+  .metal-canvas-shell
+) :where([class*="text-slate-400"], [class*="text-slate-500"], [class*="text-slate-600"]) {
+  color: rgba(71, 85, 105, 0.82) !important;
+}
+
+.video-merge-metal.theme-light-page [data-selector-id] {
+  filter: saturate(0.92) contrast(1.02);
+  border-color: rgba(71, 85, 105, 0.2) !important;
+  box-shadow:
+    0 9px 18px rgba(15, 23, 42, 0.16),
+    0 0 0 1px rgba(255, 255, 255, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.15) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] > div:first-child {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08)) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.12) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="cover"],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(220, 252, 231, 0.72)),
+    radial-gradient(circle at 14% 0%, rgba(34, 197, 94, 0.22), transparent 35%) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bgImage"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.44), rgba(251, 146, 60, 0.68)),
+    radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.34), transparent 35%) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="aVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(124, 58, 237, 0.72)),
+    radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.26), transparent 35%) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="cVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.44), rgba(59, 130, 246, 0.64)),
+    radial-gradient(circle at 14% 0%, rgba(255, 255, 255, 0.28), transparent 35%) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] *,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] label,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] span,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] p,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] div,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] button,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] svg {
+  color: rgba(22, 34, 52, 0.9) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bgImage"],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bgImage"] *,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="aVideo"],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="aVideo"] * {
+  color: rgba(255, 255, 255, 0.92) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] {
+  background: rgba(255, 255, 255, 0.28) !important;
+  border-color: rgba(71, 85, 105, 0.28) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bgImage"] [class*="border-dashed"],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="aVideo"] [class*="border-dashed"] {
+  border-color: rgba(255, 255, 255, 0.42) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-primary,
+.video-merge-metal.theme-light-page .metal-primary *,
+.video-merge-metal.theme-light-page .metal-cta-button,
+.video-merge-metal.theme-light-page .metal-cta-button *,
+.video-merge-metal.theme-light-page button[class*="from-pink-600"],
+.video-merge-metal.theme-light-page button[class*="from-pink-600"] *,
+.video-merge-metal.theme-light-page button[class*="from-violet-600"],
+.video-merge-metal.theme-light-page button[class*="from-violet-600"] * {
+  color: rgba(255, 255, 255, 0.96) !important;
+}
+
+/* 极速合成在浅色开关开启时仍保持金属磁贴观感 */
+.video-merge-metal.theme-light-page {
+  color: #e5e7eb !important;
+  background:
+    radial-gradient(circle at 54% 8%, rgba(139, 92, 246, 0.14), transparent 26%),
+    radial-gradient(circle at 18% 12%, rgba(96, 165, 250, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 12%),
+    linear-gradient(135deg, #151a22 0%, #090d13 45%, #020409 100%) !important;
+}
+
+.video-merge-metal.theme-light-page label,
+.video-merge-metal.theme-light-page h1,
+.video-merge-metal.theme-light-page h2,
+.video-merge-metal.theme-light-page h3,
+.video-merge-metal.theme-light-page h4,
+.video-merge-metal.theme-light-page [class*="text-slate-100"],
+.video-merge-metal.theme-light-page [class*="text-slate-200"] {
+  color: #e5e7eb !important;
+}
+
+.video-merge-metal.theme-light-page [class*="text-slate-300"],
+.video-merge-metal.theme-light-page [class*="text-slate-400"],
+.video-merge-metal.theme-light-page [class*="text-slate-500"] {
+  color: #cbd5e1 !important;
+}
+
+.video-merge-metal.theme-light-page [class*="border-slate-"],
+.video-merge-metal.theme-light-page header {
+  border-color: rgba(148, 163, 184, 0.42) !important;
+}
+
+/* 白天模式稿图版：浅铝材浮雕界面，覆盖旧的深色白天模式规则 */
+.video-merge-metal.theme-light-page {
+  color: rgba(17, 24, 39, 0.94) !important;
+  background:
+    radial-gradient(ellipse at 18% 8%, rgba(255, 255, 255, 0.86), transparent 30%),
+    radial-gradient(ellipse at 70% 12%, rgba(255, 255, 255, 0.58), transparent 28%),
+    linear-gradient(100deg, rgba(255, 255, 255, 0.52), transparent 28%, rgba(148, 163, 184, 0.16) 56%, transparent 78%),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.036) 0, rgba(15, 23, 42, 0.036) 1px, rgba(255, 255, 255, 0.2) 1px, rgba(255, 255, 255, 0.2) 3px, transparent 3px, transparent 8px),
+    linear-gradient(135deg, #f8fafc 0%, #d7dde5 48%, #f2f5f8 100%) !important;
+}
+
+.video-merge-metal.theme-light-page::before {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.5), transparent 22%, rgba(255, 255, 255, 0.22) 52%, transparent 78%),
+    repeating-linear-gradient(0deg, rgba(30, 41, 59, 0.028) 0, rgba(30, 41, 59, 0.028) 1px, transparent 1px, transparent 5px) !important;
+  opacity: 0.52 !important;
+}
+
+.video-merge-metal.theme-light-page::after {
+  background:
+    radial-gradient(circle at 48% 38%, rgba(255, 255, 255, 0.34), transparent 42%),
+    radial-gradient(circle at 50% 56%, transparent 66%, rgba(71, 85, 105, 0.16) 100%) !important;
+}
+
+.video-merge-metal.theme-light-page header,
+.video-merge-metal.theme-light-page .metal-panel,
+.video-merge-metal.theme-light-page .metal-control,
+.video-merge-metal.theme-light-page .metal-top-switch,
+.video-merge-metal.theme-light-page .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(241, 245, 249, 0.66) 46%, rgba(226, 232, 240, 0.56)),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.022) 0, rgba(15, 23, 42, 0.022) 1px, transparent 1px, transparent 7px) !important;
+  border-color: rgba(71, 85, 105, 0.3) !important;
+  box-shadow:
+    0 12px 26px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.88),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1px 0 rgba(100, 116, 139, 0.22) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar,
+.video-merge-metal.theme-light-page .metal-workspace {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(203, 213, 225, 0.44)),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.024) 0, rgba(15, 23, 42, 0.024) 1px, transparent 1px, transparent 7px) !important;
+  border-color: rgba(71, 85, 105, 0.32) !important;
+  box-shadow:
+    0 12px 28px rgba(15, 23, 42, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-canvas-shell {
+  border-color: rgba(71, 85, 105, 0.36) !important;
+}
+
+.video-merge-metal.theme-light-page :where(
+  header,
+  main,
+  .metal-panel,
+  .metal-workspace,
+  .metal-control,
+  .metal-top-switch,
+  .metal-canvas-shell
+) :where(h1, h2, h3, h4, p, span, label, div, button, svg, input) {
+  color: rgba(17, 24, 39, 0.94) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page :where(
+  .metal-panel,
+  .metal-workspace,
+  .metal-control,
+  .metal-top-switch,
+  .metal-canvas-shell
+) :where([class*="text-slate-300"], [class*="text-slate-400"], [class*="text-slate-500"], [class*="text-slate-600"]) {
+  color: rgba(51, 65, 85, 0.82) !important;
+}
+
+.video-merge-metal.theme-light-page header h1 span,
+.video-merge-metal.theme-light-page header h1 svg,
+.video-merge-metal.theme-light-page [class*="text-violet-"],
+.video-merge-metal.theme-light-page [class*="text-fuchsia-"] {
+  color: #6d28d9 !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] {
+  filter: saturate(0.98) contrast(1.02);
+  border-color: rgba(71, 85, 105, 0.22) !important;
+  box-shadow:
+    0 10px 20px rgba(15, 23, 42, 0.18),
+    0 0 0 1px rgba(255, 255, 255, 0.74),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.16) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] > div:first-child {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08)) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="cover"],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bVideo"] {
+  background:
+    radial-gradient(circle at 16% 4%, rgba(255, 255, 255, 0.54), transparent 34%),
+    linear-gradient(180deg, rgba(237, 255, 242, 0.94), rgba(197, 233, 203, 0.9)) !important;
+  border-color: rgba(22, 101, 52, 0.24) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bgImage"] {
+  background:
+    radial-gradient(circle at 16% 2%, rgba(255, 255, 255, 0.46), transparent 34%),
+    linear-gradient(180deg, rgba(255, 183, 86, 0.96), rgba(237, 112, 48, 0.94)) !important;
+  border-color: rgba(194, 65, 12, 0.28) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="aVideo"] {
+  background:
+    radial-gradient(circle at 16% 2%, rgba(255, 255, 255, 0.42), transparent 34%),
+    linear-gradient(180deg, rgba(169, 128, 246, 0.96), rgba(127, 83, 218, 0.94)) !important;
+  border-color: rgba(109, 40, 217, 0.3) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="cVideo"] {
+  background:
+    radial-gradient(circle at 16% 4%, rgba(255, 255, 255, 0.52), transparent 34%),
+    linear-gradient(180deg, rgba(226, 240, 255, 0.96), rgba(181, 215, 255, 0.92)) !important;
+  border-color: rgba(37, 99, 235, 0.24) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="cover"] *,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bVideo"] * {
+  color: rgba(21, 83, 45, 0.94) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="cVideo"] * {
+  color: rgba(29, 78, 216, 0.94) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bgImage"] *,
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="aVideo"] * {
+  color: rgba(255, 255, 255, 0.94) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="border-dashed"] {
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-color: currentColor !important;
+  box-shadow:
+    inset 0 1px 5px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="bgImage"] [class*="border-dashed"],
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id="aVideo"] [class*="border-dashed"] {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] [class*="rounded-full"] {
+  background: rgba(255, 255, 255, 0.34) !important;
+  border-color: rgba(15, 23, 42, 0.16) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58), 0 2px 6px rgba(15, 23, 42, 0.12) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-primary,
+.video-merge-metal.theme-light-page .metal-cta-button,
+.video-merge-metal.theme-light-page button[class*="from-pink-600"],
+.video-merge-metal.theme-light-page button[class*="from-violet-600"] {
+  background:
+    linear-gradient(180deg, rgba(174, 122, 255, 1), rgba(126, 70, 218, 1) 52%, rgba(91, 45, 171, 1)) !important;
+  border-color: rgba(255, 255, 255, 0.34) !important;
+  box-shadow:
+    0 0 18px rgba(126, 70, 218, 0.34),
+    0 8px 18px rgba(76, 29, 149, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(49, 18, 95, 0.32) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-primary,
+.video-merge-metal.theme-light-page .metal-primary *,
+.video-merge-metal.theme-light-page .metal-cta-button,
+.video-merge-metal.theme-light-page .metal-cta-button *,
+.video-merge-metal.theme-light-page button[class*="from-pink-600"],
+.video-merge-metal.theme-light-page button[class*="from-pink-600"] *,
+.video-merge-metal.theme-light-page button[class*="from-violet-600"],
+.video-merge-metal.theme-light-page button[class*="from-violet-600"] * {
+  color: rgba(255, 255, 255, 0.96) !important;
+  text-shadow: 0 1px 1px rgba(49, 18, 95, 0.35) !important;
+}
+
+/* 白天模式最终可读性规则：极速合成界面内文字统一使用深色 */
+.video-merge-metal.theme-light-page,
+.video-merge-metal.theme-light-page :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  span,
+  label,
+  div,
+  button,
+  input,
+  textarea,
+  select,
+  small,
+  strong,
+  b,
+  a
+) {
+  color: rgba(15, 23, 42, 0.96) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page :where(
+  [class*="text-white"],
+  [class*="text-slate-50"],
+  [class*="text-slate-100"],
+  [class*="text-slate-200"],
+  [class*="text-slate-300"],
+  [class*="text-slate-400"],
+  [class*="text-slate-500"],
+  [class*="text-violet-"],
+  [class*="text-fuchsia-"],
+  [class*="text-purple-"]
+) {
+  color: rgba(15, 23, 42, 0.96) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page :where(svg, svg *) {
+  color: rgba(15, 23, 42, 0.92) !important;
+  stroke: currentColor;
+}
+
+/* 白天模式补充：横竖屏未选中项和顶部任务中心保持黑色文字 */
+.video-merge-metal.theme-light-page header button:not(.metal-primary),
+.video-merge-metal.theme-light-page header button:not(.metal-primary) *,
+.video-merge-metal.theme-light-page .metal-top-switch button:not(.metal-primary),
+.video-merge-metal.theme-light-page .metal-top-switch button:not(.metal-primary) *,
+.video-merge-metal.theme-light-page header [class*="任务中心"],
+.video-merge-metal.theme-light-page header [class*="任务中心"] * {
+  color: rgba(15, 23, 42, 0.96) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page header button:not(.metal-primary) svg,
+.video-merge-metal.theme-light-page .metal-top-switch button:not(.metal-primary) svg {
+  color: rgba(15, 23, 42, 0.92) !important;
+  stroke: currentColor;
+}
+
+/* 白天模式：顶部任务中心左侧图标使用蓝色荧光质感 */
+.video-merge-metal.theme-light-page header .task-center-header-icon {
+  background:
+    radial-gradient(circle at 35% 25%, rgba(147, 197, 253, 0.95), transparent 48%),
+    linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(191, 219, 254, 0.72)) !important;
+  border: 1px solid rgba(37, 99, 235, 0.28) !important;
+  box-shadow:
+    0 0 10px rgba(59, 130, 246, 0.32),
+    0 2px 6px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(37, 99, 235, 0.18) !important;
+}
+
+.video-merge-metal.theme-light-page header .task-center-header-glyph,
+.video-merge-metal.theme-light-page header .task-center-header-glyph * {
+  color: #0284c7 !important;
+  stroke: #0284c7 !important;
+  filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.42));
+}
+
+/* 白天模式：生成数量模块文字统一黑色，避免浅灰和透明度导致不可读 */
+.video-merge-metal.theme-light-page .task-count-slider,
+.video-merge-metal.theme-light-page .task-count-slider :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  span,
+  label,
+  div,
+  button,
+  input,
+  svg
+) {
+  color: rgba(15, 23, 42, 0.96) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page .task-count-slider :where(span, button, input, svg) {
+  opacity: 1 !important;
+}
+
+.video-merge-metal.theme-light-page .task-count-slider input {
+  background: rgba(255, 255, 255, 0.78) !important;
+  border-color: rgba(100, 116, 139, 0.36) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.1),
+    0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+/* 白天模式：页头说明文字和导出位置区域统一黑色 */
+.video-merge-metal.theme-light-page header .page-header-description,
+.video-merge-metal.theme-light-page .output-dir-selector,
+.video-merge-metal.theme-light-page .output-dir-selector :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  span,
+  label,
+  div,
+  button,
+  input,
+  svg
+) {
+  color: rgba(15, 23, 42, 0.96) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.video-merge-metal.theme-light-page .output-dir-selector :where([class*="text-slate-"], [class*="text-white"], [class*="text-violet-"]) {
+  color: rgba(15, 23, 42, 0.96) !important;
+  opacity: 1 !important;
+}
+
+.video-merge-metal.theme-light-page .output-dir-selector :where(svg, svg *) {
+  color: rgba(15, 23, 42, 0.94) !important;
+  stroke: currentColor;
+}
+
+.video-merge-metal.theme-light-page .output-dir-selector > div:nth-child(2) {
+  background: rgba(255, 255, 255, 0.62) !important;
+  border-color: rgba(100, 116, 139, 0.32) !important;
+}
+
+.video-merge-metal.theme-light-page .output-dir-selector button:not(.metal-cta-button) {
+  color: rgba(15, 23, 42, 0.96) !important;
+  opacity: 1 !important;
+}
+
+/* 白天模式：任务列表标题区域统一黑色 */
+.video-merge-metal.theme-light-page .task-list-panel,
+.video-merge-metal.theme-light-page .task-list-panel :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  span,
+  label,
+  div,
+  button,
+  svg
+) {
+  color: rgba(15, 23, 42, 0.96) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.video-merge-metal.theme-light-page .task-list-panel :where(svg, svg *) {
+  color: rgba(15, 23, 42, 0.94) !important;
+  stroke: currentColor;
+}
+
+/* 白天模式：画布分辨率徽章文字使用黑色 */
+.video-merge-metal.theme-light-page .canvas-resolution-badge {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: rgba(100, 116, 139, 0.32) !important;
+  box-shadow:
+    0 3px 10px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
+}
+
+.video-merge-metal.theme-light-page .canvas-resolution-text {
+  color: rgba(15, 23, 42, 0.96) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.video-merge-metal.theme-light-page .canvas-resolution-dot {
+  background: #d946ef !important;
+  box-shadow: 0 0 8px rgba(217, 70, 239, 0.46) !important;
+}
+
+/* 白天模式：视频套图一次性提醒弹窗使用黑色文字 */
+.video-merge-metal.theme-light-page .bg-image-layout-notice-dialog,
+.video-merge-metal.theme-light-page .bg-image-layout-notice-dialog :where(h1, h2, h3, p, span, button, svg) {
+  color: rgba(15, 23, 42, 0.96) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page .bg-image-layout-notice-dialog p {
+  color: rgba(15, 23, 42, 0.82) !important;
+}
+
+.video-merge-metal.theme-light-page .bg-image-layout-notice-dialog button:last-child,
+.video-merge-metal.theme-light-page .bg-image-layout-notice-dialog button:last-child * {
+  color: rgba(255, 255, 255, 0.96) !important;
 }

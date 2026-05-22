@@ -39,10 +39,6 @@ const HeaderTaskIndicator: React.FC = () => {
   const pendingCount = queueStatus?.pending || 0;
   const completedCount = queueStatus?.completed || 0;
 
-  if (!hasRunningTasks && pendingCount === 0 && completedCount === 0) {
-    return null;
-  }
-
   const handleOpenTaskCenter = () => {
     navigate("/taskCenter");
   };
@@ -60,26 +56,40 @@ const HeaderTaskIndicator: React.FC = () => {
         >
           <div
             className={cn(
-              "w-5 h-5 rounded flex items-center justify-center",
+              "task-center-header-icon w-5 h-5 rounded flex items-center justify-center",
               hasRunningTasks
                 ? "bg-gradient-to-br from-violet-500 to-purple-600"
                 : "bg-slate-700/80",
             )}
           >
             {hasRunningTasks ? (
-              <Loader2 className="w-3 h-3 text-white animate-spin" />
+              <Loader2 className="task-center-header-glyph w-3 h-3 text-white animate-spin" />
             ) : (
-              <ClipboardList className="w-3 h-3 text-slate-400" />
+              <ClipboardList className="task-center-header-glyph w-3 h-3 text-slate-400" />
             )}
           </div>
 
           <span className="text-xs font-medium text-slate-300">任务中心</span>
 
-          {hasRunningTasks && (
-            <span className="text-xs text-violet-400 font-medium">
-              {runningCount} 运行中
-            </span>
-          )}
+          <span
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+              hasRunningTasks
+                ? "border-red-400/40 bg-red-500/10 text-red-300"
+                : "border-emerald-400/35 bg-emerald-500/10 text-emerald-300",
+            )}
+            title={hasRunningTasks ? `${runningCount} 个任务正在处理` : "当前没有任务在处理"}
+          >
+            <span
+              className={cn(
+                "h-1.5 w-1.5 rounded-full",
+                hasRunningTasks
+                  ? "bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.85)] animate-pulse"
+                  : "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.75)]",
+              )}
+            />
+            {runningCount}
+          </span>
 
           {!hasRunningTasks && pendingCount > 0 && (
             <span className="text-[10px] text-amber-400">

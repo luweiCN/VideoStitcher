@@ -12,6 +12,7 @@ interface ConfirmDialogProps {
   open: boolean;
   title: string;
   message: string;
+  className?: string;
   confirmText?: string;
   cancelText?: string;
   type?: 'info' | 'warning' | 'success';
@@ -54,6 +55,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   open,
   title,
   message,
+  className = '',
   confirmText = '确定',
   cancelText = '取消',
   type = 'info',
@@ -77,7 +79,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
       {/* 对话框 */}
       <div
-        className={`relative bg-slate-900/95 backdrop-blur-xl border ${config.borderColor} rounded-2xl max-w-md w-full shadow-2xl ${config.glowColor} animate-in zoom-in-95 fade-in-0 duration-200`}
+        className={`relative bg-slate-900/95 backdrop-blur-xl border ${config.borderColor} rounded-2xl max-w-md w-full shadow-2xl ${config.glowColor} animate-in zoom-in-95 fade-in-0 duration-200 ${className}`}
       >
         {/* 顶部装饰线 */}
         <div className={`absolute top-0 left-6 right-6 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent`} />

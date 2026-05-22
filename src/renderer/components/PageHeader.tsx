@@ -83,7 +83,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
             <span className={iconColor}>{title}</span>
           </h1>
           {description && (
-            <p className="text-xs text-slate-500 mt-0.5">{description}</p>
+            <p className="page-header-description text-xs text-slate-500 mt-0.5">{description}</p>
           )}
         </div>
       </div>

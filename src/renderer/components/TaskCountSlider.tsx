@@ -107,7 +107,7 @@ export const TaskCountSlider: React.FC<TaskCountSliderProps> = ({
   if (!canGenerate) {
     const missingRequired = sources.filter(s => s.required && s.count === 0).map(s => s.name);
     return (
-      <div className="bg-black/40 border border-slate-800/60 rounded-lg p-3">
+      <div className="task-count-slider bg-black/40 border border-slate-800/60 rounded-lg p-3">
         <div className="flex items-center justify-between">
           <span className="text-sm text-slate-400">{title}</span>
           <div className="flex items-center gap-1">
@@ -133,7 +133,7 @@ export const TaskCountSlider: React.FC<TaskCountSliderProps> = ({
 
   // 正常状态
   return (
-    <div className="bg-black/40 border border-slate-800/60 rounded-lg p-3 space-y-2">
+    <div className="task-count-slider bg-black/40 border border-slate-800/60 rounded-lg p-3 space-y-2">
       {/* 顶部：标题 + 源标签 */}
       <div className="flex items-center justify-between">
         <span className="text-sm text-slate-400">{title}</span>

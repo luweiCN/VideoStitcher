@@ -15,6 +15,7 @@ import {
   HardDrive,
   Play,
   Pause,
+  XCircle,
   List,
   Terminal,
 } from 'lucide-react';
@@ -63,6 +64,7 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onViewAllTask
   const {
     pauseAllTasks,
     resumeAllTasks,
+    cancelAllTasks,
     setConcurrency,
     formatRunTime,
     totalRunTime,
@@ -85,6 +87,13 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onViewAllTask
   const [cpuCores, setCpuCores] = useState(8);
   const [localMaxTasks, setLocalMaxTasks] = useState(2);
   const [localThreads, setLocalThreads] = useState(4);
+
+  const handleCancelAllTasks = async () => {
+    const activeCount = (state?.runningCount || 0) + (state?.pendingCount || 0);
+    if (activeCount <= 0) return;
+    if (!confirm(`确定要取消全部 ${activeCount} 个待执行/运行中的任务吗？`)) return;
+    await cancelAllTasks();
+  };
 
   // 统一日志
   const {
@@ -414,12 +423,18 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onViewAllTask
         <div className="flex-1 flex gap-4 min-h-0">
           {/* 左侧：任务列表 */}
           <div className="w-[420px] flex flex-col bg-black/50 border border-slate-800 rounded-lg overflow-hidden">
-            <div className="p-3 border-b border-slate-800 flex items-center justify-between shrink-0">
+            <div className="p-3 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-emerald-400" />
                 <span className="text-sm font-medium">任务列表</span>
                 {isPaused && <span className="text-xs text-amber-400">(已暂停)</span>}
               </div>
+              {((state?.runningCount || 0) + (state?.pendingCount || 0)) > 0 && (
+                <Button variant="ghost" size="sm" onClick={handleCancelAllTasks} className="ml-auto">
+                  <XCircle className="w-3.5 h-3.5 mr-1" />
+                  一键取消
+                </Button>
+              )}
               {isPaused ? (
                 <Button variant="primary" size="sm" onClick={resumeAllTasks}>
                   <Play className="w-3.5 h-3.5 mr-1" />

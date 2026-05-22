@@ -105,6 +105,8 @@ export interface FileSelectorProps {
   required?: boolean;
   /** 值变化回调 */
   onChange?: (files: string[]) => void;
+  /** 选择文件前的拦截回调，返回 false 时取消本次选择 */
+  onBeforeSelect?: () => boolean | void;
   /** 自定义预览处理 */
   onPreview?: (file: FileItem) => void;
 }
@@ -151,6 +153,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
       directoryCache = true,
       required = false,
       onChange,
+      onBeforeSelect,
       onPreview,
     } = props;
 
@@ -414,6 +417,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
 
     const handleSelectFiles = useCallback(async () => {
       if (disabled) return;
+      if (onBeforeSelect?.() === false) return;
 
       // 多选模式下检查是否已达最大数量
       const currentCount = files.length;
@@ -484,6 +488,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
       files,
       actualMaxCount,
       onChange,
+      onBeforeSelect,
       processPaths,
       processFiles,
       success,
@@ -880,6 +885,8 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
       <>
         <div
           className={`${getCardStyle().base} ${disabled ? getCardStyle().disabled : ""} ${isDragging ? getCardStyle().dragging : getCardStyle().normal}`}
+          data-selector-id={id}
+          data-theme-color={themeColor}
         >
           {/* 头部 */}
           <div className={headerStyle}>
