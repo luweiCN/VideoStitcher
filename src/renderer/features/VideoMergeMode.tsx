@@ -48,6 +48,10 @@ import {
 } from "../utils/positionCalculator";
 
 const BG_IMAGE_NOTICE_KEY = "video-merge-bg-image-layout-notice-dismissed";
+const DEFAULT_CANVAS_ZOOM = {
+  horizontal: 80,
+  vertical: 26,
+} as const;
 
 const VideoMergeMode: React.FC = () => {
   const navigate = useNavigate();
@@ -67,6 +71,7 @@ const VideoMergeMode: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const { isLightTheme, togglePageTheme } = usePageTheme();
+  const metalRootRef = useRef<HTMLDivElement>(null);
 
   const taskCount = state.taskCount;
   const setTaskCount = (c: number) => setState({ taskCount: c });
@@ -170,7 +175,7 @@ const VideoMergeMode: React.FC = () => {
     () => getInitialPositions(canvasConfig),
   );
 
-  const [canvasZoom, setCanvasZoom] = useState<number>(100);
+  const [canvasZoom, setCanvasZoom] = useState<number>(() => DEFAULT_CANVAS_ZOOM[orientation]);
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
   const { outputDir, setOutputDir } = useOutputDirCache("VideoMergeMode");
@@ -289,30 +294,8 @@ const VideoMergeMode: React.FC = () => {
   }, [canvasConfig]);
 
   useEffect(() => {
-    const calculateBestFitZoom = () => {
-      if (!previewContainerRef.current) return;
-
-      const container = previewContainerRef.current;
-      const parentWidth = container.clientWidth;
-      const parentHeight = container.clientHeight;
-
-      const padding = 10;
-      const controlBarHeight = 100;
-      const availableWidth = parentWidth - padding * 2;
-      const availableHeight = parentHeight - padding * 2 - controlBarHeight;
-
-      const zoomByWidth = (availableWidth / parentWidth) * 100;
-      const scaledHeightAt100 = (parentWidth / canvasConfig.width) * canvasConfig.height;
-      const zoomByHeight = (availableHeight / scaledHeightAt100) * 100;
-
-      const targetZoom = Math.min(zoomByWidth, zoomByHeight);
-
-      const clampedZoom = Math.max(10, Math.min(200, Math.ceil(targetZoom) - 5));
-      setCanvasZoom(clampedZoom);
-    };
-    const timer = setTimeout(calculateBestFitZoom, 100);
-    return () => clearTimeout(timer);
-  }, [canvasConfig]);
+    setCanvasZoom(DEFAULT_CANVAS_ZOOM[orientation]);
+  }, [orientation]);
 
   const fetchVideoMetadata = useCallback(
     async (filePath: string) => {
@@ -684,12 +667,29 @@ const VideoMergeMode: React.FC = () => {
 
   const primaryColor = "violet";
 
+  useEffect(() => {
+    const root = metalRootRef.current;
+    if (!root) return;
+
+    const setGlintPosition = (event: PointerEvent) => {
+      root.style.setProperty("--metal-glint-x", `${event.clientX}px`);
+      root.style.setProperty("--metal-glint-y", `${event.clientY}px`);
+    };
+
+    window.addEventListener("pointermove", setGlintPosition, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointermove", setGlintPosition);
+    };
+  }, []);
+
   return (
-    <div className={`video-merge-metal h-screen flex flex-col font-sans overflow-hidden transition-colors duration-300 ${
+    <div ref={metalRootRef} className={`video-merge-metal h-screen flex flex-col font-sans overflow-hidden transition-colors duration-300 ${
       isLightTheme
         ? "theme-light-page bg-[#eef3f8] text-slate-900"
         : "bg-black text-slate-100"
     }`}>
+      <span className="metal-glint-layer" aria-hidden="true" />
       <PageHeader
         title="极速合成"
         icon={Layers3}
@@ -893,20 +893,20 @@ const VideoMergeMode: React.FC = () => {
                 <div className="flex-[0_0_100%] min-h-0 flex flex-col overflow-hidden">
                   <div className="flex-1 flex items-center justify-center p-8 overflow-hidden">
                     <div className="h-full w-full flex flex-col items-center justify-center py-4">
-                      <div
-                        ref={previewContainerRef}
-                        className="metal-canvas-shell flex-1 w-full flex items-center justify-center min-h-0 overflow-auto border border-slate-800"
-                      >
-                        <VideoEditor
-                          canvasWidth={canvasConfig.width}
-                          canvasHeight={canvasConfig.height}
-                          positions={materialPositions}
-                          onBVideoPositionChange={handleBVideoPositionChange}
-                          materials={materials}
-                          videoMetadata={bVideoMetadata}
-                          canvasZoom={canvasZoom}
-                        />
-                      </div>
+                        <div
+                          ref={previewContainerRef}
+                          className="metal-canvas-shell flex-1 w-full flex items-center justify-center min-h-0 overflow-auto border border-slate-800"
+                        >
+                          <VideoEditor
+                            canvasWidth={canvasConfig.width}
+                            canvasHeight={canvasConfig.height}
+                            positions={materialPositions}
+                            onBVideoPositionChange={handleBVideoPositionChange}
+                            materials={materials}
+                            videoMetadata={bVideoMetadata}
+                            canvasZoom={canvasZoom}
+                          />
+                        </div>
                       <div className="mt-8 flex flex-col items-center gap-4">
                         <div className={`metal-control flex items-center gap-6 backdrop-blur-sm border px-6 py-4 rounded-xl ${
                           isLightTheme

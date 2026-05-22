@@ -337,6 +337,277 @@
 }
 
 /* ============================================
+   首页金属主界面
+   ============================================ */
+
+.home-metal {
+  --home-metal-brush:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, rgba(0, 0, 0, 0.08) 1px 2px, transparent 2px 5px),
+    repeating-linear-gradient(0deg, transparent 0 19px, rgba(255, 255, 255, 0.055) 19px 20px, transparent 20px 37px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.22), transparent 15%, rgba(255, 255, 255, 0.14) 28%, transparent 45%, rgba(255, 255, 255, 0.1) 68%, transparent 82%, rgba(0, 0, 0, 0.26)),
+    linear-gradient(90deg, #434741 0%, #898a82 18%, #565b55 36%, #aaa398 54%, #696d66 72%, #2d312d 100%);
+  --home-metal-dark:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, rgba(0, 0, 0, 0.08) 1px 2px, transparent 2px 6px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.28), transparent 20%, rgba(255, 255, 255, 0.08) 42%, transparent 70%, rgba(0, 0, 0, 0.35)),
+    linear-gradient(90deg, #121312 0%, #313330 25%, #20231f 48%, #494b46 67%, #10110f 100%);
+  --home-brass:
+    radial-gradient(ellipse 220px 90px at 18% 16%, rgba(255, 239, 211, 0.45), transparent 62%),
+    linear-gradient(90deg, rgba(58, 30, 15, 0.42) 0%, transparent 14%, rgba(255, 230, 190, 0.34) 28%, transparent 45%, rgba(255, 218, 167, 0.22) 63%, transparent 78%, rgba(42, 22, 12, 0.44) 100%),
+    repeating-linear-gradient(0deg, rgba(255, 238, 212, 0.08) 0 1px, rgba(70, 34, 16, 0.1) 1px 2px, transparent 2px 5px),
+    linear-gradient(90deg, #3e2011 0%, #9f623b 14%, #e3ad77 30%, #a4623b 48%, #d6955f 66%, #794221 82%, #2c180d 100%);
+  background:
+    radial-gradient(ellipse at 50% -12%, rgba(255, 255, 255, 0.18), transparent 34rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.38)),
+    var(--home-metal-brush) !important;
+}
+
+.home-metal::before,
+.home-metal::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.home-metal::before {
+  z-index: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.08) 0 1px, rgba(0, 0, 0, 0.1) 1px 2px, transparent 2px 4px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.5), transparent 18%, transparent 82%, rgba(0, 0, 0, 0.5));
+  mix-blend-mode: overlay;
+  opacity: 0.34;
+}
+
+.home-metal::after {
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at top, transparent 26%, rgba(0, 0, 0, 0.34) 78%),
+    radial-gradient(ellipse 760px 240px at 58% 20%, rgba(255, 255, 255, 0.18), transparent 64%);
+  mix-blend-mode: soft-light;
+}
+
+.home-metal > header,
+.home-metal > main,
+.home-metal > footer {
+  position: relative;
+  z-index: 1;
+}
+
+.home-metal > header {
+  margin: 16px 20px 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 252, 239, 0.2);
+  border-right-color: rgba(0, 0, 0, 0.48);
+  border-bottom-color: rgba(0, 0, 0, 0.72);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 22%, rgba(0, 0, 0, 0.42)),
+    var(--home-metal-brush);
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.44),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.7);
+}
+
+.home-metal > header::after,
+.home-metal .home-lumia-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 560px 180px at 58% 18%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.1) 25%, transparent 60%),
+    linear-gradient(90deg, transparent 0 32%, rgba(255, 255, 255, 0.1) 38%, transparent 43% 68%, rgba(255, 255, 255, 0.07) 73%, transparent 81%);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.home-metal > header > button:first-child > div {
+  border-radius: 50% !important;
+  background:
+    radial-gradient(circle at 35% 24%, rgba(255, 255, 255, 0.9), transparent 14%),
+    conic-gradient(from 18deg, #1d1e1d, #b9b2a4, #50504d, #f0e7d6, #20211f) !important;
+  box-shadow:
+    inset 0 0 0 4px rgba(0, 0, 0, 0.42),
+    inset 0 0 12px rgba(255, 255, 255, 0.34),
+    0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+
+.home-metal > header > button:first-child span,
+.home-metal h1 {
+  color: #f4f0e7 !important;
+  letter-spacing: 0;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 0 rgba(0, 0, 0, 0.86),
+    0 20px 46px rgba(0, 0, 0, 0.48);
+}
+
+.home-metal main section > div:first-child p {
+  color: rgba(232, 224, 211, 0.74) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.home-metal header .flex.flex-wrap.items-center.gap-3 > button,
+.home-metal header .flex.flex-wrap.items-center.gap-3 > div {
+  border: 1px solid rgba(255, 252, 239, 0.18) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.68) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 28%, rgba(0, 0, 0, 0.4)),
+    var(--home-metal-dark) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.22),
+    0 10px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.home-metal header .flex.flex-wrap.items-center.gap-3 > button:first-child {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 34%, rgba(0, 0, 0, 0.24)),
+    var(--home-brass) !important;
+}
+
+.home-metal header .flex.flex-wrap.items-center.gap-3 span,
+.home-metal header .flex.flex-wrap.items-center.gap-3 svg {
+  color: #f4f0e7 !important;
+  stroke: currentColor;
+}
+
+.home-metal .home-lumia-tile {
+  border: 1px solid rgba(255, 252, 239, 0.18) !important;
+  border-right-color: rgba(0, 0, 0, 0.5) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.74) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 26%, rgba(0, 0, 0, 0.44)),
+    var(--home-metal-dark) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -18px 34px rgba(0, 0, 0, 0.24),
+    0 18px 38px rgba(0, 0, 0, 0.38) !important;
+}
+
+.home-metal .home-lumia-tile:nth-child(1),
+.home-metal .home-lumia-tile:nth-child(8) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 34%, rgba(0, 0, 0, 0.28)),
+    var(--home-brass) !important;
+}
+
+.home-metal .home-lumia-tile:nth-child(3),
+.home-metal .home-lumia-tile:nth-child(5),
+.home-metal .home-lumia-tile:nth-child(7) {
+  background:
+    radial-gradient(circle at 38% 30%, rgba(157, 219, 210, 0.18), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 26%, rgba(0, 0, 0, 0.44)),
+    var(--home-metal-dark) !important;
+}
+
+.home-metal .home-lumia-tile:hover {
+  filter: brightness(1.08) contrast(1.04);
+  transform: translateY(-5px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -18px 34px rgba(0, 0, 0, 0.22),
+    0 26px 44px rgba(0, 0, 0, 0.44) !important;
+}
+
+.home-metal .home-lumia-tile::before {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.07) 0 1px, rgba(0, 0, 0, 0.08) 1px 2px, transparent 2px 5px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 42%) !important;
+  opacity: 0.74;
+}
+
+.home-metal .home-lumia-tile > span:first-child {
+  border-color: rgba(255, 239, 211, 0.9) !important;
+  background: radial-gradient(circle, #ffc072 0 32%, #9ddbd2 36%, transparent 62%) !important;
+  box-shadow: 0 0 16px rgba(255, 192, 114, 0.48) !important;
+}
+
+.home-metal .home-lumia-tile svg {
+  color: rgba(255, 244, 223, 0.94);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+
+.home-metal .home-lumia-tile h2,
+.home-metal .home-lumia-tile p {
+  color: #f7efe3 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.78);
+}
+
+.home-metal footer {
+  color: rgba(232, 224, 211, 0.66) !important;
+}
+
+.home-metal.home-lumia-surface {
+  background:
+    radial-gradient(ellipse at 18% 8%, rgba(255, 255, 255, 0.82), transparent 30%),
+    radial-gradient(ellipse at 70% 12%, rgba(255, 255, 255, 0.52), transparent 28%),
+    linear-gradient(100deg, rgba(255, 255, 255, 0.5), transparent 28%, rgba(148, 163, 184, 0.16) 56%, transparent 78%),
+    var(--home-metal-brush) !important;
+}
+
+/* 首页最终规则：功能磁贴和主题切换按钮统一黑色金属 */
+.home-metal header .flex.flex-wrap.items-center.gap-3 > button:first-child,
+.home-metal .home-lumia-tile,
+.home-metal .home-lumia-tile:nth-child(1),
+.home-metal .home-lumia-tile:nth-child(3),
+.home-metal .home-lumia-tile:nth-child(5),
+.home-metal .home-lumia-tile:nth-child(7),
+.home-metal .home-lumia-tile:nth-child(8) {
+  border-color: rgba(255, 252, 239, 0.18) !important;
+  border-right-color: rgba(0, 0, 0, 0.5) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.74) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 26%, rgba(0, 0, 0, 0.44)),
+    var(--home-metal-dark) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 -18px 34px rgba(0, 0, 0, 0.24),
+    0 18px 38px rgba(0, 0, 0, 0.38) !important;
+}
+
+.home-metal header .flex.flex-wrap.items-center.gap-3 > button:first-child:hover,
+.home-metal .home-lumia-tile:hover {
+  filter: brightness(1.08) contrast(1.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -18px 34px rgba(0, 0, 0, 0.22),
+    0 26px 44px rgba(0, 0, 0, 0.44) !important;
+}
+
+/* 首页试验：8 个功能磁贴统一黄铜材质 */
+.home-metal .home-lumia-tile,
+.home-metal .home-lumia-tile:nth-child(1),
+.home-metal .home-lumia-tile:nth-child(3),
+.home-metal .home-lumia-tile:nth-child(5),
+.home-metal .home-lumia-tile:nth-child(7),
+.home-metal .home-lumia-tile:nth-child(8) {
+  border-color: rgba(255, 229, 194, 0.36) !important;
+  border-right-color: rgba(80, 42, 20, 0.72) !important;
+  border-bottom-color: rgba(28, 16, 9, 0.88) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent 34%, rgba(0, 0, 0, 0.28)),
+    var(--home-brass) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 223, 0.54),
+    inset 0 -14px 28px rgba(45, 24, 12, 0.24),
+    0 18px 38px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(255, 198, 126, 0.12) !important;
+}
+
+.home-metal .home-lumia-tile:hover {
+  filter: brightness(1.08) contrast(1.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 223, 0.64),
+    inset 0 -14px 28px rgba(45, 24, 12, 0.22),
+    0 26px 44px rgba(0, 0, 0, 0.44),
+    0 0 22px rgba(255, 192, 114, 0.18) !important;
+}
+
+/* ============================================
    文本折叠
    ============================================ */
 
@@ -2319,4 +2590,622 @@
 .video-merge-metal.theme-light-page .bg-image-layout-notice-dialog button:last-child,
 .video-merge-metal.theme-light-page .bg-image-layout-notice-dialog button:last-child * {
   color: rgba(255, 255, 255, 0.96) !important;
+}
+
+/* ============================================
+   极速合成拉丝金属最终质感
+   ============================================ */
+
+.video-merge-metal {
+  --metal-ink: #f4f0e7;
+  --metal-muted: rgba(232, 224, 211, 0.74);
+  --metal-dim: rgba(232, 224, 211, 0.52);
+  --metal-aqua: #9ddbd2;
+  --metal-copper: #c88747;
+  --metal-copper-hot: #ffc072;
+  --metal-edge-final: rgba(255, 252, 239, 0.2);
+  --metal-edge-dark: rgba(0, 0, 0, 0.68);
+  --metal-runtime-texture: linear-gradient(transparent, transparent);
+  --metal-brush-lines:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.07) 0 1px,
+      rgba(0, 0, 0, 0.09) 1px 2px,
+      rgba(255, 255, 255, 0.022) 2px 3px,
+      transparent 3px 6px
+    );
+  --metal-hairline:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 17px,
+      rgba(255, 255, 255, 0.05) 17px 18px,
+      transparent 18px 31px,
+      rgba(0, 0, 0, 0.055) 31px 32px,
+      transparent 32px 47px
+    );
+  --metal-sheen:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.2) 0%,
+      transparent 13%,
+      rgba(255, 255, 255, 0.16) 25%,
+      transparent 39% 58%,
+      rgba(255, 255, 255, 0.1) 68%,
+      transparent 82%,
+      rgba(0, 0, 0, 0.24) 100%
+    );
+  --metal-steel:
+    var(--metal-runtime-texture),
+    var(--metal-hairline),
+    var(--metal-brush-lines),
+    var(--metal-sheen),
+    linear-gradient(90deg, #535651 0%, #92928a 18%, #666a64 36%, #aaa59a 54%, #73766f 72%, #343734 100%);
+  --metal-dark:
+    var(--metal-runtime-texture),
+    var(--metal-hairline),
+    var(--metal-brush-lines),
+    var(--metal-sheen),
+    linear-gradient(90deg, #121312 0%, #343633 25%, #202220 47%, #50514c 66%, #121312 100%);
+  --metal-copper-surface:
+    var(--metal-runtime-texture),
+    var(--metal-hairline),
+    var(--metal-brush-lines),
+    var(--metal-sheen),
+    linear-gradient(90deg, #5e321d 0%, #b86e3b 25%, #884825 47%, #d08b50 65%, #4d2d1d 100%);
+  --metal-live-glint:
+    radial-gradient(
+      ellipse 560px 180px at 58% 18%,
+      rgba(255, 255, 255, 0.32),
+      rgba(255, 255, 255, 0.13) 22%,
+      transparent 58%
+    );
+  color: var(--metal-ink) !important;
+  background:
+    radial-gradient(ellipse at 50% -12%, rgba(255, 255, 255, 0.18), transparent 34rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.36)),
+    var(--metal-steel) !important;
+}
+
+.video-merge-metal::before {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.08) 0 1px,
+      rgba(0, 0, 0, 0.11) 1px 2px,
+      transparent 2px 4px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 23px,
+      rgba(255, 255, 255, 0.08) 23px 24px,
+      transparent 24px 43px
+    ) !important;
+  mix-blend-mode: overlay;
+  opacity: 0.32 !important;
+}
+
+.video-merge-metal::after {
+  background:
+    radial-gradient(ellipse at top, transparent 24%, rgba(0, 0, 0, 0.34) 78%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.56), transparent 18%, transparent 82%, rgba(0, 0, 0, 0.54)) !important;
+  mix-blend-mode: soft-light;
+}
+
+.video-merge-metal .metal-glint-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 4;
+  width: 720px;
+  height: 240px;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(255, 255, 255, 0.34),
+      rgba(255, 255, 255, 0.14) 28%,
+      transparent 66%
+    );
+  contain: strict;
+  mix-blend-mode: soft-light;
+  opacity: 0.74;
+  pointer-events: none;
+  transform: translate3d(calc(var(--metal-glint-x, 58vw) - 360px), calc(var(--metal-glint-y, 18vh) - 120px), 0);
+  will-change: transform;
+}
+
+.video-merge-metal > :not(.metal-glint-layer) {
+  position: relative;
+  z-index: 3;
+}
+
+.video-merge-metal header,
+.video-merge-metal .metal-panel,
+.video-merge-metal .metal-control,
+.video-merge-metal .metal-top-switch,
+.video-merge-metal .metal-canvas-shell {
+  contain: paint;
+  border: 1px solid var(--metal-edge-final) !important;
+  border-right-color: rgba(0, 0, 0, 0.48) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.72) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 21%, rgba(0, 0, 0, 0.42) 100%),
+    var(--metal-steel) !important;
+  box-shadow:
+    0 34px 90px rgba(0, 0, 0, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.46),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.7) !important;
+}
+
+.video-merge-metal header::after,
+.video-merge-metal .metal-panel::after,
+.video-merge-metal .metal-control::after,
+.video-merge-metal .metal-top-switch::after,
+.video-merge-metal .metal-canvas-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    var(--metal-live-glint),
+    linear-gradient(90deg, transparent 0 32%, rgba(255, 255, 255, 0.12) 38%, transparent 43% 68%, rgba(255, 255, 255, 0.08) 73%, transparent 81%);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.video-merge-metal header {
+  height: 62px;
+  margin: 8px 8px 0;
+  padding-inline: 14px;
+}
+
+.video-merge-metal .metal-sidebar,
+.video-merge-metal .metal-workspace {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), transparent 18%, rgba(0, 0, 0, 0.44)),
+    var(--metal-dark) !important;
+}
+
+.video-merge-metal .metal-workspace {
+  background:
+    radial-gradient(ellipse at 50% 18%, rgba(157, 219, 210, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent 20%, rgba(0, 0, 0, 0.46)),
+    var(--metal-steel) !important;
+}
+
+.video-merge-metal .metal-canvas-shell {
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.46), rgba(255, 255, 255, 0.06)),
+    var(--metal-dark) !important;
+  box-shadow:
+    inset 0 2px 18px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 18px 44px rgba(0, 0, 0, 0.48) !important;
+}
+
+.video-merge-metal button,
+.video-merge-metal [role="button"] {
+  border-radius: 6px;
+  transition:
+    transform 0.18s cubic-bezier(.2, .9, .2, 1),
+    filter 0.18s cubic-bezier(.2, .9, .2, 1),
+    box-shadow 0.18s cubic-bezier(.2, .9, .2, 1);
+}
+
+.video-merge-metal button:hover,
+.video-merge-metal [role="button"]:hover {
+  filter: brightness(1.08) contrast(1.06);
+  transform: translateY(-1px);
+}
+
+.video-merge-metal .metal-primary,
+.video-merge-metal button[class*="from-pink-600"],
+.video-merge-metal button[class*="from-violet-600"],
+.video-merge-metal .metal-cta-button {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 226, 187, 0.42) !important;
+  color: #21160d !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent 38%, rgba(0, 0, 0, 0.23)),
+    var(--metal-copper-surface) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.24),
+    0 0 20px rgba(255, 192, 114, 0.24),
+    0 12px 24px rgba(0, 0, 0, 0.34) !important;
+}
+
+.video-merge-metal .metal-primary::before,
+.video-merge-metal .metal-cta-button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0 40%, rgba(255, 255, 255, 0.24) 49%, transparent 58%);
+  transform: translateX(-85%);
+  transition: transform 0.42s cubic-bezier(.2, .9, .2, 1);
+}
+
+.video-merge-metal .metal-primary:hover::before,
+.video-merge-metal .metal-cta-button:hover::before {
+  transform: translateX(82%);
+}
+
+.video-merge-metal .metal-primary *,
+.video-merge-metal .metal-cta-button * {
+  position: relative;
+  z-index: 1;
+  color: #21160d !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+}
+
+.video-merge-metal [data-selector-id] {
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.7) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 26%, rgba(0, 0, 0, 0.42)),
+    var(--metal-dark) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -18px 34px rgba(0, 0, 0, 0.24),
+    0 16px 36px rgba(0, 0, 0, 0.34) !important;
+}
+
+.video-merge-metal [data-selector-id]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    var(--metal-live-glint),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent),
+    repeating-linear-gradient(0deg, transparent 0 9px, rgba(255, 255, 255, 0.06) 9px 10px, transparent 10px 22px);
+  mix-blend-mode: soft-light;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.video-merge-metal [data-selector-id] > * {
+  position: relative;
+  z-index: 1;
+}
+
+.video-merge-metal [data-selector-id] > div:first-child {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(0, 0, 0, 0.2)),
+    var(--metal-dark) !important;
+}
+
+.video-merge-metal [data-selector-id] [class*="border-dashed"] {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(255, 255, 255, 0.07)),
+    var(--metal-hairline) !important;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.54),
+    0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="cover"],
+.video-merge-metal .metal-sidebar [data-selector-id="bVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent 28%, rgba(0, 0, 0, 0.36)),
+    var(--metal-steel) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="bgImage"],
+.video-merge-metal .metal-sidebar [data-selector-id="aVideo"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 30%, rgba(0, 0, 0, 0.32)),
+    var(--metal-copper-surface) !important;
+}
+
+.video-merge-metal .metal-sidebar [data-selector-id="cVideo"] {
+  background:
+    radial-gradient(circle at 38% 32%, rgba(157, 219, 210, 0.24), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 26%, rgba(0, 0, 0, 0.42)),
+    var(--metal-dark) !important;
+}
+
+.video-merge-metal input,
+.video-merge-metal textarea {
+  color: #efe8dc !important;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.46), rgba(255, 255, 255, 0.06)),
+    var(--metal-brush-lines),
+    #171816 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.62),
+    0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+.video-merge-metal :where(h1, h2, h3, h4, label, button, [class*="text-slate-100"], [class*="text-slate-200"], [class*="text-slate-300"]) {
+  color: var(--metal-ink) !important;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.88),
+    0 0 12px rgba(255, 255, 255, 0.08) !important;
+}
+
+.video-merge-metal :where(p, span, [class*="text-slate-400"], [class*="text-slate-500"]) {
+  color: var(--metal-muted) !important;
+}
+
+.video-merge-metal [class*="text-violet-400"],
+.video-merge-metal [class*="text-fuchsia-400"] {
+  color: var(--metal-copper-hot) !important;
+}
+
+.video-merge-metal .custom-scrollbar::-webkit-scrollbar-thumb,
+.video-merge-metal .scrollbar-thin::-webkit-scrollbar-thumb {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(200, 135, 71, 0.58), rgba(0, 0, 0, 0.26)) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-merge-metal .metal-glint-layer {
+    display: none;
+  }
+}
+
+/* 白天模式仍保留银色拉丝质感，但保证操作区可读 */
+.video-merge-metal.theme-light-page {
+  color: rgba(15, 23, 42, 0.96) !important;
+  background:
+    radial-gradient(ellipse at 18% 8%, rgba(255, 255, 255, 0.9), transparent 30%),
+    radial-gradient(ellipse at 70% 12%, rgba(255, 255, 255, 0.62), transparent 28%),
+    linear-gradient(100deg, rgba(255, 255, 255, 0.56), transparent 28%, rgba(148, 163, 184, 0.16) 56%, transparent 78%),
+    var(--metal-steel) !important;
+}
+
+.video-merge-metal.theme-light-page header,
+.video-merge-metal.theme-light-page .metal-panel,
+.video-merge-metal.theme-light-page .metal-control,
+.video-merge-metal.theme-light-page .metal-top-switch,
+.video-merge-metal.theme-light-page .metal-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(241, 245, 249, 0.62) 46%, rgba(211, 218, 226, 0.54)),
+    var(--metal-steel) !important;
+  border-color: rgba(71, 85, 105, 0.32) !important;
+  box-shadow:
+    0 14px 30px rgba(15, 23, 42, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.82),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(100, 116, 139, 0.24) !important;
+}
+
+.video-merge-metal.theme-light-page .metal-sidebar [data-selector-id] {
+  filter: saturate(0.98) contrast(1.02);
+}
+
+.video-merge-metal.theme-light-page,
+.video-merge-metal.theme-light-page :where(h1, h2, h3, h4, h5, h6, p, span, label, div, button, input, textarea, select, small, strong, b, a),
+.video-merge-metal.theme-light-page :where([class*="text-white"], [class*="text-slate-"], [class*="text-violet-"], [class*="text-fuchsia-"], [class*="text-purple-"]) {
+  color: rgba(15, 23, 42, 0.96) !important;
+  text-shadow: none !important;
+}
+
+.video-merge-metal.theme-light-page .metal-primary,
+.video-merge-metal.theme-light-page .metal-primary *,
+.video-merge-metal.theme-light-page .metal-cta-button,
+.video-merge-metal.theme-light-page .metal-cta-button *,
+.video-merge-metal.theme-light-page button[class*="from-pink-600"],
+.video-merge-metal.theme-light-page button[class*="from-pink-600"] *,
+.video-merge-metal.theme-light-page button[class*="from-violet-600"],
+.video-merge-metal.theme-light-page button[class*="from-violet-600"] * {
+  color: #21160d !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+/* 黑夜模式：横竖屏切换和更改目录区域保持白色文字 */
+.video-merge-metal:not(.theme-light-page) header button,
+.video-merge-metal:not(.theme-light-page) header button *,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  span,
+  label,
+  div,
+  button,
+  input,
+  svg
+),
+.video-merge-metal:not(.theme-light-page) .output-dir-selector :where([class*="text-slate-"], [class*="text-white"], [class*="text-violet-"]) {
+  color: rgba(255, 255, 255, 0.96) !important;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.82),
+    0 0 10px rgba(255, 255, 255, 0.08) !important;
+  opacity: 1 !important;
+}
+
+.video-merge-metal:not(.theme-light-page) header button svg,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector :where(svg, svg *) {
+  color: rgba(255, 255, 255, 0.96) !important;
+  stroke: currentColor;
+}
+
+/* 黑夜模式：关键操作区域统一黄铜材质 */
+.video-merge-metal:not(.theme-light-page) header .ml-auto > div > div:last-child,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector,
+.video-merge-metal:not(.theme-light-page) .metal-sidebar [data-selector-id] {
+  border-color: rgba(255, 226, 187, 0.3) !important;
+  border-right-color: rgba(73, 41, 22, 0.72) !important;
+  border-bottom-color: rgba(42, 24, 13, 0.86) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 32%, rgba(0, 0, 0, 0.34)),
+    var(--metal-copper-surface) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -18px 34px rgba(38, 20, 10, 0.32),
+    0 16px 36px rgba(0, 0, 0, 0.34),
+    0 0 0 1px rgba(255, 192, 114, 0.08) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) header .ml-auto > div > div:last-child button {
+  border: 1px solid rgba(255, 226, 187, 0.24) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent 38%, rgba(0, 0, 0, 0.26)),
+    var(--metal-copper-surface) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.24),
+    0 8px 18px rgba(0, 0, 0, 0.24) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) header .ml-auto > div > div:last-child button.metal-primary {
+  border-color: rgba(255, 226, 187, 0.46) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), transparent 36%, rgba(0, 0, 0, 0.2)),
+    var(--metal-copper-surface) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.58),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.22),
+    0 0 18px rgba(255, 192, 114, 0.26),
+    0 10px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) .output-dir-selector > div,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector > div:nth-child(2),
+.video-merge-metal:not(.theme-light-page) .metal-sidebar [data-selector-id] > div:first-child,
+.video-merge-metal:not(.theme-light-page) .metal-sidebar [data-selector-id] [class*="border-dashed"] {
+  border-color: rgba(255, 226, 187, 0.2) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(0, 0, 0, 0.2)),
+    var(--metal-copper-surface) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) .metal-sidebar [data-selector-id]::after,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector::after {
+  background:
+    var(--metal-live-glint),
+    linear-gradient(90deg, transparent, rgba(255, 240, 213, 0.12), transparent),
+    repeating-linear-gradient(0deg, transparent 0 9px, rgba(255, 226, 187, 0.055) 9px 10px, transparent 10px 22px) !important;
+}
+
+/* 黑夜模式：截图同款亮黄铜，避免运行时深色纹理把卡片压暗 */
+.video-merge-metal:not(.theme-light-page) {
+  --metal-brass-bright:
+    radial-gradient(ellipse 180px 78px at 18% 18%, rgba(255, 239, 211, 0.5), transparent 62%),
+    linear-gradient(90deg, rgba(58, 30, 15, 0.4) 0%, transparent 14%, rgba(255, 230, 190, 0.34) 28%, transparent 45%, rgba(255, 218, 167, 0.22) 63%, transparent 78%, rgba(42, 22, 12, 0.42) 100%),
+    repeating-linear-gradient(0deg, rgba(255, 238, 212, 0.09) 0 1px, rgba(70, 34, 16, 0.11) 1px 2px, rgba(255, 238, 212, 0.035) 2px 3px, transparent 3px 5px),
+    repeating-linear-gradient(0deg, transparent 0 11px, rgba(255, 238, 212, 0.08) 11px 12px, transparent 12px 24px, rgba(55, 28, 14, 0.1) 24px 25px, transparent 25px 38px),
+    linear-gradient(90deg, #3e2011 0%, #9f623b 14%, #e3ad77 30%, #a4623b 48%, #d6955f 66%, #794221 82%, #2c180d 100%);
+}
+
+.video-merge-metal:not(.theme-light-page) header .ml-auto > div > div:last-child,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector,
+.video-merge-metal:not(.theme-light-page) .metal-sidebar [data-selector-id] {
+  border-color: rgba(255, 229, 194, 0.36) !important;
+  border-right-color: rgba(80, 42, 20, 0.72) !important;
+  border-bottom-color: rgba(28, 16, 9, 0.88) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.26), transparent 36%, rgba(0, 0, 0, 0.3)),
+    var(--metal-brass-bright) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 223, 0.54),
+    inset 0 -14px 28px rgba(45, 24, 12, 0.24),
+    0 12px 28px rgba(0, 0, 0, 0.38),
+    0 0 0 1px rgba(255, 198, 126, 0.12) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) header .ml-auto > div > div:last-child button,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector > div,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector > div:nth-child(2),
+.video-merge-metal:not(.theme-light-page) .metal-sidebar [data-selector-id] > div:first-child,
+.video-merge-metal:not(.theme-light-page) .metal-sidebar [data-selector-id] [class*="border-dashed"] {
+  border-color: rgba(255, 229, 194, 0.24) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(47, 24, 12, 0.25)),
+    var(--metal-brass-bright) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 223, 0.28),
+    inset 0 2px 12px rgba(48, 24, 11, 0.32),
+    0 1px 0 rgba(255, 244, 223, 0.12) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) header .ml-auto > div > div:last-child button.metal-primary {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent 34%, rgba(0, 0, 0, 0.18)),
+    var(--metal-brass-bright) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 223, 0.58),
+    inset 0 -8px 18px rgba(43, 22, 10, 0.2),
+    0 0 18px rgba(255, 192, 114, 0.36),
+    0 10px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) .metal-sidebar [data-selector-id] [class*="border-dashed"] {
+  border-style: dashed !important;
+  box-shadow:
+    inset 0 2px 14px rgba(38, 19, 9, 0.5),
+    inset 0 1px 0 rgba(255, 239, 211, 0.18),
+    0 1px 0 rgba(255, 239, 211, 0.16) !important;
+}
+
+/* 黑夜模式最终校正：黄铜只用于选中态和更改目录按钮 */
+.video-merge-metal:not(.theme-light-page) header .ml-auto > div > div:last-child,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector {
+  border-color: var(--metal-edge-final) !important;
+  border-right-color: rgba(0, 0, 0, 0.48) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.72) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 22%, rgba(0, 0, 0, 0.4)),
+    var(--metal-dark) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.68),
+    0 12px 28px rgba(0, 0, 0, 0.34) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) header .ml-auto > div > div:last-child button:not(.metal-primary) {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.28)),
+    var(--metal-dark) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.28),
+    0 8px 18px rgba(0, 0, 0, 0.24) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) header .ml-auto > div > div:last-child button.metal-primary {
+  border-color: rgba(255, 229, 194, 0.42) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent 34%, rgba(0, 0, 0, 0.18)),
+    var(--metal-brass-bright) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 223, 0.58),
+    inset 0 -8px 18px rgba(43, 22, 10, 0.2),
+    0 0 18px rgba(255, 192, 114, 0.36),
+    0 10px 24px rgba(0, 0, 0, 0.3) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) .output-dir-selector > div,
+.video-merge-metal:not(.theme-light-page) .output-dir-selector > div:nth-child(2) {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.24)),
+    var(--metal-dark) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 2px 12px rgba(0, 0, 0, 0.36) !important;
+}
+
+.video-merge-metal:not(.theme-light-page) .output-dir-selector > div:nth-child(2) > div.mt-1 button {
+  border-color: rgba(255, 229, 194, 0.42) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent 34%, rgba(0, 0, 0, 0.18)),
+    var(--metal-brass-bright) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 223, 0.58),
+    inset 0 -8px 18px rgba(43, 22, 10, 0.2),
+    0 0 18px rgba(255, 192, 114, 0.28),
+    0 10px 22px rgba(0, 0, 0, 0.28) !important;
 }

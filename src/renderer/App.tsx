@@ -170,7 +170,7 @@ const HomePage: React.FC<{
   ];
 
   return (
-    <div className={`min-h-screen overflow-hidden flex flex-col font-sans relative pb-8 transition-colors duration-300 ${isDarkTheme ? 'home-lumia-dark text-white' : 'home-lumia-surface text-slate-900'}`}>
+    <div className={`home-metal min-h-screen overflow-hidden flex flex-col font-sans relative pb-8 transition-colors duration-300 ${isDarkTheme ? 'home-lumia-dark text-white' : 'home-lumia-surface text-slate-900'}`}>
 
       <header className="relative z-10 flex flex-col gap-4 px-5 pt-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
         <button
