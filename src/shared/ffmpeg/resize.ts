@@ -12,12 +12,12 @@ import { FFMPEG_CONSTANTS, type ResizeConfig, type BuildResizeArgsConfig, type G
  */
 export const RESIZE_CONFIGS: Record<string, ResizeConfig[]> = {
   siya: [
-    { width: 1920, height: 1080, suffix: '_1920x1080' },
-    { width: 1920, height: 1920, suffix: '_1920x1920' },
+    { width: 1280, height: 720, suffix: '_1280x720' },
+    { width: 1080, height: 1080, suffix: '_1080x1080' },
   ],
   fishing: [
-    { width: 1080, height: 1920, suffix: '_1080x1920' },
-    { width: 1920, height: 1920, suffix: '_1920x1920' },
+    { width: 1280, height: 720, suffix: '_1280x720' },
+    { width: 1080, height: 1080, suffix: '_1080x1080' },
   ],
   unify_h: [
     { width: 1920, height: 1080, suffix: '_1920x1080' },

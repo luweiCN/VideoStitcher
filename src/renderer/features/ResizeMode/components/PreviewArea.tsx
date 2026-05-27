@@ -53,14 +53,14 @@ interface OutputConfig {
 const MODE_CONFIG: Record<ResizeMode, { outputs: OutputConfig[] }> = {
   siya: {
     outputs: [
-      { width: 1920, height: 1080, label: "1920x1080" },
-      { width: 1920, height: 1920, label: "1920x1920" },
+      { width: 1280, height: 720, label: "1280x720" },
+      { width: 1080, height: 1080, label: "1080x1080" },
     ],
   },
   fishing: {
     outputs: [
-      { width: 1080, height: 1920, label: "1080x1920" },
-      { width: 1920, height: 1920, label: "1920x1920" },
+      { width: 1280, height: 720, label: "1280x720" },
+      { width: 1080, height: 1080, label: "1080x1080" },
     ],
   },
   unify_h: { outputs: [{ width: 1920, height: 1080, label: "1920x1080" }] },
@@ -125,7 +125,7 @@ const VideoCanvas: React.FC<VideoCanvasProps> = ({
   backgroundRef,
 }) => {
   return (
-    <div className="w-full h-full bg-black rounded-lg overflow-hidden border border-slate-800 relative">
+    <div className="metal-canvas-shell w-full h-full bg-black rounded-lg overflow-hidden border border-slate-800 relative">
       {/* 背景层 - 模糊视频 */}
       <video
         ref={backgroundRef}
@@ -244,12 +244,12 @@ const VideoControls: React.FC<VideoControlsProps> = ({
   );
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg">
+    <div className="metal-control flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg">
       {/* 播放按钮 */}
       <button
         onClick={onPlayPause}
         disabled={disabled}
-        className={`w-8 h-8 rounded-full flex items-center justify-center
+        className={`metal-primary w-8 h-8 rounded-full flex items-center justify-center
           bg-gradient-to-br ${theme.gradient} shadow-lg ${theme.glow}
           hover:scale-110 active:scale-95 transition-transform`}
       >
@@ -320,7 +320,7 @@ const VideoControls: React.FC<VideoControlsProps> = ({
         {/* 弹出式音量面板 */}
         {showVolumePanel && (
           <div
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 rounded-lg bg-black/95 backdrop-blur-md border border-white/10 shadow-2xl"
+            className="metal-control absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 rounded-lg bg-black/95 backdrop-blur-md border border-white/10 shadow-2xl"
             onMouseEnter={handleVolumeAreaEnter}
             onMouseLeave={handleVolumeAreaLeave}
           >
@@ -663,7 +663,7 @@ const SinglePreview: React.FC<SinglePreviewProps> = ({
       {/* 内容容器 - 标题、视频、控件都居中对齐，宽度一致 */}
       <div
         style={{ width: contentWidth }}
-        className="flex flex-col items-center"
+        className="metal-panel flex flex-col items-center rounded-xl border border-slate-800 p-4"
       >
         {/* 标题行 */}
         <div className="w-full flex items-center justify-between mb-2 shrink-0">
@@ -939,7 +939,7 @@ const PreviewItem: React.FC<PreviewItemProps> = ({
   }
 
   return (
-    <div className="flex flex-col" style={{ width: canvasWidth, height: canvasHeight + reservedHeight }}>
+    <div className="metal-panel flex flex-col rounded-xl border border-slate-800 p-4" style={{ width: canvasWidth + 32, height: canvasHeight + reservedHeight + 32 }}>
       {/* 标题行 */}
       <div className="flex items-center justify-between mb-2 shrink-0">
         <span className="text-xs font-mono text-slate-400">{output.label}</span>
@@ -1054,6 +1054,9 @@ const MultiPreview: React.FC<MultiPreviewProps> = ({
   const availableWidth = containerSize.width - padding * 2 - gap;
   const availableHeight = containerSize.height - padding * 2;
 
+  // 预览卡片带有 16px 内边距，双列时需要从画布可用尺寸中扣除，
+  // 避免卡片实际宽度超过网格列宽导致两个预览窗口重叠。
+  const itemPanelPadding = 32;
   const itemMaxWidth = Math.floor(availableWidth / 2);
   const itemMaxHeight = availableHeight;
 
@@ -1079,8 +1082,8 @@ const MultiPreview: React.FC<MultiPreviewProps> = ({
             isProcessing={isProcessing}
             themeColor={themeColor}
             getPreviewStyle={getPreviewStyle}
-            maxWidth={itemMaxWidth}
-            maxHeight={itemMaxHeight}
+            maxWidth={Math.max(120, itemMaxWidth - itemPanelPadding)}
+            maxHeight={Math.max(160, itemMaxHeight - itemPanelPadding)}
           />
         ))}
       </div>

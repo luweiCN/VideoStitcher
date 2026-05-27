@@ -24,15 +24,58 @@ import { PreviewArea } from './ResizeMode/components/PreviewArea';
 type ResizeModeType = 'siya' | 'fishing' | 'unify_h' | 'unify_v';
 
 const MODE_CONFIG = {
-  siya: { name: 'Siya模式', desc: '竖屏转横屏/方形', outputs: [{ width: 1920, height: 1080, label: '1920x1080' }, { width: 1920, height: 1920, label: '1920x1920' }] },
-  fishing: { name: '海外捕鱼', desc: '横屏转竖屏/方形', outputs: [{ width: 1080, height: 1920, label: '1080x1920' }, { width: 1920, height: 1920, label: '1920x1920' }] },
-  unify_h: { name: '统一横屏', desc: '强制转为横屏比例', outputs: [{ width: 1920, height: 1080, label: '1920x1080' }] },
-  unify_v: { name: '统一竖屏', desc: '强制转为竖屏比例', outputs: [{ width: 1080, height: 1920, label: '1080x1920' }] },
+  siya: { name: 'Google模式', desc: '720x1280 转 1280x720 / 1080x1080', outputs: [{ width: 1280, height: 720, label: '1280x720' }, { width: 1080, height: 1080, label: '1080x1080' }] },
+  fishing: { name: 'Meta模式', desc: '1080x1350 转 1280x720 / 1080x1080', outputs: [{ width: 1280, height: 720, label: '1280x720' }, { width: 1080, height: 1080, label: '1080x1080' }] },
+  unify_h: { name: '统一横屏', desc: '转成 1920x1080（16:9）', outputs: [{ width: 1920, height: 1080, label: '1920x1080' }] },
+  unify_v: { name: '统一竖屏', desc: '转成 1080x1920（9:16）', outputs: [{ width: 1080, height: 1920, label: '1080x1920' }] },
 };
+
+const GoogleIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+    <path
+      fill="#4285F4"
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+    />
+    <path
+      fill="#34A853"
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"
+    />
+    <path
+      fill="#EA4335"
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38z"
+    />
+  </svg>
+);
+
+const MetaIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" aria-hidden="true">
+    <path
+      fill="none"
+      stroke="#0081FB"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2.1"
+      d="M3.2 15.4c1.3-5 3.4-7.6 5.7-7.6 1.6 0 2.8 1.1 4.2 3.1 1.4 2.1 2.5 3.2 4.1 3.2 1.5 0 2.5-1.1 2.5-2.7 0-1.9-1.2-3.6-3-3.6-2.6 0-4.5 3-5.9 5.5-1.3 2.4-2.4 4-4.1 4-1.6 0-3-1.1-3.5-1.9z"
+    />
+    <path
+      fill="none"
+      stroke="#00A6FF"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2.1"
+      d="M20.8 15.4c-1.3-5-3.4-7.6-5.7-7.6-1.6 0-2.8 1.1-4.2 3.1-1.4 2.1-2.5 3.2-4.1 3.2-1.5 0-2.5-1.1-2.5-2.7 0-1.9 1.2-3.6 3-3.6 2.6 0 4.5 3 5.9 5.5 1.3 2.4 2.4 4 4.1 4 1.6 0 3-1.1 3.5-1.9z"
+    />
+  </svg>
+);
 
 const ResizeMode: React.FC = () => {
   const navigate = useNavigate();
   const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
+  const metalRootRef = useRef<HTMLDivElement>(null);
   const { isLightTheme, togglePageTheme } = usePageTheme();
 
   // 视频文件列表
@@ -259,21 +302,34 @@ const ResizeMode: React.FC = () => {
     duration: currentMaterial.duration,
   } : null;
 
+  const handleMetalMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const root = metalRootRef.current;
+    if (!root) return;
+
+    root.style.setProperty("--metal-glint-x", `${event.clientX}px`);
+    root.style.setProperty("--metal-glint-y", `${event.clientY}px`);
+  }, []);
+
   return (
-    <div className={`h-screen flex flex-col overflow-hidden ${
-      isLightTheme ? 'theme-light-page bg-[#eef3f8] text-slate-900' : 'bg-black text-slate-100'
-    }`}>
+    <div
+      ref={metalRootRef}
+      onMouseMove={handleMetalMouseMove}
+      className={`video-merge-metal resize-metal h-screen flex flex-col overflow-hidden font-sans transition-colors duration-300 ${
+        isLightTheme ? 'theme-light-page bg-[#eef3f8] text-slate-900' : 'bg-black text-slate-100'
+      }`}
+    >
+      <span className="metal-glint-layer" aria-hidden="true" />
       <PageHeader
         title="智能改尺寸"
         icon={Maximize2}
         iconColor={isLightTheme ? "text-rose-600" : "text-rose-400"}
-        description="Siya/海外捕鱼/尺寸统一，智能模糊背景填充"
+        description="Google/Meta/尺寸统一，智能模糊背景填充"
         featureInfo={{
           title: '智能改尺寸',
           description: '支持四种视频尺寸转换模式，使用模糊背景填充适配目标尺寸。',
           details: [
-            'Siya模式：竖屏视频转为横屏（1920×1080）或方形（1920×1920）',
-            '海外捕鱼模式：横屏视频转为竖屏（1080×1920）或方形（1920×1920）',
+            'Google模式：默认输入 720×1280，输出横屏（1280×720）和方形（1080×1080）',
+            'Meta模式：默认输入 1080×1350，输出横屏（1280×720）和方形（1080×1080）',
             '统一横屏：强制所有视频转为横屏比例（1920×1080）',
             '统一竖屏：强制所有视频转为竖屏比例（1080×1920）',
             '可调整模糊程度，实时预览转换效果',
@@ -286,15 +342,15 @@ const ResizeMode: React.FC = () => {
       />
 
       {/* Main Content - 三栏布局 */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden gap-2 p-2 min-h-0">
         {/* Left Sidebar - File Selection */}
-        <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+        <div className="metal-panel metal-sidebar w-80 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="p-4 space-y-4">
             {/* Mode Selection */}
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-3">
+            <div className="metal-panel bg-black/50 border border-slate-800 rounded-xl p-3">
               <label className="font-medium flex items-center gap-2 mb-2 text-xs">
                 <Maximize2 className="w-3 h-3 text-rose-400" />
-                处理模式
+                视频处理
               </label>
               <div className="space-y-2">
                 {(Object.keys(MODE_CONFIG) as ResizeModeType[]).map((m) => (
@@ -308,7 +364,11 @@ const ResizeMode: React.FC = () => {
                     }`}
                     disabled={isAdding}
                   >
-                    <div className="font-medium">{MODE_CONFIG[m].name}</div>
+                    <div className="font-medium flex items-center gap-1.5">
+                      {m === 'siya' && <GoogleIcon />}
+                      {m === 'fishing' && <MetaIcon />}
+                      <span>{MODE_CONFIG[m].name}</span>
+                    </div>
                     <div className="text-[10px] opacity-80 mt-0.5">{MODE_CONFIG[m].desc}</div>
                   </button>
                 ))}
@@ -331,7 +391,7 @@ const ResizeMode: React.FC = () => {
             </FileSelectorGroup>
 
             {/* Blur Amount */}
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div className="metal-panel bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   模糊程度
@@ -378,7 +438,7 @@ const ResizeMode: React.FC = () => {
         </div>
 
         {/* Middle Panel - flex-1 with vertical layout */}
-        <div className="flex-1 bg-black flex flex-col overflow-hidden min-w-0">
+        <div className="metal-panel metal-workspace flex-1 flex flex-col overflow-hidden min-w-0 border border-slate-800 rounded-2xl">
           {/* 使用通用 TaskList 组件 */}
           {isGeneratingTasks ? (
             <div className="h-[164px] flex items-center justify-center border-b border-slate-800 shrink-0">
@@ -441,7 +501,7 @@ const ResizeMode: React.FC = () => {
         </div>
 
         {/* Right Sidebar - Logs + Button */}
-        <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
+        <div className="metal-panel metal-sidebar w-80 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-y-hidden">
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             {/* 输出目录 */}
             <OutputDirSelector
@@ -481,6 +541,7 @@ const ResizeMode: React.FC = () => {
               fullWidth
               loading={isAdding}
               leftIcon={!isAdding && <Plus className="w-4 h-4" />}
+              className="metal-cta-button"
             >
               {isAdding ? "添加中..." : "添加到任务中心"}
             </Button>
