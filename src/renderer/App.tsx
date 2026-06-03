@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Link, Download, AlertCircle, Bell, ArrowRight, Play, Moon, Sun } from 'lucide-react';
+import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Captions, Download, AlertCircle, Bell, ArrowRight, Play, Moon, Sun } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { ToastProvider } from './components/Toast';
 import VideoMergeMode from './features/VideoMergeMode';
@@ -11,7 +11,7 @@ import CoverCompressMode from './features/CoverCompressMode';
 import LosslessGridMode from './features/LosslessGridMode';
 import ImageMaterialMode from './features/ImageMaterialMode';
 import ResizeMode from './features/ResizeMode';
-import VideoStitcherMode from './features/VideoStitcherMode';
+import SubtitleExtractorMode from './features/SubtitleExtractorMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
 import { TaskCenterProvider } from './contexts/TaskContext';
@@ -91,8 +91,8 @@ const HomePage: React.FC<{
       darkHoverClass: 'hover:border-violet-500/50 hover:shadow-violet-950/30',
     },
     {
-      title: '智能改尺寸',
-      description: 'Siya/海外抖音/尺寸统一，智能模糊背景填充',
+      title: '海外素材制作',
+      description: '当前支持：Google模式、Meta模式、统一横屏、统一竖屏',
       path: '/resize',
       icon: Maximize2,
       tileClass: 'from-amber-400 via-orange-500 to-orange-600',
@@ -157,15 +157,15 @@ const HomePage: React.FC<{
       darkHoverClass: 'hover:border-sky-500/50 hover:shadow-sky-950/30',
     },
     {
-      title: 'A+B 前后拼接',
-      description: 'A后+B前视频前后拼接，横竖版可选',
-      path: '/videoStitcher',
-      icon: Link,
-      tileClass: 'from-orange-500 via-orange-600 to-red-600',
-      iconClass: 'text-purple-500 bg-purple-100/80 group-hover:bg-purple-500 group-hover:text-white group-hover:shadow-purple-500/20',
-      hoverClass: 'hover:border-purple-200 hover:shadow-purple-100',
-      darkIconClass: 'text-purple-300 bg-purple-500/15 group-hover:bg-purple-500 group-hover:text-white group-hover:shadow-purple-500/20',
-      darkHoverClass: 'hover:border-purple-500/50 hover:shadow-purple-950/30',
+      title: '视频台词识别',
+      description: '按需下载模型，批量识别短视频台词文案',
+      path: '/subtitleExtractor',
+      icon: Captions,
+      tileClass: 'from-cyan-500 via-blue-600 to-indigo-700',
+      iconClass: 'text-cyan-500 bg-cyan-100/80 group-hover:bg-cyan-500 group-hover:text-white group-hover:shadow-cyan-500/20',
+      hoverClass: 'hover:border-cyan-200 hover:shadow-cyan-100',
+      darkIconClass: 'text-cyan-300 bg-cyan-500/15 group-hover:bg-cyan-500 group-hover:text-white group-hover:shadow-cyan-500/20',
+      darkHoverClass: 'hover:border-cyan-500/50 hover:shadow-cyan-950/30',
     },
   ];
 
@@ -421,7 +421,7 @@ const AppContent: React.FC = () => {
         <Route path="/coverCompress" element={<CoverCompressMode />} />
         <Route path="/losslessGrid" element={<LosslessGridMode />} />
         <Route path="/resize" element={<ResizeMode />} />
-        <Route path="/videoStitcher" element={<VideoStitcherMode />} />
+        <Route path="/subtitleExtractor" element={<SubtitleExtractorMode />} />
         <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
         <Route path="/tasks" element={<TaskCenterListPage />} />

@@ -12,6 +12,12 @@ import crypto from 'crypto';
 import { runFfmpeg, getFfmpegPath, buildStitchCommand, buildMergeCommand, TaskQueue, generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS, getVideoMetadata, getVideoDuration, getVideoDurationFast } from '@shared/ffmpeg';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 import { SafeOutput } from '@shared/utils/safeOutput';
+import {
+  downloadSubtitleModel,
+  extractSubtitles,
+  getSubtitleModelStatus,
+  type SubtitleExtractRequest,
+} from '@main/services/SubtitleExtractor';
 
 interface VideoDimensions {
   width: number;
@@ -210,8 +216,8 @@ export async function getVideoFullInfo(
 
     const ffmpeg = getFfmpegPath();
 
-    const [thumbnailResult, statsResult, metadataResult] = await Promise.allSettled([
-      new Promise<string>((resolve, reject) => {
+    const thumbnailTask = thumbnailMaxSize > 0
+      ? new Promise<string>((resolve, reject) => {
         const tmpDir = path.join(os.tmpdir(), 'videostitcher-temp');
         if (!fs.existsSync(tmpDir)) {
           fs.mkdirSync(tmpDir, { recursive: true });
@@ -234,7 +240,11 @@ export async function getVideoFullInfo(
             reject(new Error('缩略图生成失败'));
           }
         });
-      }),
+      })
+      : Promise.resolve(null);
+
+    const [thumbnailResult, statsResult, metadataResult] = await Promise.allSettled([
+      thumbnailTask,
       new Promise<number>((resolve, reject) => {
         fs.stat(filePath, (err, stats) => {
           if (err) reject(err);
@@ -250,7 +260,7 @@ export async function getVideoFullInfo(
       })),
     ]);
 
-    if (thumbnailResult.status === 'fulfilled') {
+    if (thumbnailResult.status === 'fulfilled' && thumbnailResult.value) {
       result.thumbnail = thumbnailResult.value;
     }
     if (statsResult.status === 'fulfilled') {
@@ -1175,6 +1185,25 @@ export function registerVideoHandlers(): void {
   // 删除临时预览文件
   ipcMain.handle('delete-temp-preview', async (_event, tempPath: string) => {
     return handleDeleteTempPreview(tempPath);
+  });
+
+  // 视频台词识别
+  ipcMain.handle('video:extract-subtitles', async (event, request: SubtitleExtractRequest) => {
+    return extractSubtitles(request, progress => {
+      event.sender.send('subtitle-extract-progress', progress);
+    });
+  });
+
+  // 获取字幕识别模型状态
+  ipcMain.handle('video:subtitle-model-status', async () => {
+    return getSubtitleModelStatus();
+  });
+
+  // 下载指定字幕识别模型
+  ipcMain.handle('video:download-subtitle-model', async (event, modelId: string) => {
+    return downloadSubtitleModel(modelId, progress => {
+      event.sender.send('subtitle-model-download-progress', progress);
+    });
   });
 }
 

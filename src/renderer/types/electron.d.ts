@@ -142,6 +142,92 @@ export interface ElectronAPI {
     aspectRatio?: string | null;
     error?: string;
   }>;
+  extractSubtitles: (config: {
+    videos: string[];
+    model?: string;
+    language?: string;
+    vadThresholdDb?: number;
+    minSpeechDuration?: number;
+  }) => Promise<{
+    success: boolean;
+    results: Array<{
+      success: boolean;
+      path: string;
+      name: string;
+      text: string;
+      srt: string;
+      segments: Array<{ start: number; end: number; text: string }>;
+      duration?: number;
+      error?: string;
+    }>;
+    error?: string;
+  }>;
+  onSubtitleExtractProgress: (callback: (data: {
+    status: 'start' | 'done' | 'error';
+    index: number;
+    total: number;
+    path: string;
+    result?: {
+      success: boolean;
+      path: string;
+      name: string;
+      text: string;
+      srt: string;
+      segments: Array<{ start: number; end: number; text: string }>;
+      duration?: number;
+      error?: string;
+    };
+    error?: string;
+  }) => void) => () => void;
+  getSubtitleModelStatus: () => Promise<{
+    usable: boolean;
+    engineReady: boolean;
+    engineType: 'external' | 'whisper.cpp-gpu' | 'whisper.cpp-cpu' | 'missing';
+    enginePath?: string;
+    models: Array<{
+      id: 'small' | 'medium' | 'large-v3';
+      name: string;
+      description: string;
+      quality: string;
+      speed: string;
+      hardware: string;
+      sizeLabel: string;
+      fileName: string;
+      url: string;
+      path: string;
+      downloaded: boolean;
+      recommended?: boolean;
+    }>;
+    message: string;
+  }>;
+  downloadSubtitleModel: (modelId: string) => Promise<{
+    usable: boolean;
+    engineReady: boolean;
+    engineType: 'external' | 'whisper.cpp-gpu' | 'whisper.cpp-cpu' | 'missing';
+    enginePath?: string;
+    models: Array<{
+      id: 'small' | 'medium' | 'large-v3';
+      name: string;
+      description: string;
+      quality: string;
+      speed: string;
+      hardware: string;
+      sizeLabel: string;
+      fileName: string;
+      url: string;
+      path: string;
+      downloaded: boolean;
+      recommended?: boolean;
+    }>;
+    message: string;
+  }>;
+  onSubtitleModelDownloadProgress: (callback: (data: {
+    modelId: string;
+    downloadedBytes: number;
+    totalBytes: number;
+    percent: number;
+    status: 'downloading' | 'done' | 'error';
+  }) => void) => () => void;
 
   // 事件监听 - 返回清理函数
   onJobStart: (callback: (data: { total: number; orientation: string; concurrency: number }) => void) => () => void;

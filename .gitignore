@@ -5,6 +5,11 @@ node_modules/
 out/
 dist/
 
+# Local subtitle recognition demo assets
+.demo-tools/
+subtitle-demo-output/
+.packaging-tools/
+
 # Generated icons (keep source files logo.png and dev-logo.png)
 build/icon.png
 build/icon@2x.png

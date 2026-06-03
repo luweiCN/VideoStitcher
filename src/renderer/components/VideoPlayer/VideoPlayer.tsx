@@ -154,7 +154,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           setPreviewUrl(src);
         } else {
           // 使用 getVideoFullInfo 获取视频信息（包含 previewUrl）
-          const result = await window.api.getVideoFullInfo(src, { thumbnailMaxSize: 64 });
+          const result = await window.api.getVideoFullInfo(src, { thumbnailMaxSize: 0 });
           if (result.success && result.previewUrl) {
             setPreviewUrl(result.previewUrl);
           } else {

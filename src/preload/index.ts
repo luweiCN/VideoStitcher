@@ -157,6 +157,92 @@ export interface ElectronAPI {
     aspectRatio?: string | null;
     error?: string;
   }>;
+  extractSubtitles: (config: {
+    videos: string[];
+    model?: string;
+    language?: string;
+    vadThresholdDb?: number;
+    minSpeechDuration?: number;
+  }) => Promise<{
+    success: boolean;
+    results: Array<{
+      success: boolean;
+      path: string;
+      name: string;
+      text: string;
+      srt: string;
+      segments: Array<{ start: number; end: number; text: string }>;
+      duration?: number;
+      error?: string;
+    }>;
+    error?: string;
+  }>;
+  onSubtitleExtractProgress: (callback: (data: {
+    status: 'start' | 'done' | 'error';
+    index: number;
+    total: number;
+    path: string;
+    result?: {
+      success: boolean;
+      path: string;
+      name: string;
+      text: string;
+      srt: string;
+      segments: Array<{ start: number; end: number; text: string }>;
+      duration?: number;
+      error?: string;
+    };
+    error?: string;
+  }) => void) => () => void;
+  getSubtitleModelStatus: () => Promise<{
+    usable: boolean;
+    engineReady: boolean;
+    engineType: 'external' | 'whisper.cpp-gpu' | 'whisper.cpp-cpu' | 'missing';
+    enginePath?: string;
+    models: Array<{
+      id: 'small' | 'medium' | 'large-v3';
+      name: string;
+      description: string;
+      quality: string;
+      speed: string;
+      hardware: string;
+      sizeLabel: string;
+      fileName: string;
+      url: string;
+      path: string;
+      downloaded: boolean;
+      recommended?: boolean;
+    }>;
+    message: string;
+  }>;
+  downloadSubtitleModel: (modelId: string) => Promise<{
+    usable: boolean;
+    engineReady: boolean;
+    engineType: 'external' | 'whisper.cpp-gpu' | 'whisper.cpp-cpu' | 'missing';
+    enginePath?: string;
+    models: Array<{
+      id: 'small' | 'medium' | 'large-v3';
+      name: string;
+      description: string;
+      quality: string;
+      speed: string;
+      hardware: string;
+      sizeLabel: string;
+      fileName: string;
+      url: string;
+      path: string;
+      downloaded: boolean;
+      recommended?: boolean;
+    }>;
+    message: string;
+  }>;
+  onSubtitleModelDownloadProgress: (callback: (data: {
+    modelId: string;
+    downloadedBytes: number;
+    totalBytes: number;
+    percent: number;
+    status: 'downloading' | 'done' | 'error';
+  }) => void) => () => void;
 
   // === 事件监听 ===
   onJobStart: (callback: (data: { total: number; orientation: string; concurrency: number }) => void) => () => void;
@@ -478,6 +564,11 @@ const api: ElectronAPI = {
   getPreviewThumbnail: (filePath) => ipcRenderer.invoke("get-preview-thumbnail", filePath),
   getVideoThumbnail: (filePath, options) => ipcRenderer.invoke("get-video-thumbnail", filePath, options),
   getVideoFullInfo: (filePath, options) => ipcRenderer.invoke("video:get-full-info", filePath, options),
+  extractSubtitles: (config) => ipcRenderer.invoke("video:extract-subtitles", config),
+  onSubtitleExtractProgress: (cb) => ipcRenderer.on("subtitle-extract-progress", (_e, data) => cb(data)),
+  getSubtitleModelStatus: () => ipcRenderer.invoke("video:subtitle-model-status"),
+  downloadSubtitleModel: (modelId) => ipcRenderer.invoke("video:download-subtitle-model", modelId),
+  onSubtitleModelDownloadProgress: (cb) => ipcRenderer.on("subtitle-model-download-progress", (_e, data) => cb(data)),
   generateResizePreviews: (config) => ipcRenderer.invoke("generate-resize-previews", config),
   clearResizePreviews: (previewPaths) => ipcRenderer.invoke("clear-resize-previews", previewPaths),
 
