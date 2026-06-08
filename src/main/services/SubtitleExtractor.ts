@@ -106,8 +106,26 @@ interface CommandSpec {
   args: string[];
 }
 
+interface WhisperJsonToken {
+  text?: string;
+  p?: number;
+}
+
+interface WhisperJsonSegment {
+  text?: string;
+  tokens?: WhisperJsonToken[];
+}
+
+interface WhisperJsonOutput {
+  transcription?: WhisperJsonSegment[];
+}
+
 const DEFAULT_VAD_THRESHOLD_DB = -35;
 const DEFAULT_MIN_SPEECH_DURATION = 0.6;
+const COMMON_HALLUCINATION_PATTERNS = [
+  /请不吝点赞.*订阅.*转发.*打赏.*支持.*明镜.*点点栏目/i,
+  /请不吝点赞订阅转发打赏支持明镜与点点栏目/i,
+];
 const DEFAULT_MODEL_BASE_URL = 'https://modelscope.cn/api/v1/models/iceCream2025/whisper.cpp/repo?Revision=master&FilePath=';
 const MODEL_BASE_URL = process.env.WHISPER_MODEL_BASE_URL || DEFAULT_MODEL_BASE_URL;
 const MODEL_CONFIGS: Array<Omit<SubtitleModelItem, 'url' | 'path' | 'downloaded'>> = [
@@ -485,8 +503,8 @@ async function prepareAudio(videoPath: string, outputPath: string, range?: Omit<
 
   const baseArgs = [
     '-y',
-    ...(range ? ['-ss', range.start.toFixed(3), '-t', (range.end - range.start).toFixed(3)] : []),
     '-i', videoPath,
+    ...(range ? ['-ss', range.start.toFixed(3), '-t', (range.end - range.start).toFixed(3)] : []),
     '-vn',
     '-ac', '1',
     '-ar', '16000',
@@ -500,8 +518,8 @@ async function prepareAudio(videoPath: string, outputPath: string, range?: Omit<
     // 个别 FFmpeg 构建可能缺少某些高级滤镜，降级到稳定的单声道与响度标准化。
     await runFfmpeg([
       '-y',
-      ...(range ? ['-ss', range.start.toFixed(3), '-t', (range.end - range.start).toFixed(3)] : []),
       '-i', videoPath,
+      ...(range ? ['-ss', range.start.toFixed(3), '-t', (range.end - range.start).toFixed(3)] : []),
       '-vn',
       '-ac', '1',
       '-ar', '16000',
@@ -595,7 +613,20 @@ async function detectSpeechRanges(audioPath: string, duration: number, threshold
       return acc;
     }, []);
 
-  return merged.length > 0 ? merged : [{ start: 0, end: duration }];
+  if (merged.length > 0) {
+    return merged;
+  }
+
+  const totalSilenceDuration = silences.reduce((total, silence) => {
+    return total + Math.max(0, Math.min(duration, silence.end) - Math.max(0, silence.start));
+  }, 0);
+
+  // 接近全程静音时不送给 Whisper；否则保留较短的疑似人声，避免误删短口播。
+  if (duration > 0 && totalSilenceDuration / duration >= 0.95) {
+    return [];
+  }
+
+  return speechRanges.filter(range => range.end - range.start >= 0.15);
 }
 
 async function extractAudioSegment(audioPath: string, segmentPath: string, range: SpeechRange): Promise<void> {
@@ -627,7 +658,11 @@ async function runWhisper(segmentPath: string, outputDir: string, model: string,
           '-m', modelPath,
           '-f', segmentPath,
           '-l', language,
+          '-nf',
+          '-sns',
+          '-tp', '0.00',
           '-otxt',
+          '-ojf',
           '-of', outputBase,
         ], { timeout: 1000 * 60 * 20 });
         lastError = null;
@@ -659,23 +694,90 @@ async function runWhisper(segmentPath: string, outputDir: string, model: string,
       '--output_format', 'txt',
       '--output_dir', outputDir,
       '--fp16', 'False',
+      '--temperature', '0',
+      '--condition_on_previous_text', 'False',
     ];
 
     await runCommand(commandSpec.command, args, { timeout: 1000 * 60 * 20 });
   }
 
   const baseName = path.basename(segmentPath, path.extname(segmentPath));
+  const jsonPath = path.join(outputDir, `${baseName}.json`);
+  if (fs.existsSync(jsonPath)) {
+    try {
+      const json = JSON.parse(fs.readFileSync(jsonPath, 'utf-8')) as WhisperJsonOutput;
+      return filterWhisperJson(json);
+    } catch {
+      // JSON 结果异常时降级读取 TXT，避免影响正常识别。
+    }
+  }
+
   const txtPath = path.join(outputDir, `${baseName}.txt`);
   if (fs.existsSync(txtPath)) {
-    return fs.readFileSync(txtPath, 'utf-8').trim();
+    return filterWhisperText(fs.readFileSync(txtPath, 'utf-8'));
   }
 
   const txtFile = fs.readdirSync(outputDir).find(file => file.toLowerCase().endsWith('.txt'));
   if (txtFile) {
-    return fs.readFileSync(path.join(outputDir, txtFile), 'utf-8').trim();
+    return filterWhisperText(fs.readFileSync(path.join(outputDir, txtFile), 'utf-8'));
   }
 
   return '';
+}
+
+function filterWhisperText(text: string): string {
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  const normalizedLines = lines.map(normalizeWhisperText);
+  const counts = new Map<string, number>();
+  normalizedLines.forEach(line => counts.set(line, (counts.get(line) || 0) + 1));
+  const repeatedCount = normalizedLines.filter(line => (counts.get(line) || 0) >= 3).length;
+
+  if (lines.length >= 3 && repeatedCount / lines.length >= 0.5) {
+    return '';
+  }
+
+  return lines
+    .filter(line => !isCommonHallucination(line))
+    .join('\n');
+}
+
+function filterWhisperJson(json: WhisperJsonOutput): string {
+  const segments = (json.transcription || [])
+    .map(segment => {
+      const text = segment.text?.trim() || '';
+      const tokens = (segment.tokens || []).filter(token => token.text && !token.text.startsWith('[') && Number.isFinite(token.p));
+      const averageConfidence = tokens.length > 0
+        ? tokens.reduce((sum, token) => sum + (token.p || 0), 0) / tokens.length
+        : 0;
+      return { text, averageConfidence, normalized: normalizeWhisperText(text) };
+    })
+    .filter(segment => segment.text);
+
+  const counts = new Map<string, number>();
+  segments.forEach(segment => counts.set(segment.normalized, (counts.get(segment.normalized) || 0) + 1));
+  const repeatedCount = segments.filter(segment => (counts.get(segment.normalized) || 0) >= 3).length;
+  if (segments.length >= 3 && repeatedCount / segments.length >= 0.5) {
+    return '';
+  }
+
+  return segments
+    .filter(segment => !isCommonHallucination(segment.text))
+    .map(segment => segment.text)
+    .join('\n');
+}
+
+function normalizeWhisperText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[\s，。！？、,.!?;；:：'"“”‘’（）()【】[\]]+/g, '');
+}
+
+function isCommonHallucination(text: string): boolean {
+  const normalized = normalizeWhisperText(text);
+  return COMMON_HALLUCINATION_PATTERNS.some(pattern => pattern.test(normalized));
 }
 
 function formatSrtTime(seconds: number): string {
@@ -729,6 +831,13 @@ async function extractOneVideo(
     const audioDuration = await getMediaDuration(audioPath);
     if (!audioDuration) {
       throw new Error('无法读取音频时长');
+    }
+    if (range) {
+      const expectedDuration = range.end - range.start;
+      const durationDifference = Math.abs(audioDuration - expectedDuration);
+      if (durationDifference > Math.max(0.5, expectedDuration * 0.1)) {
+        throw new Error(`局部音频截取异常：期望 ${expectedDuration.toFixed(1)} 秒，实际 ${audioDuration.toFixed(1)} 秒`);
+      }
     }
 
     const speechRanges = await detectSpeechRanges(audioPath, audioDuration, options.vadThresholdDb, options.minSpeechDuration);

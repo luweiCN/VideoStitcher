@@ -1311,6 +1311,8 @@ const SubtitleExtractorMode: React.FC = () => {
                                       ? '正在识别这条视频...'
                                       : file.status === 'queued'
                                         ? '已加入队列，前面的视频完成后会继续识别这一条。'
+                                        : file.status === 'done'
+                                          ? '未生成可靠识别结果，请尝试调整识别范围或更换模型。'
                                         : '识别结果会显示在这里，可直接编辑校对。'
                                   }
                                 />
