@@ -159,6 +159,7 @@ export interface ElectronAPI {
   }>;
   extractSubtitles: (config: {
     videos: string[];
+    ranges?: Array<{ path: string; start: number; end: number }>;
     model?: string;
     language?: string;
     vadThresholdDb?: number;

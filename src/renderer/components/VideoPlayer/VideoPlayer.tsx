@@ -52,10 +52,18 @@ export interface VideoPlayerProps {
   onPlayStateChange?: (isPlaying: boolean) => void;
   /** 进度变化回调 */
   onProgress?: (currentTime: number, duration: number) => void;
+  /** 外部请求跳转到指定时间 */
+  seekTime?: number;
+  /** 外部跳转请求序号，用于重复跳转到同一时间 */
+  seekToken?: number;
   /** 主题色 */
   themeColor?: ThemeColor;
   /** 精简模式：只显示进度条和音量控制 */
   minimal?: boolean;
+  /** 时间轴模式：隐藏播放器自带进度条，使用外部时间轴 */
+  externalTimeline?: boolean;
+  /** 外部强制暂停请求标识，标识变化时立即暂停 */
+  pauseToken?: string;
 }
 
 // ============================================================================
@@ -119,8 +127,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onNext,
   onPlayStateChange,
   onProgress,
+  seekTime,
+  seekToken,
   themeColor = 'cyan',
   minimal = false,
+  externalTimeline = false,
+  pauseToken,
 }) => {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -193,7 +205,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
 
     const player = new Plyr(videoElement, {
-      controls: minimal
+      controls: externalTimeline
+        ? ['play', 'current-time', 'duration', 'mute', 'volume']
+        : minimal
         ? ['play', 'progress', 'current-time', 'duration', 'mute', 'volume']
         : [
             'play-large',
@@ -285,7 +299,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }
     };
-  }, [previewUrl, isLoadingUrl, autoPlay, loop, muted, minimal]);
+  }, [previewUrl, isLoadingUrl, autoPlay, loop, muted, minimal, externalTimeline]);
 
   /**
    * 监听外部 paused 状态变化
@@ -307,6 +321,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     }
   }, [paused]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || seekTime === undefined || !Number.isFinite(seekTime)) return;
+    player.currentTime = Math.max(0, Math.min(seekTime, player.duration || seekTime));
+  }, [seekTime, seekToken]);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || pauseToken === undefined) return;
+    player.pause();
+  }, [pauseToken]);
 
   /**
    * 键盘快捷键处理

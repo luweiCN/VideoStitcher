@@ -20,10 +20,17 @@ import { getFfprobePath } from '@shared/ffmpeg/ffprobe';
 
 export interface SubtitleExtractRequest {
   videos: string[];
+  ranges?: SubtitleTimeRange[];
   model?: string;
   language?: string;
   vadThresholdDb?: number;
   minSpeechDuration?: number;
+}
+
+export interface SubtitleTimeRange {
+  path: string;
+  start: number;
+  end: number;
 }
 
 export interface SubtitleSegment {
@@ -466,7 +473,7 @@ async function getMediaDuration(filePath: string): Promise<number> {
   }
 }
 
-async function prepareAudio(videoPath: string, outputPath: string): Promise<void> {
+async function prepareAudio(videoPath: string, outputPath: string, range?: Omit<SubtitleTimeRange, 'path'>): Promise<void> {
   const mainFilter = [
     'highpass=f=80',
     'lowpass=f=7600',
@@ -478,6 +485,7 @@ async function prepareAudio(videoPath: string, outputPath: string): Promise<void
 
   const baseArgs = [
     '-y',
+    ...(range ? ['-ss', range.start.toFixed(3), '-t', (range.end - range.start).toFixed(3)] : []),
     '-i', videoPath,
     '-vn',
     '-ac', '1',
@@ -492,6 +500,7 @@ async function prepareAudio(videoPath: string, outputPath: string): Promise<void
     // 个别 FFmpeg 构建可能缺少某些高级滤镜，降级到稳定的单声道与响度标准化。
     await runFfmpeg([
       '-y',
+      ...(range ? ['-ss', range.start.toFixed(3), '-t', (range.end - range.start).toFixed(3)] : []),
       '-i', videoPath,
       '-vn',
       '-ac', '1',
@@ -693,21 +702,38 @@ function buildSrt(segments: SubtitleSegment[]): string {
   }).join('\n\n');
 }
 
-async function extractOneVideo(videoPath: string, options: Required<Pick<SubtitleExtractRequest, 'model' | 'language' | 'vadThresholdDb' | 'minSpeechDuration'>>): Promise<SubtitleExtractResult> {
+async function extractOneVideo(
+  videoPath: string,
+  options: Required<Pick<SubtitleExtractRequest, 'model' | 'language' | 'vadThresholdDb' | 'minSpeechDuration'>>,
+  requestedRange?: SubtitleTimeRange
+): Promise<SubtitleExtractResult> {
   const tempDir = createTempDir();
   const name = path.basename(videoPath);
 
   try {
-    const audioPath = path.join(tempDir, 'prepared.wav');
-    await prepareAudio(videoPath, audioPath);
+    const videoDuration = await getMediaDuration(videoPath);
+    const durationLimit = videoDuration || requestedRange?.end || 0;
+    const rangeStart = Math.max(0, Math.min(requestedRange?.start ?? 0, durationLimit));
+    const rangeEnd = Math.max(rangeStart, Math.min(requestedRange?.end ?? durationLimit, durationLimit));
+    const range = rangeEnd - rangeStart >= 0.1 && (rangeStart > 0 || (videoDuration > 0 && rangeEnd < videoDuration))
+      ? { start: rangeStart, end: rangeEnd }
+      : undefined;
 
-    const duration = await getMediaDuration(audioPath);
-    if (!duration) {
+    if (requestedRange && rangeEnd - rangeStart < 0.1) {
+      throw new Error('识别时间范围过短，请至少选择 0.1 秒');
+    }
+
+    const audioPath = path.join(tempDir, 'prepared.wav');
+    await prepareAudio(videoPath, audioPath, range);
+
+    const audioDuration = await getMediaDuration(audioPath);
+    if (!audioDuration) {
       throw new Error('无法读取音频时长');
     }
 
-    const speechRanges = await detectSpeechRanges(audioPath, duration, options.vadThresholdDb, options.minSpeechDuration);
+    const speechRanges = await detectSpeechRanges(audioPath, audioDuration, options.vadThresholdDb, options.minSpeechDuration);
     const segments: SubtitleSegment[] = [];
+    const timelineOffset = range?.start ?? 0;
 
     for (let index = 0; index < speechRanges.length; index += 1) {
       const range = speechRanges[index];
@@ -720,8 +746,8 @@ async function extractOneVideo(videoPath: string, options: Required<Pick<Subtitl
 
       if (text) {
         segments.push({
-          start: range.start,
-          end: range.end,
+          start: range.start + timelineOffset,
+          end: range.end + timelineOffset,
           text,
         });
       }
@@ -737,7 +763,7 @@ async function extractOneVideo(videoPath: string, options: Required<Pick<Subtitl
       text,
       srt,
       segments,
-      duration,
+      duration: videoDuration || audioDuration + timelineOffset,
     };
   } catch (error) {
     return {
@@ -780,7 +806,8 @@ export async function extractSubtitles(
       path: video,
     });
 
-    const result = await extractOneVideo(video, options);
+    const range = request.ranges?.find(item => item.path === video);
+    const result = await extractOneVideo(video, options, range);
     results.push(result);
     onProgress?.({
       status: result.success ? 'done' : 'error',

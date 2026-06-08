@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Captions,
   CheckCircle2,
@@ -6,10 +7,13 @@ import {
   Download,
   FileVideo,
   Loader2,
+  Maximize2,
   PlayCircle,
   RefreshCw,
+  RotateCcw,
   Sparkles,
   Trash2,
+  X,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import OperationLogPanel from '@/components/OperationLogPanel';
@@ -60,6 +64,8 @@ interface SubtitleFile {
   width?: number;
   height?: number;
   orientation?: 'landscape' | 'portrait' | 'square' | null;
+  rangeStart: number;
+  rangeEnd?: number;
   isLoadingInfo?: boolean;
   error?: string;
 }
@@ -106,12 +112,295 @@ const formatDurationWithSeconds = (duration?: number) => {
   return `${duration.toFixed(1)} 秒（${formatDuration(duration)}）`;
 };
 
+const formatRangeTime = (seconds: number) => {
+  const safeSeconds = Math.max(0, seconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toFixed(1).padStart(4, '0')}`;
+};
+
+interface TimeRangeSelectorProps {
+  duration?: number;
+  start: number;
+  end?: number;
+  currentTime?: number;
+  disabled?: boolean;
+  onChange: (start: number, end: number) => void;
+  onPreviewChange: (time: number) => void;
+}
+
+type TimelineHandle = 'start' | 'end' | 'preview';
+
+const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
+  duration,
+  start,
+  end,
+  currentTime = 0,
+  disabled,
+  onChange,
+  onPreviewChange,
+}) => {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [draggingHandle, setDraggingHandle] = useState<TimelineHandle | null>(null);
+  const max = Math.max(0.1, duration ?? 0.1);
+  const safeStart = Math.min(start, max);
+  const safeEnd = Math.max(safeStart, Math.min(end ?? max, max));
+  const isFullRange = safeStart <= 0.05 && Math.abs(safeEnd - max) <= 0.05;
+  const startPercent = (safeStart / max) * 100;
+  const endPercent = (safeEnd / max) * 100;
+  const currentPercent = Math.max(0, Math.min(100, (currentTime / max) * 100));
+
+  const getTimeFromPointer = (clientX: number) => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect) return 0;
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return Math.round(percent * max * 10) / 10;
+  };
+
+  const updateHandle = (handle: TimelineHandle, clientX: number) => {
+    const time = getTimeFromPointer(clientX);
+    if (handle === 'start') {
+      const nextStart = Math.max(0, Math.min(time, safeEnd - 0.1));
+      onChange(nextStart, safeEnd);
+    } else if (handle === 'end') {
+      onChange(safeStart, Math.max(time, safeStart + 0.1));
+    } else {
+      onPreviewChange(time);
+    }
+  };
+
+  useEffect(() => {
+    if (!draggingHandle) return;
+
+    const handlePointerMove = (event: PointerEvent) => updateHandle(draggingHandle, event.clientX);
+    const handlePointerUp = () => setDraggingHandle(null);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [draggingHandle, safeStart, safeEnd, max]);
+
+  const beginDrag = (handle: TimelineHandle, event: React.PointerEvent) => {
+    if (disabled || !duration) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setDraggingHandle(handle);
+    updateHandle(handle, event.clientX);
+  };
+
+  return (
+    <div className="rounded-xl border border-slate-700/70 bg-neutral-950/95 px-4 py-3 shadow-2xl">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-slate-200">单轨道识别范围</p>
+          <p className="mt-0.5 text-xs text-slate-500">
+            {duration ? `${formatRangeTime(safeStart)} - ${formatRangeTime(safeEnd)}，共 ${(safeEnd - safeStart).toFixed(1)} 秒` : '正在读取视频时长...'}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-slate-500 transition-colors hover:bg-cyan-500/10 hover:text-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={disabled || !duration || isFullRange}
+          onClick={() => onChange(0, max)}
+        >
+          <RotateCcw className="h-3 w-3" />
+          全部时间
+        </button>
+      </div>
+      <div
+        ref={trackRef}
+        className={`relative h-12 select-none ${disabled || !duration ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+        onPointerDown={(event) => {
+          if (disabled || !duration) return;
+          onPreviewChange(getTimeFromPointer(event.clientX));
+        }}
+      >
+        <div
+          data-timeline-track
+          className="absolute left-0 right-0 top-1/2 h-3 -translate-y-1/2 overflow-hidden rounded-sm border border-slate-700 bg-slate-900"
+        >
+          <div
+            className="absolute inset-y-0 bg-cyan-500/80 shadow-[0_0_18px_rgba(6,182,212,0.5)]"
+            style={{ left: `${startPercent}%`, width: `${endPercent - startPercent}%` }}
+          />
+        </div>
+
+        <button
+          type="button"
+          aria-label="拖动识别开始时间"
+          className="absolute top-1/2 z-20 h-8 w-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-cyan-100 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.7)] transition-transform hover:scale-110"
+          style={{ left: `${startPercent}%` }}
+          onPointerDown={event => beginDrag('start', event)}
+        />
+        <button
+          type="button"
+          aria-label="拖动识别结束时间"
+          className="absolute top-1/2 z-20 h-8 w-3 -translate-x-1/2 -translate-y-1/2 rounded-sm border border-cyan-100 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.7)] transition-transform hover:scale-110"
+          style={{ left: `${endPercent}%` }}
+          onPointerDown={event => beginDrag('end', event)}
+        />
+        <button
+          type="button"
+          aria-label="拖动视频预览轴"
+          className="absolute inset-y-0 z-30 w-5 -translate-x-1/2 cursor-ew-resize outline-none"
+          style={{ left: `${currentPercent}%` }}
+          onPointerDown={event => beginDrag('preview', event)}
+        >
+          <span className="absolute left-1/2 top-0 -translate-x-1/2 rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-black shadow">
+            {formatRangeTime(currentTime)}
+          </span>
+          <span className="absolute bottom-0 left-1/2 top-5 w-0.5 -translate-x-1/2 bg-amber-300 shadow-[0_0_8px_rgba(252,211,77,0.9)]" />
+        </button>
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] text-slate-600">
+        <span>00:00.0</span>
+        <span>{duration ? formatRangeTime(max) : '--:--.-'}</span>
+      </div>
+    </div>
+  );
+};
+
+interface SubtitleRangePreviewModalProps {
+  file: SubtitleFile | null;
+  disabled?: boolean;
+  onClose: () => void;
+  onRangeChange: (fileId: string, start: number, end: number) => void;
+  onExtract: (file: SubtitleFile) => void;
+}
+
+const SubtitleRangePreviewModal: React.FC<SubtitleRangePreviewModalProps> = ({
+  file,
+  disabled,
+  onClose,
+  onRangeChange,
+  onExtract,
+}) => {
+  const [currentTime, setCurrentTime] = useState(0);
+  const [seekTime, setSeekTime] = useState<number | undefined>(undefined);
+  const [seekToken, setSeekToken] = useState(0);
+  const previewTimeRef = useRef(0);
+  const seekVideo = (time: number) => {
+    setSeekTime(time);
+    setSeekToken(token => token + 1);
+  };
+  const movePreviewBy = (delta: number) => {
+    const duration = file?.duration ?? 0;
+    const nextTime = Math.round(Math.max(0, Math.min(duration, previewTimeRef.current + delta)) * 10) / 10;
+    previewTimeRef.current = nextTime;
+    setCurrentTime(nextTime);
+    seekVideo(nextTime);
+  };
+
+  useEffect(() => {
+    if (!file) return;
+    setCurrentTime(0);
+    setSeekTime(undefined);
+    previewTimeRef.current = 0;
+  }, [file?.id]);
+
+  useEffect(() => {
+    if (!file) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        movePreviewBy(event.key === 'ArrowLeft' ? -0.1 : 0.1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [file?.id, file?.duration, onClose]);
+
+  if (!file) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-5 backdrop-blur-sm">
+      <div className="flex h-[88vh] w-[92vw] max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-700/70 bg-black shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-800 px-5 py-4">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-semibold text-slate-100">{file.name}</h3>
+            <p className="mt-1 text-xs text-slate-500">青色双端手柄控制识别范围，黄色预览轴可拖动定位视频。</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-800 hover:text-white"
+            aria-label="关闭预览"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="relative min-h-0 flex-1 bg-black p-4">
+          <VideoPlayer
+            key={`range-preview-${file.path}`}
+            src={file.path}
+            title={file.name}
+            showTitle={false}
+            paused
+            themeColor="cyan"
+            externalTimeline
+            seekTime={seekTime}
+            seekToken={seekToken}
+            className="h-full w-full"
+          />
+          <div className="absolute bottom-20 left-8 right-8 z-20">
+            <TimeRangeSelector
+              duration={file.duration}
+              start={file.rangeStart}
+              end={file.rangeEnd}
+              currentTime={currentTime}
+              disabled={disabled}
+              onChange={(start, end) => onRangeChange(file.id, start, end)}
+              onPreviewChange={(time) => {
+                previewTimeRef.current = time;
+                setCurrentTime(time);
+                seekVideo(time);
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-slate-800 bg-neutral-950/95 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              当前识别范围：{formatRangeTime(file.rangeStart)} - {formatRangeTime(file.rangeEnd ?? file.duration ?? 0)}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" className="metal-control" onClick={onClose}>完成</Button>
+              <Button
+                variant="secondary"
+                themeColor="cyan"
+                className="metal-primary"
+                leftIcon={<PlayCircle className="h-4 w-4" />}
+                disabled={disabled || file.isLoadingInfo}
+                onClick={() => onExtract(file)}
+              >
+                开始识别此范围
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 const SubtitleExtractorMode: React.FC = () => {
   const { isLightTheme, togglePageTheme } = usePageTheme();
   const toast = useToastMessages();
   const fileSelectorRef = useRef<FileSelectorRef>(null);
   const [files, setFiles] = useState<SubtitleFile[]>([]);
   const [activeId, setActiveId] = useState<string>('');
+  const [rangePreviewId, setRangePreviewId] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [outputMode, setOutputMode] = useState<'txt' | 'srt'>('txt');
@@ -147,6 +436,10 @@ const SubtitleExtractorMode: React.FC = () => {
   const activeFile = useMemo(() => {
     return files.find(file => file.id === activeId) || files[0];
   }, [activeId, files]);
+
+  const rangePreviewFile = useMemo(() => {
+    return files.find(file => file.id === rangePreviewId) || null;
+  }, [files, rangePreviewId]);
 
   const mergedText = useMemo(() => {
     return files.map(file => outputMode === 'txt' ? file.text : file.srt).filter(Boolean).join('\n\n');
@@ -253,6 +546,7 @@ const SubtitleExtractorMode: React.FC = () => {
         status: 'waiting' as ExtractStatus,
         text: '',
         srt: '',
+        rangeStart: 0,
         isLoadingInfo: true,
       };
     });
@@ -300,6 +594,7 @@ const SubtitleExtractorMode: React.FC = () => {
           width: result.width,
           height: result.height,
           orientation: result.orientation,
+          rangeEnd: file.rangeEnd ?? result.duration,
           isLoadingInfo: result.isLoadingInfo,
         } : file;
       }));
@@ -312,8 +607,8 @@ const SubtitleExtractorMode: React.FC = () => {
     };
   }, [files]);
 
-  const handleExtract = async () => {
-    if (files.length === 0) {
+  const runExtraction = async (targetFiles: SubtitleFile[]) => {
+    if (targetFiles.length === 0) {
       toast.warning('请先拖入需要提取字幕的视频', '暂无视频');
       addLog('未选择视频，无法开始提取', 'warning');
       return;
@@ -321,7 +616,7 @@ const SubtitleExtractorMode: React.FC = () => {
 
     setIsExtracting(true);
     setCopied(false);
-    addLog(`开始识别 ${files.length} 个视频台词`, 'info');
+    addLog(`开始识别 ${targetFiles.length} 个视频台词`, 'info');
     addLog('处理流程：提取音频 → 降噪/人声增强 → VAD 检测 → Whisper 识别 → 输出 TXT/SRT', 'info');
 
     if (typeof window.api.extractSubtitles !== 'function') {
@@ -348,15 +643,27 @@ const SubtitleExtractorMode: React.FC = () => {
       return;
     }
 
-    setFiles(prevFiles => prevFiles.map((file, index) => ({
-      ...file,
-      status: index === 0 ? 'pending' : 'queued',
-      error: undefined,
-    })));
+    const targetPaths = new Set(targetFiles.map(file => file.path));
+    setFiles(prevFiles => prevFiles.map(file => {
+      if (!targetPaths.has(file.path)) return file;
+      const targetIndex = targetFiles.findIndex(target => target.path === file.path);
+      return {
+        ...file,
+        status: targetIndex === 0 ? 'pending' : 'queued',
+        error: undefined,
+      };
+    }));
 
     try {
       const result = await window.api.extractSubtitles({
-        videos: files.map(file => file.path),
+        videos: targetFiles.map(file => file.path),
+        ranges: targetFiles
+          .filter(file => file.duration && (file.rangeEnd ?? file.duration) > file.rangeStart)
+          .map(file => ({
+            path: file.path,
+            start: file.rangeStart,
+            end: file.rangeEnd ?? file.duration!,
+          })),
         model: selectedModelId,
         language: 'zh',
         vadThresholdDb: -35,
@@ -407,10 +714,37 @@ const SubtitleExtractorMode: React.FC = () => {
     }
   };
 
+  const handleExtractAll = () => {
+    void runExtraction(files);
+  };
+
+  const handleExtractOne = (file: SubtitleFile) => {
+    setActiveId(file.id);
+    void runExtraction([file]);
+  };
+
+  const handleRangeChange = (fileId: string, start: number, end: number) => {
+    setFiles(prevFiles => prevFiles.map(file => (
+      file.id === fileId
+        ? {
+            ...file,
+            rangeStart: start,
+            rangeEnd: end,
+            status: file.status === 'pending' || file.status === 'queued' ? file.status : 'waiting',
+          }
+        : file
+    )));
+  };
+
+  const handleCloseRangePreview = useCallback(() => {
+    setRangePreviewId('');
+  }, []);
+
   const handleClear = () => {
     fileSelectorRef.current?.clearFiles();
     setFiles([]);
     setActiveId('');
+    setRangePreviewId('');
     setCopied(false);
     addLog('已清空视频列表和提取结果', 'info');
   };
@@ -708,10 +1042,10 @@ const SubtitleExtractorMode: React.FC = () => {
                 themeColor="cyan"
                 className="metal-primary"
                 leftIcon={isExtracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                onClick={handleExtract}
+                onClick={handleExtractAll}
                 disabled={isExtracting || !!downloadingModelId}
               >
-                {isExtracting ? '识别中' : '开始提取'}
+                {isExtracting ? '识别中' : '一键全部识别'}
               </Button>
               <Button
                 variant="ghost"
@@ -847,44 +1181,81 @@ const SubtitleExtractorMode: React.FC = () => {
                                 <p className="mt-1 text-xs text-slate-500">{getStatusText(file)}</p>
                               </button>
 
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="metal-control"
-                                leftIcon={<ClipboardCopy className="h-4 w-4" />}
-                                onClick={() => copyText(textValue, `已复制 ${file.name} 的 ${outputMode.toUpperCase()} 文案`)}
-                                disabled={!textValue}
-                              >
-                                复制
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  themeColor="cyan"
+                                  className="metal-primary"
+                                  leftIcon={file.status === 'pending' ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+                                  onClick={() => handleExtractOne(file)}
+                                  disabled={isExtracting || !!downloadingModelId || file.isLoadingInfo}
+                                >
+                                  {file.status === 'pending' ? '识别中' : '开始识别'}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="metal-control"
+                                  leftIcon={<ClipboardCopy className="h-4 w-4" />}
+                                  onClick={() => copyText(textValue, `已复制 ${file.name} 的 ${outputMode.toUpperCase()} 文案`)}
+                                  disabled={!textValue}
+                                >
+                                  复制
+                                </Button>
+                              </div>
                             </div>
                             <div className={`result-item-body grid items-stretch gap-4 ${bodyGridClass}`}>
-                              <div
-                                className={`video-preview-wrapper relative overflow-hidden rounded-lg border bg-black ${previewAspectClass} ${
-                                  isActive ? 'border-cyan-500/60' : 'border-slate-800'
-                                }`}
-                                onFocusCapture={() => setActiveId(file.id)}
-                                onClick={() => setActiveId(file.id)}
-                              >
-                                <VideoPlayer
-                                  key={`card-player-${file.path}`}
-                                  src={file.path}
-                                  title={file.name}
-                                  showTitle={false}
+                              <div className="flex min-w-0 flex-col gap-2">
+                                <div
+                                  className={`video-preview-wrapper group/preview relative cursor-pointer overflow-hidden rounded-lg border bg-black ${previewAspectClass} ${
+                                    isActive ? 'border-cyan-500/60' : 'border-slate-800'
+                                  }`}
+                                  onFocusCapture={() => setActiveId(file.id)}
+                                  onClick={() => {
+                                    setActiveId(file.id);
+                                    setRangePreviewId(file.id);
+                                  }}
+                                >
+                                  <VideoPlayer
+                                    key={`card-player-${file.path}`}
+                                    src={file.path}
+                                    title={file.name}
+                                    showTitle={false}
                                   muted
                                   minimal
                                   paused
+                                  pauseToken={rangePreviewId}
                                   themeColor="cyan"
-                                  className="h-full w-full rounded-lg"
-                                />
-                                <div className="pointer-events-none absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-[11px] text-slate-300">
-                                  {file.isLoadingInfo ? '读取中...' : formatDurationWithSeconds(file.duration)}
-                                </div>
-                                {isActive && (
-                                  <div className="pointer-events-none absolute right-2 top-2 rounded bg-cyan-500 px-1.5 py-0.5 text-[10px] font-medium text-black">
-                                    预览中
+                                    className="h-full w-full rounded-lg"
+                                  />
+                                  <div className="pointer-events-none absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-[11px] text-slate-300">
+                                    {file.isLoadingInfo ? '读取中...' : formatDurationWithSeconds(file.duration)}
                                   </div>
-                                )}
+                                  {isActive && (
+                                    <div className="pointer-events-none absolute right-2 top-2 rounded bg-cyan-500 px-1.5 py-0.5 text-[10px] font-medium text-black">
+                                      预览中
+                                    </div>
+                                  )}
+                                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover/preview:bg-black/45">
+                                    <div className="flex translate-y-2 items-center gap-2 rounded-lg border border-cyan-400/30 bg-black/80 px-3 py-2 text-xs font-medium text-cyan-300 opacity-0 transition-all group-hover/preview:translate-y-0 group-hover/preview:opacity-100">
+                                      <Maximize2 className="h-4 w-4" />
+                                      打开预览并设置识别范围
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="flex items-center justify-between gap-3 rounded-lg border border-slate-800/80 bg-black/30 px-3 py-2 text-left transition-colors hover:border-cyan-500/40 hover:bg-cyan-500/5"
+                                  onClick={() => setRangePreviewId(file.id)}
+                                >
+                                  <span className="text-[11px] text-slate-500">当前识别范围</span>
+                                  <span className="text-xs font-medium text-cyan-400">
+                                    {file.duration
+                                      ? `${formatRangeTime(file.rangeStart)} - ${formatRangeTime(file.rangeEnd ?? file.duration)}`
+                                      : '读取中...'}
+                                  </span>
+                                </button>
                               </div>
 
                               <div className="result-text-wrapper flex min-h-0 min-w-0 flex-col">
@@ -977,6 +1348,13 @@ const SubtitleExtractorMode: React.FC = () => {
           </section>
         </div>
       </main>
+      <SubtitleRangePreviewModal
+        file={rangePreviewFile}
+        disabled={isExtracting || !!downloadingModelId}
+        onClose={handleCloseRangePreview}
+        onRangeChange={handleRangeChange}
+        onExtract={handleExtractOne}
+      />
     </div>
   );
 };
