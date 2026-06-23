@@ -13,6 +13,7 @@ import { useOutputDirCache } from "../hooks/useOutputDirCache";
 import { useOperationLogs } from "../hooks/useOperationLogs";
 import { useTaskContext } from "../contexts/TaskContext";
 import { usePageTheme } from "../hooks/usePageTheme";
+import { useHomeSkin } from "../hooks/useHomeSkin";
 import PageThemeToggle from "../components/PageThemeToggle";
 import { loadImageAsElement } from "../utils/image";
 import {
@@ -30,7 +31,9 @@ const ImageMaterialMode: React.FC = () => {
 
   const navigate = useNavigate();
   const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
+  const metalRootRef = useRef<HTMLDivElement>(null);
   const { isLightTheme, togglePageTheme } = usePageTheme();
+  const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
 
   // 配置状态
   const { outputDir, setOutputDir } = useOutputDirCache("ImageMaterialMode");
@@ -376,10 +379,22 @@ const ImageMaterialMode: React.FC = () => {
     addLog("已清空编辑区域", "info");
   };
 
+  const handleMetalMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const root = metalRootRef.current;
+    if (!root) return;
+
+    root.style.setProperty("--metal-glint-x", `${event.clientX}px`);
+    root.style.setProperty("--metal-glint-y", `${event.clientY}px`);
+  }, []);
+
   return (
-    <div className={`h-screen flex flex-col ${
-      isLightTheme ? "theme-light-page bg-[#eef3f8] text-slate-900" : "bg-black text-slate-100"
-    }`}>
+    <div
+      ref={metalRootRef}
+      onMouseMove={handleMetalMouseMove}
+      className={`${workspaceSkinClassName} h-screen flex flex-col overflow-hidden font-sans transition-colors duration-300 ${
+      isLightTheme ? "theme-light-page bg-[#F8F8F5] text-[#222222]" : "bg-[#181818] text-[#D1D1D1]"
+    }`}
+    >
       <PageHeader
         title="图片素材处理"
         icon={Layers}
@@ -397,13 +412,11 @@ const ImageMaterialMode: React.FC = () => {
           ],
           themeColor: "amber",
         }}
-        rightContent={
-          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
-        }
+        rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
       />
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className="w-96 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+      <div className="flex-1 flex overflow-hidden gap-2 p-2 min-h-0">
+        <div className="metal-panel metal-sidebar w-96 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="p-4 space-y-4">
             <FileSelectorGroup ref={fileSelectorGroupRef}>
               <FileSelector
@@ -444,7 +457,7 @@ const ImageMaterialMode: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <div className="metal-panel metal-workspace flex-1 flex flex-col overflow-hidden min-w-0 border border-slate-800 rounded-2xl">
           {isGeneratingTasks ? (
             <div className="h-[164px] flex items-center justify-center border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-3">
@@ -465,7 +478,7 @@ const ImageMaterialMode: React.FC = () => {
             />
           )}
 
-          <div className="flex-1 flex flex-col flex-shrink-0 border-t border-slate-800 bg-black p-4 min-h-0">
+          <div className="flex-1 flex flex-col flex-shrink-0 border-t border-slate-800 p-4 min-h-0">
             <CanvasPreview
               canvasRef={canvasRef}
               previewSize={PREVIEW_SIZE}
@@ -485,7 +498,7 @@ const ImageMaterialMode: React.FC = () => {
           </div>
         </div>
 
-        <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
+        <div className="metal-panel metal-sidebar w-80 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-y-hidden">
           <div className="flex flex-col flex-1 overflow-y-auto p-4 space-y-4">
             {/* 输出目录 */}
             <OutputDirSelector
@@ -530,6 +543,7 @@ const ImageMaterialMode: React.FC = () => {
               fullWidth
               loading={isAdding}
               leftIcon={!isAdding && <Plus className="w-4 h-4" />}
+              className="metal-cta-button"
             >
               {isAdding ? "添加中..." : "添加到任务中心"}
             </Button>

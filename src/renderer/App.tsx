@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Captions, Download, AlertCircle, Bell, ArrowRight, Play, Moon, Sun } from 'lucide-react';
+import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Captions, Download, AlertCircle, Bell, ArrowRight, Play, Moon, Sun, Palette } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { ToastProvider } from './components/Toast';
 import VideoMergeMode from './features/VideoMergeMode';
@@ -14,9 +14,11 @@ import ResizeMode from './features/ResizeMode';
 import SubtitleExtractorMode from './features/SubtitleExtractorMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
+import SkinStoreMode from './features/SkinStoreMode';
 import { TaskCenterProvider } from './contexts/TaskContext';
 import { VideoMergeProvider } from './contexts/VideoMergeContext';
 import { TaskCenterListPage, TaskCenterDashboard, HomeTaskIndicator, TaskDetailPage } from './components/TaskCenter';
+import { DEFAULT_HOME_SKIN_ID, HOME_SKIN_STORAGE_KEY, type HomeSkinId, isHomeSkinId } from './constants/homeSkins';
 
 interface UpdateInfo {
   version: string;
@@ -25,6 +27,11 @@ interface UpdateInfo {
 }
 
 type HomeTheme = 'light' | 'dark';
+
+const getSavedHomeSkin = (): HomeSkinId => {
+  const savedSkin = localStorage.getItem(HOME_SKIN_STORAGE_KEY);
+  return isHomeSkinId(savedSkin) ? savedSkin : DEFAULT_HOME_SKIN_ID;
+};
 
 // 全局更新通知弹窗组件
 const UpdateNotification: React.FC<{
@@ -72,11 +79,39 @@ const HomePage: React.FC<{
     const savedTheme = localStorage.getItem('home-theme');
     return savedTheme === 'dark' ? 'dark' : 'light';
   });
+  const [homeSkin, setHomeSkin] = useState<HomeSkinId>(() => getSavedHomeSkin());
   const isDarkTheme = homeTheme === 'dark';
 
   useEffect(() => {
+    if (homeSkin === 'metal-brass') {
+      localStorage.setItem('home-theme', 'dark');
+      if (homeTheme !== 'dark') {
+        setHomeTheme('dark');
+      }
+      return;
+    }
+
     localStorage.setItem('home-theme', homeTheme);
-  }, [homeTheme]);
+  }, [homeSkin, homeTheme]);
+
+  useEffect(() => {
+    const handleSkinChanged = () => {
+      const savedSkin = getSavedHomeSkin();
+      setHomeSkin(savedSkin);
+      if (savedSkin === 'metal-brass') {
+        localStorage.setItem('home-theme', 'dark');
+        setHomeTheme('dark');
+      }
+    };
+
+    window.addEventListener('home-skin-changed', handleSkinChanged);
+    window.addEventListener('storage', handleSkinChanged);
+
+    return () => {
+      window.removeEventListener('home-skin-changed', handleSkinChanged);
+      window.removeEventListener('storage', handleSkinChanged);
+    };
+  }, []);
 
   const features = [
     {
@@ -169,97 +204,236 @@ const HomePage: React.FC<{
     },
   ];
 
-  return (
-    <div className={`home-metal min-h-screen overflow-hidden flex flex-col font-sans relative pb-8 transition-colors duration-300 ${isDarkTheme ? 'home-lumia-dark text-white' : 'home-lumia-surface text-slate-900'}`}>
+  if (homeSkin === 'metal-brass') {
+    return (
+      <div className={`home-metal min-h-screen overflow-hidden flex flex-col font-sans relative pb-8 transition-colors duration-300 ${isDarkTheme ? 'home-lumia-dark text-white' : 'home-lumia-surface text-slate-900'}`}>
+        <header className="relative z-10 flex flex-col gap-4 px-5 pt-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+          <button
+            onClick={() => onNavigate('/')}
+            className="group flex items-center gap-3 border-0 bg-transparent p-0 cursor-pointer"
+            aria-label="返回首页"
+            type="button"
+          >
+            <div className={`relative h-11 w-11 rounded-2xl bg-gradient-to-br from-sky-400 via-blue-500 to-violet-500 shadow-lg ${isDarkTheme ? 'shadow-blue-950/40' : 'shadow-blue-200'}`}>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Play className="h-5 w-5 translate-x-0.5 fill-white text-white" />
+              </div>
+            </div>
+            <span className={`text-2xl font-black ${isDarkTheme ? 'text-white' : 'text-slate-900'}`}>VideoStitcher</span>
+          </button>
 
-      <header className="relative z-10 flex flex-col gap-4 px-5 pt-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <HomeTaskIndicator onClick={() => onNavigate('/taskCenter')} theme={homeTheme} />
+            <button
+              onClick={() => onNavigate('/skinStore')}
+              className={`group relative flex h-14 items-center gap-3 rounded-md border px-7 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 ${
+                isDarkTheme
+                  ? 'border-slate-700/70 bg-slate-900/80 shadow-[0_8px_24px_rgba(0,0,0,0.24)] hover:border-amber-400/50 hover:shadow-[0_16px_36px_rgba(251,191,36,0.10)]'
+                  : 'border-white/40 bg-slate-200/40 shadow-[0_8px_20px_rgba(15,23,42,0.22)] hover:border-white/70 hover:bg-slate-100/50'
+              }`}
+              type="button"
+            >
+              <Palette className="h-7 w-7 text-amber-500 transition-colors group-hover:text-amber-300" />
+              <span className={`text-base font-semibold transition-colors ${isDarkTheme ? 'text-slate-200 group-hover:text-white' : 'text-slate-700 group-hover:text-slate-950'}`}>
+                皮肤商店
+              </span>
+            </button>
+            <button
+              onClick={() => onNavigate('/admin')}
+              className={`group relative flex h-14 items-center gap-3 rounded-md border px-7 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 ${
+                isDarkTheme
+                  ? 'border-slate-700/70 bg-slate-900/80 shadow-[0_8px_24px_rgba(0,0,0,0.24)] hover:border-indigo-400/50 hover:shadow-[0_16px_36px_rgba(99,102,241,0.12)]'
+                  : 'border-white/40 bg-slate-200/40 shadow-[0_8px_20px_rgba(15,23,42,0.22)] hover:border-white/70 hover:bg-slate-100/50'
+              }`}
+              type="button"
+            >
+              <Settings className="h-7 w-7 text-indigo-500 transition-colors group-hover:text-violet-500" />
+              <span className={`text-base font-semibold transition-colors ${isDarkTheme ? 'text-slate-200 group-hover:text-white' : 'text-slate-700 group-hover:text-slate-950'}`}>
+                系统管理
+              </span>
+              {updateAvailable && (
+                <span className="absolute right-4 top-4 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-4 ring-emerald-100 animate-pulse" />
+              )}
+            </button>
+          </div>
+        </header>
+
+        <main className="relative z-10 flex-1 px-5 sm:px-8">
+          <section className="mx-auto flex w-full max-w-[1540px] flex-col pt-16 lg:pt-24">
+            <div className="text-left">
+              <h1 className={`text-5xl font-black leading-tight sm:text-7xl ${isDarkTheme ? 'text-slate-100' : 'text-neutral-700'}`}>
+                VideoStitcher
+              </h1>
+              <p className={`mt-5 text-2xl font-medium ${isDarkTheme ? 'text-slate-400' : 'text-neutral-500'}`}>全能视频批处理工具箱</p>
+            </div>
+
+            <div className="mt-10 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {features.map((feature) => {
+                const Icon = feature.icon;
+                return (
+                  <button
+                    key={feature.path}
+                    onClick={() => onNavigate(feature.path)}
+                    className={`home-lumia-tile group relative flex min-h-[310px] flex-col overflow-hidden rounded-[2px] border border-white/20 bg-gradient-to-br p-8 text-left text-white shadow-[0_5px_10px_rgba(15,23,42,0.45)] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_18px_28px_rgba(15,23,42,0.42)] ${feature.tileClass} ${
+                      isDarkTheme
+                        ? 'brightness-90'
+                        : ''
+                    }`}
+                    type="button"
+                  >
+                    <span className="absolute right-5 top-5 h-5 w-5 rounded-full border-2 border-white/80 bg-transparent transition-all duration-300 group-hover:border-emerald-200 group-hover:bg-emerald-400 group-hover:shadow-[0_0_16px_rgba(74,222,128,0.95)]" />
+                    <div className="flex h-24 w-24 items-center justify-center text-white drop-shadow-sm">
+                      <Icon className="h-20 w-20" strokeWidth={2.2} />
+                    </div>
+                    <div className="mt-auto">
+                      <h2 className="text-3xl font-black leading-tight text-white drop-shadow-sm">
+                        {feature.title}
+                      </h2>
+                      <p className="mt-4 text-xl font-medium leading-8 text-white/86">
+                        {feature.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </main>
+
+        <footer className={`relative z-10 mt-20 text-center text-sm font-medium ${isDarkTheme ? 'text-slate-500' : 'text-neutral-500'}`}>
+          <span>{appVersion} · © 2026 VideoStitcher · 全能视频处理工具箱</span>
+        </footer>
+      </div>
+    );
+  }
+
+  const navButtonClass = `group relative flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 ${
+    isDarkTheme
+      ? 'border-[#3B3B3B] bg-[#2A2A2A] text-[#D1D1D1] hover:border-[#4A4A4A] hover:bg-[#333333] hover:text-[#F2F2F2]'
+      : 'border-[#E7E5DF] bg-white text-[#444444] shadow-[0_6px_18px_rgba(34,34,34,0.05)] hover:border-[#DDD8CF] hover:bg-[#F3F3EF] hover:shadow-[0_12px_26px_rgba(34,34,34,0.08)]'
+  }`;
+
+  return (
+    <div className={`home-airbnb min-h-screen overflow-hidden flex flex-col font-sans relative transition-colors duration-300 ${
+      isDarkTheme ? 'home-dark bg-[#181818] text-[#F2F2F2]' : 'home-light bg-[#F8F8F5] text-[#222222]'
+    }`}>
+      <div className={`pointer-events-none absolute inset-0 ${
+        isDarkTheme
+          ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_30%)]'
+          : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.92),rgba(255,255,255,0)_34%)]'
+      }`} />
+
+      <header className="relative z-10 mx-auto flex w-full max-w-[1180px] flex-col gap-4 px-5 py-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
         <button
           onClick={() => onNavigate('/')}
           className="group flex items-center gap-3 border-0 bg-transparent p-0 cursor-pointer"
           aria-label="返回首页"
         >
-          <div className={`relative h-11 w-11 rounded-2xl bg-gradient-to-br from-sky-400 via-blue-500 to-violet-500 shadow-lg ${isDarkTheme ? 'shadow-blue-950/40' : 'shadow-blue-200'}`}>
+          <div className="relative h-11 w-11 rounded-lg bg-[#FF385C] shadow-[0_12px_28px_rgba(255,56,92,0.28)]">
             <div className="absolute inset-0 flex items-center justify-center">
               <Play className="h-5 w-5 translate-x-0.5 fill-white text-white" />
             </div>
           </div>
-          <span className={`text-2xl font-black ${isDarkTheme ? 'text-white' : 'text-slate-900'}`}>VideoStitcher</span>
+          <span className="text-xl font-black tracking-tight">VideoStitcher</span>
         </button>
 
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setHomeTheme(isDarkTheme ? 'light' : 'dark')}
-            className={`group relative flex h-14 items-center gap-3 rounded-md border px-6 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 ${
-              isDarkTheme
-                ? 'border-slate-700/70 bg-slate-900/80 shadow-[0_8px_24px_rgba(0,0,0,0.24)] hover:border-amber-400/50 hover:shadow-[0_16px_36px_rgba(251,191,36,0.08)]'
-                : 'border-white/40 bg-slate-200/40 shadow-[0_8px_20px_rgba(15,23,42,0.22)] hover:border-white/70 hover:bg-slate-100/50'
-            }`}
+            className={navButtonClass}
             aria-label={isDarkTheme ? '切换到白天模式' : '切换到黑夜模式'}
           >
             {isDarkTheme ? (
-              <Sun className="h-7 w-7 text-amber-300 transition-colors group-hover:text-amber-200" />
+              <Sun className="h-4 w-4 text-amber-300" />
             ) : (
-              <Moon className="h-7 w-7 text-indigo-500 transition-colors group-hover:text-violet-500" />
+              <Moon className="h-4 w-4 text-slate-700" />
             )}
-            <span className={`text-base font-semibold transition-colors ${isDarkTheme ? 'text-slate-200 group-hover:text-white' : 'text-slate-700 group-hover:text-slate-950'}`}>
+            <span>
               {isDarkTheme ? '白天模式' : '黑夜模式'}
             </span>
           </button>
 
           <HomeTaskIndicator onClick={() => onNavigate('/taskCenter')} theme={homeTheme} />
           <button
-            onClick={() => onNavigate('/admin')}
-            className={`group relative flex h-14 items-center gap-3 rounded-md border px-7 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 ${
-              isDarkTheme
-                ? 'border-slate-700/70 bg-slate-900/80 shadow-[0_8px_24px_rgba(0,0,0,0.24)] hover:border-indigo-400/50 hover:shadow-[0_16px_36px_rgba(99,102,241,0.12)]'
-                : 'border-white/40 bg-slate-200/40 shadow-[0_8px_20px_rgba(15,23,42,0.22)] hover:border-white/70 hover:bg-slate-100/50'
-            }`}
+            onClick={() => onNavigate('/skinStore')}
+            className={navButtonClass}
+            type="button"
           >
-            <Settings className="h-7 w-7 text-indigo-500 transition-colors group-hover:text-violet-500" />
-            <span className={`text-base font-semibold transition-colors ${isDarkTheme ? 'text-slate-200 group-hover:text-white' : 'text-slate-700 group-hover:text-slate-950'}`}>
-              系统管理
-            </span>
+            <Palette className="h-4 w-4 text-[#FF385C]" />
+            <span>皮肤商店</span>
+          </button>
+          <button
+            onClick={() => onNavigate('/admin')}
+            className={navButtonClass}
+            type="button"
+          >
+            <Settings className="h-4 w-4 text-slate-500" />
+            <span>系统管理</span>
             {updateAvailable && (
-              <span className="absolute right-4 top-4 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-4 ring-emerald-100 animate-pulse" />
+              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#FF385C] ring-4 ring-[#FF385C]/10 animate-pulse" />
             )}
           </button>
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 px-5 sm:px-8">
-        <section className="mx-auto flex w-full max-w-[1540px] flex-col pt-16 lg:pt-24">
-          <div className="text-left">
-            <h1 className={`text-5xl font-black leading-tight sm:text-7xl ${isDarkTheme ? 'text-slate-100' : 'text-neutral-700'}`}>
-              VideoStitcher
+      <main className="relative z-10 flex-1 px-5 pb-10 sm:px-8">
+        <section className="mx-auto flex w-full max-w-[1180px] flex-col pt-14 lg:pt-20">
+          <div className="mx-auto max-w-5xl text-center">
+            <p className={`text-sm font-semibold ${isDarkTheme ? 'text-slate-400' : 'text-slate-500'}`}>
+              VideoStitcher Workspace
+            </p>
+            <h1 className="mt-5 text-5xl font-black leading-[1.04] tracking-tight sm:text-6xl lg:text-[72px]">
+              <span className="block">干净地完成每一次</span>
+              <span className="block text-[#FF385C]">视频批处理</span>
             </h1>
-            <p className={`mt-5 text-2xl font-medium ${isDarkTheme ? 'text-slate-400' : 'text-neutral-500'}`}>全能视频批处理工具箱</p>
+            <p className={`mx-auto mt-6 max-w-2xl text-base leading-7 ${isDarkTheme ? 'text-slate-400' : 'text-slate-600'}`}>
+              合成、封面、素材、台词识别，集中在一个轻量工作台里。
+            </p>
           </div>
 
-          <div className="mt-10 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-16 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight">工具</h2>
+              <p className={`mt-2 text-sm ${isDarkTheme ? 'text-slate-500' : 'text-slate-500'}`}>选择一个入口开始处理</p>
+            </div>
+            <div className="hidden sm:flex">
+                <button
+                  onClick={() => onNavigate('/videoMerge')}
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-[#FF385C] px-4 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#e93252]"
+                  type="button"
+                >
+                  开始合成
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
                 <button
                   key={feature.path}
                   onClick={() => onNavigate(feature.path)}
-                  className={`home-lumia-tile group relative flex min-h-[310px] flex-col overflow-hidden rounded-[2px] border border-white/20 bg-gradient-to-br p-8 text-left text-white shadow-[0_5px_10px_rgba(15,23,42,0.45)] transition-all duration-300 hover:-translate-y-2 hover:shadow-[0_18px_28px_rgba(15,23,42,0.42)] ${feature.tileClass} ${
+                  className={`group relative flex min-h-[164px] flex-col rounded-lg border p-5 text-left transition-all duration-200 hover:-translate-y-0.5 ${
                     isDarkTheme
-                      ? 'brightness-90'
-                      : ''
+                      ? 'border-[#353535] bg-[#242424] hover:border-[#4A4A4A] hover:bg-[#2A2A2A]'
+                      : 'border-[#E7E5DF] bg-white shadow-[0_8px_24px_rgba(34,34,34,0.04)] hover:border-[#DDD8CF] hover:shadow-[0_16px_36px_rgba(34,34,34,0.07)]'
                   }`}
+                  type="button"
                 >
-                  <span className="absolute right-5 top-5 h-5 w-5 rounded-full border-2 border-white/80 bg-transparent transition-all duration-300 group-hover:border-emerald-200 group-hover:bg-emerald-400 group-hover:shadow-[0_0_16px_rgba(74,222,128,0.95)]" />
-                  <div className="flex h-24 w-24 items-center justify-center text-white drop-shadow-sm">
-                    <Icon className="h-20 w-20" strokeWidth={2.2} />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF385C]/10 text-[#FF385C] transition-all group-hover:bg-[#FF385C] group-hover:text-white">
+                    <Icon className="h-5 w-5" strokeWidth={2.2} />
                   </div>
-                  <div className="mt-auto">
-                    <h2 className="text-3xl font-black leading-tight text-white drop-shadow-sm">
+                  <div className="mt-6">
+                    <h2 className="text-base font-black leading-tight">
                       {feature.title}
                     </h2>
-                    <p className="mt-4 text-xl font-medium leading-8 text-white/86">
+                    <p className={`mt-2 line-clamp-2 text-sm font-medium leading-6 ${isDarkTheme ? 'text-slate-500' : 'text-slate-500'}`}>
                       {feature.description}
                     </p>
                   </div>
+                  <ArrowRight className="absolute bottom-5 right-5 h-4 w-4 text-slate-300 opacity-0 transition-all group-hover:translate-x-1 group-hover:text-[#FF385C] group-hover:opacity-100" />
                 </button>
               );
             })}
@@ -267,7 +441,7 @@ const HomePage: React.FC<{
         </section>
       </main>
 
-      <footer className={`relative z-10 mt-20 text-center text-sm font-medium ${isDarkTheme ? 'text-slate-500' : 'text-neutral-500'}`}>
+      <footer className={`relative z-10 pb-8 text-center text-sm font-medium ${isDarkTheme ? 'text-slate-500' : 'text-slate-500'}`}>
         <span>{appVersion} · © 2026 VideoStitcher · 全能视频处理工具箱</span>
       </footer>
     </div>
@@ -422,6 +596,7 @@ const AppContent: React.FC = () => {
         <Route path="/losslessGrid" element={<LosslessGridMode />} />
         <Route path="/resize" element={<ResizeMode />} />
         <Route path="/subtitleExtractor" element={<SubtitleExtractorMode />} />
+        <Route path="/skinStore" element={<SkinStoreMode />} />
         <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
         <Route path="/tasks" element={<TaskCenterListPage />} />

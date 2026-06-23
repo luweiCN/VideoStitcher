@@ -266,7 +266,7 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
         width: `${containerSize.width}px`,
         height: `${containerSize.height}px`,
       }}
-      className="relative bg-slate-900 rounded-lg shadow-2xl border border-slate-800 overflow-visible select-none mx-auto"
+      className="video-editor-canvas relative bg-[#FFFEFC] rounded-xl border border-[#E7E5DF] overflow-visible select-none mx-auto shadow-[0_14px_36px_rgba(34,34,34,0.07)]"
     >
       {/* 裁剪容器 - 限制素材内容在画布范围内 */}
       <div
@@ -294,15 +294,15 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
       {/* 智能辅助对齐线 */}
       {showVGuide && (
-        <div className="absolute top-0 bottom-0 w-0.5 bg-emerald-400 left-[50%] -translate-x-1/2 z-20 shadow-[0_0_8px_rgba(52,211,153,0.8)]">
-          <div className="absolute top-2 left-2 text-[10px] font-bold text-emerald-400 bg-black/60 px-1 rounded">
+        <div className="absolute top-0 bottom-0 w-px bg-[#FF385C]/70 left-[50%] -translate-x-1/2 z-20">
+          <div className="canvas-guide-label absolute top-2 left-2 text-[10px] font-semibold text-[#444444] bg-white px-1.5 rounded-full border border-[#E7E5DF] shadow-[0_6px_16px_rgba(34,34,34,0.06)]">
             {canvasWidth / 2}px
           </div>
         </div>
       )}
       {showHGuide && (
-        <div className="absolute left-0 right-0 h-0.5 bg-emerald-400 top-[50%] -translate-y-1/2 z-20 shadow-[0_0_8px_rgba(52,211,153,0.8)]">
-          <div className="absolute left-2 top-2 text-[10px] font-bold text-emerald-400 bg-black/60 px-1 rounded">
+        <div className="absolute left-0 right-0 h-px bg-[#FF385C]/70 top-[50%] -translate-y-1/2 z-20">
+          <div className="canvas-guide-label absolute left-2 top-2 text-[10px] font-semibold text-[#444444] bg-white px-1.5 rounded-full border border-[#E7E5DF] shadow-[0_6px_16px_rgba(34,34,34,0.06)]">
             {canvasHeight / 2}px
           </div>
         </div>
@@ -315,8 +315,8 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
         position={bVideoPosition}
         isActive={true}
         scale={containerSize.scale}
-        colorClass="bg-fuchsia-500"
-        bgClass="bg-fuchsia-500/20"
+        colorClass="bg-[#FF385C]"
+        bgClass="bg-white"
         visible={true}
         locked={false}
         thumbnail={materials?.bVideo}
@@ -333,9 +333,9 @@ const VideoEditor: React.FC<VideoEditorProps> = ({
 
       {/* 顶部标签 */}
       <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap">
-        <div className="canvas-resolution-badge flex items-center gap-2 bg-slate-900/80 border border-slate-700 px-3 py-1 rounded-full backdrop-blur-md">
-          <div className="canvas-resolution-dot w-2 h-2 rounded-full bg-fuchsia-500"></div>
-          <span className="canvas-resolution-text text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+        <div className="canvas-resolution-badge flex items-center gap-2 bg-white border border-[#E7E5DF] px-3 py-1 rounded-full shadow-[0_8px_22px_rgba(34,34,34,0.07)]">
+          <div className="canvas-resolution-dot w-2 h-2 rounded-full bg-[#FF385C]"></div>
+          <span className="canvas-resolution-text text-[10px] font-semibold text-[#6B6B6B] uppercase tracking-widest">
             合成画布分辨率: {canvasWidth} x {canvasHeight}
           </span>
         </div>

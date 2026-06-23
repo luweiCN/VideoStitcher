@@ -40,6 +40,12 @@ const SWITCH_THEME_MAP: Record<LogThemeColor, SwitchThemeConfig> = {
     checkedBorder: 'border-indigo-500',
     shadow: 'shadow-[0_0_8px_rgba(99,102,241,0.5)]'
   },
+  blue: {
+    focusRing: 'focus:ring-rose-500/40',
+    checkedBg: 'bg-rose-500',
+    checkedBorder: 'border-rose-500',
+    shadow: 'shadow-none'
+  },
   cyan: {
     focusRing: 'focus:ring-cyan-500/50',
     checkedBg: 'bg-cyan-500',
@@ -192,7 +198,7 @@ export const LogFooter: React.FC<LogFooterProps> = ({
         {autoScrollEnabled && autoScrollPaused ? (
           <button
             onClick={resumeAutoScroll}
-            className="text-xs text-gray-400 hover:text-pink-400 hover:font-medium transition-colors cursor-pointer"
+            className="text-xs text-gray-400 hover:text-rose-500 hover:font-medium transition-colors cursor-pointer"
             title="恢复自动滚动"
           >
             点击恢复自动滚动

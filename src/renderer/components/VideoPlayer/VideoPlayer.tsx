@@ -21,7 +21,7 @@ const Plyr = (PlyrModule as any).default || PlyrModule;
 // 类型定义
 // ============================================================================
 
-type ThemeColor = 'slate' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan' | 'amber';
+type ThemeColor = 'slate' | 'blue' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan' | 'amber';
 
 export interface VideoPlayerProps {
   /** 视频 URL */
@@ -76,15 +76,20 @@ const THEME_COLORS: Record<ThemeColor, { main: string; hover: string; glow: stri
     hover: '#cbd5e1',
     glow: 'rgba(148, 163, 184, 0.3)',
   },
+  blue: {
+    main: '#FF385C',
+    hover: '#E43150',
+    glow: 'rgba(255, 56, 92, 0.18)',
+  },
   violet: {
     main: '#a78bfa',
     hover: '#c4b5fd',
     glow: 'rgba(167, 139, 250, 0.3)',
   },
   rose: {
-    main: '#fb7185',
-    hover: '#fda4af',
-    glow: 'rgba(251, 113, 133, 0.3)',
+    main: '#FF385C',
+    hover: '#E43150',
+    glow: 'rgba(255, 56, 92, 0.18)',
   },
   fuchsia: {
     main: '#e879f9',

@@ -24,7 +24,7 @@ const CanvasPreview: React.FC<CanvasPreviewProps> = ({
   return (
     <div className="flex-1 flex items-center justify-center">
       <div
-        className="relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
+        className="metal-canvas-shell relative shadow-2xl shadow-black rounded-sm overflow-hidden border border-slate-800 bg-black"
         style={{ width: previewSize, height: previewSize }}
       >
         <canvas

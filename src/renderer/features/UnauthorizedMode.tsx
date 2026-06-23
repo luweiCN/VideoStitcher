@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, RefreshCw, Copy, CheckCircle } from 'lucide-react';
+import { useHomeSkin } from '@/hooks/useHomeSkin';
 
 /**
  * 未授权模式页面
@@ -7,6 +8,7 @@ import { AlertCircle, RefreshCw, Copy, CheckCircle } from 'lucide-react';
  * 只有授权成功后才能进入软件
  */
 const UnauthorizedMode: React.FC = () => {
+  const { workspaceSkinClassName } = useHomeSkin();
   const [machineId, setMachineId] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [checking, setChecking] = useState<boolean>(false);
@@ -74,7 +76,7 @@ const UnauthorizedMode: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-8">
+    <div className={`${workspaceSkinClassName} min-h-screen bg-[#181818] text-[#D1D1D1] flex flex-col items-center justify-center p-8`}>
       {/* 主内容 */}
       <div className="max-w-md w-full">
         {/* 图标 */}

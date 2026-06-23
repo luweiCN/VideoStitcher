@@ -18,6 +18,7 @@ import { useVideoVolumeCache } from '@/hooks/useVideoVolumeCache';
 import { useTaskContext } from '@/contexts/TaskContext';
 import useVideoMaterials from '@/hooks/useVideoMaterials';
 import { usePageTheme } from '@/hooks/usePageTheme';
+import { useHomeSkin } from '@/hooks/useHomeSkin';
 import PageThemeToggle from '@/components/PageThemeToggle';
 import { PreviewArea } from './ResizeMode/components/PreviewArea';
 
@@ -77,6 +78,7 @@ const ResizeMode: React.FC = () => {
   const fileSelectorGroupRef = useRef<FileSelectorGroupRef>(null);
   const metalRootRef = useRef<HTMLDivElement>(null);
   const { isLightTheme, togglePageTheme } = usePageTheme();
+  const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
 
   // 视频文件列表
   const [videos, setVideos] = useState<string[]>([]);
@@ -118,7 +120,7 @@ const ResizeMode: React.FC = () => {
     scrollToTop,
     onUserInteractStart,
   } = useOperationLogs({
-    moduleNameCN: '智能改尺寸',
+    moduleNameCN: '海外素材制作',
     moduleNameEN: 'Resize',
   });
 
@@ -314,19 +316,18 @@ const ResizeMode: React.FC = () => {
     <div
       ref={metalRootRef}
       onMouseMove={handleMetalMouseMove}
-      className={`video-merge-metal resize-metal h-screen flex flex-col overflow-hidden font-sans transition-colors duration-300 ${
-        isLightTheme ? 'theme-light-page bg-[#eef3f8] text-slate-900' : 'bg-black text-slate-100'
+      className={`${workspaceSkinClassName} h-screen flex flex-col overflow-hidden font-sans transition-colors duration-300 ${
+        isLightTheme ? 'theme-light-page bg-[#F8F8F5] text-[#222222]' : 'bg-[#181818] text-[#D1D1D1]'
       }`}
     >
-      <span className="metal-glint-layer" aria-hidden="true" />
       <PageHeader
-        title="智能改尺寸"
+        title="海外素材制作"
         icon={Maximize2}
         iconColor={isLightTheme ? "text-rose-600" : "text-rose-400"}
-        description="Google/Meta/尺寸统一，智能模糊背景填充"
+        description="当前支持：Google模式、Meta模式、统一横屏、统一竖屏"
         featureInfo={{
-          title: '智能改尺寸',
-          description: '支持四种视频尺寸转换模式，使用模糊背景填充适配目标尺寸。',
+          title: '海外素材制作',
+          description: '当前支持 Google模式、Meta模式、统一横屏、统一竖屏，使用模糊背景填充适配目标尺寸。',
           details: [
             'Google模式：默认输入 720×1280，输出横屏（1280×720）和方形（1080×1080）',
             'Meta模式：默认输入 1080×1350，输出横屏（1280×720）和方形（1080×1080）',
@@ -336,9 +337,7 @@ const ResizeMode: React.FC = () => {
           ],
           themeColor: 'rose',
         }}
-        rightContent={
-          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
-        }
+        rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
       />
 
       {/* Main Content - 三栏布局 */}

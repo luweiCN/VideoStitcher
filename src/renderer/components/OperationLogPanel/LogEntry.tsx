@@ -66,13 +66,13 @@ export const LogEntry: React.FC<LogEntryProps> = ({
         <div className="h-3 flex items-center shrink-0 mt-[1px]" onClick={(e) => e.stopPropagation()}>
           {isStart ? (
             // 起点：实心粉色矩形（无勾）
-            <div className="w-3 h-3 rounded-sm bg-pink-500" />
+            <div className="w-3 h-3 rounded-sm bg-rose-500" />
           ) : (
             // 使用 Radix UI Checkbox
             <Root
               className={`
                 w-3 h-3 rounded-sm flex items-center justify-center transition-colors cursor-pointer
-                data-[state=checked]:bg-pink-500
+                data-[state=checked]:bg-rose-500
                 data-[state=unchecked]:bg-gray-700
                 hover:data-[state=unchecked]:bg-gray-600
               `}

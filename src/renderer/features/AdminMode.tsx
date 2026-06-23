@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import ConcurrencySelector from '@/components/ConcurrencySelector';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
+import { useHomeSkin } from '@/hooks/useHomeSkin';
 
 interface AdminModeProps {
   initialUpdateInfo?: UpdateInfo | null;
@@ -57,6 +58,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
 }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { workspaceSkinClassName } = useHomeSkin();
   
   // 从 URL 读取当前标签
   const tabParam = searchParams.get('tab') as 'system' | 'settings' | 'updates' | 'database' | null;
@@ -532,7 +534,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
   };
 
   return (
-    <div className="h-screen bg-black text-white overflow-hidden flex">
+    <div className={`${workspaceSkinClassName} h-screen bg-[#181818] text-[#D1D1D1] overflow-hidden flex`}>
       {/* 动态背景 */}
       <div className="absolute inset-0 opacity-20 pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/20 rounded-full blur-[128px] animate-pulse" />

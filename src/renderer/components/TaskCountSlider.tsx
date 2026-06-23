@@ -33,6 +33,8 @@ interface TaskCountSliderProps {
 }
 
 const colorMap: Record<string, { bg: string; text: string; border: string }> = {
+  blue: { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30' },
+  slate: { bg: 'bg-slate-500/10', text: 'text-slate-500', border: 'border-slate-500/20' },
   violet: { bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
   indigo: { bg: 'bg-indigo-500/15', text: 'text-indigo-400', border: 'border-indigo-500/30' },
   emerald: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30' },
@@ -57,7 +59,7 @@ export const TaskCountSlider: React.FC<TaskCountSliderProps> = ({
   disabled = false,
   sources,
   title = '生成数量',
-  themeColor = 'pink',
+  themeColor = 'rose',
 }) => {
   const [inputValue, setInputValue] = useState(String(value));
   
@@ -68,7 +70,7 @@ export const TaskCountSlider: React.FC<TaskCountSliderProps> = ({
 
   const allRequiredHaveCount = sources.filter(s => s.required).every(s => s.count > 0);
   const canGenerate = allRequiredHaveCount && max > 0;
-  const themeColors = colorMap[themeColor] || colorMap.pink;
+  const themeColors = colorMap[themeColor] || colorMap.rose;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
@@ -112,7 +114,7 @@ export const TaskCountSlider: React.FC<TaskCountSliderProps> = ({
           <span className="text-sm text-slate-400">{title}</span>
           <div className="flex items-center gap-1">
             {sources.map((source) => {
-              const colors = colorMap[source.color] || colorMap.pink;
+              const colors = colorMap[source.color] || colorMap.rose;
               return (
                 <span
                   key={source.name}
@@ -139,7 +141,7 @@ export const TaskCountSlider: React.FC<TaskCountSliderProps> = ({
         <span className="text-sm text-slate-400">{title}</span>
         <div className="flex items-center gap-0.5">
           {sources.map((source, index) => {
-            const colors = colorMap[source.color] || colorMap.pink;
+            const colors = colorMap[source.color] || colorMap.rose;
             return (
               <React.Fragment key={source.name}>
                 {index > 0 && <span className="text-slate-600 text-sm mx-0.5">×</span>}
@@ -183,7 +185,7 @@ export const TaskCountSlider: React.FC<TaskCountSliderProps> = ({
               max={max}
               className={`w-20 h-10 bg-slate-900 border border-slate-700/70 rounded-lg
                          text-center text-2xl font-mono font-bold ${themeColors.text}
-                         focus:outline-none focus:border-pink-500/50 focus:ring-1 focus:ring-pink-500/30
+                         focus:outline-none focus:border-rose-500/50 focus:ring-1 focus:ring-rose-500/20
                          disabled:opacity-50 disabled:cursor-not-allowed
                          [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none
                          [&::-webkit-inner-spin-button]:appearance-none`}

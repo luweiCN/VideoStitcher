@@ -25,6 +25,7 @@ import { useTaskContext } from '@/contexts/TaskContext';
 import { Button } from '@/components/Button/Button';
 import { OperationLogPanel } from '@/components/OperationLogPanel';
 import { useOperationLogs } from '@/hooks/useOperationLogs';
+import { useHomeSkin } from '@/hooks/useHomeSkin';
 import type { Task } from '@shared/types/task';
 import { TASK_TYPE_LABELS } from '@shared/types/task';
 
@@ -61,6 +62,7 @@ interface TaskCenterDashboardProps {
 }
 
 const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onViewAllTasks, onViewTaskDetail }) => {
+  const { workspaceSkinClassName } = useHomeSkin();
   const {
     pauseAllTasks,
     resumeAllTasks,
@@ -209,7 +211,7 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onViewAllTask
     : 0;
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
+    <div className={`${workspaceSkinClassName} h-screen bg-[#181818] text-[#D1D1D1] flex flex-col overflow-hidden`}>
       {/* 页头 */}
       <PageHeader
         title="任务中心"

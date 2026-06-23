@@ -40,6 +40,7 @@ import { useTaskSubscription } from '@renderer/hooks/useTaskSubscription';
 import useVideoMaterials, { type VideoMaterial } from '@renderer/hooks/useVideoMaterials';
 import useImageMaterials, { type ImageMaterial } from '@renderer/hooks/useImageMaterials';
 import { useOperationLogs } from '@renderer/hooks/useOperationLogs';
+import { useHomeSkin } from '@renderer/hooks/useHomeSkin';
 import { formatDuration, formatFileSize } from '@renderer/utils/format';
 import { Button } from '@renderer/components/Button';
 import type { Task, TaskFile, TaskOutput, TaskLog } from '@shared/types/task';
@@ -47,6 +48,7 @@ import { TASK_TYPE_LABELS } from '@shared/types/task';
 
 const TaskDetailPage: React.FC = () => {
   const navigate = useNavigate();
+  const { workspaceSkinClassName } = useHomeSkin();
   const { id } = useParams<{ id: string }>();
   const taskId = parseInt(id || '', 10);
   
@@ -388,7 +390,7 @@ const TaskDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="h-screen bg-black text-white flex items-center justify-center">
+      <div className={`${workspaceSkinClassName} h-screen bg-[#181818] text-[#D1D1D1] flex items-center justify-center`}>
         <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
       </div>
     );
@@ -396,7 +398,7 @@ const TaskDetailPage: React.FC = () => {
 
   if (isNaN(taskId)) {
     return (
-      <div className="h-screen bg-black text-white flex flex-col items-center justify-center">
+      <div className={`${workspaceSkinClassName} h-screen bg-[#181818] text-[#D1D1D1] flex flex-col items-center justify-center`}>
         <XCircle className="w-12 h-12 text-rose-400 mb-4" />
         <p className="text-slate-400">任务 ID 无效</p>
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mt-4">
@@ -408,7 +410,7 @@ const TaskDetailPage: React.FC = () => {
 
   if (!task) {
     return (
-      <div className="h-screen bg-black text-white flex flex-col items-center justify-center">
+      <div className={`${workspaceSkinClassName} h-screen bg-[#181818] text-[#D1D1D1] flex flex-col items-center justify-center`}>
         <XCircle className="w-12 h-12 text-rose-400 mb-4" />
         <p className="text-slate-400">任务不存在</p>
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="mt-4">
@@ -421,7 +423,7 @@ const TaskDetailPage: React.FC = () => {
   const taskTypeLabel = task.type ? TASK_TYPE_LABELS[task.type] : '未知类型';
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
+    <div className={`${workspaceSkinClassName} h-screen bg-[#181818] text-[#D1D1D1] flex flex-col overflow-hidden`}>
       <PageHeader
         title={`任务 #${task.id}`}
         icon={FileVideo}

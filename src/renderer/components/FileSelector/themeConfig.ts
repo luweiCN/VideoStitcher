@@ -15,14 +15,14 @@ export interface ThemeConfig {
 /**
  * 获取主题配置
  */
-export const getThemeConfig = (color: ThemeColor = 'blue'): ThemeConfig => {
+export const getThemeConfig = (color: ThemeColor = 'rose'): ThemeConfig => {
   const configs: Record<string, ThemeConfig> = {
     blue: {
-      primary: '#3b82f6',
-      primaryLight: '#60a5fa',
-      glow: 'rgba(59, 130, 246, 0.5)',
-      bg: 'rgba(59, 130, 246, 0.05)',
-      border: 'rgba(59, 130, 246, 0.3)'
+      primary: '#FF385C',
+      primaryLight: '#E43150',
+      glow: 'rgba(255, 56, 92, 0.16)',
+      bg: 'rgba(255, 56, 92, 0.08)',
+      border: 'rgba(255, 56, 92, 0.22)'
     },
     purple: {
       primary: '#8b5cf6',
@@ -32,11 +32,11 @@ export const getThemeConfig = (color: ThemeColor = 'blue'): ThemeConfig => {
       border: 'rgba(139, 92, 246, 0.3)'
     },
     rose: {
-      primary: '#f43f5e',
-      primaryLight: '#fb7185',
-      glow: 'rgba(244, 63, 94, 0.5)',
-      bg: 'rgba(244, 63, 94, 0.05)',
-      border: 'rgba(244, 63, 94, 0.3)'
+      primary: '#FF385C',
+      primaryLight: '#E43150',
+      glow: 'rgba(255, 56, 92, 0.16)',
+      bg: 'rgba(255, 56, 92, 0.08)',
+      border: 'rgba(255, 56, 92, 0.22)'
     },
     emerald: {
       primary: '#10b981',
@@ -60,11 +60,11 @@ export const getThemeConfig = (color: ThemeColor = 'blue'): ThemeConfig => {
       border: 'rgba(139, 92, 246, 0.3)'
     },
     indigo: {
-      primary: '#6366f1',
-      primaryLight: '#818cf8',
-      glow: 'rgba(99, 102, 241, 0.5)',
-      bg: 'rgba(99, 102, 241, 0.05)',
-      border: 'rgba(99, 102, 241, 0.3)'
+      primary: '#FF385C',
+      primaryLight: '#E43150',
+      glow: 'rgba(255, 56, 92, 0.16)',
+      bg: 'rgba(255, 56, 92, 0.08)',
+      border: 'rgba(255, 56, 92, 0.22)'
     },
     pink: {
       primary: '#ec4899',
@@ -89,5 +89,5 @@ export const getThemeConfig = (color: ThemeColor = 'blue'): ThemeConfig => {
     }
   };
   // 确保总是返回有效的配置，使用 blue 作为后备
-  return configs[color || 'blue'] || configs.blue;
+  return configs[color || 'rose'] || configs.rose;
 };

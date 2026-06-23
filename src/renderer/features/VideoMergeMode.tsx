@@ -42,6 +42,7 @@ import { useTaskContext } from "../contexts/TaskContext";
 import { useVideoMergeContext } from "../contexts/VideoMergeContext";
 import PageThemeToggle from "../components/PageThemeToggle";
 import { usePageTheme } from "../hooks/usePageTheme";
+import { useHomeSkin } from "../hooks/useHomeSkin";
 import {
   getCanvasConfig,
   getInitialPositions,
@@ -71,6 +72,7 @@ const VideoMergeMode: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const { isLightTheme, togglePageTheme } = usePageTheme();
+  const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
   const metalRootRef = useRef<HTMLDivElement>(null);
 
   const taskCount = state.taskCount;
@@ -148,13 +150,13 @@ const VideoMergeMode: React.FC = () => {
         {
           name: "A",
           count: aVideos.length,
-          color: "indigo" as const,
+          color: "slate" as const,
           required: false,
         },
         {
           name: "B",
           count: bVideos.length,
-          color: "violet" as const,
+          color: "rose" as const,
           required: true,
         },
       ];
@@ -665,7 +667,7 @@ const VideoMergeMode: React.FC = () => {
     addLog("已清空所有已选素材和配置", "info");
   };
 
-  const primaryColor = "violet";
+  const primaryColor = "rose";
 
   useEffect(() => {
     const root = metalRootRef.current;
@@ -684,16 +686,15 @@ const VideoMergeMode: React.FC = () => {
   }, []);
 
   return (
-    <div ref={metalRootRef} className={`video-merge-metal h-screen flex flex-col font-sans overflow-hidden transition-colors duration-300 ${
+    <div ref={metalRootRef} className={`${workspaceSkinClassName} h-screen flex flex-col font-sans overflow-hidden transition-colors duration-300 ${
       isLightTheme
-        ? "theme-light-page bg-[#eef3f8] text-slate-900"
-        : "bg-black text-slate-100"
+        ? "theme-light-page bg-[#F8F8F5] text-[#222222]"
+        : "bg-[#181818] text-[#D1D1D1]"
     }`}>
-      <span className="metal-glint-layer" aria-hidden="true" />
       <PageHeader
         title="极速合成"
         icon={Layers3}
-        iconColor={isLightTheme ? "text-violet-600" : "text-violet-400"}
+        iconColor={isLightTheme ? "text-[#FF385C]" : "text-rose-300"}
         description="横竖屏一体，图层管理，所有素材独立位置调整"
         featureInfo={{
           title: "极速合成",
@@ -706,23 +707,23 @@ const VideoMergeMode: React.FC = () => {
             "采用SmartBlend™智能均衡算法，均匀分配素材组合，确保每个素材都被充分利用",
             "实时预览合成效果，所见即所得",
           ],
-          themeColor: "violet",
+          themeColor: "rose",
         }}
         rightContent={
           <div className="flex items-center gap-2">
-            <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
+            {!isMetalSkin && <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
 
             <div className={`flex items-center rounded-lg p-0.5 border ${
-              isLightTheme ? "bg-slate-100/90 border-slate-300/80" : "bg-black border-slate-800"
+              isLightTheme ? "bg-white border-[#E7E5DF] shadow-[0_8px_24px_rgba(34,34,34,0.06)]" : "bg-[#2A2A2A] border-[#3B3B3B]"
             }`}>
               <button
                 onClick={() => setOrientation("horizontal")}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
                   orientation === "horizontal"
-                    ? "metal-primary bg-violet-600 text-white shadow-lg shadow-violet-900/20"
+                    ? "metal-primary bg-[#FF385C] text-white"
                     : isLightTheme
                       ? "text-slate-500 hover:text-slate-900"
-                      : "text-slate-400 hover:text-white"
+                      : "text-[#A8A8A8] hover:text-[#F2F2F2]"
                 }`}
                 type="button"
               >
@@ -732,10 +733,10 @@ const VideoMergeMode: React.FC = () => {
                 onClick={() => setOrientation("vertical")}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
                   orientation === "vertical"
-                    ? "metal-primary bg-indigo-600 text-white shadow-lg shadow-indigo-900/20"
+                    ? "metal-primary bg-[#FF385C] text-white"
                     : isLightTheme
                       ? "text-slate-500 hover:text-slate-900"
-                      : "text-slate-400 hover:text-white"
+                      : "text-[#A8A8A8] hover:text-[#F2F2F2]"
                 }`}
                 type="button"
               >
@@ -746,8 +747,8 @@ const VideoMergeMode: React.FC = () => {
         }
       />
 
-      <main className="flex-1 flex gap-2 overflow-hidden p-2">
-        <div className="metal-panel metal-sidebar w-80 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-hidden">
+      <main className="flex-1 flex gap-4 overflow-hidden p-4">
+        <div className="metal-panel metal-sidebar w-80 border border-[#E7E5DF] rounded-lg flex flex-col shrink-0 overflow-hidden">
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             <TaskCountSlider
               value={taskCount}
@@ -824,13 +825,13 @@ const VideoMergeMode: React.FC = () => {
             </FileSelectorGroup>
           </div>
           
-          <div className="p-4 border-t border-slate-800 bg-black/50">
+          <div className={`p-3 border-t ${isLightTheme ? "border-[#EEECE6] bg-[#FBFBF8]" : "border-[#303030] bg-[#242424]"}`}>
             <button
               onClick={clearEditor}
               className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all duration-300 text-sm font-medium group ${
                 isLightTheme
-                  ? "border-slate-300/80 bg-slate-100/90 text-slate-600 hover:text-rose-500 hover:border-rose-200 hover:bg-rose-50/80"
-                  : "border-slate-800 bg-slate-900/50 text-slate-400 hover:text-rose-400 hover:border-rose-500/30 hover:bg-rose-500/5"
+                  ? "border-[#E7E5DF] bg-white text-[#444444] hover:text-[#D92D20] hover:border-[#F4B8C2] hover:bg-[#FFF3F5] hover:shadow-[0_8px_18px_rgba(34,34,34,0.06)] active:scale-[0.98]"
+                  : "border-[#3B3B3B] bg-[#2A2A2A] text-[#A8A8A8] hover:text-[#FF385C] hover:border-[#4A4A4A] hover:bg-[#333333] active:scale-[0.98]"
               }`}
             >
               <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
@@ -839,11 +840,11 @@ const VideoMergeMode: React.FC = () => {
           </div>
         </div>
 
-        <div className="metal-panel metal-workspace flex-1 flex flex-col overflow-hidden min-w-0 border border-slate-800 rounded-2xl">
+        <div className="metal-panel metal-workspace flex-1 flex flex-col overflow-hidden min-w-0 border border-[#E7E5DF] rounded-lg">
           {isGeneratingTasks ? (
-            <div className="h-[164px] flex items-center justify-center border-b border-slate-800 shrink-0">
+            <div className="h-[164px] flex items-center justify-center border-b border-[#EEECE6] shrink-0">
               <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
+                <Loader2 className="w-5 h-5 text-[#FF385C] animate-spin" />
                 <span className="text-slate-400 text-sm">正在生成任务...</span>
               </div>
             </div>
@@ -868,18 +869,18 @@ const VideoMergeMode: React.FC = () => {
                 onClick={toggleView}
                 className={`metal-top-switch absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-2 backdrop-blur-sm border rounded-lg transition-colors ${
                   isLightTheme
-                    ? "bg-slate-100/90 border-slate-300/80 text-slate-700 hover:bg-slate-50"
-                    : "bg-black/80 border-slate-700 hover:bg-slate-800"
+                    ? "bg-white border-[#E7E5DF] text-[#444444] hover:bg-[#F3F3EF] hover:text-[#222222] shadow-[0_8px_20px_rgba(34,34,34,0.06)]"
+                    : "bg-[#2A2A2A] border-[#3B3B3B] text-[#D1D1D1] hover:bg-[#333333]"
                 }`}
               >
                 {activeView === 0 ? (
                   <>
-                    <ArrowDown className="w-4 h-4 text-violet-400" />
+                    <ArrowDown className="w-4 h-4 text-[#FF385C]" />
                     <span className={`text-xs ${isLightTheme ? "text-slate-700" : "text-slate-300"}`}>查看预览</span>
                   </>
                 ) : (
                   <>
-                    <ArrowUp className="w-4 h-4 text-violet-400" />
+                    <ArrowUp className="w-4 h-4 text-[#FF385C]" />
                     <span className={`text-xs ${isLightTheme ? "text-slate-700" : "text-slate-300"}`}>返回编辑</span>
                   </>
                 )}
@@ -895,7 +896,7 @@ const VideoMergeMode: React.FC = () => {
                     <div className="h-full w-full flex flex-col items-center justify-center py-4">
                         <div
                           ref={previewContainerRef}
-                          className="metal-canvas-shell flex-1 w-full flex items-center justify-center min-h-0 overflow-auto border border-slate-800"
+                          className="metal-canvas-shell flex-1 w-full flex items-center justify-center min-h-0 overflow-auto border border-[#E7E5DF]"
                         >
                           <VideoEditor
                             canvasWidth={canvasConfig.width}
@@ -910,29 +911,29 @@ const VideoMergeMode: React.FC = () => {
                       <div className="mt-8 flex flex-col items-center gap-4">
                         <div className={`metal-control flex items-center gap-6 backdrop-blur-sm border px-6 py-4 rounded-xl ${
                           isLightTheme
-                            ? "bg-slate-100/90 border-slate-300/80 shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
-                            : "bg-slate-900/80 border-slate-800"
+                            ? "bg-white border-[#E7E5DF] shadow-[0_12px_32px_rgba(34,34,34,0.07)]"
+                            : "bg-[#242424] border-[#383838]"
                         }`}>
                           <button
                             onClick={resetPositions}
                             className={`text-[10px] font-black flex items-center gap-2 ${
-                              isLightTheme ? "text-slate-500 hover:text-slate-900" : "text-slate-400 hover:text-white"
+                              isLightTheme ? "text-slate-500 hover:text-slate-900" : "text-[#A8A8A8] hover:text-[#F2F2F2]"
                             }`}
                           >
                             <RefreshCcw className="w-3 h-3" />
                             重置框位
                           </button>
-                          <div className={`w-px h-4 ${isLightTheme ? "bg-slate-300" : "bg-slate-800"}`} />
+                          <div className={`w-px h-4 ${isLightTheme ? "bg-slate-300" : "bg-[#303030]"}`} />
                           <button
                             onClick={maximizePositions}
                             className={`text-[10px] font-black flex items-center gap-2 ${
-                              isLightTheme ? "text-slate-500 hover:text-slate-900" : "text-slate-400 hover:text-white"
+                              isLightTheme ? "text-slate-500 hover:text-slate-900" : "text-[#A8A8A8] hover:text-[#F2F2F2]"
                             }`}
                           >
                             <Maximize className="w-3 h-3" />
                             铺满全屏
                           </button>
-                          <div className={`w-px h-4 ${isLightTheme ? "bg-slate-300" : "bg-slate-800"}`} />
+                          <div className={`w-px h-4 ${isLightTheme ? "bg-slate-300" : "bg-[#303030]"}`} />
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() =>
@@ -940,16 +941,16 @@ const VideoMergeMode: React.FC = () => {
                               }
                               className={`w-7 h-7 border rounded flex items-center justify-center transition-colors ${
                                 isLightTheme
-                                  ? "bg-slate-50 hover:bg-white border-slate-300 text-slate-700"
-                                  : "bg-slate-800 hover:bg-slate-700 border-slate-700 text-white"
+                                  ? "bg-white hover:bg-[#F3F3EF] border-[#E7E5DF] text-[#444444]"
+                                  : "bg-[#2A2A2A] hover:bg-[#333333] border-[#3B3B3B] text-[#A8A8A8]"
                               }`}
                             >
                               <ZoomOut className="w-3.5 h-3.5" />
                             </button>
                             <div className={`px-3 py-1 rounded border min-w-[60px] text-center text-xs font-bold ${
                               isLightTheme
-                                ? "bg-slate-50 border-slate-300 text-slate-800"
-                                : "bg-slate-800 border-slate-700 text-white"
+                                ? "bg-[#FBFBF8] border-[#E7E5DF] text-[#FF385C]"
+                                : "bg-[#2A2A2A] border-[#3B3B3B] text-[#F2F2F2]"
                             }`}>
                               {canvasZoom}%
                             </div>
@@ -959,15 +960,15 @@ const VideoMergeMode: React.FC = () => {
                               }
                               className={`w-7 h-7 border rounded flex items-center justify-center transition-colors ${
                                 isLightTheme
-                                  ? "bg-slate-50 hover:bg-white border-slate-300 text-slate-700"
-                                  : "bg-slate-800 hover:bg-slate-700 border-slate-700 text-white"
+                                  ? "bg-white hover:bg-[#F3F3EF] border-[#E7E5DF] text-[#444444]"
+                                  : "bg-[#2A2A2A] hover:bg-[#333333] border-[#3B3B3B] text-[#A8A8A8]"
                               }`}
                             >
                               <ZoomIn className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                          <div className={`w-px h-4 ${isLightTheme ? "bg-slate-300" : "bg-slate-800"}`} />
-                          <p className="text-[11px] font-mono text-violet-400">
+                          <div className={`w-px h-4 ${isLightTheme ? "bg-slate-300" : "bg-[#303030]"}`} />
+                          <p className="text-[11px] font-mono text-[#FF385C]">
                             分辨率: {canvasConfig.width} × {canvasConfig.height}
                           </p>
                         </div>
@@ -989,7 +990,7 @@ const VideoMergeMode: React.FC = () => {
                     ) : isGeneratingPreview ? (
                       <div className="h-full flex items-center justify-center">
                         <div className="text-center">
-                          <Loader2 className="w-8 h-8 mx-auto mb-3 text-violet-400 animate-spin" />
+                          <Loader2 className="w-8 h-8 mx-auto mb-3 text-[#FF385C] animate-spin" />
                           <p className="text-sm text-slate-400">正在生成预览视频...</p>
                         </div>
                       </div>
@@ -1028,7 +1029,7 @@ const VideoMergeMode: React.FC = () => {
                             loop
                             muted={muted}
                             paused={!isPlaying}
-                            themeColor="violet"
+                            themeColor="rose"
                             minimal
                             onPlayStateChange={(playing) => {
                               setIsPlaying(playing);
@@ -1051,7 +1052,7 @@ const VideoMergeMode: React.FC = () => {
           </div>
         </div>
 
-        <div className="metal-panel metal-sidebar w-80 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+        <div className="metal-panel metal-sidebar w-80 border border-[#E7E5DF] rounded-lg flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
             <OutputDirSelector
               value={outputDir}
@@ -1079,7 +1080,7 @@ const VideoMergeMode: React.FC = () => {
             />
           </div>
 
-          <div className="p-4 border-t border-slate-800 bg-black/50">
+          <div className={`p-3 border-t ${isLightTheme ? "border-[#EEECE6] bg-[#FBFBF8]" : "border-[#303030] bg-[#242424]"}`}>
             <Button
               onClick={addToTaskCenter}
               disabled={tasks.length === 0 || isAdding || !outputDir}

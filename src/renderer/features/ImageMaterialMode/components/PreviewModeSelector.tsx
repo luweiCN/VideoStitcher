@@ -27,7 +27,7 @@ const PreviewModeSelector: React.FC<PreviewModeSelectorProps> = ({
   onChange,
 }) => {
   return (
-    <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-2">
+    <div className="metal-panel bg-black/50 border border-slate-800 rounded-xl p-4 space-y-2">
       <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
         预览模式
       </h3>
@@ -39,7 +39,7 @@ const PreviewModeSelector: React.FC<PreviewModeSelectorProps> = ({
               onClick={() => onChange(mode)}
               className={`w-full p-3 rounded-lg border text-left transition-all text-sm ${
                 value === mode
-                  ? "border-amber-500 bg-amber-500/20 text-amber-400"
+                  ? "metal-primary border-amber-500 bg-amber-500/20 text-amber-400"
                   : "border-slate-800 bg-black/50 text-slate-400 hover:border-slate-700"
               }`}
             >

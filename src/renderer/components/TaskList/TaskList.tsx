@@ -41,7 +41,7 @@ export interface TaskListProps {
   /** 素材类型数组（与 task.files 一一对应） */
   materialsType?: ('video' | 'image')[];
   /** 主题色 */
-  themeColor: 'slate' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan' | 'amber';
+  themeColor: 'slate' | 'blue' | 'violet' | 'rose' | 'fuchsia' | 'emerald' | 'cyan' | 'amber';
   /** 任务切换回调 */
   onTaskChange?: (index: number) => void;
   /** 是否禁用 */
@@ -121,6 +121,18 @@ const THEME_COLORS = {
     bgLight70: 'bg-cyan-500/70',
     borderLight: 'border-cyan-500/60',
     borderLight30: 'border-cyan-500/30',
+  },
+  blue: {
+    text: 'text-rose-400',
+    bg: 'bg-rose-500',
+    border: 'border-rose-500',
+    ring: 'ring-rose-500',
+    bgLight: 'bg-rose-500/5',
+    bgLight20: 'bg-rose-500/20',
+    bgLight30: 'bg-rose-500/30',
+    bgLight70: 'bg-rose-500/70',
+    borderLight: 'border-rose-500/60',
+    borderLight30: 'border-rose-500/30',
   },
   amber: {
     text: 'text-amber-400',

@@ -13,6 +13,7 @@ import { Button } from '@/components/Button/Button';
 import { useOperationLogs } from '@/hooks/useOperationLogs';
 import { useToastMessages } from '@/components/Toast/Toast';
 import { usePageTheme } from '@/hooks/usePageTheme';
+import { useHomeSkin } from '@/hooks/useHomeSkin';
 import PageThemeToggle from '@/components/PageThemeToggle';
 
 /**
@@ -39,6 +40,8 @@ type ExportFormat = 'text' | 'md_list' | 'md_table' | 'json';
 
 const FileNameExtractorMode: React.FC = () => {
   const { isLightTheme, togglePageTheme } = usePageTheme();
+  const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
+  const metalRootRef = useRef<HTMLDivElement>(null);
   // 状态管理
   const [files, setFiles] = useState<VideoFile[]>([]);
   const [copied, setCopied] = useState(false);
@@ -657,10 +660,22 @@ const FileNameExtractorMode: React.FC = () => {
     { value: 'json', label: 'JSON', icon: Code },
   ];
 
+  const handleMetalMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const root = metalRootRef.current;
+    if (!root) return;
+
+    root.style.setProperty("--metal-glint-x", `${event.clientX}px`);
+    root.style.setProperty("--metal-glint-y", `${event.clientY}px`);
+  }, []);
+
   return (
-    <div className={`h-screen flex flex-col ${
-      isLightTheme ? 'theme-light-page bg-[#eef3f8] text-slate-900' : 'bg-black text-slate-100'
-    }`}>
+    <div
+      ref={metalRootRef}
+      onMouseMove={handleMetalMouseMove}
+      className={`${workspaceSkinClassName} h-screen flex flex-col overflow-hidden font-sans transition-colors duration-300 ${
+      isLightTheme ? 'theme-light-page bg-[#F8F8F5] text-[#222222]' : 'bg-[#181818] text-[#D1D1D1]'
+    }`}
+    >
       {/* Header */}
       <PageHeader
         title="文件名提取"
@@ -679,14 +694,12 @@ const FileNameExtractorMode: React.FC = () => {
           ],
           themeColor: 'pink',
         }}
-        rightContent={
-          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
-        }
+        rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
       />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden gap-2 p-2 min-h-0">
         {/* 左侧：上传和设置区域 */}
-        <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
+        <div className="metal-panel metal-sidebar w-80 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-y-auto custom-scrollbar">
           <div className="p-4 space-y-4">
             {/* 文件选择 */}
             <FileSelectorGroup>
@@ -705,7 +718,7 @@ const FileNameExtractorMode: React.FC = () => {
             </FileSelectorGroup>
 
             {/* 导出格式 */}
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div className="metal-panel bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">导出格式</h3>
               <div className="grid grid-cols-2 gap-2">
                 {formatOptions.map((opt) => (
@@ -715,7 +728,7 @@ const FileNameExtractorMode: React.FC = () => {
                     className={`
                       flex items-center gap-2 p-2 rounded-lg text-xs transition-all
                       ${format === opt.value
-                        ? 'bg-pink-500/20 text-pink-400 border border-pink-500/50'
+                        ? 'metal-primary bg-pink-500/20 text-pink-400 border border-pink-500/50'
                         : 'bg-black/50 text-slate-400 border border-slate-700 hover:border-slate-600'
                       }
                     `}
@@ -728,7 +741,7 @@ const FileNameExtractorMode: React.FC = () => {
             </div>
 
             {/* 内容预览区 */}
-            <div className="bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div className="metal-panel bg-black/50 border border-slate-800 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">内容预览</h3>
                 <span className="text-[10px] text-slate-500">{generatedContent.length} 字符</span>
@@ -750,6 +763,7 @@ const FileNameExtractorMode: React.FC = () => {
                 size="md"
                 fullWidth
                 themeColor="pink"
+                className="metal-cta-button"
                 leftIcon={copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               >
                 {copied ? '已复制' : '一键复制全部'}
@@ -768,7 +782,7 @@ const FileNameExtractorMode: React.FC = () => {
         </div>
 
         {/* 中间：文件列表 */}
-        <div className="flex-1 bg-black flex flex-col overflow-hidden min-w-0">
+        <div className="metal-panel metal-workspace flex-1 flex flex-col overflow-hidden min-w-0 border border-slate-800 rounded-2xl">
           {/* 文件列表头部 */}
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between bg-black/50 shrink-0">
             <h2 className="font-bold text-sm text-slate-300 flex items-center gap-2">
@@ -823,6 +837,7 @@ const FileNameExtractorMode: React.FC = () => {
                   variant="primary"
                   size="sm"
                   themeColor="pink"
+                  className="metal-cta-button"
                   leftIcon={isRenaming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : undefined}
                 >
                   {isRenaming ? '重命名中...' : '执行重命名'}
@@ -833,7 +848,7 @@ const FileNameExtractorMode: React.FC = () => {
 
           {/* 批量替换面板 */}
           {showReplacePanel && (
-            <div className="mx-4 my-3 p-4 bg-pink-500/5 border border-pink-500/20 rounded-xl shrink-0">
+            <div className="metal-panel mx-4 my-3 p-4 bg-pink-500/5 border border-pink-500/20 rounded-xl shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-xs text-pink-400 flex items-center gap-2">
                   <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -882,7 +897,7 @@ const FileNameExtractorMode: React.FC = () => {
 
           {/* 批量序号面板 */}
           {showSequencePanel && (
-            <div className="mx-4 my-3 p-4 bg-pink-500/5 border border-pink-500/20 rounded-xl shrink-0">
+            <div className="metal-panel mx-4 my-3 p-4 bg-pink-500/5 border border-pink-500/20 rounded-xl shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-bold text-xs text-pink-400 flex items-center gap-2">
                   <Hash className="w-3.5 h-3.5" />
@@ -1117,6 +1132,7 @@ const FileNameExtractorMode: React.FC = () => {
                 variant="primary"
                 size="sm"
                 themeColor="pink"
+                className="metal-cta-button"
                 leftIcon={<Save className="w-3.5 h-3.5" />}
               >
                 保存修改
@@ -1126,7 +1142,7 @@ const FileNameExtractorMode: React.FC = () => {
         </div>
 
         {/* 右侧：日志 */}
-        <div className="w-80 border-l border-slate-800 bg-black flex flex-col shrink-0 overflow-y-hidden">
+        <div className="metal-panel metal-sidebar w-80 border border-slate-800 rounded-2xl flex flex-col shrink-0 overflow-y-hidden">
           <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar p-4">
             <OperationLogPanel
               logs={logs}

@@ -18,7 +18,7 @@ const LogoControls: React.FC<LogoControlsProps> = ({
   if (!logoImage) return null;
 
   return (
-    <div className="bg-black/50 border border-slate-800 rounded-xl p-3 space-y-2">
+    <div className="metal-panel bg-black/50 border border-slate-800 rounded-xl p-3 space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold uppercase tracking-wider">
           <Move className="w-3 h-3" /> Logo 调整

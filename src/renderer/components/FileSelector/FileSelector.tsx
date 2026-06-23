@@ -749,27 +749,36 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
      * 根据文件类型返回上传区域的图标
      */
     const renderUploadAreaIcon = () => {
-      const iconStyle = { color: theme.primary };
+      const iconStyle = { color: files.length > 0 ? theme.primary : "#6B6B6B" };
+      const iconClassName = "w-7 h-7 drop-shadow-[0_6px_10px_rgba(34,34,34,0.10)]";
 
       if (accept === "video") {
         return (
-          <FileVideo className="w-7 h-7" strokeWidth={1.5} style={iconStyle} />
+          <div className="airbnb-soft-icon">
+            <FileVideo className={iconClassName} strokeWidth={1.5} style={iconStyle} />
+          </div>
         );
       }
       if (accept === "image") {
         return (
-          <ImageIcon className="w-7 h-7" strokeWidth={1.5} style={iconStyle} />
+          <div className="airbnb-soft-icon">
+            <ImageIcon className={iconClassName} strokeWidth={1.5} style={iconStyle} />
+          </div>
         );
       }
-      return <Upload className="w-7 h-7" strokeWidth={1.5} style={iconStyle} />;
+      return (
+        <div className="airbnb-soft-icon">
+          <Upload className={iconClassName} strokeWidth={1.5} style={iconStyle} />
+        </div>
+      );
     };
 
     const renderFileIcon = (file: FileItem) => {
       const iconColorClass =
         file.type === "video"
-          ? "text-rose-400"
+          ? "text-rose-500"
           : file.type === "image"
-            ? "text-emerald-400"
+            ? "text-slate-500"
             : "text-slate-500";
 
       // 视频：显示缩略图 + 播放图标

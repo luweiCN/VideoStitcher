@@ -18,6 +18,7 @@ import { useOperationLogs } from '@/hooks/useOperationLogs';
 import { useImageProcessingEvents } from '@/hooks/useImageProcessingEvents';
 import { useImageMaterials } from '@/hooks/useImageMaterials';
 import { usePageTheme } from '@/hooks/usePageTheme';
+import { useHomeSkin } from '@/hooks/useHomeSkin';
 import PageThemeToggle from '@/components/PageThemeToggle';
 
 /**
@@ -46,6 +47,7 @@ const CoverCompressMode: React.FC = () => {
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const { isLightTheme, togglePageTheme } = usePageTheme();
+  const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
   const { outputDir, setOutputDir } = useOutputDirCache('CoverCompressMode');
   const { concurrency, setConcurrency } = useConcurrencyCache('CoverCompressMode');
   const [targetSizeKB, setTargetSizeKB] = useState(380);
@@ -341,8 +343,8 @@ const CoverCompressMode: React.FC = () => {
   };
 
   return (
-    <div className={`h-screen flex flex-col ${
-      isLightTheme ? 'theme-light-page bg-[#eef3f8] text-slate-900' : 'bg-black text-slate-100'
+    <div className={`${workspaceSkinClassName} h-screen flex flex-col ${
+      isLightTheme ? 'theme-light-page bg-[#F8F8F5] text-[#222222]' : 'bg-[#181818] text-[#D1D1D1]'
     }`}>
       <PageHeader
         title="封面压缩"
@@ -362,9 +364,7 @@ const CoverCompressMode: React.FC = () => {
           ],
           themeColor: 'emerald',
         }}
-        rightContent={
-          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
-        }
+        rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
       />
 
       {/* Main Content */}

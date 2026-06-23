@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { Grid3X3, Plus } from "lucide-react";
+import { Columns3, Grid3X3, Minus, Plus, Rows3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import OutputDirSelector from "../components/OutputDirSelector";
@@ -14,6 +14,7 @@ import { useOperationLogs } from "../hooks/useOperationLogs";
 import { useImageMaterials } from "../hooks/useImageMaterials";
 import { useTaskContext } from "../contexts/TaskContext";
 import { usePageTheme } from "../hooks/usePageTheme";
+import { useHomeSkin } from "../hooks/useHomeSkin";
 import PageThemeToggle from "../components/PageThemeToggle";
 import { GridPreview } from "./LosslessGridMode/components";
 
@@ -21,6 +22,7 @@ const LosslessGridMode: React.FC = () => {
   const navigate = useNavigate();
   const { batchCreateTasks } = useTaskContext();
   const { isLightTheme, togglePageTheme } = usePageTheme();
+  const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -270,8 +272,8 @@ const LosslessGridMode: React.FC = () => {
   };
 
   return (
-    <div className={`h-screen flex flex-col ${
-      isLightTheme ? "theme-light-page bg-[#eef3f8] text-slate-900" : "bg-black text-slate-100"
+    <div className={`${workspaceSkinClassName} h-screen flex flex-col ${
+      isLightTheme ? "theme-light-page bg-[#F8F8F5] text-[#222222]" : "bg-[#181818] text-[#D1D1D1]"
     }`}>
       <PageHeader
         title="专业无损多宫格"
@@ -289,9 +291,7 @@ const LosslessGridMode: React.FC = () => {
           ],
           themeColor: "cyan",
         }}
-        rightContent={
-          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
-        }
+        rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -311,53 +311,86 @@ const LosslessGridMode: React.FC = () => {
             </FileSelectorGroup>
 
             <div className="pt-4 border-t border-slate-800 space-y-3">
-              <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
-                切割线控制
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  切割线控制
+                </div>
+                <div className="lossless-line-total rounded-full px-2 py-0.5 text-[10px] font-semibold">
+                  {horizontalLines.length + verticalLines.length} 条线
+                </div>
               </div>
               
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={addHorizontalLine}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    themeColor="cyan"
-                  >
-                    加横线
-                  </Button>
-                  <Button
-                    onClick={removeHorizontalLine}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    themeColor="cyan"
-                    disabled={horizontalLines.length === 0}
-                  >
-                    减横线
-                  </Button>
+              <div className="lossless-line-controls space-y-3 rounded-xl border p-3">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold">
+                      <span className="lossless-line-type-icon">
+                        <Rows3 className="h-3.5 w-3.5" />
+                      </span>
+                      横向切割
+                    </div>
+                    <span className="lossless-line-count">{horizontalLines.length} 条</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={addHorizontalLine}
+                      className="lossless-line-button"
+                    >
+                      <span className="lossless-line-icon lossless-line-icon-primary">
+                        <Plus className="h-3.5 w-3.5" />
+                      </span>
+                      添加横线
+                    </button>
+                    <button
+                      type="button"
+                      onClick={removeHorizontalLine}
+                      className="lossless-line-button"
+                      disabled={horizontalLines.length === 0}
+                    >
+                      <span className="lossless-line-icon">
+                        <Minus className="h-3.5 w-3.5" />
+                      </span>
+                      减少横线
+                    </button>
+                  </div>
                 </div>
+
+                <div className="lossless-line-divider" />
                 
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={addVerticalLine}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    themeColor="cyan"
-                  >
-                    加竖线
-                  </Button>
-                  <Button
-                    onClick={removeVerticalLine}
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    themeColor="cyan"
-                    disabled={verticalLines.length === 0}
-                  >
-                    减竖线
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold">
+                      <span className="lossless-line-type-icon">
+                        <Columns3 className="h-3.5 w-3.5" />
+                      </span>
+                      纵向切割
+                    </div>
+                    <span className="lossless-line-count">{verticalLines.length} 条</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={addVerticalLine}
+                      className="lossless-line-button"
+                    >
+                      <span className="lossless-line-icon lossless-line-icon-primary">
+                        <Plus className="h-3.5 w-3.5" />
+                      </span>
+                      添加竖线
+                    </button>
+                    <button
+                      type="button"
+                      onClick={removeVerticalLine}
+                      className="lossless-line-button"
+                      disabled={verticalLines.length === 0}
+                    >
+                      <span className="lossless-line-icon">
+                        <Minus className="h-3.5 w-3.5" />
+                      </span>
+                      减少竖线
+                    </button>
+                  </div>
                 </div>
               </div>
 

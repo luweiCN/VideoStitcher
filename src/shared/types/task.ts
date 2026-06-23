@@ -217,7 +217,7 @@ export interface IntegrityCheckResult {
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   video_merge: '横竖屏极速合成',
   video_stitch: 'A+B 前后拼接',
-  video_resize: '智能改尺寸',
+  video_resize: '海外素材制作',
   image_material: '图片素材处理',
   cover_format: '封面格式转换',
   cover_compress: '封面压缩',

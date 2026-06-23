@@ -28,7 +28,7 @@ const ExportOptionsPanel: React.FC<ExportOptionsPanelProps> = ({
   };
 
   return (
-    <div className="bg-black/50 border border-slate-800 rounded-xl p-3 space-y-2">
+    <div className="metal-panel bg-black/50 border border-slate-800 rounded-xl p-3 space-y-2">
       <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
         导出选项
       </h3>

@@ -22,6 +22,7 @@ import { FileSelector, FileSelectorGroup, type FileSelectorRef } from '@/compone
 import VideoPlayer from '@/components/VideoPlayer/VideoPlayer';
 import { useOperationLogs } from '@/hooks/useOperationLogs';
 import { usePageTheme } from '@/hooks/usePageTheme';
+import { useHomeSkin } from '@/hooks/useHomeSkin';
 import { useToastMessages } from '@/components/Toast/Toast';
 import { formatDuration } from '@/utils/format';
 import PageThemeToggle from '@/components/PageThemeToggle';
@@ -396,6 +397,7 @@ const SubtitleRangePreviewModal: React.FC<SubtitleRangePreviewModalProps> = ({
 
 const SubtitleExtractorMode: React.FC = () => {
   const { isLightTheme, togglePageTheme } = usePageTheme();
+  const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
   const toast = useToastMessages();
   const fileSelectorRef = useRef<FileSelectorRef>(null);
   const [files, setFiles] = useState<SubtitleFile[]>([]);
@@ -818,8 +820,8 @@ const SubtitleExtractorMode: React.FC = () => {
     }
   };
 
-  const rootClass = `video-merge-metal min-h-screen flex flex-col ${
-    isLightTheme ? 'theme-light-page text-slate-900' : 'text-slate-100'
+  const rootClass = `${workspaceSkinClassName} min-h-screen flex flex-col ${
+    isLightTheme ? 'theme-light-page bg-[#F8F8F5] text-[#222222]' : 'bg-[#181818] text-[#D1D1D1]'
   }`;
 
   const panelClass = isLightTheme
@@ -841,7 +843,7 @@ const SubtitleExtractorMode: React.FC = () => {
         icon={Captions}
         description="批量拖入短视频，识别台词文案并一键复制"
         iconColor="text-cyan-400"
-        rightContent={<PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
+        rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
         featureInfo={{
           title: '视频台词识别',
           description: '用于批量提取几十秒短视频中的字幕和口播文案。',

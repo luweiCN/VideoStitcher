@@ -15,8 +15,8 @@ const PageThemeToggle: React.FC<PageThemeToggleProps> = ({ isLightTheme, onToggl
       onClick={onToggle}
       className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
         isLightTheme
-          ? 'bg-slate-100/90 text-slate-700 border-slate-300/80 hover:border-violet-200 hover:text-violet-600'
-          : 'bg-black text-slate-400 border-slate-800 hover:text-white'
+          ? 'bg-white text-[#444444] border-[#E7E5DF] hover:bg-[#F3F3EF] hover:border-[#DDD8CF] hover:text-[#222222]'
+          : 'bg-[#2A2A2A] text-[#D1D1D1] border-[#3B3B3B] hover:bg-[#353535] hover:text-[#F2F2F2]'
       }`}
       type="button"
     >

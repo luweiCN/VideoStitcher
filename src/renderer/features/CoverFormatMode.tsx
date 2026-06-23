@@ -14,6 +14,7 @@ import { useOperationLogs } from "../hooks/useOperationLogs";
 import { useImageMaterials } from "../hooks/useImageMaterials";
 import { useTaskContext } from "../contexts/TaskContext";
 import { usePageTheme } from "../hooks/usePageTheme";
+import { useHomeSkin } from "../hooks/useHomeSkin";
 import PageThemeToggle from "../components/PageThemeToggle";
 import { QualitySelector, CoverPreview, type ImageFile } from "./CoverFormatMode/components";
 
@@ -21,6 +22,7 @@ const CoverFormatMode: React.FC = () => {
   const navigate = useNavigate();
   const { batchCreateTasks } = useTaskContext();
   const { isLightTheme, togglePageTheme } = usePageTheme();
+  const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -183,8 +185,8 @@ const CoverFormatMode: React.FC = () => {
   };
 
   return (
-    <div className={`h-screen flex flex-col ${
-      isLightTheme ? "theme-light-page bg-[#eef3f8] text-slate-900" : "bg-black text-slate-100"
+    <div className={`${workspaceSkinClassName} h-screen flex flex-col ${
+      isLightTheme ? "theme-light-page bg-[#F8F8F5] text-[#222222]" : "bg-[#181818] text-[#D1D1D1]"
     }`}>
       <PageHeader
         title="封面格式转换"
@@ -203,9 +205,7 @@ const CoverFormatMode: React.FC = () => {
           ],
           themeColor: "fuchsia",
         }}
-        rightContent={
-          <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />
-        }
+          rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
       />
 
       <div className="flex-1 flex overflow-hidden">

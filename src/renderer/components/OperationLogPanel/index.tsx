@@ -251,7 +251,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
 
   return (
     <div
-      className={`flex flex-col bg-black/50 border border-slate-800 rounded-xl overflow-hidden ${className}`}
+      className={`operation-log-panel flex flex-col bg-black/50 border border-slate-800 rounded-xl overflow-hidden ${className}`}
       style={containerStyle}
     >
       {/* 头部 */}
@@ -286,7 +286,7 @@ export const OperationLogPanel: React.FC<OperationLogPanelProps> = ({
                 </button>
                 <button
                   onClick={handleConfirmRange}
-                  className="px-2 py-1 bg-pink-500 hover:bg-pink-400 text-white text-[10px] font-medium rounded transition-colors cursor-pointer"
+                  className="px-2 py-1 bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-medium rounded transition-colors cursor-pointer"
                 >
                   复制
                 </button>

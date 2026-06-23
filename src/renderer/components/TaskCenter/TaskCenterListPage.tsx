@@ -53,6 +53,7 @@ import FilePreviewModal from '@renderer/components/FilePreviewModal';
 import { useFileExistsCache } from '@renderer/hooks/useFileExistsCache';
 import { useVideoMaterials } from '@renderer/hooks/useVideoMaterials';
 import { useImageMaterials } from '@renderer/hooks/useImageMaterials';
+import { useHomeSkin } from '@renderer/hooks/useHomeSkin';
 
 const PAGE_SIZE = 15;
 const THUMBNAIL_SIZE = 128;
@@ -65,6 +66,7 @@ const columnHelper = createColumnHelper<TaskRowData>();
 
 const TaskCenterListPage: React.FC = () => {
   const { cancelTask, retryTask, deleteTask, formatRunTime } = useTaskContext();
+  const { workspaceSkinClassName } = useHomeSkin();
   const { checkPaths, pathStatus } = useFileExistsCache();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -780,7 +782,7 @@ const TaskCenterListPage: React.FC = () => {
   });
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col overflow-hidden">
+    <div className={`${workspaceSkinClassName} h-screen bg-[#181818] text-[#D1D1D1] flex flex-col overflow-hidden`}>
       <PageHeader
         title="任务列表"
         icon={Layers}
