@@ -37,6 +37,7 @@ interface VideoFile {
  * 导出格式类型
  */
 type ExportFormat = 'text' | 'md_list' | 'md_table' | 'json';
+type SequenceInsertSide = 'left' | 'right';
 
 const FileNameExtractorMode: React.FC = () => {
   const { isLightTheme, togglePageTheme } = usePageTheme();
@@ -53,6 +54,7 @@ const FileNameExtractorMode: React.FC = () => {
   const [replaceText, setReplaceText] = useState('');
   const [sequenceDelimiter, setSequenceDelimiter] = useState('-');
   const [sequenceIndex, setSequenceIndex] = useState<number>(8);
+  const [sequenceInsertSide, setSequenceInsertSide] = useState<SequenceInsertSide>('left');
   const [tempNames, setTempNames] = useState<Record<string, string>>({});
 
   // 重命名相关状态
@@ -447,10 +449,15 @@ const FileNameExtractorMode: React.FC = () => {
     let updateCount = 0;
     setFiles(prev => prev.map((f, i) => {
       const parts = f.name.split(sequenceDelimiter);
-      if (parts.length < sequenceIndex) return f;
+      const delimiterCount = parts.length - 1;
+      if (delimiterCount < sequenceIndex) return f;
 
       const sequenceNum = (i + 1).toString();
-      parts[sequenceIndex - 1] = parts[sequenceIndex - 1] + sequenceNum;
+      if (sequenceInsertSide === 'left') {
+        parts[sequenceIndex - 1] = parts[sequenceIndex - 1] + sequenceNum;
+      } else {
+        parts[sequenceIndex] = sequenceNum + parts[sequenceIndex];
+      }
 
       const newBaseName = parts.join(sequenceDelimiter);
       if (newBaseName !== f.name) {
@@ -468,7 +475,8 @@ const FileNameExtractorMode: React.FC = () => {
       return f;
     }));
 
-    addLog(`批量添加序号: 在第 ${sequenceIndex} 个 "${sequenceDelimiter}" 左侧, 影响 ${updateCount} 个文件`, 'success');
+    const sideText = sequenceInsertSide === 'left' ? '左侧' : '右侧';
+    addLog(`批量添加序号: 在第 ${sequenceIndex} 个 "${sequenceDelimiter}" ${sideText}, 影响 ${updateCount} 个文件`, 'success');
     setShowSequencePanel(false);
   };
 
@@ -910,7 +918,7 @@ const FileNameExtractorMode: React.FC = () => {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="flex gap-3 items-end">
+              <div className="flex flex-wrap gap-3 items-end">
                 <div className="w-20 space-y-1">
                   <label className="text-[10px] text-slate-500">分隔符</label>
                   <input
@@ -922,7 +930,7 @@ const FileNameExtractorMode: React.FC = () => {
                   />
                 </div>
                 <div className="w-28 space-y-1">
-                  <label className="text-[10px] text-slate-500">第 N 个分隔符左侧</label>
+                  <label className="text-[10px] text-slate-500">第 N 个分隔符</label>
                   <input
                     type="number"
                     min="1"
@@ -931,8 +939,31 @@ const FileNameExtractorMode: React.FC = () => {
                     className="w-full bg-black/50 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-pink-500 text-white text-center"
                   />
                 </div>
-                <div className="flex-1 text-[10px] text-slate-500 pb-2">
-                  序号将根据文件顺序（1, 2, 3...）自动生成
+                <div className="w-32 space-y-1">
+                  <label className="text-[10px] text-slate-500">插入位置</label>
+                  <div className="grid grid-cols-2 rounded-lg border border-slate-700 bg-black/50 p-0.5">
+                    {([
+                      { value: 'left', label: '左侧' },
+                      { value: 'right', label: '右侧' },
+                    ] as const).map(option => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        aria-pressed={sequenceInsertSide === option.value}
+                        onClick={() => setSequenceInsertSide(option.value)}
+                        className={`h-8 rounded-md text-xs font-medium transition-colors ${
+                          sequenceInsertSide === option.value
+                            ? 'bg-gradient-to-r from-pink-600 to-rose-600 text-white shadow-sm shadow-pink-500/30'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="min-w-48 flex-1 text-[10px] text-slate-500 pb-2">
+                  序号将根据文件顺序（1, 2, 3...）自动生成，并插入到指定分隔符的{sequenceInsertSide === 'left' ? '左侧' : '右侧'}
                 </div>
                 <Button
                   onClick={handleApplySequence}
