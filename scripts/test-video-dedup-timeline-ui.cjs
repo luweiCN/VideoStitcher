@@ -132,7 +132,7 @@ async function main() {
 
   await client.evaluate(`(() => {
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-    const values = { '出现次数': '1', '最短持续': '2', '最长持续': '5' };
+    const values = { '出现次数': '1', '最短持续': '0.4', '最长持续': '0.7' };
     for (const [labelText, value] of Object.entries(values)) {
       const field = [...document.querySelectorAll('label')]
         .find((label) => label.innerText.includes(labelText))
@@ -147,6 +147,9 @@ async function main() {
   console.log('[时间轴 UI 验收] 正在生成初始预览');
   await waitFor(client, `Boolean(document.querySelector('video[src]'))`, '初始真实预览', 90000);
   await waitFor(client, `Boolean(document.querySelector('[data-testid="video-dedup-timeline-event-0"]'))`, '时间轴事件');
+  await waitFor(client, `Boolean(document.querySelector('[data-testid="video-dedup-scheme-strip"]'))`, '极速方案条');
+  await waitFor(client, `Boolean(document.querySelector('[data-testid="video-dedup-realtime-canvas"]'))`, '实时图层画布');
+  const initialScreenshot = await screenshot(client, '00-极速方案与实时图层.png');
 
   const colorState = await client.evaluate(`(() => {
     const legend = [...document.querySelectorAll('.video-dedup-type-color')].map((item) => ({
@@ -164,6 +167,11 @@ async function main() {
     throw new Error(`三类变体颜色没有区分：${JSON.stringify(colorState)}`);
   }
 
+  await waitFor(
+    client,
+    `!document.querySelector('[data-testid="video-dedup-add-timeline-event"]')?.disabled`,
+    '增加变体按钮可用',
+  );
   await client.evaluate(`document.querySelector('[data-testid="video-dedup-add-timeline-event"]').click()`);
   await waitFor(client, `document.querySelectorAll('.video-dedup-timeline-event').length === 2`, '随机增加变体');
   await wait(350);
@@ -194,7 +202,7 @@ async function main() {
     || addAndSelectState.deleteColor !== 'rgb(255, 56, 92)') {
     throw new Error(`新增或选中状态不正确：${JSON.stringify(addAndSelectState)}`);
   }
-  if (addAndSelectState.schedule[1].start + 0.001 < addAndSelectState.schedule[0].end + 1) {
+  if (addAndSelectState.schedule[1].start + 0.001 < addAndSelectState.schedule[0].end + 0.01) {
     throw new Error(`新增事件没有遵守单轨最小间隔：${JSON.stringify(addAndSelectState.schedule)}`);
   }
   const addScreenshot = await screenshot(client, '00-新增变体与红色选中态.png');
@@ -286,33 +294,85 @@ async function main() {
     throw new Error(`手动时长仍被最短持续 2 秒限制：${JSON.stringify(resizeState)}`);
   }
 
-  await waitFor(client, `document.body.innerText.includes('时间轴已调整')`, '时间轴待渲染状态');
-  await waitFor(client, `document.querySelector('[data-testid="video-dedup-generate-preview"]')?.innerText.includes('重新渲染')`, '重新渲染按钮');
+  await waitFor(client, `document.body.innerText.includes('实时编辑已保存')`, '实时编辑保存状态');
+  await waitFor(client, `Boolean(document.querySelector('[data-testid="video-dedup-scheme-strip"]'))`, '极速方案条');
+  await waitFor(client, `Boolean(document.querySelector('[data-testid="video-dedup-realtime-canvas"]'))`, '实时图层画布');
   const editedScreenshot = await screenshot(client, '01-时间轴已调整.png');
 
-  await client.evaluate(`document.querySelector('[data-testid="video-dedup-generate-preview"]').click()`);
-  console.log('[时间轴 UI 验收] 正在重新渲染编辑后的时间轴');
-  await waitFor(
-    client,
-    `!document.querySelector('[data-testid="video-dedup-generate-preview"]')?.innerText.includes('重新渲染')`,
-    '编辑时间轴重新渲染完成',
-    90000,
-  );
-  await waitFor(client, `document.body.innerText.includes('已保存手动编排')`, '手动编排已保存');
+  console.log('[时间轴 UI 验收] 检查实时画布与时间轴编辑保持同步');
   const renderedState = await client.evaluate(`(() => {
     const event = document.querySelector('[data-testid="video-dedup-timeline-event-0"]');
     return {
       start: Number(event.dataset.start),
       end: Number(event.dataset.end),
       buttonText: document.querySelector('[data-testid="video-dedup-generate-preview"]').innerText,
-      savedTextVisible: document.body.innerText.includes('已保存手动编排'),
+      savedTextVisible: document.body.innerText.includes('实时编辑已保存'),
+      schemeCount: document.querySelectorAll('[data-testid^="video-dedup-scheme-"]').length,
+      hasRealtimeCanvas: Boolean(document.querySelector('[data-testid="video-dedup-realtime-canvas"]')),
     };
   })()`);
   if (Math.abs(renderedState.start - resizeState.after.start) > 0.01
     || Math.abs(renderedState.end - resizeState.after.end) > 0.01) {
-    throw new Error(`重新渲染后没有保留编辑时间：${JSON.stringify({ resizeState, renderedState })}`);
+    throw new Error(`实时编排没有保留编辑时间：${JSON.stringify({ resizeState, renderedState })}`);
   }
-  const renderedScreenshot = await screenshot(client, '02-调整后重新渲染.png');
+  if (!renderedState.savedTextVisible || !renderedState.hasRealtimeCanvas || renderedState.schemeCount < 1) {
+    throw new Error(`极速方案或实时画布没有正常显示：${JSON.stringify(renderedState)}`);
+  }
+  await client.evaluate(`(() => {
+    const event = document.querySelector('[data-testid="video-dedup-timeline-event-0"]');
+    const video = document.querySelector('video[src]');
+    video.currentTime = Number(event.dataset.start) + 0.1;
+    video.dispatchEvent(new Event('seeked'));
+    return true;
+  })()`);
+  await waitFor(client, `Boolean(document.querySelector('[data-testid="video-dedup-realtime-layer"]'))`, '当前事件实时图层');
+  const canvasMoveState = await client.evaluate(`(async () => {
+    const layer = document.querySelector('[data-testid="video-dedup-realtime-layer"]');
+    const before = { left: layer.style.left, top: layer.style.top, width: layer.style.width };
+    const rect = layer.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    layer.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, clientX: x, clientY: y, pointerId: 3, button: 0, buttons: 1,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, clientX: x + 24, clientY: y + 16, pointerId: 3, buttons: 1,
+    }));
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true, clientX: x + 24, clientY: y + 16, pointerId: 3, button: 0,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return { before, after: { left: layer.style.left, top: layer.style.top, width: layer.style.width } };
+  })()`);
+  if (canvasMoveState.before.left === canvasMoveState.after.left
+    && canvasMoveState.before.top === canvasMoveState.after.top) {
+    throw new Error(`拖动实时图层后位置没有变化：${JSON.stringify(canvasMoveState)}`);
+  }
+  const canvasResizeState = await client.evaluate(`(async () => {
+    const layer = document.querySelector('[data-testid="video-dedup-realtime-layer"]');
+    const handle = document.querySelector('[data-testid="video-dedup-realtime-resize-handle"]');
+    const before = layer.style.width;
+    const rect = handle.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    handle.dispatchEvent(new PointerEvent('pointerdown', {
+      bubbles: true, clientX: x, clientY: y, pointerId: 4, button: 0, buttons: 1,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true, clientX: x + 28, clientY: y + 28, pointerId: 4, buttons: 1,
+    }));
+    window.dispatchEvent(new PointerEvent('pointerup', {
+      bubbles: true, clientX: x + 28, clientY: y + 28, pointerId: 4, button: 0,
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return { before, after: layer.style.width };
+  })()`);
+  if (canvasResizeState.before === canvasResizeState.after) {
+    throw new Error(`拖动实时图层尺寸手柄后宽度没有变化：${JSON.stringify(canvasResizeState)}`);
+  }
+  const renderedScreenshot = await screenshot(client, '02-调整后实时画布.png');
 
   console.log(`VIDEO_DEDUP_TIMELINE_UI_TEST_RESULT ${JSON.stringify({
     success: true,
@@ -322,7 +382,9 @@ async function main() {
     moveState,
     resizeState,
     renderedState,
-    screenshots: [addScreenshot, editedScreenshot, renderedScreenshot],
+    canvasMoveState,
+    canvasResizeState,
+    screenshots: [initialScreenshot, addScreenshot, editedScreenshot, renderedScreenshot],
   })}`);
   client.close();
 }

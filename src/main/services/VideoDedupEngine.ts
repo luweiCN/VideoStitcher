@@ -28,7 +28,17 @@ function parseFfmpegTime(log: string): number | null {
   return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
 }
 
-function getPositionExpression(position: VideoDedupPosition): { x: string; y: string } {
+function getPositionExpression(event: VideoDedupEvent): { x: string; y: string } {
+  if (Number.isFinite(event.x) && Number.isFinite(event.y)) {
+    const x = Math.min(1, Math.max(0, event.x as number));
+    const y = Math.min(1, Math.max(0, event.y as number));
+    return {
+      x: `main_w*${formatNumber(x)}-overlay_w/2`,
+      y: `main_h*${formatNumber(y)}-overlay_h/2`,
+    };
+  }
+
+  const position = event.position;
   const marginX = 'main_w*0.035';
   const marginY = 'main_h*0.035';
   switch (position) {
@@ -88,11 +98,13 @@ function buildFilterComplex(
     ? `[0:v]scale=${renderWidth}:-2:force_original_aspect_ratio=decrease,setpts=PTS-STARTPTS[base0]`
     : '[0:v]setpts=PTS-STARTPTS[base0]';
   const filters: string[] = [sourceFilter];
-  const targetWidth = Math.max(64, Math.round(renderWidth * Math.min(0.5, Math.max(0.05, elementScale))));
-
   events.forEach((event, index) => {
+    const eventScale = event.scale ?? elementScale;
+    const targetWidth = Math.max(64, Math.round(
+      renderWidth * Math.min(0.5, Math.max(0.05, eventScale)),
+    ));
     filters.push(buildElementFilter(index + 1, event, targetWidth));
-    const position = getPositionExpression(event.position);
+    const position = getPositionExpression(event);
     const start = formatNumber(event.start);
     const end = formatNumber(event.end);
     filters.push(

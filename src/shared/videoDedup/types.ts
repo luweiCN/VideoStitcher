@@ -50,6 +50,12 @@ export interface VideoDedupEvent {
   duration: number;
   end: number;
   position: VideoDedupPosition;
+  /** 画布中的横向中心点比例，范围 0～1；未设置时按 position 兼容旧任务。 */
+  x?: number;
+  /** 画布中的纵向中心点比例，范围 0～1；未设置时按 position 兼容旧任务。 */
+  y?: number;
+  /** 单个变体相对原视频宽度的占比；未设置时使用任务全局 elementScale。 */
+  scale?: number;
   recipe?: GreenScreenRecipe;
 }
 

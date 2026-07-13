@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   Boxes,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   FileImage,
   FileVideo2,
@@ -13,6 +15,8 @@ import {
   Layers3,
   Library,
   MapPin,
+  Maximize2,
+  MousePointer2,
   Play,
   Plus,
   RefreshCw,
@@ -80,6 +84,34 @@ interface TimelineEditSession {
   maxDuration: number;
 }
 
+interface RealtimePreviewScheme {
+  id: string;
+  sourcePath: string;
+  sourceIndex: number;
+  variantIndex: number;
+  duration: number;
+  width: number;
+  height: number;
+  randomSeed: number;
+  events: VideoDedupEvent[];
+  thumbnail?: string;
+  isEdited: boolean;
+}
+
+type CanvasEditMode = 'move' | 'resize';
+
+interface CanvasEditSession {
+  eventArrayIndex: number;
+  mode: CanvasEditMode;
+  pointerStartX: number;
+  pointerStartY: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  initialX: number;
+  initialY: number;
+  initialScale: number;
+}
+
 const DEFAULT_GENERATION_RULES: GenerationRules = {
   copies: 1,
   overlaysPerVideo: 3,
@@ -129,6 +161,29 @@ const roundTimelineTime = (value: number): number => Math.round(value * 1000) / 
 const clampTimelineTime = (value: number, min: number, max: number, fallback: number): number => {
   if (max < min) return fallback;
   return Math.min(max, Math.max(min, value));
+};
+
+const clampUnit = (value: number): number => Math.min(1, Math.max(0, value));
+
+const getDefaultCanvasTransform = (
+  event: VideoDedupEvent,
+  fallbackScale: number,
+): { x: number; y: number; scale: number } => {
+  const scale = Math.min(0.5, Math.max(0.05, event.scale ?? fallbackScale));
+  const defaultPosition = (() => {
+    switch (event.position) {
+      case 'top_right': return { x: 0.85, y: 0.15 };
+      case 'bottom_left': return { x: 0.15, y: 0.85 };
+      case 'bottom_right': return { x: 0.85, y: 0.85 };
+      case 'top_left':
+      default: return { x: 0.15, y: 0.15 };
+    }
+  })();
+  return {
+    x: clampUnit(event.x ?? defaultPosition.x),
+    y: clampUnit(event.y ?? defaultPosition.y),
+    scale,
+  };
 };
 
 interface NumberFieldProps {
@@ -218,6 +273,8 @@ const VideoDedupMode: React.FC = () => {
   const { batchCreateTasks } = useTaskContext();
   const sourceSelectorRef = useRef<FileSelectorRef>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const realtimeCanvasRef = useRef<HTMLDivElement>(null);
+  const pendingRealtimeSeekRef = useRef<number | null>(null);
   const previewPathRef = useRef('');
   const timelineTrackRef = useRef<HTMLDivElement>(null);
   const thumbnailAttemptedPathsRef = useRef<Set<string>>(new Set());
@@ -259,6 +316,11 @@ const VideoDedupMode: React.FC = () => {
   const [previewPath, setPreviewPath] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewEvents, setPreviewEvents] = useState<VideoDedupEvent[]>([]);
+  const [previewSchemes, setPreviewSchemes] = useState<RealtimePreviewScheme[]>([]);
+  const [activeSchemeId, setActiveSchemeId] = useState('');
+  const [previewCurrentTime, setPreviewCurrentTime] = useState(0);
+  const [elementPreviewUrls, setElementPreviewUrls] = useState<Record<string, string>>({});
+  const [greenLayerPreviews, setGreenLayerPreviews] = useState<Record<string, string>>({});
   const [previewDuration, setPreviewDuration] = useState(0);
   const [previewProgress, setPreviewProgress] = useState(0);
   const [previewStep, setPreviewStep] = useState('');
@@ -268,10 +330,12 @@ const VideoDedupMode: React.FC = () => {
   const [hasCustomTimeline, setHasCustomTimeline] = useState(false);
   const [selectedTimelineEventIndex, setSelectedTimelineEventIndex] = useState<number | null>(null);
   const [timelineEditSession, setTimelineEditSession] = useState<TimelineEditSession | null>(null);
+  const [canvasEditSession, setCanvasEditSession] = useState<CanvasEditSession | null>(null);
   const previewEventsRef = useRef<VideoDedupEvent[]>([]);
   const previewDurationRef = useRef(0);
   const previewSignatureRef = useRef('');
   const isTimelineEditedRef = useRef(false);
+  const activeSchemeIdRef = useRef('');
   const { isLightTheme, togglePageTheme } = usePageTheme();
   const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
 
@@ -279,6 +343,7 @@ const VideoDedupMode: React.FC = () => {
   previewDurationRef.current = previewDuration;
   previewSignatureRef.current = previewSignature;
   isTimelineEditedRef.current = isTimelineEdited;
+  activeSchemeIdRef.current = activeSchemeId;
 
   const updatePreviewEvents = useCallback((
     update: VideoDedupEvent[] | ((current: VideoDedupEvent[]) => VideoDedupEvent[]),
@@ -288,12 +353,22 @@ const VideoDedupMode: React.FC = () => {
       : update;
     previewEventsRef.current = nextEvents;
     setPreviewEvents(nextEvents);
+    if (activeSchemeIdRef.current) {
+      setPreviewSchemes((current) => current.map((scheme) => (
+        scheme.id === activeSchemeIdRef.current ? { ...scheme, events: nextEvents } : scheme
+      )));
+    }
   }, []);
 
   const markTimelineEdited = useCallback(() => {
     isTimelineEditedRef.current = true;
     setIsTimelineEdited(true);
     setHasCustomTimeline(true);
+    if (activeSchemeIdRef.current) {
+      setPreviewSchemes((current) => current.map((scheme) => (
+        scheme.id === activeSchemeIdRef.current ? { ...scheme, isEdited: true } : scheme
+      )));
+    }
   }, []);
 
   useEffect(() => {
@@ -411,6 +486,57 @@ const VideoDedupMode: React.FC = () => {
   const selectedTimelineEvent = selectedTimelineEventIndex === null
     ? null
     : previewEvents[selectedTimelineEventIndex] || null;
+  const activeScheme = useMemo(
+    () => previewSchemes.find((scheme) => scheme.id === activeSchemeId) || null,
+    [activeSchemeId, previewSchemes],
+  );
+  const activeSchemeIndex = useMemo(
+    () => previewSchemes.findIndex((scheme) => scheme.id === activeSchemeId),
+    [activeSchemeId, previewSchemes],
+  );
+  const activeCanvasEvent = useMemo(() => previewEvents.find((event) => (
+    previewCurrentTime >= event.start && previewCurrentTime <= event.end
+  )) || null, [previewCurrentTime, previewEvents]);
+  const activeCanvasEventIndex = activeCanvasEvent
+    ? previewEvents.findIndex((event) => event === activeCanvasEvent)
+    : -1;
+  const activeCanvasTransform = activeCanvasEvent
+    ? getDefaultCanvasTransform(activeCanvasEvent, elementScalePercent / 100)
+    : null;
+  const activeLayerUrl = activeCanvasEvent ? elementPreviewUrls[activeCanvasEvent.elementPath] || '' : '';
+  const activeGreenPreview = activeCanvasEvent?.elementType === 'green_video'
+    ? greenLayerPreviews[activeCanvasEvent.elementPath] || ''
+    : '';
+
+  useEffect(() => {
+    if (!activeCanvasEvent || elementPreviewUrls[activeCanvasEvent.elementPath]) return;
+    let cancelled = false;
+    void window.api.getPreviewUrl(activeCanvasEvent.elementPath).then((result) => {
+      if (!cancelled && result.success && result.url) {
+        setElementPreviewUrls((current) => ({ ...current, [activeCanvasEvent.elementPath]: result.url }));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCanvasEvent, elementPreviewUrls]);
+
+  useEffect(() => {
+    if (!activeCanvasEvent || activeCanvasEvent.elementType !== 'green_video'
+      || greenLayerPreviews[activeCanvasEvent.elementPath]) return;
+    let cancelled = false;
+    void window.api.previewVideoDedupGreenElement(
+      activeCanvasEvent.elementPath,
+      activeCanvasEvent.recipe || DEFAULT_GREEN_SCREEN_RECIPE,
+    ).then((result) => {
+      if (!cancelled && result.success && result.preview) {
+        setGreenLayerPreviews((current) => ({ ...current, [activeCanvasEvent.elementPath]: result.preview }));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCanvasEvent, greenLayerPreviews]);
 
   useEffect(() => {
     if (!timelineEditSession) return undefined;
@@ -491,6 +617,48 @@ const VideoDedupMode: React.FC = () => {
       window.removeEventListener('pointercancel', handlePointerUp);
     };
   }, [markTimelineEdited, previewDuration, timelineEditSession, updatePreviewEvents]);
+
+  useEffect(() => {
+    if (!canvasEditSession) return undefined;
+
+    const previousCursor = document.body.style.cursor;
+    document.body.style.cursor = canvasEditSession.mode === 'move' ? 'grabbing' : 'nwse-resize';
+    const handlePointerMove = (event: PointerEvent) => {
+      const deltaX = (event.clientX - canvasEditSession.pointerStartX) / canvasEditSession.canvasWidth;
+      const deltaY = (event.clientY - canvasEditSession.pointerStartY) / canvasEditSession.canvasHeight;
+      updatePreviewEvents((current) => current.map((timelineEvent, index) => {
+        if (index !== canvasEditSession.eventArrayIndex) return timelineEvent;
+
+        if (canvasEditSession.mode === 'resize') {
+          const nextScale = Math.min(0.5, Math.max(
+            MIN_ELEMENT_SCALE_PERCENT / 100,
+            canvasEditSession.initialScale + Math.max(deltaX, deltaY) * 0.8,
+          ));
+          return { ...timelineEvent, scale: roundTimelineTime(nextScale) };
+        }
+
+        const margin = Math.max(0.04, canvasEditSession.initialScale / 2);
+        return {
+          ...timelineEvent,
+          x: roundTimelineTime(Math.min(1 - margin, Math.max(margin, canvasEditSession.initialX + deltaX))),
+          y: roundTimelineTime(Math.min(1 - margin, Math.max(margin, canvasEditSession.initialY + deltaY))),
+          scale: canvasEditSession.initialScale,
+        };
+      }));
+      markTimelineEdited();
+    };
+    const handlePointerUp = () => setCanvasEditSession(null);
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+    window.addEventListener('pointercancel', handlePointerUp, { once: true });
+    return () => {
+      document.body.style.cursor = previousCursor;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [canvasEditSession, markTimelineEdited, updatePreviewEvents]);
 
   const scanLibrary = useCallback(async (rootDir: string, showMessage = false) => {
     if (!rootDir) {
@@ -697,6 +865,33 @@ const VideoDedupMode: React.FC = () => {
     }
   }, [isGeneratingPreview, minimumGap, previewDuration, previewEvents, skipHead, skipTail]);
 
+  const handleCanvasPointerDown = useCallback((
+    pointerEvent: React.PointerEvent<HTMLElement>,
+    eventArrayIndex: number,
+    mode: CanvasEditMode,
+  ) => {
+    if (isGeneratingPreview) return;
+    const canvasRect = realtimeCanvasRef.current?.getBoundingClientRect();
+    const timelineEvent = previewEventsRef.current[eventArrayIndex];
+    if (!canvasRect || !timelineEvent || canvasRect.width <= 0 || canvasRect.height <= 0) return;
+
+    pointerEvent.preventDefault();
+    pointerEvent.stopPropagation();
+    const transform = getDefaultCanvasTransform(timelineEvent, elementScalePercent / 100);
+    setSelectedTimelineEventIndex(eventArrayIndex);
+    setCanvasEditSession({
+      eventArrayIndex,
+      mode,
+      pointerStartX: pointerEvent.clientX,
+      pointerStartY: pointerEvent.clientY,
+      canvasWidth: canvasRect.width,
+      canvasHeight: canvasRect.height,
+      initialX: transform.x,
+      initialY: transform.y,
+      initialScale: transform.scale,
+    });
+  }, [elementScalePercent, isGeneratingPreview]);
+
   const handleAddTimelineEvent = useCallback(() => {
     if (isGeneratingPreview) return;
     if (!libraryScan?.success || libraryScan.elements.length === 0 || previewDuration <= 0) {
@@ -829,6 +1024,152 @@ const VideoDedupMode: React.FC = () => {
     return values[0];
   };
 
+  const loadRealtimeScheme = useCallback(async (scheme: RealtimePreviewScheme) => {
+    const previewResult = await window.api.getPreviewUrl(scheme.sourcePath);
+    if (!previewResult.success || !previewResult.url) {
+      throw new Error(previewResult.error || '无法加载原视频预览');
+    }
+    previewEventsRef.current = scheme.events;
+    pendingRealtimeSeekRef.current = scheme.events[0]
+      ? scheme.events[0].start + scheme.events[0].duration / 2
+      : null;
+    previewDurationRef.current = scheme.duration;
+    previewSignatureRef.current = currentPreviewSignature;
+    isTimelineEditedRef.current = scheme.isEdited;
+    setActiveSchemeId(scheme.id);
+    setPreviewEvents(scheme.events);
+    setPreviewDuration(scheme.duration);
+    setPreviewUrl(previewResult.url);
+    setPreviewPath('');
+    setPreviewSignature(currentPreviewSignature);
+    setPreviewCurrentTime(0);
+    setIsTimelineEdited(scheme.isEdited);
+    setHasCustomTimeline(scheme.isEdited);
+    setSelectedTimelineEventIndex(null);
+  }, [currentPreviewSignature]);
+
+  useEffect(() => {
+    const targetTime = pendingRealtimeSeekRef.current;
+    const video = previewVideoRef.current;
+    if (!activeSchemeId || targetTime === null || !video) return;
+
+    const seekToFirstVariant = () => {
+      if (!Number.isFinite(video.duration)) return;
+      video.currentTime = Math.min(targetTime, Math.max(0, video.duration - 0.05));
+    };
+
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      seekToFirstVariant();
+      return;
+    }
+    video.addEventListener('loadedmetadata', seekToFirstVariant, { once: true });
+    return () => video.removeEventListener('loadedmetadata', seekToFirstVariant);
+  }, [activeSchemeId, previewUrl]);
+
+  const handleBuildRealtimePlans = useCallback(async () => {
+    if (sourceVideos.length === 0) {
+      toast.warning('请先选择至少一条待处理视频');
+      return;
+    }
+    if (!libraryScan?.success || libraryScan.elements.length === 0) {
+      toast.warning('请先设置包含可用内容的变体元素库');
+      return;
+    }
+    if (minDuration > maxDuration) {
+      toast.warning('最短持续时间不能大于最长持续时间');
+      return;
+    }
+
+    setIsGeneratingPreview(true);
+    setPreviewProgress(0);
+    setPreviewStep('正在极速生成预览方案');
+    try {
+      const metadataEntries = await Promise.all(sourceVideos.map(async (sourcePath, sourceIndex) => {
+        const [metadata, thumbnailResult] = await Promise.all([
+          window.api.getVideoMetadata(sourcePath),
+          window.api.getVideoThumbnail(sourcePath, { timeOffset: 0.2, maxSize: 160 }),
+        ]);
+        return {
+          sourcePath,
+          sourceIndex,
+          metadata,
+          thumbnail: thumbnailResult.success ? thumbnailResult.thumbnail : undefined,
+        };
+      }));
+      const schemes: RealtimePreviewScheme[] = [];
+      metadataEntries.forEach(({ sourcePath, sourceIndex, metadata, thumbnail }) => {
+        for (let variantIndex = 1; variantIndex <= copies; variantIndex += 1) {
+          const randomSeed = createRandomSeed();
+          const events = buildVideoDedupSchedule(metadata.duration, libraryScan.elements, {
+            eventCount: overlaysPerVideo,
+            minDuration,
+            maxDuration,
+            skipHead,
+            skipTail,
+            minimumGap,
+            scheduleMode,
+            positions: enabledPositions,
+            randomSeed,
+          });
+          schemes.push({
+            id: `${sourceIndex}-${variantIndex}-${randomSeed}`,
+            sourcePath,
+            sourceIndex,
+            variantIndex,
+            duration: metadata.duration,
+            width: metadata.width,
+            height: metadata.height,
+            randomSeed,
+            events,
+            thumbnail,
+            isEdited: false,
+          });
+        }
+      });
+
+      const firstScheme = schemes[0];
+      if (!firstScheme) throw new Error('没有生成可预览的变体方案');
+      setPreviewSchemes(schemes);
+      await loadRealtimeScheme(firstScheme);
+      setPreviewProgress(100);
+      setPreviewStep('预览方案已就绪');
+      toast.success(`已极速生成 ${schemes.length} 个可编辑预览方案`);
+    } catch (error) {
+      toast.error(`生成预览方案失败：${(error as Error).message}`);
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  }, [
+    copies,
+    enabledPositions,
+    libraryScan,
+    loadRealtimeScheme,
+    maxDuration,
+    minDuration,
+    minimumGap,
+    overlaysPerVideo,
+    scheduleMode,
+    skipHead,
+    skipTail,
+    sourceVideos,
+    toast,
+  ]);
+
+  const handleSelectRealtimeScheme = useCallback((schemeId: string) => {
+    const scheme = previewSchemes.find((item) => item.id === schemeId);
+    if (!scheme || scheme.id === activeSchemeId) return;
+    void loadRealtimeScheme(scheme).catch((error) => {
+      toast.error(`切换预览方案失败：${(error as Error).message}`);
+    });
+  }, [activeSchemeId, loadRealtimeScheme, previewSchemes, toast]);
+
+  const handleStepRealtimeScheme = useCallback((direction: -1 | 1) => {
+    if (previewSchemes.length === 0) return;
+    const currentIndex = Math.max(0, activeSchemeIndex);
+    const nextIndex = (currentIndex + direction + previewSchemes.length) % previewSchemes.length;
+    handleSelectRealtimeScheme(previewSchemes[nextIndex].id);
+  }, [activeSchemeIndex, handleSelectRealtimeScheme, previewSchemes]);
+
   const validateGreenElements = useCallback(async (elements: VideoDedupElement[]) => {
     const uniqueGreenElements = [...new Map(
       elements
@@ -849,12 +1190,11 @@ const VideoDedupMode: React.FC = () => {
 
   const handlePreviewLoadedMetadata = useCallback(() => {
     const video = previewVideoRef.current;
-    const firstEvent = previewEvents[0];
-    if (!video || !firstEvent || !Number.isFinite(video.duration)) return;
+    const targetTime = pendingRealtimeSeekRef.current;
+    if (!video || targetTime === null || !Number.isFinite(video.duration)) return;
 
-    const eventMiddle = firstEvent.start + firstEvent.duration / 2;
-    video.currentTime = Math.min(eventMiddle, Math.max(0, video.duration - 0.05));
-  }, [previewEvents]);
+    video.currentTime = Math.min(targetTime, Math.max(0, video.duration - 0.05));
+  }, []);
 
   const handleGeneratePreview = useCallback(async () => {
     const sourcePath = sourceVideos[0];
@@ -984,17 +1324,58 @@ const VideoDedupMode: React.FC = () => {
 
     setIsAddingTasks(true);
     try {
-      const metadataEntries = await Promise.all(
-        sourceVideos.map(async (sourcePath) => ({
-          sourcePath,
-          metadata: await window.api.getVideoMetadata(sourcePath),
-        })),
-      );
       const tasks: Task[] = [];
       let taskIndex = 0;
 
-      for (const { sourcePath, metadata } of metadataEntries) {
-        for (let variantIndex = 1; variantIndex <= copies; variantIndex += 1) {
+      const canUseRealtimePlans = previewSchemes.length === plannedOutputCount
+        && previewSchemes.every((scheme) => scheme.events.length > 0);
+
+      if (canUseRealtimePlans) {
+        for (const scheme of [...previewSchemes].sort((left, right) => (
+          left.sourceIndex - right.sourceIndex || left.variantIndex - right.variantIndex
+        ))) {
+          const usedPaths = new Set(scheme.events.map((event) => event.elementPath));
+          const usedElements = libraryScan.elements.filter((element) => usedPaths.has(element.path));
+          const config: VideoDedupTaskConfig = {
+            eventCount: scheme.events.length,
+            minDuration,
+            maxDuration,
+            skipHead,
+            skipTail,
+            minimumGap,
+            scheduleMode,
+            positions: enabledPositions,
+            randomSeed: scheme.randomSeed,
+            elements: usedElements,
+            events: scheme.events.map((event) => ({ ...event })),
+            variantIndex: scheme.variantIndex,
+            elementScale: elementScalePercent / 100,
+          };
+          tasks.push({
+            id: -(Date.now() + taskIndex),
+            type: 'video_dedup',
+            status: 'pending',
+            name: `视频降重 · 视频 ${scheme.sourceIndex + 1} · 变体 ${scheme.variantIndex}`,
+            files: [{
+              path: scheme.sourcePath,
+              category: 'source',
+              category_name: '原视频',
+              index: 1,
+            }],
+            config: config as unknown as Record<string, unknown>,
+            outputDir,
+          });
+          taskIndex += 1;
+        }
+      } else {
+        const metadataEntries = await Promise.all(
+          sourceVideos.map(async (sourcePath) => ({
+            sourcePath,
+            metadata: await window.api.getVideoMetadata(sourcePath),
+          })),
+        );
+        for (const { sourcePath, metadata } of metadataEntries) {
+          for (let variantIndex = 1; variantIndex <= copies; variantIndex += 1) {
           const randomSeed = createRandomSeed();
           const scheduleConfig = {
             eventCount: overlaysPerVideo,
@@ -1039,7 +1420,8 @@ const VideoDedupMode: React.FC = () => {
             config: config as unknown as Record<string, unknown>,
             outputDir,
           });
-          taskIndex += 1;
+            taskIndex += 1;
+          }
         }
       }
 
@@ -1077,8 +1459,10 @@ const VideoDedupMode: React.FC = () => {
     minimumGap,
     outputDir,
     overlaysPerVideo,
+    plannedOutputCount,
     previewDuration,
     previewEvents,
+    previewSchemes,
     previewSignature,
     scheduleMode,
     skipHead,
@@ -1266,69 +1650,185 @@ const VideoDedupMode: React.FC = () => {
             <div className="flex h-12 shrink-0 items-center justify-between border-b border-slate-800 px-4">
               <div className="flex items-center gap-2">
                 <Layers3 className="h-4 w-4 text-rose-400" />
-                <span className="text-sm font-bold text-slate-200">变体编排预览</span>
+                <span className="text-sm font-bold text-slate-200">实时变体编排</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="rounded-md border border-slate-800 bg-black/30 px-2 py-1 text-[11px] text-slate-500">
-                  {sourceVideos.length > 0 ? `${sourceVideos.length} 条视频` : '等待导入视频'}
+                  {previewSchemes.length > 0 && activeSchemeIndex >= 0
+                    ? `方案 ${activeSchemeIndex + 1}/${previewSchemes.length}`
+                    : sourceVideos.length > 0 ? `${sourceVideos.length} 条视频` : '等待导入视频'}
                 </span>
+                {previewSchemes.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="上一套方案"
+                      onClick={() => handleStepRealtimeScheme(-1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-800 text-slate-400 transition hover:border-rose-500/50 hover:text-rose-300"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="下一套方案"
+                      onClick={() => handleStepRealtimeScheme(1)}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-800 text-slate-400 transition hover:border-rose-500/50 hover:text-rose-300"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   data-testid="video-dedup-generate-preview"
-                  onClick={handleGeneratePreview}
+                  onClick={handleBuildRealtimePlans}
                   disabled={isGeneratingPreview || sourceVideos.length === 0 || !libraryScan?.elements.length}
                   className="metal-primary flex h-8 items-center gap-1.5 rounded-lg bg-[#FF385C] px-3 text-[11px] font-bold text-white transition-all hover:bg-[#e93252] disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
                 >
                   {isGeneratingPreview ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
                   {isGeneratingPreview
                     ? `${previewProgress}%`
-                    : canRenderEditedTimeline
-                      ? '重新渲染'
-                      : previewUrl
-                        ? '重新生成预览'
-                        : '生成效果预览'}
+                    : previewSchemes.length > 0 ? '重新随机方案' : '生成预览方案'}
                 </button>
               </div>
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+              {previewSchemes.length > 0 && (
+                <div
+                  data-testid="video-dedup-scheme-strip"
+                  className="flex shrink-0 gap-2 overflow-x-auto rounded-xl border border-slate-800 bg-black/20 p-2"
+                >
+                  {previewSchemes.map((scheme) => {
+                    const isActive = scheme.id === activeSchemeId;
+                    return (
+                      <button
+                        key={scheme.id}
+                        type="button"
+                        data-testid={`video-dedup-scheme-${scheme.sourceIndex}-${scheme.variantIndex}`}
+                        data-active={isActive}
+                        onClick={() => handleSelectRealtimeScheme(scheme.id)}
+                        className={`video-dedup-scheme-card flex min-w-[148px] items-center gap-2 rounded-lg border p-1.5 text-left transition-all ${
+                          isActive
+                            ? 'border-[#FF385C] bg-rose-500/10'
+                            : 'border-slate-800 bg-black/25 hover:border-slate-700'
+                        }`}
+                      >
+                        <span className="flex h-10 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-900 text-slate-600">
+                          {scheme.thumbnail ? (
+                            <img src={scheme.thumbnail} alt="" className="h-full w-full object-cover" />
+                          ) : <Film className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-slate-300">
+                            视频 {scheme.sourceIndex + 1} · 变体 {scheme.variantIndex}
+                            {scheme.isEdited && <span className="rounded bg-rose-500/15 px-1 text-[9px] text-rose-300">已编辑</span>}
+                          </span>
+                          <span className="mt-0.5 block text-[9px] text-slate-500">
+                            {scheme.events.length} 个元素 · {scheme.duration.toFixed(1)}s
+                          </span>
+                          <span className="mt-1 flex gap-1">
+                            {[...new Set(scheme.events.map((event) => event.elementType))].map((type) => (
+                              <span key={type} className="video-dedup-type-color h-1.5 w-1.5 rounded-full" data-element-type={type} />
+                            ))}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <div className="metal-canvas-shell relative flex min-h-[260px] flex-1 items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-[#0E1629]">
                 <div className="absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(148,163,184,.10)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,.10)_1px,transparent_1px)] [background-size:32px_32px]" />
                 {previewUrl ? (
-                  <>
+                  <div
+                    ref={realtimeCanvasRef}
+                    data-testid="video-dedup-realtime-canvas"
+                    className="relative z-10 h-full max-h-full max-w-full overflow-hidden bg-black shadow-2xl"
+                    style={{
+                      aspectRatio: activeScheme ? `${activeScheme.width} / ${activeScheme.height}` : undefined,
+                    }}
+                  >
                     <video
                       ref={previewVideoRef}
                       src={previewUrl}
                       controls
                       loop
                       onLoadedMetadata={handlePreviewLoadedMetadata}
-                      className="relative z-10 h-full max-h-full w-full object-contain"
+                      onTimeUpdate={(event) => setPreviewCurrentTime(event.currentTarget.currentTime)}
+                      onSeeked={(event) => setPreviewCurrentTime(event.currentTarget.currentTime)}
+                      className="h-full w-full object-contain"
                     />
-                    {isPreviewStale && (
-                      <div className="absolute right-3 top-3 z-20 rounded-lg border border-amber-500/40 bg-amber-950/90 px-3 py-2 text-[11px] font-bold text-amber-300">
-                        {canRenderEditedTimeline ? '时间轴已调整，请重新渲染' : '参数已经变化，请重新生成预览'}
+                    {activeCanvasEvent && activeCanvasTransform && (
+                      <div
+                        data-testid="video-dedup-realtime-layer"
+                        data-element-type={activeCanvasEvent.elementType}
+                        className={`video-dedup-realtime-layer absolute z-20 select-none touch-none ${
+                          selectedTimelineEventIndex === activeCanvasEventIndex ? 'video-dedup-realtime-layer-selected' : ''
+                        }`}
+                        style={{
+                          left: `${activeCanvasTransform.x * 100}%`,
+                          top: `${activeCanvasTransform.y * 100}%`,
+                          width: `${activeCanvasTransform.scale * 100}%`,
+                          transform: 'translate(-50%, -50%)',
+                        }}
+                        onPointerDown={(pointerEvent) => handleCanvasPointerDown(
+                          pointerEvent,
+                          activeCanvasEventIndex,
+                          'move',
+                        )}
+                      >
+                        {activeCanvasEvent.elementType === 'green_video' ? (
+                          activeGreenPreview ? (
+                            <img src={activeGreenPreview} alt="绿幕变体预览" className="block h-auto w-full pointer-events-none" />
+                          ) : <span className="flex aspect-video items-center justify-center bg-emerald-950/80 text-[10px] text-emerald-200">正在加载绿幕预览</span>
+                        ) : activeLayerUrl ? (
+                          <img src={activeLayerUrl} alt="变体预览" className="block h-auto w-full pointer-events-none" />
+                        ) : <span className="flex aspect-video items-center justify-center bg-slate-900/80 text-[10px] text-slate-300">正在加载元素</span>}
+                        {selectedTimelineEventIndex === activeCanvasEventIndex && (
+                          <span
+                            data-testid="video-dedup-realtime-resize-handle"
+                            className="video-dedup-realtime-resize-handle"
+                            onPointerDown={(pointerEvent) => handleCanvasPointerDown(
+                              pointerEvent,
+                              activeCanvasEventIndex,
+                              'resize',
+                            )}
+                          >
+                            <Maximize2 className="h-3 w-3" />
+                          </span>
+                        )}
                       </div>
                     )}
-                  </>
+                    <span className="absolute left-3 top-3 z-30 flex items-center gap-1.5 rounded-md border border-slate-700/70 bg-black/65 px-2 py-1 text-[10px] text-slate-300">
+                      <MousePointer2 className="h-3 w-3 text-rose-400" />
+                      实时图层预览
+                    </span>
+                    {isTimelineEdited && (
+                      <div className="absolute right-3 top-3 z-30 rounded-lg border border-emerald-500/30 bg-emerald-950/85 px-3 py-2 text-[11px] font-bold text-emerald-300">
+                        实时编辑已保存，导出时应用
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="relative flex flex-col items-center text-center">
                     <span className="flex h-20 w-20 items-center justify-center rounded-2xl border border-slate-700 bg-black/30 text-slate-500 shadow-2xl">
                       {isGeneratingPreview ? <RefreshCw className="h-9 w-9 animate-spin text-rose-400" /> : <Film className="h-9 w-9" />}
                     </span>
                     <p className="mt-4 text-sm font-bold text-slate-300">
-                      {isGeneratingPreview ? previewStep || '正在生成真实效果预览' : '生成第一条视频的真实效果预览'}
+                      {isGeneratingPreview ? previewStep || '正在生成可编辑预览方案' : '生成可编辑的多版本预览方案'}
                     </p>
                     <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
-                      预览会实际执行元素排程、GIF循环和绿幕抠色，结果与任务中心处理规则一致。
+                      方案即时生成；点击不同方案切换预览，直接拖动画面元素调整位置和尺寸。
                     </p>
                     <button
                       type="button"
-                      onClick={handleGeneratePreview}
+                      onClick={handleBuildRealtimePlans}
                       disabled={isGeneratingPreview || sourceVideos.length === 0 || !libraryScan?.elements.length}
                       className="metal-primary mt-4 flex h-9 items-center gap-2 rounded-lg bg-[#FF385C] px-4 text-xs font-bold text-white transition-all hover:bg-[#e93252] disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
                     >
                       <Play className="h-3.5 w-3.5" />
-                      生成效果预览
+                      生成预览方案
                     </button>
                     {isGeneratingPreview && (
                       <div className="mt-3 h-1.5 w-56 overflow-hidden rounded-full bg-slate-800">
@@ -1348,9 +1848,9 @@ const VideoDedupMode: React.FC = () => {
                     <p className="mt-0.5 text-[10px] text-slate-500">
                       {previewEvents.length > 0
                         ? isTimelineEdited
-                          ? '时间轴已调整，点击右上角“重新渲染”查看修改后的效果'
+                          ? '时间轴与画布修改已实时生效，导出时将使用当前方案'
                           : `${previewEvents.length} 次元素事件；拖动素材块调整位置，拖动两端可自由调整时长`
-                        : '生成效果预览后显示真实元素与时间区间'}
+                        : '生成预览方案后显示每套方案的元素与时间区间'}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -1477,9 +1977,9 @@ const VideoDedupMode: React.FC = () => {
                     手动调整不受生成规则的最短/最长持续限制，仍会自动避开片头片尾与相邻元素。
                   </p>
                 )}
-                {hasCustomTimeline && !isTimelineEdited && (
+                {previewSchemes.length > 0 && !isTimelineEdited && (
                   <p className="mt-2 text-[10px] text-slate-500">
-                    已保存手动编排：加入任务时应用于首条视频的第 1 个变体，其余变体继续按规则随机生成。
+                    当前方案会按各自独立的时间轴、位置和尺寸导出；切换方案不会新开页面。
                   </p>
                 )}
               </div>
