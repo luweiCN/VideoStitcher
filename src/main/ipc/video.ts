@@ -9,7 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import { execFile } from 'child_process';
 import crypto from 'crypto';
-import { runFfmpeg, getFfmpegPath, buildStitchCommand, buildMergeCommand, TaskQueue, generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS, getVideoMetadata, getVideoDuration, getVideoDurationFast } from '@shared/ffmpeg';
+import { runFfmpeg, getFfmpegPath, buildStitchCommand, buildMergeCommand, resolveMergeLayout, TaskQueue, generatePreviews, cleanupPreviews, buildArgs as buildResizeArgs, RESIZE_CONFIGS, getVideoMetadata, getVideoDuration, getVideoDurationFast } from '@shared/ffmpeg';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 import { SafeOutput } from '@shared/utils/safeOutput';
 import {
@@ -337,23 +337,43 @@ export async function executeSingleMergeTask(
   const bName = path.parse(bPath).name;
   const aName = aPath ? path.parse(aPath).name : undefined;
   const cName = cPath ? path.parse(cPath).name : undefined;
-  const suffix = orientation === 'vertical' ? '竖' : '横';
-  
-  let rawBaseName = aName ? `${aName}__${bName}` : `${bName}`;
-  if (cName) rawBaseName += `__${cName}`;
-  rawBaseName += `_${suffix}`;
-
-  const safeBaseName = generateFileName(outputDir, rawBaseName, { extension: '.mp4', reserveSuffixSpace: 5 });
   const safeOutput = new SafeOutput(outputDir, 'merge');
-  const tempPath = safeOutput.getTempOutputPath(safeBaseName, 0);
 
   try {
-    // 探测各个视频元数据，用于音频补全
+    // 主进程重新探测所有视频尺寸，最终输出不能盲信前端可能残留的旧框位
     const [metaA, metaB, metaC] = await Promise.all([
       aPath ? getVideoMetadata(aPath) : Promise.resolve(null),
       getVideoMetadata(bPath),
       cPath ? getVideoMetadata(cPath) : Promise.resolve(null),
     ]);
+
+    const videoDimensions = [
+      ...(aPath ? [metaA] : []),
+      metaB,
+      ...(cPath ? [metaC] : []),
+    ];
+    const layout = resolveMergeLayout({
+      requestedOrientation: orientation as 'horizontal' | 'vertical',
+      hasBackgroundTemplate: !!bgImage,
+      videoDimensions,
+      aPosition,
+      bPosition,
+      cPosition,
+      bgPosition,
+      coverPosition,
+    });
+
+    if (layout.forcedLandscapeFullscreen) {
+      onLog?.('[极速合成] 未使用视频套图且所有视频均为横版，已强制使用 1920×1080 全屏布局');
+    }
+
+    const suffix = layout.orientation === 'vertical' ? '竖' : '横';
+    let rawBaseName = aName ? `${aName}__${bName}` : `${bName}`;
+    if (cName) rawBaseName += `__${cName}`;
+    rawBaseName += `_${suffix}`;
+
+    const safeBaseName = generateFileName(outputDir, rawBaseName, { extension: '.mp4', reserveSuffixSpace: 5 });
+    const tempPath = safeOutput.getTempOutputPath(safeBaseName, 0);
 
     const args = buildMergeCommand({
       aPath,
@@ -362,17 +382,13 @@ export async function executeSingleMergeTask(
       outPath: tempPath,
       bgImage,
       coverImage,
-      aPosition,
-      bPosition,
-      cPosition,
-      bgPosition,
-      coverPosition,
-      orientation: orientation as 'horizontal' | 'vertical',
+      aPosition: layout.aPosition,
+      bPosition: layout.bPosition,
+      cPosition: layout.cPosition,
+      bgPosition: layout.bgPosition,
+      coverPosition: layout.coverPosition,
+      orientation: layout.orientation,
       threads,
-      // 传递音频存在性标记
-      hasAudioA: !!metaA?.audio,
-      hasAudioB: !!metaB?.audio,
-      hasAudioC: !!metaC?.audio,
       durationA: metaA?.duration,
       durationB: metaB?.duration,
       durationC: metaC?.duration,

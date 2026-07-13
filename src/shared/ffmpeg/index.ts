@@ -7,5 +7,6 @@ export * from './ffmpeg';
 export * from './ffprobe';
 export * from './stitch';
 export * from './merge';
+export * from './mergeLayout';
 export * from './resize';
 export * from './queue';

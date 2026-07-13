@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from 'react';
+import type { MaterialPositions } from '@/types';
 
 export interface VideoMergeState {
   orientation: 'horizontal' | 'vertical';
@@ -8,6 +9,9 @@ export interface VideoMergeState {
   cVideos: string[];
   covers: string[];
   taskCount: number;
+  materialPositions?: MaterialPositions;
+  hasCustomBPosition: boolean;
+  bPositionLayoutKey: string | null;
 }
 
 const DEFAULT_STATE: VideoMergeState = {
@@ -18,6 +22,9 @@ const DEFAULT_STATE: VideoMergeState = {
   cVideos: [],
   covers: [],
   taskCount: 1,
+  materialPositions: undefined,
+  hasCustomBPosition: false,
+  bPositionLayoutKey: null,
 };
 
 interface VideoMergeContextType {
@@ -31,19 +38,24 @@ const VideoMergeContext = createContext<VideoMergeContextType | undefined>(undef
 export const VideoMergeProvider = ({ children }: { children: ReactNode }) => {
   const [state, setInternalState] = useState<VideoMergeState>(DEFAULT_STATE);
 
-  const setState = (update: Partial<VideoMergeState> | ((prev: VideoMergeState) => VideoMergeState)) => {
+  const setState = useCallback((update: Partial<VideoMergeState> | ((prev: VideoMergeState) => VideoMergeState)) => {
     setInternalState((prev) => {
       const next = typeof update === 'function' ? update(prev) : { ...prev, ...update };
       return next;
     });
-  };
+  }, []);
 
-  const clearState = () => {
+  const clearState = useCallback(() => {
     setInternalState(DEFAULT_STATE);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ state, setState, clearState }),
+    [state, setState, clearState],
+  );
 
   return (
-    <VideoMergeContext.Provider value={{ state, setState, clearState }}>
+    <VideoMergeContext.Provider value={value}>
       {children}
     </VideoMergeContext.Provider>
   );

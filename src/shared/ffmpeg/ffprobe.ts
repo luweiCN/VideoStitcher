@@ -98,7 +98,7 @@ export async function getVideoMetadata(filePath: string): Promise<VideoMetadata>
     const args = [
       '-v', 'error',
       '-select_streams', 'v:0',
-      '-show_entries', 'stream=width,height,duration',
+      '-show_entries', 'stream=width,height,duration:stream_tags=rotate:stream_side_data=rotation',
       '-of', 'json',
       filePath,
     ];
@@ -124,9 +124,16 @@ export async function getVideoMetadata(filePath: string): Promise<VideoMetadata>
         const output = JSON.parse(stdout);
         if (output.streams && output.streams.length > 0) {
           const stream = output.streams[0];
+          const sideDataRotation = Array.isArray(stream.side_data_list)
+            ? stream.side_data_list.find((item: { rotation?: number }) => Number.isFinite(Number(item.rotation)))?.rotation
+            : undefined;
+          const rotation = Number(sideDataRotation ?? stream.tags?.rotate ?? 0);
+          const shouldSwapDimensions = Math.abs(rotation) % 180 === 90;
+          const width = shouldSwapDimensions ? stream.height : stream.width;
+          const height = shouldSwapDimensions ? stream.width : stream.height;
           resolve({
-            width: stream.width,
-            height: stream.height,
+            width,
+            height,
             duration: stream.duration ? parseFloat(stream.duration) : 0,
           });
         } else {

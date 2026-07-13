@@ -75,60 +75,29 @@ export function getInitialPositions(
     height: aHeight,
   };
 
-  // 3. B面视频：根据视频元数据计算位置
+  // 3. B面视频：保持原始比例，并在画布内尽可能铺满
   let bWidth: number;
   let bHeight: number;
 
   if (bVideoMetadata) {
     const bAspect = bVideoMetadata.width / bVideoMetadata.height;
     const canvasAspect = width / height;
-    const isHorizontal = width > height;
 
-    if (isHorizontal) {
-      // 横屏模式：主视频通常是竖屏（9:16）
-      if (bAspect < canvasAspect * 0.8) {
-        // 竖屏视频 (9:16 或更高)，高度填满
-        bHeight = height;
-        bWidth = bHeight * bAspect;
-      } else if (bAspect > canvasAspect * 1.2) {
-        // 超宽屏视频，宽度填满
-        bWidth = width;
-        bHeight = bWidth / bAspect;
-      } else {
-        // 接近画布比例，铺满或稍小
-        bWidth = width * 0.9;
-        bHeight = bWidth / bAspect;
-        if (bHeight > height) {
-          bHeight = height;
-          bWidth = bHeight * bAspect;
-        }
-      }
+    if (bAspect > canvasAspect) {
+      // 视频比画布更宽：宽度铺满，高度按原始比例计算
+      bWidth = width;
+      bHeight = bWidth / bAspect;
     } else {
-      // 竖屏模式：主视频通常是横屏（16:9）
-      if (bAspect > canvasAspect * 1.2) {
-        // 横屏视频 (16:9 或更宽)，宽度填满
-        bWidth = width;
-        bHeight = bWidth / bAspect;
-      } else if (bAspect < canvasAspect * 0.8) {
-        // 竖屏视频，高度填满或接近
-        bHeight = height;
-        bWidth = bHeight * bAspect;
-      } else {
-        // 接近画布比例，适当缩放
-        bHeight = height * 0.7;
-        bWidth = bHeight * bAspect;
-        if (bWidth > width) {
-          bWidth = width;
-          bHeight = bWidth / bAspect;
-        }
-      }
+      // 视频比画布更窄或比例相同：高度铺满，宽度按原始比例计算
+      bHeight = height;
+      bWidth = bHeight * bAspect;
     }
   } else {
-    // 使用默认宽高比
+    // 元数据尚未恢复时，横屏优先使用安全的全屏框，避免回退成 607.5×1080 的竖框
     const isHorizontal = width > height;
     if (isHorizontal) {
+      bWidth = width;
       bHeight = height;
-      bWidth = height * videoAspect;
     } else {
       bWidth = width;
       bHeight = width / videoAspect;

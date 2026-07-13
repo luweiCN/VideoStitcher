@@ -1,6 +1,7 @@
 import React, {
   useState,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useCallback,
@@ -54,6 +55,12 @@ const DEFAULT_CANVAS_ZOOM = {
   vertical: 26,
 } as const;
 
+// B 面框位只对当前“画布方向 + 视频套图”布局生效
+const getBPositionLayoutKey = (
+  orientation: "horizontal" | "vertical",
+  bgImagePath?: string,
+) => `${orientation}::${bgImagePath || "no-template"}`;
+
 const VideoMergeMode: React.FC = () => {
   const navigate = useNavigate();
   // 文件选择器组 ref，用于清空所有文件
@@ -62,7 +69,6 @@ const VideoMergeMode: React.FC = () => {
   const { state, setState, clearState } = useVideoMergeContext();
 
   const orientation = state.orientation;
-  const setOrientation = (o: "horizontal" | "vertical") => setState({ orientation: o });
 
   const canvasConfig = useMemo(
     () => getCanvasConfig(orientation),
@@ -79,6 +85,7 @@ const VideoMergeMode: React.FC = () => {
   const setTaskCount = (c: number) => setState({ taskCount: c });
 
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+  const [generatedTaskSignature, setGeneratedTaskSignature] = useState("");
 
   // 轮播状态：0 = 编辑视图，1 = 预览视图
   const [emblaRef, emblaApi] = useEmblaCarousel({ 
@@ -172,9 +179,43 @@ const VideoMergeMode: React.FC = () => {
   const [aVideoMetadata, setAVideoMetadata] = useState<
     { width: number; height: number; duration: number } | undefined
   >();
+  const [isBMetadataLoading, setIsBMetadataLoading] = useState(false);
+  const [isAMetadataLoading, setIsAMetadataLoading] = useState(false);
 
-  const [materialPositions, setMaterialPositions] = useState<MaterialPositions>(
+  const defaultMaterialPositions = useMemo(
     () => getInitialPositions(canvasConfig),
+    [canvasConfig],
+  );
+  const materialPositions = state.materialPositions ?? defaultMaterialPositions;
+  const materialPositionsRef = useRef(materialPositions);
+  const hasManuallyAdjustedBPositionRef = useRef(state.hasCustomBPosition);
+  const bPositionLayoutKeyRef = useRef(state.bPositionLayoutKey);
+  const orientationRef = useRef(orientation);
+  const bgImagePathRef = useRef<string | undefined>(bgImages[0]);
+  const bVideoMetadataRef = useRef(bVideoMetadata);
+  const aVideoMetadataRef = useRef(aVideoMetadata);
+  const bMetadataRequestRef = useRef(0);
+  const aMetadataRequestRef = useRef(0);
+  const bgDimensionsRequestRef = useRef(0);
+  const taskGenerationRequestRef = useRef(0);
+
+  materialPositionsRef.current = materialPositions;
+  hasManuallyAdjustedBPositionRef.current = state.hasCustomBPosition;
+  bPositionLayoutKeyRef.current = state.bPositionLayoutKey;
+  orientationRef.current = orientation;
+  bgImagePathRef.current = bgImages[0];
+  bVideoMetadataRef.current = bVideoMetadata;
+  aVideoMetadataRef.current = aVideoMetadata;
+
+  const setMaterialPositions = useCallback(
+    (update: MaterialPositions | ((prev: MaterialPositions) => MaterialPositions)) => {
+      const next = typeof update === "function"
+        ? update(materialPositionsRef.current)
+        : update;
+      materialPositionsRef.current = next;
+      setState({ materialPositions: next });
+    },
+    [setState],
   );
 
   const [canvasZoom, setCanvasZoom] = useState<number>(() => DEFAULT_CANVAS_ZOOM[orientation]);
@@ -290,11 +331,6 @@ const VideoMergeMode: React.FC = () => {
     onLog: (message, type) => addLog(message, type),
   });
 
-  // 当画布方向改变时，重置所有素材到初始位置以适配新画布
-  useEffect(() => {
-    setMaterialPositions(getInitialPositions(canvasConfig, bVideoMetadata, aVideoMetadata));
-  }, [canvasConfig]);
-
   useEffect(() => {
     setCanvasZoom(DEFAULT_CANVAS_ZOOM[orientation]);
   }, [orientation]);
@@ -311,53 +347,134 @@ const VideoMergeMode: React.FC = () => {
     [addLog],
   );
 
+  /**
+   * 原子切换布局。相同布局下已经手动锁定的 B 面框位必须保持不变。
+   */
+  const applyOrientation = useCallback(
+    (nextOrientation: "horizontal" | "vertical") => {
+      const nextLayoutKey = getBPositionLayoutKey(
+        nextOrientation,
+        bgImagePathRef.current,
+      );
+      const shouldKeepBPosition = hasManuallyAdjustedBPositionRef.current
+        && bPositionLayoutKeyRef.current === nextLayoutKey;
+
+      orientationRef.current = nextOrientation;
+      if (shouldKeepBPosition) {
+        setState({ orientation: nextOrientation });
+        return;
+      }
+
+      const nextPositions = getInitialPositions(
+        getCanvasConfig(nextOrientation),
+        bVideoMetadataRef.current,
+        aVideoMetadataRef.current,
+      );
+      hasManuallyAdjustedBPositionRef.current = false;
+      bPositionLayoutKeyRef.current = null;
+      materialPositionsRef.current = nextPositions;
+      setState({
+        orientation: nextOrientation,
+        materialPositions: nextPositions,
+        hasCustomBPosition: false,
+        bPositionLayoutKey: null,
+      });
+    },
+    [setState],
+  );
+
+  // 页面恢复、文件替换和重新进入模块时，都由当前首个 B 视频重新探测元数据
+  useEffect(() => {
+    const filePath = bVideos[0];
+    const requestId = ++bMetadataRequestRef.current;
+    if (!filePath) {
+      setBVideoMetadata(undefined);
+      setIsBMetadataLoading(false);
+      return;
+    }
+
+    let active = true;
+    setIsBMetadataLoading(true);
+    setBVideoMetadata(undefined);
+    void fetchVideoMetadata(filePath).then((metadata) => {
+      if (!active || requestId !== bMetadataRequestRef.current) return;
+      setBVideoMetadata(metadata || undefined);
+    }).finally(() => {
+      if (active && requestId === bMetadataRequestRef.current) {
+        setIsBMetadataLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [bVideos[0], fetchVideoMetadata]);
+
+  // A 面同样需要在页面状态恢复后重新获取元数据
+  useEffect(() => {
+    const filePath = aVideos[0];
+    const requestId = ++aMetadataRequestRef.current;
+    if (!filePath) {
+      setAVideoMetadata(undefined);
+      setIsAMetadataLoading(false);
+      return;
+    }
+
+    let active = true;
+    setIsAMetadataLoading(true);
+    setAVideoMetadata(undefined);
+    void fetchVideoMetadata(filePath).then((metadata) => {
+      if (!active || requestId !== aMetadataRequestRef.current) return;
+      setAVideoMetadata(metadata || undefined);
+    }).finally(() => {
+      if (active && requestId === aMetadataRequestRef.current) {
+        setIsAMetadataLoading(false);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [aVideos[0], fetchVideoMetadata]);
+
+  // 元数据到达后修正默认框位；用户确实手动调整过 B 面时才保留 B 框
+  useLayoutEffect(() => {
+    const defaults = getInitialPositions(canvasConfig, bVideoMetadata, aVideoMetadata);
+    setMaterialPositions((prev) => ({
+      ...prev,
+      aVideo: defaults.aVideo,
+      bVideo: hasManuallyAdjustedBPositionRef.current ? prev.bVideo : defaults.bVideo,
+    }));
+  }, [canvasConfig, bVideoMetadata, aVideoMetadata]);
+
   const handleBVideosChange = useCallback(
-    async (files: string[]) => {
+    (files: string[]) => {
+      bMetadataRequestRef.current += 1;
       setBVideos(files);
       if (files.length > 0) {
         addLog(`已选择 ${files.length} 个主视频`, "info");
-        const metadata = await fetchVideoMetadata(files[0]);
-        if (metadata) {
-          setBVideoMetadata(metadata);
-          // 移除自动重置位置的逻辑，保持用户手动调整后的位置
-        }
-        const newMax =
-          files.length * (aVideos.length > 0 ? aVideos.length : 1);
-        if (newMax > 0) {
-          setTaskCount(newMax);
-        }
       }
-    },
-    [
-      fetchVideoMetadata,
-      addLog,
-      aVideos.length,
-    ],
-  );
-
-  const handleAVideosChange = useCallback(
-    async (files: string[]) => {
-      setAVideos(files);
-      if (files.length > 0) {
-        addLog(`已选择 ${files.length} 个A面视频`, "info");
-        const metadata = await fetchVideoMetadata(files[0]);
-        if (metadata) {
-          setAVideoMetadata(metadata);
-        }
-      } else {
-        setAVideoMetadata(undefined);
-      }
-      const newMax =
-        bVideos.length * (files.length > 0 ? files.length : 1);
+      const newMax = files.length * (aVideos.length > 0 ? aVideos.length : 1);
       if (newMax > 0) {
         setTaskCount(newMax);
       }
     },
-    [
-      addLog,
-      bVideos.length,
-      fetchVideoMetadata,
-    ],
+    [addLog, aVideos.length],
+  );
+
+  const handleAVideosChange = useCallback(
+    (files: string[]) => {
+      aMetadataRequestRef.current += 1;
+      setAVideos(files);
+      if (files.length > 0) {
+        addLog(`已选择 ${files.length} 个A面视频`, "info");
+      }
+      const newMax = bVideos.length * (files.length > 0 ? files.length : 1);
+      if (newMax > 0) {
+        setTaskCount(newMax);
+      }
+    },
+    [addLog, bVideos.length],
   );
 
   const handleCVideosChange = useCallback(
@@ -371,29 +488,66 @@ const VideoMergeMode: React.FC = () => {
   );
 
   const handleBgImagesChange = useCallback(
-    async (files: string[]) => {
+    (files: string[]) => {
+      // 立即让尚未返回的旧套图尺寸请求失效
+      bgDimensionsRequestRef.current += 1;
       setBgImages(files);
       if (files.length > 0) {
         addLog(`视频套图已启用多选：${files.length} 个素材将按任务顺序平铺使用`, "info");
-        // 自动检测图片宽高比并切换横竖屏模式
-        try {
-          const dimensions = await window.api.getImageDimensions(files[0]);
-          if (dimensions) {
-            if (dimensions.orientation === 'landscape' && orientation !== 'horizontal') {
-              setOrientation('horizontal');
-              addLog("检测到横版套图，已自动切换至横屏模式", "info");
-            } else if (dimensions.orientation === 'portrait' && orientation !== 'vertical') {
-              setOrientation('vertical');
-              addLog("检测到竖版套图，已自动切换至竖屏模式", "info");
-            }
-          }
-        } catch (err) {
-          console.error("无法获取图片尺寸:", err);
-        }
       }
     },
-    [addLog, orientation],
+    [addLog],
   );
+
+  // 只有套图文件本身发生变化时才切换布局；A/B 素材和元数据变化不得重置框位
+  useEffect(() => {
+    const filePath = bgImages[0];
+    const requestId = ++bgDimensionsRequestRef.current;
+
+    if (!filePath) {
+      applyOrientation(orientationRef.current);
+      return;
+    }
+
+    let active = true;
+    void window.api.getImageDimensions(filePath).then((dimensions) => {
+      if (!active || requestId !== bgDimensionsRequestRef.current || !dimensions) return;
+      if (dimensions.orientation === 'landscape') {
+        applyOrientation('horizontal');
+        addLog("检测到横版套图，已自动切换至横屏模式", "info");
+      } else if (dimensions.orientation === 'portrait') {
+        applyOrientation('vertical');
+        addLog("检测到竖版套图，已自动切换至竖屏模式", "info");
+      }
+    }).catch((err) => {
+      if (!active || requestId !== bgDimensionsRequestRef.current) return;
+      console.error("无法获取图片尺寸:", err);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [bgImages[0], applyOrientation, addLog]);
+
+  // 没有视频套图且当前 A/B 都是横版时，竖屏状态不应继续残留
+  useEffect(() => {
+    if (bgImages.length > 0 || !bVideoMetadata) return;
+    const bIsLandscape = bVideoMetadata.width >= bVideoMetadata.height;
+    const aIsLandscape = !aVideos.length
+      || (!!aVideoMetadata && aVideoMetadata.width >= aVideoMetadata.height);
+    if (bIsLandscape && aIsLandscape && orientation !== 'horizontal') {
+      applyOrientation('horizontal');
+      addLog("未使用视频套图且 A/B 均为横版，已恢复横屏全屏布局", "info");
+    }
+  }, [
+    bgImages.length,
+    bVideoMetadata,
+    aVideoMetadata,
+    aVideos.length,
+    orientation,
+    applyOrientation,
+    addLog,
+  ]);
 
   const handleBgImageBeforeSelect = useCallback(() => {
     if (localStorage.getItem(BG_IMAGE_NOTICE_KEY) === "true") {
@@ -426,18 +580,39 @@ const VideoMergeMode: React.FC = () => {
     }
   }, [maxCombinations, taskCount]);
 
-  const handleBVideoPositionChange = (
+  const handleBVideoPositionChange = useCallback((
     position: { x: number; y: number; width: number; height: number },
   ) => {
-    setMaterialPositions((prev) => ({ ...prev, bVideo: position }));
-  };
+    const nextPositions = { ...materialPositionsRef.current, bVideo: position };
+    const layoutKey = getBPositionLayoutKey(
+      orientationRef.current,
+      bgImagePathRef.current,
+    );
+    hasManuallyAdjustedBPositionRef.current = true;
+    bPositionLayoutKeyRef.current = layoutKey;
+    materialPositionsRef.current = nextPositions;
+    setState({
+      materialPositions: nextPositions,
+      hasCustomBPosition: true,
+      bPositionLayoutKey: layoutKey,
+    });
+  }, [setState]);
 
   const resetPositions = () => {
     const defaults = getInitialPositions(
       canvasConfig,
       bVideoMetadata,
+      aVideoMetadata,
     );
-    setMaterialPositions(defaults);
+    const layoutKey = getBPositionLayoutKey(orientation, bgImages[0]);
+    hasManuallyAdjustedBPositionRef.current = true;
+    bPositionLayoutKeyRef.current = layoutKey;
+    materialPositionsRef.current = defaults;
+    setState({
+      materialPositions: defaults,
+      hasCustomBPosition: true,
+      bPositionLayoutKey: layoutKey,
+    });
     addLog("已重置素材位置", "info");
   };
 
@@ -448,56 +623,90 @@ const VideoMergeMode: React.FC = () => {
       width: canvasConfig.width,
       height: canvasConfig.height,
     };
-    setMaterialPositions({
+    const nextPositions = {
       bgImage: { ...maxPosition },
       aVideo: { ...maxPosition },
       bVideo: { ...maxPosition },
       cVideo: { ...maxPosition },
       coverImage: { ...maxPosition },
+    };
+    const layoutKey = getBPositionLayoutKey(orientation, bgImages[0]);
+    hasManuallyAdjustedBPositionRef.current = true;
+    bPositionLayoutKeyRef.current = layoutKey;
+    materialPositionsRef.current = nextPositions;
+    setState({
+      materialPositions: nextPositions,
+      hasCustomBPosition: true,
+      bPositionLayoutKey: layoutKey,
     });
     addLog("已设置素材铺满全屏", "info");
   };
+
+  const taskSourceSignature = useMemo(
+    () => JSON.stringify({
+      bVideos,
+      aVideos,
+      cVideos,
+      covers,
+      bgImages,
+      taskCount,
+      outputDir,
+      orientation,
+    }),
+    [bVideos, aVideos, cVideos, covers, bgImages, taskCount, outputDir, orientation],
+  );
+
+  const isTaskSnapshotCurrent = generatedTaskSignature === taskSourceSignature;
 
   /**
    * 生成任务列表（通过 IPC 调用主进程）
    */
   const generateTasks = useCallback(async () => {
+    const requestId = ++taskGenerationRequestRef.current;
     if (bVideos.length === 0) {
       setTasks([]);
+      setCurrentIndex(0);
+      setGeneratedTaskSignature("");
+      setIsGeneratingTasks(false);
       return;
     }
 
     setIsGeneratingTasks(true);
+    setTasks([]);
+    setCurrentIndex(0);
+    setGeneratedTaskSignature("");
     addLog(`正在生成 ${taskCount} 个任务...`, "info");
 
-    // 使用 setTimeout 让 UI 有机会更新
-    await new Promise(resolve => setTimeout(resolve, 0));
+    try {
+      const result = await window.api.generateMergeTasks({
+        bVideos,
+        aVideos: aVideos.length > 0 ? aVideos : undefined,
+        cVideos: cVideos.length > 0 ? cVideos : undefined,
+        covers: covers.length > 0 ? covers : undefined,
+        bgImages: bgImages.length > 0 ? bgImages : undefined,
+        count: taskCount,
+        outputDir,
+        orientation,
+      });
 
-    // 调用主进程生成任务
-    const result = await window.api.generateMergeTasks({
-      bVideos,
-      aVideos: aVideos.length > 0 ? aVideos : undefined,
-      cVideos: cVideos.length > 0 ? cVideos : undefined,
-      covers: covers.length > 0 ? covers : undefined,
-      bgImages: bgImages.length > 0 ? bgImages : undefined,
-      count: taskCount,
-      outputDir,
-      orientation,
-    });
-
-    if (result.success && result.tasks) {
-      // 再次使用 setTimeout 让 UI 有机会更新
-      await new Promise(resolve => setTimeout(resolve, 0));
-      setTasks(result.tasks as Task[]);
-      setCurrentIndex(0);
-      addLog(`已生成 ${result.tasks.length} 个任务`, "success");
-    } else {
+      if (requestId !== taskGenerationRequestRef.current) return;
+      if (result.success && result.tasks) {
+        setTasks(result.tasks as Task[]);
+        setGeneratedTaskSignature(taskSourceSignature);
+        addLog(`已生成 ${result.tasks.length} 个任务`, "success");
+      } else {
+        setTasks([]);
+        addLog("任务生成失败", "error");
+      }
+    } catch (err) {
+      if (requestId !== taskGenerationRequestRef.current) return;
       setTasks([]);
-      setCurrentIndex(0);
-      addLog("任务生成失败", "error");
+      addLog(`任务生成失败: ${(err as Error).message}`, "error");
+    } finally {
+      if (requestId === taskGenerationRequestRef.current) {
+        setIsGeneratingTasks(false);
+      }
     }
-
-    setIsGeneratingTasks(false);
   }, [
     bVideos,
     aVideos,
@@ -508,66 +717,12 @@ const VideoMergeMode: React.FC = () => {
     orientation,
     outputDir,
     addLog,
-  ]);
-
-  /**
-   * 重新生成任务（不重置索引）- 通过 IPC 调用主进程
-   */
-  const regenerateTasksWithoutIndexReset = useCallback(async () => {
-    if (bVideos.length === 0) {
-      setTasks([]);
-      return;
-    }
-
-    setIsGeneratingTasks(true);
-
-    // 调用主进程生成任务
-    const result = await window.api.generateMergeTasks({
-      bVideos,
-      aVideos: aVideos.length > 0 ? aVideos : undefined,
-      cVideos: cVideos.length > 0 ? cVideos : undefined,
-      covers: covers.length > 0 ? covers : undefined,
-      bgImages: bgImages.length > 0 ? bgImages : undefined,
-      count: taskCount,
-      outputDir,
-      orientation,
-    });
-
-    if (result.success && result.tasks) {
-      await new Promise(resolve => setTimeout(resolve, 0));
-      setTasks(result.tasks as Task[]);
-    } else {
-      setTasks([]);
-    }
-
-    setIsGeneratingTasks(false);
-  }, [
-    bVideos,
-    aVideos,
-    cVideos,
-    covers,
-    bgImages,
-    taskCount,
-    orientation,
-    outputDir,
+    taskSourceSignature,
   ]);
 
   useEffect(() => {
-    generateTasks();
-  }, [
-    bVideos.length,
-    aVideos.length,
-    cVideos.length,
-    covers.length,
-    bgImages.length,
-    taskCount,
-  ]);
-
-  useEffect(() => {
-    if (tasks.length > 0) {
-      regenerateTasksWithoutIndexReset();
-    }
-  }, [orientation]);
+    void generateTasks();
+  }, [generateTasks]);
 
   const outputConfig: OutputConfig = useMemo(() => {
     const resolution = orientation === "horizontal" ? "1920×1080" : "1080×1920";
@@ -596,6 +751,16 @@ const VideoMergeMode: React.FC = () => {
 
   // 添加任务到任务中心 - 核心逻辑
   const doAddToTaskCenter = async () => {
+    if (
+      isGeneratingTasks
+      || isBMetadataLoading
+      || isAMetadataLoading
+      || !isTaskSnapshotCurrent
+    ) {
+      addLog("素材或横竖屏配置仍在同步，请稍候再添加任务", "warning");
+      return;
+    }
+
     setIsAdding(true);
     addLog(`正在添加 ${tasks.length} 个任务到任务中心...`, "info");
 
@@ -613,6 +778,7 @@ const VideoMergeMode: React.FC = () => {
           cPosition: materialPositions.cVideo,
           bgPosition: materialPositions.bgImage,
           coverPosition: materialPositions.coverImage,
+          layoutMode: bgImages.length > 0 ? 'template' : 'auto_fullscreen',
         },
       }));
 
@@ -646,6 +812,15 @@ const VideoMergeMode: React.FC = () => {
       addLog("没有可处理的任务", "warning");
       return;
     }
+    if (
+      isGeneratingTasks
+      || isBMetadataLoading
+      || isAMetadataLoading
+      || !isTaskSnapshotCurrent
+    ) {
+      addLog("素材或横竖屏配置仍在同步，请稍候再添加任务", "warning");
+      return;
+    }
 
     // 任务数量超过100时显示确认弹窗
     if (tasks.length > 100) {
@@ -661,9 +836,24 @@ const VideoMergeMode: React.FC = () => {
     fileSelectorGroupRef.current?.clearAll();
     // 清空全局状态
     clearState();
+    hasManuallyAdjustedBPositionRef.current = false;
+    bMetadataRequestRef.current += 1;
+    aMetadataRequestRef.current += 1;
+    bgDimensionsRequestRef.current += 1;
+    taskGenerationRequestRef.current += 1;
+    setBVideoMetadata(undefined);
+    setAVideoMetadata(undefined);
+    setIsBMetadataLoading(false);
+    setIsAMetadataLoading(false);
+    materialPositionsRef.current = getInitialPositions(getCanvasConfig('horizontal'));
+    bPositionLayoutKeyRef.current = null;
+    orientationRef.current = 'horizontal';
+    bgImagePathRef.current = undefined;
     // 清空本地任务状态
     setTasks([]);
     setCurrentIndex(0);
+    setGeneratedTaskSignature("");
+    setIsGeneratingTasks(false);
     addLog("已清空所有已选素材和配置", "info");
   };
 
@@ -717,7 +907,7 @@ const VideoMergeMode: React.FC = () => {
               isLightTheme ? "bg-white border-[#E7E5DF] shadow-[0_8px_24px_rgba(34,34,34,0.06)]" : "bg-[#2A2A2A] border-[#3B3B3B]"
             }`}>
               <button
-                onClick={() => setOrientation("horizontal")}
+                onClick={() => applyOrientation("horizontal")}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
                   orientation === "horizontal"
                     ? "metal-primary bg-[#FF385C] text-white"
@@ -730,7 +920,7 @@ const VideoMergeMode: React.FC = () => {
                 横屏
               </button>
               <button
-                onClick={() => setOrientation("vertical")}
+                onClick={() => applyOrientation("vertical")}
                 className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
                   orientation === "vertical"
                     ? "metal-primary bg-[#FF385C] text-white"
@@ -1083,7 +1273,15 @@ const VideoMergeMode: React.FC = () => {
           <div className={`p-3 border-t ${isLightTheme ? "border-[#EEECE6] bg-[#FBFBF8]" : "border-[#303030] bg-[#242424]"}`}>
             <Button
               onClick={addToTaskCenter}
-              disabled={tasks.length === 0 || isAdding || !outputDir}
+              disabled={
+                tasks.length === 0
+                || isAdding
+                || isGeneratingTasks
+                || isBMetadataLoading
+                || isAMetadataLoading
+                || !isTaskSnapshotCurrent
+                || !outputDir
+              }
               variant="primary"
               size="md"
               fullWidth

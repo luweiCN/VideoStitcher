@@ -180,28 +180,35 @@ export function buildMergeCommand(config: VideoMergeConfig): string[] {
     filters.push('[canvas_with_bg]null[bg_for_b]');
   }
 
+  // 视频画面采用“等比放大后居中裁切”，避免错误框位导致素材被强制拉伸变形
+  const buildFillVideoFilter = (inputTag: string, position: Position, outputTag: string): string => {
+    const centerX = `(iw-${position.width})/2`;
+    const centerY = `(ih-${position.height})/2`;
+    return `${inputTag}scale=${position.width}:${position.height}:force_original_aspect_ratio=increase:flags=bicubic,crop=${position.width}:${position.height}:${centerX}:${centerY},setsar=1:1,fps=30,format=yuv420p${outputTag}`;
+  };
+
   // A视频段处理
   if (aIndex >= 0) {
-    filters.push(`[${aIndex}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a_scaled]`);
+    filters.push(buildFillVideoFilter(`[${aIndex}:v]`, aPos, '[a_scaled]'));
     filters.push(`[bg_for_a][a_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a_temp]`);
     filters.push('[v_a_temp]settb=1/30,setpts=N/30/TB[v_a]');
   }
 
   // A2视频段处理
   if (a2Index >= 0) {
-    filters.push(`[${a2Index}:v]scale=${aPos.width}:${aPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[a2_scaled]`);
+    filters.push(buildFillVideoFilter(`[${a2Index}:v]`, aPos, '[a2_scaled]'));
     filters.push(`[bg_for_a2][a2_scaled]overlay=${aPos.x}:${aPos.y}:shortest=1[v_a2_temp]`);
     filters.push('[v_a2_temp]settb=1/30,setpts=N/30/TB[v_a2]');
   }
 
   // B视频段处理
-  filters.push(`[${bIndex}:v]scale=${bPos.width}:${bPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[b_scaled]`);
+  filters.push(buildFillVideoFilter(`[${bIndex}:v]`, bPos, '[b_scaled]'));
   filters.push(`[bg_for_b][b_scaled]overlay=${bPos.x}:${bPos.y}:shortest=1[v_b_temp]`);
   filters.push('[v_b_temp]settb=1/30,setpts=N/30/TB[v_b]');
 
   // C视频段处理
   if (cIndex >= 0) {
-    filters.push(`[${cIndex}:v]scale=${cPos.width}:${cPos.height}:flags=bicubic,setsar=1:1,fps=30,format=yuv420p[c_scaled]`);
+    filters.push(buildFillVideoFilter(`[${cIndex}:v]`, cPos, '[c_scaled]'));
     filters.push(`[bg_for_c][c_scaled]overlay=${cPos.x}:${cPos.y}:shortest=1[v_c_temp]`);
     filters.push('[v_c_temp]settb=1/30,setpts=N/30/TB[v_c]');
   }
