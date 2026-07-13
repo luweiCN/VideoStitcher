@@ -37,17 +37,22 @@ const PreviewModeSelector: React.FC<PreviewModeSelectorProps> = ({
             <button
               key={mode}
               onClick={() => onChange(mode)}
-              className={`w-full p-3 rounded-lg border text-left transition-all text-sm ${
-                value === mode
-                  ? "metal-primary border-amber-500 bg-amber-500/20 text-amber-400"
-                  : "border-slate-800 bg-black/50 text-slate-400 hover:border-slate-700"
-              }`}
+              className="image-preview-mode-option w-full p-0 border-0 bg-transparent text-left text-sm"
+              aria-pressed={value === mode}
             >
-              <div className="font-medium">
-                {PREVIEW_SIZE_MODES[mode].name}
-              </div>
-              <div className="text-xs opacity-70 mt-0.5">
-                {PREVIEW_SIZE_MODES[mode].desc}
+              <div
+                className={`image-preview-mode-surface w-full p-3 border transition-all ${
+                  value === mode
+                    ? "image-preview-mode-surface-selected border-[#FF385C] bg-[#FF385C] text-white"
+                    : "border-slate-800 bg-black/50 text-slate-400 hover:border-slate-700"
+                }`}
+              >
+                <div className="font-medium">
+                  {PREVIEW_SIZE_MODES[mode].name}
+                </div>
+                <div className="text-xs opacity-70 mt-0.5">
+                  {PREVIEW_SIZE_MODES[mode].desc}
+                </div>
               </div>
             </button>
           ),

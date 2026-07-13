@@ -16,6 +16,7 @@ import { usePageTheme } from "../hooks/usePageTheme";
 import { useHomeSkin } from "../hooks/useHomeSkin";
 import PageThemeToggle from "../components/PageThemeToggle";
 import { loadImageAsElement } from "../utils/image";
+import ImageWorkshopModeSwitcher from "./ImageWorkshopModeSwitcher";
 import {
   LogoControls,
   PreviewModeSelector,
@@ -396,10 +397,11 @@ const ImageMaterialMode: React.FC = () => {
     }`}
     >
       <PageHeader
-        title="图片素材处理"
+        backPath="/"
+        title="图片素材工坊 · 标准素材"
         icon={Layers}
         iconColor={isLightTheme ? "text-amber-600" : "text-amber-400"}
-        description="批量加Logo，导出九宫格切片和预览图"
+        description="标准化尺寸、Logo、水印与九宫格素材生产"
         featureInfo={{
           title: "图片素材处理",
           description: "批量为图片添加 Logo 水印，支持导出九宫格切片和预览图。",
@@ -412,7 +414,12 @@ const ImageMaterialMode: React.FC = () => {
           ],
           themeColor: "amber",
         }}
-        rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
+        rightContent={
+          <div className="flex items-center gap-2">
+            <ImageWorkshopModeSwitcher mode="standard" />
+            {!isMetalSkin && <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
+          </div>
+        }
       />
 
       <div className="flex-1 flex overflow-hidden gap-2 p-2 min-h-0">

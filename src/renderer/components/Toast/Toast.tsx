@@ -187,18 +187,18 @@ const ToastItem: React.FC<ToastItemProps> = ({ data, onDismiss }) => {
 export const useToastMessages = () => {
   const { showToast } = useToast();
 
-  return {
-    success: (message: string, title?: string, duration?: number) => {
-      showToast({ title, message, variant: 'success', duration: duration ?? 3000 });
-    },
-    error: (message: string, title?: string, duration?: number) => {
-      showToast({ title, message, variant: 'error', duration: duration ?? 5000 });
-    },
-    info: (message: string, title?: string, duration?: number) => {
-      showToast({ title, message, variant: 'info', duration: duration ?? 3000 });
-    },
-    warning: (message: string, title?: string, duration?: number) => {
-      showToast({ title, message, variant: 'warning', duration: duration ?? 4000 });
-    }
-  };
+  const success = useCallback((message: string, title?: string, duration?: number) => {
+    showToast({ title, message, variant: 'success', duration: duration ?? 3000 });
+  }, [showToast]);
+  const error = useCallback((message: string, title?: string, duration?: number) => {
+    showToast({ title, message, variant: 'error', duration: duration ?? 5000 });
+  }, [showToast]);
+  const info = useCallback((message: string, title?: string, duration?: number) => {
+    showToast({ title, message, variant: 'info', duration: duration ?? 3000 });
+  }, [showToast]);
+  const warning = useCallback((message: string, title?: string, duration?: number) => {
+    showToast({ title, message, variant: 'warning', duration: duration ?? 4000 });
+  }, [showToast]);
+
+  return useMemo(() => ({ success, error, info, warning }), [error, info, success, warning]);
 };

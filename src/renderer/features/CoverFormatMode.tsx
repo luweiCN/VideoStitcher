@@ -18,7 +18,11 @@ import { useHomeSkin } from "../hooks/useHomeSkin";
 import PageThemeToggle from "../components/PageThemeToggle";
 import { QualitySelector, CoverPreview, type ImageFile } from "./CoverFormatMode/components";
 
-const CoverFormatMode: React.FC = () => {
+interface CoverFormatModeProps {
+  embedded?: boolean;
+}
+
+const CoverFormatMode: React.FC<CoverFormatModeProps> = ({ embedded = false }) => {
   const navigate = useNavigate();
   const { batchCreateTasks } = useTaskContext();
   const { isLightTheme, togglePageTheme } = usePageTheme();
@@ -185,28 +189,30 @@ const CoverFormatMode: React.FC = () => {
   };
 
   return (
-    <div className={`${workspaceSkinClassName} h-screen flex flex-col ${
+    <div className={`${workspaceSkinClassName} ${embedded ? "h-full" : "h-screen"} flex flex-col ${
       isLightTheme ? "theme-light-page bg-[#F8F8F5] text-[#222222]" : "bg-[#181818] text-[#D1D1D1]"
     }`}>
-      <PageHeader
-        title="封面格式转换"
-        icon={Layers}
-        iconColor={isLightTheme ? "text-fuchsia-600" : "text-fuchsia-400"}
-        description="自动检测比例，横版转1920x1080，竖版转1080x1920"
-        featureInfo={{
-          title: "封面格式转换",
-          description: "自动检测图片比例并转换为标准尺寸，支持批量处理。",
-          details: [
-            "横版图片自动转为 1920×1080",
-            "竖版图片自动转为 1080×1920",
-            "方形图片自动转为 800×800",
-            "支持批量处理，自动添加尺寸后缀到文件名",
-            "图片会被拉伸填充目标尺寸，可能导致轻微变形",
-          ],
-          themeColor: "fuchsia",
-        }}
-          rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
-      />
+      {!embedded && (
+        <PageHeader
+          title="封面格式转换"
+          icon={Layers}
+          iconColor={isLightTheme ? "text-fuchsia-600" : "text-fuchsia-400"}
+          description="自动检测比例，横版转1920x1080，竖版转1080x1920"
+          featureInfo={{
+            title: "封面格式转换",
+            description: "自动检测图片比例并转换为标准尺寸，支持批量处理。",
+            details: [
+              "横版图片自动转为 1920×1080",
+              "竖版图片自动转为 1080×1920",
+              "方形图片自动转为 800×800",
+              "支持批量处理，自动添加尺寸后缀到文件名",
+              "图片会被拉伸填充目标尺寸，可能导致轻微变形",
+            ],
+            themeColor: "fuchsia",
+          }}
+            rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
+        />
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         <div className="w-80 border-r border-slate-800 bg-black flex flex-col shrink-0 overflow-y-auto custom-scrollbar">

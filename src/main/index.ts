@@ -21,6 +21,8 @@ import { registerApplicationHandlers, isDevelopment } from '@main/ipc/applicatio
 import { registerSystemHandlers } from '@main/ipc/system';
 import { registerTaskHandlers, setTaskQueueMainWindow, stopTaskQueueManager } from '@main/ipc/task';
 import { registerDatabaseIpc } from '@main/ipc/database';
+import { registerTtsHandlers } from '@main/ipc/tts';
+import { registerVideoDedupHandlers } from '@main/ipc/videoDedup';
 import { taskQueueManager, TaskCancelledError } from '@main/services/TaskQueueManager';
 
 // 导入自动更新模块
@@ -47,6 +49,19 @@ process.on('unhandledRejection', (reason) => {
 });
 
 let win: BrowserWindow | null = null;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  console.log('[主进程] 检测到已有实例，当前重复进程退出');
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  });
+}
 
 function createWindow(): void {
   // 使用生成的圆角图标
@@ -166,6 +181,8 @@ function registerAllHandlers(): void {
   registerAuthHandlers();
   registerTaskGeneratorHandlers();
   registerSystemHandlers();
+  registerTtsHandlers();
+  registerVideoDedupHandlers();
   
   // 任务中心处理器
   registerTaskHandlers();
@@ -178,6 +195,7 @@ function registerAllHandlers(): void {
 
 // 应用启动
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) return;
   console.log('[主进程] app.whenReady 触发，开始初始化...');
 
   // 初始化数据库

@@ -13,6 +13,7 @@ import { taskLogRepository } from '../database/repositories/task-log.repository'
 import { configRepository } from '../database/repositories/config.repository';
 import { executeSingleMergeTask, executeResizeTask, executeStitchTask } from '../ipc/video';
 import { executeImageMaterialTask, executeCoverFormatTask, executeLosslessGridTask } from '../ipc/image';
+import { executeVideoDedupTask } from './VideoDedupEngine';
 import type { Task, TaskCenterConfig, QueueStatus, TaskOutput, TaskStats } from '@shared/types/task';
 import { DEFAULT_TASK_CENTER_CONFIG } from '@shared/types/task';
 
@@ -491,6 +492,10 @@ export class TaskQueueManager {
         await this.executeStitchTaskMethod(task, executor);
         break;
 
+      case 'video_dedup':
+        await this.executeVideoDedupTaskMethod(task, executor);
+        break;
+
       case 'image_material':
         await this.executeImageMaterialTaskMethod(task, executor);
         break;
@@ -673,6 +678,49 @@ export class TaskQueueManager {
     } else {
       throw new Error(result.error || '任务执行失败');
     }
+  }
+
+  /**
+   * 执行视频降重任务。
+   */
+  private async executeVideoDedupTaskMethod(
+    task: Task,
+    executor: TaskExecutor
+  ): Promise<void> {
+    this.addLog(task.id, 'info', '开始执行视频降重处理任务');
+    let lastProgress = -1;
+
+    const result = await executeVideoDedupTask(
+      task,
+      (message: string) => {
+        if (!this.runningTasks.has(task.id)) {
+          throw new TaskCancelledError();
+        }
+        this.addLog(task.id, 'info', message);
+      },
+      (pid: number) => {
+        const runningExecutor = this.runningTasks.get(task.id);
+        if (runningExecutor) {
+          runningExecutor.pid = pid;
+          taskRepository.updateTaskPid(task.id, pid);
+          console.log(`[TaskQueueManager] 任务 ${task.id} 的视频降重进程 PID: ${pid}`);
+        }
+      },
+      (progress: number, step: string) => {
+        if (progress === lastProgress) return;
+        lastProgress = progress;
+        taskRepository.updateTaskProgress(task.id, progress, step);
+        this.sendTaskProgress({ taskId: task.id, progress, step });
+      },
+      this.config!.threadsPerTask,
+    );
+
+    if (result.success && result.outputPath) {
+      this.handleTaskComplete(task.id, [{ path: result.outputPath, type: 'video' }]);
+      return;
+    }
+
+    throw new Error(result.error || '视频降重处理失败');
   }
 
   /**

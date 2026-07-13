@@ -44,29 +44,33 @@ export function initDatabase(): Database.Database {
   // 检查是否是新数据库
   const isNewDatabase = !fs.existsSync(dbPath);
 
-  // 创建数据库连接
-  db = new Database(dbPath);
+  // 只有全部初始化步骤成功后才发布连接，避免后续模块拿到半失效实例
+  const connection = new Database(dbPath);
+  try {
+    connection.pragma('busy_timeout = 5000');
+    connection.pragma('journal_mode = WAL');
+    connection.pragma('synchronous = NORMAL');
+    connection.pragma('cache_size = -64000'); // 64MB
+    connection.pragma('temp_store = MEMORY');
+    connection.pragma('foreign_keys = ON');
 
-  // 性能优化配置
-  db.pragma('journal_mode = WAL');
-  db.pragma('synchronous = NORMAL');
-  db.pragma('cache_size = -64000'); // 64MB
-  db.pragma('temp_store = MEMORY');
+    runMigrations(connection);
+    if (isNewDatabase) {
+      initDefaultConfig(connection);
+    }
 
-  // 启用外键约束
-  db.pragma('foreign_keys = ON');
-
-  // 运行迁移
-  runMigrations(db);
-
-  // 新数据库初始化默认配置
-  if (isNewDatabase) {
-    initDefaultConfig(db);
+    db = connection;
+    console.log(`[数据库] 初始化完成: ${dbPath}`);
+    return connection;
+  } catch (error) {
+    try {
+      connection.close();
+    } catch {
+      // 初始化失败时尽力关闭，不覆盖原始错误
+    }
+    db = null;
+    throw error;
   }
-
-  console.log(`[数据库] 初始化完成: ${dbPath}`);
-
-  return db;
 }
 
 /**

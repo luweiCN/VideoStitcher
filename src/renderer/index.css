@@ -4721,3 +4721,197 @@
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(160, 103, 55, 0.44), rgba(94, 61, 34, 0.24)) !important;
 }
+
+/* 图片素材工坊：当前模式必须以红色高亮，覆盖顶部导航的通用按钮主题。 */
+html body .image-workshop-mode-switcher button.image-workshop-mode-active.metal-primary {
+  background: #ff385c !important;
+  background-image: none !important;
+  border-color: #ff385c !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(255, 56, 92, 0.28) !important;
+}
+
+html body .image-workshop-mode-switcher button.image-workshop-mode-active.metal-primary svg {
+  color: #ffffff !important;
+}
+
+/* 标准素材预览模式：选中和未选中状态保持一致的方形圆角。 */
+html body .video-merge-airbnb button.image-preview-mode-option,
+html body .video-merge-metal button.image-preview-mode-option {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html body .image-preview-mode-surface {
+  border-radius: 8px !important;
+}
+
+html body .image-preview-mode-surface.image-preview-mode-surface-selected {
+  background: #ff385c !important;
+  background-image: none !important;
+  border-color: #ff385c !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 14px rgba(255, 56, 92, 0.18) !important;
+}
+
+/* 视频降重：位置选择使用红色矩形选中态，不跟随全局胶囊按钮样式 */
+.video-merge-airbnb .metal-control button.video-dedup-position-button,
+.video-merge-metal .metal-control button.video-dedup-position-button {
+  border-radius: 8px !important;
+}
+
+.video-merge-airbnb .metal-control button.video-dedup-position-button[data-selected="true"],
+.video-merge-airbnb:not(.theme-light-page) .metal-control button.video-dedup-position-button[data-selected="true"],
+.video-merge-metal .metal-control button.video-dedup-position-button[data-selected="true"] {
+  border-color: #ff385c !important;
+  background: #ff385c !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(255, 56, 92, 0.22) !important;
+}
+
+.video-merge-airbnb .metal-control button.video-dedup-position-button[data-selected="true"]:hover,
+.video-merge-airbnb:not(.theme-light-page) .metal-control button.video-dedup-position-button[data-selected="true"]:hover,
+.video-merge-metal .metal-control button.video-dedup-position-button[data-selected="true"]:hover {
+  border-color: #e93252 !important;
+  background: #e93252 !important;
+  color: #ffffff !important;
+}
+
+/* 视频降重：元素分布与位置范围共用红色矩形选中规范 */
+.video-merge-airbnb .metal-control button.video-dedup-schedule-button,
+.video-merge-metal .metal-control button.video-dedup-schedule-button {
+  border-radius: 8px !important;
+}
+
+.video-merge-airbnb .metal-control button.video-dedup-schedule-button[data-selected="true"],
+.video-merge-airbnb:not(.theme-light-page) .metal-control button.video-dedup-schedule-button[data-selected="true"],
+.video-merge-metal .metal-control button.video-dedup-schedule-button[data-selected="true"] {
+  border-color: #ff385c !important;
+  background: #ff385c !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(255, 56, 92, 0.22) !important;
+}
+
+.video-merge-airbnb .metal-control button.video-dedup-schedule-button[data-selected="true"] *,
+.video-merge-metal .metal-control button.video-dedup-schedule-button[data-selected="true"] * {
+  color: #ffffff !important;
+}
+
+.video-merge-airbnb .metal-control button.video-dedup-schedule-button[data-selected="true"]:hover,
+.video-merge-airbnb:not(.theme-light-page) .metal-control button.video-dedup-schedule-button[data-selected="true"]:hover,
+.video-merge-metal .metal-control button.video-dedup-schedule-button[data-selected="true"]:hover {
+  border-color: #e93252 !important;
+  background: #e93252 !important;
+  color: #ffffff !important;
+}
+
+/* 视频降重：元素尺寸使用同一套红色矩形选中规范 */
+.video-merge-airbnb .metal-control button.video-dedup-scale-button,
+.video-merge-metal .metal-control button.video-dedup-scale-button {
+  border-radius: 8px !important;
+}
+
+.video-merge-airbnb .metal-control button.video-dedup-scale-button[data-selected="true"],
+.video-merge-airbnb:not(.theme-light-page) .metal-control button.video-dedup-scale-button[data-selected="true"],
+.video-merge-metal .metal-control button.video-dedup-scale-button[data-selected="true"] {
+  border-color: #ff385c !important;
+  background: #ff385c !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(255, 56, 92, 0.22) !important;
+}
+
+.video-merge-airbnb .metal-control button.video-dedup-scale-button[data-selected="true"]:hover,
+.video-merge-airbnb:not(.theme-light-page) .metal-control button.video-dedup-scale-button[data-selected="true"]:hover,
+.video-merge-metal .metal-control button.video-dedup-scale-button[data-selected="true"]:hover {
+  border-color: #e93252 !important;
+  background: #e93252 !important;
+  color: #ffffff !important;
+}
+
+.video-dedup-scale-slider {
+  height: 18px;
+  appearance: none;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+
+.video-dedup-scale-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    to right,
+    #ff385c 0%,
+    #ff385c var(--video-dedup-scale-progress),
+    #4b5563 var(--video-dedup-scale-progress),
+    #4b5563 100%
+  );
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.38);
+}
+
+.video-dedup-scale-slider::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  margin-top: -6px;
+  appearance: none;
+  border: 3px solid #ff385c;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.42);
+  transition: transform 150ms ease, background-color 150ms ease;
+}
+
+.video-dedup-scale-slider:hover::-webkit-slider-thumb,
+.video-dedup-scale-slider:focus-visible::-webkit-slider-thumb {
+  background: #ff385c;
+  transform: scale(1.08);
+}
+
+/* 任务中心：提高并发与编码线程滑杆在深色背景中的识别度 */
+.task-concurrency-slider .task-concurrency-track {
+  height: 8px !important;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.38) !important;
+  background: #4b5563 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.42) !important;
+}
+
+.task-concurrency-slider .task-concurrency-range {
+  background: #ff385c !important;
+  box-shadow: 0 0 10px rgba(255, 56, 92, 0.55) !important;
+}
+
+.task-concurrency-slider .task-concurrency-thumb {
+  width: 20px !important;
+  height: 20px !important;
+  border: 3px solid #ff385c !important;
+  background: #ffffff !important;
+  box-shadow:
+    0 0 0 3px rgba(255, 56, 92, 0.2),
+    0 3px 10px rgba(0, 0, 0, 0.5) !important;
+}
+
+.task-concurrency-slider .task-concurrency-thumb:hover,
+.task-concurrency-slider .task-concurrency-thumb:focus-visible {
+  border-color: #ffffff !important;
+  background: #ff385c !important;
+  box-shadow:
+    0 0 0 4px rgba(255, 56, 92, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.52) !important;
+}
+
+.task-concurrency-value {
+  min-width: 28px !important;
+  height: 24px !important;
+  padding: 0 7px !important;
+  border: 1px solid rgba(255, 56, 92, 0.55) !important;
+  border-radius: 6px !important;
+  background: rgba(255, 56, 92, 0.16) !important;
+  color: #ff5f7b !important;
+  font-weight: 800 !important;
+  line-height: 22px !important;
+}

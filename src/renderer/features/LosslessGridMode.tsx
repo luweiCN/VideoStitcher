@@ -17,6 +17,7 @@ import { usePageTheme } from "../hooks/usePageTheme";
 import { useHomeSkin } from "../hooks/useHomeSkin";
 import PageThemeToggle from "../components/PageThemeToggle";
 import { GridPreview } from "./LosslessGridMode/components";
+import ImageWorkshopModeSwitcher from "./ImageWorkshopModeSwitcher";
 
 const LosslessGridMode: React.FC = () => {
   const navigate = useNavigate();
@@ -276,10 +277,11 @@ const LosslessGridMode: React.FC = () => {
       isLightTheme ? "theme-light-page bg-[#F8F8F5] text-[#222222]" : "bg-[#181818] text-[#D1D1D1]"
     }`}>
       <PageHeader
-        title="专业无损多宫格"
+        backPath="/"
+        title="图片素材工坊 · 专业切片"
         icon={Grid3X3}
         iconColor={isLightTheme ? "text-cyan-600" : "text-cyan-400"}
-        description="自定义横竖线条，自由裁切图片"
+        description="自定义横竖切线，按原图尺寸无损输出"
         featureInfo={{
           title: "专业无损多宫格",
           description: "根据自定义线条对原图进行无损切割，支持任意横竖线排列。",
@@ -291,7 +293,12 @@ const LosslessGridMode: React.FC = () => {
           ],
           themeColor: "cyan",
         }}
-        rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
+        rightContent={
+          <div className="flex items-center gap-2">
+            <ImageWorkshopModeSwitcher mode="lossless" />
+            {!isMetalSkin && <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
+          </div>
+        }
       />
 
       <div className="flex-1 flex overflow-hidden">

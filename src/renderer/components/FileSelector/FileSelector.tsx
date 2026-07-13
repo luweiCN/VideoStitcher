@@ -496,6 +496,56 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
       buildNotificationMessage,
     ]);
 
+    const handleInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedPaths = Array.from(event.target.files || [])
+        .map((file) => window.api.getPathForFile(file))
+        .filter(Boolean);
+      event.target.value = "";
+      if (selectedPaths.length === 0) return;
+
+      const rawFiles = processPaths(selectedPaths);
+      const result = processFiles(rawFiles, {
+        accept,
+        multiple,
+        maxCount: actualMaxCount,
+        currentCount: files.length,
+        existingPaths: new Set(files.map((file) => file.path)),
+      });
+
+      if (result.filesToAdd.length > 0) {
+        if (multiple) {
+          setFiles((current) => [...current, ...result.filesToAdd]);
+          onChange?.([
+            ...files.map((file) => file.path),
+            ...result.filesToAdd.map((file) => file.path),
+          ]);
+        } else {
+          setFiles(result.filesToAdd);
+          onChange?.(result.filesToAdd.map((file) => file.path));
+        }
+      }
+
+      const notification = buildNotificationMessage(
+        result.addedCount,
+        result.duplicateCount,
+        result.formatRejectedCount,
+        result.limitRejectedCount,
+      );
+      if (notification.type === "success") success(notification.message);
+      else error(notification.message);
+    }, [
+      accept,
+      actualMaxCount,
+      buildNotificationMessage,
+      error,
+      files,
+      multiple,
+      onChange,
+      processFiles,
+      processPaths,
+      success,
+    ]);
+
     const handleDragEnter = useCallback(
       (e: React.DragEvent) => {
         e.preventDefault();
@@ -941,6 +991,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
 
           {/* 上传区域 */}
           <div
+            data-testid={`${id}-upload-area`}
             className={`${getUploadAreaStyle().base} ${hasFiles ? getUploadAreaStyle().hasFiles : getUploadAreaStyle().normal} ${isDragging ? getUploadAreaStyle().dragging : ""}`}
             onClick={handleSelectFiles}
             onDragEnter={handleDragEnter}
@@ -979,6 +1030,7 @@ const FileSelectorWithRef = forwardRef<FileSelectorRef, FileSelectorProps>(
               ref={fileInputRef}
               type="file"
               className="hidden"
+              onChange={handleInputChange}
               multiple={multiple}
               accept={getExtensions(accept)
                 .map((ext) => `.${ext}`)

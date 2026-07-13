@@ -1,6 +1,12 @@
-import { contextBridge } from 'electron';
+import { contextBridge, webUtils } from 'electron';
 import { electronAPI } from '@electron-toolkit/preload';
 import type { Task } from '../shared/types/task';
+import type {
+  GreenScreenRecipe,
+  VideoDedupEvent,
+  VideoDedupLibraryScanResult,
+  VideoDedupTaskConfig,
+} from '../shared/videoDedup';
 
 const ipcRenderer = electronAPI.ipcRenderer;
 
@@ -12,6 +18,29 @@ export interface ElectronAPI {
     multiSelection?: boolean,
   ) => Promise<string[]>;
   pickOutDir: (defaultPath?: string) => Promise<string>;
+  getPathForFile: (file: File) => string;
+
+  // === 视频降重处理 API ===
+  scanVideoDedupLibrary: (rootDir: string) => Promise<VideoDedupLibraryScanResult>;
+  saveVideoDedupGreenRecipe: (
+    filePath: string,
+    recipe: GreenScreenRecipe,
+  ) => Promise<{ success: boolean; recipe?: GreenScreenRecipe; error?: string }>;
+  getVideoDedupGreenRecipe: (
+    filePath: string,
+  ) => Promise<{ success: boolean; recipe: GreenScreenRecipe; error?: string }>;
+  previewVideoDedupGreenElement: (
+    filePath: string,
+    recipe: GreenScreenRecipe,
+  ) => Promise<{ success: boolean; preview?: string; error?: string }>;
+  generateVideoDedupPreview: (
+    sourcePath: string,
+    config: VideoDedupTaskConfig,
+  ) => Promise<{ success: boolean; previewPath?: string; events?: VideoDedupEvent[]; error?: string }>;
+  deleteVideoDedupPreview: (previewPath: string) => Promise<{ success: boolean; error?: string }>;
+  onVideoDedupPreviewProgress: (
+    callback: (data: { progress: number; step: string }) => void,
+  ) => () => void;
 
   // === 图片处理 API ===
   getCpuCount: () => Promise<{
@@ -244,6 +273,24 @@ export interface ElectronAPI {
     percent: number;
     status: 'downloading' | 'done' | 'error';
   }) => void) => () => void;
+  getTtsEngineStatus: () => Promise<{
+    installed: boolean;
+    engineName: string;
+    message: string;
+    outputDir?: string;
+  }>;
+  generateTtsPreview: (config: {
+    text: string;
+    voicePackageId: 'cosyvoice';
+  }) => Promise<{
+    success: boolean;
+    outputPath?: string;
+    fileUrl?: string;
+    duration?: number;
+    message?: string;
+    error?: string;
+  }>;
+  openTtsOutput: (filePath: string) => Promise<{ success: boolean; error?: string }>;
 
   // === 事件监听 ===
   onJobStart: (callback: (data: { total: number; orientation: string; concurrency: number }) => void) => () => void;
@@ -541,8 +588,22 @@ export interface ElectronAPI {
 
 const api: ElectronAPI = {
   // 文件对话框
-  pickFiles: (title, filters) => ipcRenderer.invoke("pick-files", { title, filters }),
+  pickFiles: (title, filters, multiSelection) => ipcRenderer.invoke("pick-files", { title, filters, multiSelection }),
   pickOutDir: (defaultPath) => ipcRenderer.invoke("pick-outdir", { defaultPath }),
+  getPathForFile: (file) => webUtils.getPathForFile(file),
+
+  // 视频降重处理 API
+  scanVideoDedupLibrary: (rootDir) => ipcRenderer.invoke("video-dedup:scan-library", rootDir),
+  saveVideoDedupGreenRecipe: (filePath, recipe) => ipcRenderer.invoke("video-dedup:save-green-recipe", filePath, recipe),
+  getVideoDedupGreenRecipe: (filePath) => ipcRenderer.invoke("video-dedup:get-green-recipe", filePath),
+  previewVideoDedupGreenElement: (filePath, recipe) => ipcRenderer.invoke("video-dedup:preview-green", filePath, recipe),
+  generateVideoDedupPreview: (sourcePath, config) => ipcRenderer.invoke("video-dedup:generate-preview", sourcePath, config),
+  deleteVideoDedupPreview: (previewPath) => ipcRenderer.invoke("video-dedup:delete-preview", previewPath),
+  onVideoDedupPreviewProgress: (cb) => {
+    const handler = (_event: unknown, data: { progress: number; step: string }) => cb(data);
+    ipcRenderer.on("video-dedup:preview-progress", handler);
+    return () => ipcRenderer.removeListener("video-dedup:preview-progress", handler);
+  },
 
   // 图片处理 API
   getCpuCount: () => ipcRenderer.invoke("get-cpu-count"),
@@ -570,6 +631,9 @@ const api: ElectronAPI = {
   getSubtitleModelStatus: () => ipcRenderer.invoke("video:subtitle-model-status"),
   downloadSubtitleModel: (modelId) => ipcRenderer.invoke("video:download-subtitle-model", modelId),
   onSubtitleModelDownloadProgress: (cb) => ipcRenderer.on("subtitle-model-download-progress", (_e, data) => cb(data)),
+  getTtsEngineStatus: () => ipcRenderer.invoke("tts:get-status"),
+  generateTtsPreview: (config) => ipcRenderer.invoke("tts:generate", config),
+  openTtsOutput: (filePath) => ipcRenderer.invoke("tts:open-output", filePath),
   generateResizePreviews: (config) => ipcRenderer.invoke("generate-resize-previews", config),
   clearResizePreviews: (previewPaths) => ipcRenderer.invoke("clear-resize-previews", previewPaths),
 

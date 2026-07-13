@@ -55,6 +55,10 @@ if (typeof app !== 'undefined' && !app.isPackaged) {
  * 打包后需要特殊处理路径
  */
 export function getFfprobePath(): string {
+  if (process.env.VIDEOSTITCHER_FFPROBE_PATH) {
+    return process.env.VIDEOSTITCHER_FFPROBE_PATH;
+  }
+
   if (app.isPackaged) {
     const resourcesPath = process.resourcesPath;
     const platform = process.platform;

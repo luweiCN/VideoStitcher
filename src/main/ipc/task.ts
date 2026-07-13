@@ -15,6 +15,14 @@ import type {
   Task,
 } from '@shared/types/task';
 
+function getTaskErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/disk I\/O error|database.*(?:未初始化|not initialized)/i.test(message)) {
+    return '任务数据库当前不可用，请完全退出重复运行的软件窗口后重新打开';
+  }
+  return message;
+}
+
 /**
  * 注册任务相关 IPC 处理器
  */
@@ -53,7 +61,7 @@ export function registerTaskHandlers(): void {
 
       return { success: true, task };
     } catch (err) {
-      return { success: false, error: (err as Error).message };
+      return { success: false, error: getTaskErrorMessage(err) };
     }
   });
 
@@ -98,7 +106,7 @@ export function registerTaskHandlers(): void {
             taskQueueManager.enqueue(task.id);
           }
         } catch (err) {
-          errors.push({ index: i, error: (err as Error).message });
+          errors.push({ index: i, error: getTaskErrorMessage(err) });
         }
       }
 
@@ -119,7 +127,7 @@ export function registerTaskHandlers(): void {
         errors: errors.length > 0 ? errors : undefined,
       };
     } catch (err) {
-      return { success: false, error: (err as Error).message };
+      return { success: false, error: getTaskErrorMessage(err) };
     }
   });
 

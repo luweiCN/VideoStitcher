@@ -18,6 +18,8 @@ interface TaskAddedDialogProps {
   onKeep: () => void;
   /** 跳转任务中心回调 */
   onTaskCenter: () => void;
+  /** 清空按钮文案 */
+  clearLabel?: string;
 }
 
 const TaskAddedDialog: React.FC<TaskAddedDialogProps> = ({
@@ -26,6 +28,7 @@ const TaskAddedDialog: React.FC<TaskAddedDialogProps> = ({
   onClear,
   onKeep,
   onTaskCenter,
+  clearLabel = '清空已选素材',
 }) => {
   if (!open) return null;
 
@@ -102,7 +105,7 @@ const TaskAddedDialog: React.FC<TaskAddedDialogProps> = ({
               onClick={onClear} 
               className="flex-1 bg-rose-500/80 hover:bg-rose-500 border-rose-500/50"
             >
-              清空已选素材
+              {clearLabel}
             </Button>
           </div>
         </div>

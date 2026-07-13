@@ -1,4 +1,10 @@
 import type { Task } from '@shared/types/task';
+import type {
+  GreenScreenRecipe,
+  VideoDedupEvent,
+  VideoDedupLibraryScanResult,
+  VideoDedupTaskConfig,
+} from '@shared/videoDedup';
 
 // Electron API 类型声明 - 从 preload 导出
 // 此文件复制自 src/preload/index.ts 的接口定义
@@ -11,6 +17,29 @@ export interface ElectronAPI {
     multiSelection?: boolean,
   ) => Promise<string[]>;
   pickOutDir: (defaultPath?: string) => Promise<string>;
+  getPathForFile: (file: File) => string;
+
+  // === 视频降重处理 API ===
+  scanVideoDedupLibrary: (rootDir: string) => Promise<VideoDedupLibraryScanResult>;
+  saveVideoDedupGreenRecipe: (
+    filePath: string,
+    recipe: GreenScreenRecipe,
+  ) => Promise<{ success: boolean; recipe?: GreenScreenRecipe; error?: string }>;
+  getVideoDedupGreenRecipe: (
+    filePath: string,
+  ) => Promise<{ success: boolean; recipe: GreenScreenRecipe; error?: string }>;
+  previewVideoDedupGreenElement: (
+    filePath: string,
+    recipe: GreenScreenRecipe,
+  ) => Promise<{ success: boolean; preview?: string; error?: string }>;
+  generateVideoDedupPreview: (
+    sourcePath: string,
+    config: VideoDedupTaskConfig,
+  ) => Promise<{ success: boolean; previewPath?: string; events?: VideoDedupEvent[]; error?: string }>;
+  deleteVideoDedupPreview: (previewPath: string) => Promise<{ success: boolean; error?: string }>;
+  onVideoDedupPreviewProgress: (
+    callback: (data: { progress: number; step: string }) => void,
+  ) => () => void;
 
   // 图片处理 API
   getCpuCount: () => Promise<{ success: boolean; cpuCount?: number; error?: string }>;

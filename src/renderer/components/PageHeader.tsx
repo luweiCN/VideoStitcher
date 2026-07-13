@@ -32,6 +32,8 @@ interface PageHeaderProps {
   backButtonContent?: React.ReactNode;
   /** 是否显示任务指示器 */
   showTaskIndicator?: boolean;
+  /** 返回按钮固定跳转路径；未提供时返回浏览历史上一页 */
+  backPath?: string;
 }
 
 /**
@@ -51,10 +53,16 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   showBackButton = true,
   backButtonContent,
   showTaskIndicator = true,
+  backPath,
 }) => {
   const navigate = useNavigate();
 
   const handleBack = () => {
+    if (backPath) {
+      navigate(backPath, { replace: true });
+      return;
+    }
+
     navigate(-1);
   };
 

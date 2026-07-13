@@ -43,7 +43,11 @@ interface ImageFile {
   skipped?: boolean;        // 是否跳过压缩（文件已达标无需压缩）
 }
 
-const CoverCompressMode: React.FC = () => {
+interface CoverCompressModeProps {
+  embedded?: boolean;
+}
+
+const CoverCompressMode: React.FC<CoverCompressModeProps> = ({ embedded = false }) => {
   const [files, setFiles] = useState<ImageFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const { isLightTheme, togglePageTheme } = usePageTheme();
@@ -343,29 +347,31 @@ const CoverCompressMode: React.FC = () => {
   };
 
   return (
-    <div className={`${workspaceSkinClassName} h-screen flex flex-col ${
+    <div className={`${workspaceSkinClassName} ${embedded ? 'h-full' : 'h-screen'} flex flex-col ${
       isLightTheme ? 'theme-light-page bg-[#F8F8F5] text-[#222222]' : 'bg-[#181818] text-[#D1D1D1]'
     }`}>
-      <PageHeader
-        title="封面压缩"
-        icon={Shrink}
-        iconColor={isLightTheme ? "text-emerald-600" : "text-emerald-400"}
-        description={`智能压缩，自动调整质量与尺寸至 ~${targetSizeKB}KB`}
-        showTaskIndicator={false}
-        featureInfo={{
-          title: '封面压缩',
-          description: '智能压缩工具，自动调整图片质量与尺寸直到满足目标大小。',
-          details: [
-            '自动调整图片质量和尺寸，确保输出文件接近目标大小',
-            '使用渐进式 JPEG 编码，优化压缩效果',
-            '支持批量处理多个图片',
-            '可调整目标文件大小（KB）',
-            '显示压缩前后大小对比，实时预览效果',
-          ],
-          themeColor: 'emerald',
-        }}
-        rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
-      />
+      {!embedded && (
+        <PageHeader
+          title="封面压缩"
+          icon={Shrink}
+          iconColor={isLightTheme ? "text-emerald-600" : "text-emerald-400"}
+          description={`智能压缩，自动调整质量与尺寸至 ~${targetSizeKB}KB`}
+          showTaskIndicator={false}
+          featureInfo={{
+            title: '封面压缩',
+            description: '智能压缩工具，自动调整图片质量与尺寸直到满足目标大小。',
+            details: [
+              '自动调整图片质量和尺寸，确保输出文件接近目标大小',
+              '使用渐进式 JPEG 编码，优化压缩效果',
+              '支持批量处理多个图片',
+              '可调整目标文件大小（KB）',
+              '显示压缩前后大小对比，实时预览效果',
+            ],
+            themeColor: 'emerald',
+          }}
+          rightContent={isMetalSkin ? undefined : <PageThemeToggle isLightTheme={isLightTheme} onToggle={togglePageTheme} />}
+        />
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">

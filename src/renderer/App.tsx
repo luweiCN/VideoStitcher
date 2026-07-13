@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Layout, Maximize2, Zap, Grid3X3, Settings, Stamp, Monitor, Scan, FileText, Image as ImageIcon, Layers, Shrink, Captions, Download, AlertCircle, Bell, ArrowRight, Play, Moon, Sun, Palette } from 'lucide-react';
+import { Maximize2, Grid3X3, Settings, FileText, Image as ImageIcon, Layers, Captions, Mic2, ArrowRight, Play, Moon, Sun, Palette, Shuffle } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { ToastProvider } from './components/Toast';
 import VideoMergeMode from './features/VideoMergeMode';
 import FileNameExtractorMode from './features/FileNameExtractorMode';
+import CoverToolboxMode from './features/CoverToolboxMode';
 import CoverFormatMode from './features/CoverFormatMode';
 import CoverCompressMode from './features/CoverCompressMode';
 import LosslessGridMode from './features/LosslessGridMode';
 import ImageMaterialMode from './features/ImageMaterialMode';
+import ImageMaterialWorkshopMode from './features/ImageMaterialWorkshopMode';
 import ResizeMode from './features/ResizeMode';
 import SubtitleExtractorMode from './features/SubtitleExtractorMode';
+import TextToSpeechMode from './features/TextToSpeechMode';
+import VideoDedupMode from './features/VideoDedupMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
 import SkinStoreMode from './features/SkinStoreMode';
@@ -27,6 +31,17 @@ interface UpdateInfo {
 }
 
 type HomeTheme = 'light' | 'dark';
+
+const homeIcons = {
+  videoMerge: new URL('./assets/home-icons/video-merge.png', import.meta.url).href,
+  resize: new URL('./assets/home-icons/resize.png', import.meta.url).href,
+  imageMaterial: new URL('./assets/home-icons/image-material.png', import.meta.url).href,
+  coverToolbox: new URL('./assets/home-icons/cover-toolbox.png', import.meta.url).href,
+  fileNameExtractor: new URL('./assets/home-icons/file-name-extractor.png', import.meta.url).href,
+  losslessGrid: new URL('./assets/home-icons/lossless-grid.png', import.meta.url).href,
+  subtitleExtractor: new URL('./assets/home-icons/subtitle-extractor.png', import.meta.url).href,
+  textToSpeech: new URL('./assets/home-icons/tts.png', import.meta.url).href,
+};
 
 const getSavedHomeSkin = (): HomeSkinId => {
   const savedSkin = localStorage.getItem(HOME_SKIN_STORAGE_KEY);
@@ -119,6 +134,7 @@ const HomePage: React.FC<{
       description: '横竖屏一体，图层管理，所有素材独立位置调整',
       path: '/videoMerge',
       icon: Layers,
+      image: homeIcons.videoMerge,
       tileClass: 'from-sky-500 via-blue-600 to-blue-700',
       iconClass: 'text-violet-500 bg-violet-100/80 group-hover:bg-violet-500 group-hover:text-white group-hover:shadow-violet-500/20',
       hoverClass: 'hover:border-violet-200 hover:shadow-violet-100',
@@ -130,7 +146,20 @@ const HomePage: React.FC<{
       description: '当前支持：Google模式、Meta模式、统一横屏、统一竖屏',
       path: '/resize',
       icon: Maximize2,
+      image: homeIcons.resize,
       tileClass: 'from-amber-400 via-orange-500 to-orange-600',
+      iconClass: 'text-rose-500 bg-rose-100/80 group-hover:bg-rose-500 group-hover:text-white group-hover:shadow-rose-500/20',
+      hoverClass: 'hover:border-rose-200 hover:shadow-rose-100',
+      darkIconClass: 'text-rose-300 bg-rose-500/15 group-hover:bg-rose-500 group-hover:text-white group-hover:shadow-rose-500/20',
+      darkHoverClass: 'hover:border-rose-500/50 hover:shadow-rose-950/30',
+    },
+    {
+      title: '视频降重处理',
+      description: '批量生成视频变体，用于降低素材重复度',
+      path: '/videoDedup',
+      icon: Shuffle,
+      image: '',
+      tileClass: 'from-rose-500 via-pink-600 to-fuchsia-700',
       iconClass: 'text-rose-500 bg-rose-100/80 group-hover:bg-rose-500 group-hover:text-white group-hover:shadow-rose-500/20',
       hoverClass: 'hover:border-rose-200 hover:shadow-rose-100',
       darkIconClass: 'text-rose-300 bg-rose-500/15 group-hover:bg-rose-500 group-hover:text-white group-hover:shadow-rose-500/20',
@@ -139,8 +168,9 @@ const HomePage: React.FC<{
     {
       title: '图片素材处理',
       description: '批量加Logo，导出九宫格切片和预览图',
-      path: '/imageMaterial',
+      path: '/imageWorkshop',
       icon: Layers,
+      image: homeIcons.imageMaterial,
       tileClass: 'from-lime-500 via-green-600 to-emerald-700',
       iconClass: 'text-amber-500 bg-amber-100/80 group-hover:bg-amber-500 group-hover:text-white group-hover:shadow-amber-500/20',
       hoverClass: 'hover:border-amber-200 hover:shadow-amber-100',
@@ -148,10 +178,11 @@ const HomePage: React.FC<{
       darkHoverClass: 'hover:border-amber-500/50 hover:shadow-amber-950/30',
     },
     {
-      title: '封面格式转换',
-      description: '自动检测比例，横版转1920x1080，竖版转1080x1920',
-      path: '/coverFormat',
+      title: '封面工具箱',
+      description: '集合格式转换与压缩优化，统一处理封面图片',
+      path: '/imageWorkshop?mode=cover',
       icon: ImageIcon,
+      image: homeIcons.coverToolbox,
       tileClass: 'from-violet-500 via-purple-600 to-purple-800',
       iconClass: 'text-fuchsia-500 bg-fuchsia-100/80 group-hover:bg-fuchsia-500 group-hover:text-white group-hover:shadow-fuchsia-500/20',
       hoverClass: 'hover:border-fuchsia-200 hover:shadow-fuchsia-100',
@@ -159,21 +190,11 @@ const HomePage: React.FC<{
       darkHoverClass: 'hover:border-fuchsia-500/50 hover:shadow-fuchsia-950/30',
     },
     {
-      title: '封面压缩',
-      description: '智能压缩，自动调整质量与尺寸至 ~380KB',
-      path: '/coverCompress',
-      icon: Shrink,
-      tileClass: 'from-cyan-500 via-teal-600 to-teal-800',
-      iconClass: 'text-emerald-500 bg-emerald-100/80 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-emerald-500/20',
-      hoverClass: 'hover:border-emerald-200 hover:shadow-emerald-100',
-      darkIconClass: 'text-emerald-300 bg-emerald-500/15 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-emerald-500/20',
-      darkHoverClass: 'hover:border-emerald-500/50 hover:shadow-emerald-950/30',
-    },
-    {
       title: '文件名提取',
       description: '批量提取视频/图片文件名，一键生成列表',
       path: '/fileNameExtractor',
       icon: FileText,
+      image: homeIcons.fileNameExtractor,
       tileClass: 'from-rose-400 via-pink-500 to-rose-700',
       iconClass: 'text-pink-500 bg-pink-100/80 group-hover:bg-pink-500 group-hover:text-white group-hover:shadow-pink-500/20',
       hoverClass: 'hover:border-pink-200 hover:shadow-pink-100',
@@ -183,8 +204,9 @@ const HomePage: React.FC<{
     {
       title: '专业无损多宫格',
       description: '自定义横竖线条，自由裁切图片，无损无压缩',
-      path: '/losslessGrid',
+      path: '/imageWorkshop?mode=lossless',
       icon: Grid3X3,
+      image: homeIcons.losslessGrid,
       tileClass: 'from-sky-500 via-blue-600 to-blue-800',
       iconClass: 'text-sky-500 bg-sky-100/80 group-hover:bg-sky-500 group-hover:text-white group-hover:shadow-sky-500/20',
       hoverClass: 'hover:border-sky-200 hover:shadow-sky-100',
@@ -196,13 +218,37 @@ const HomePage: React.FC<{
       description: '按需下载模型，批量识别短视频台词文案',
       path: '/subtitleExtractor',
       icon: Captions,
+      image: homeIcons.subtitleExtractor,
       tileClass: 'from-cyan-500 via-blue-600 to-indigo-700',
       iconClass: 'text-cyan-500 bg-cyan-100/80 group-hover:bg-cyan-500 group-hover:text-white group-hover:shadow-cyan-500/20',
       hoverClass: 'hover:border-cyan-200 hover:shadow-cyan-100',
       darkIconClass: 'text-cyan-300 bg-cyan-500/15 group-hover:bg-cyan-500 group-hover:text-white group-hover:shadow-cyan-500/20',
       darkHoverClass: 'hover:border-cyan-500/50 hover:shadow-cyan-950/30',
     },
+    {
+      title: 'AI文本配音',
+      description: '三档本地TTS模型，按电脑配置自行下载',
+      path: '/textToSpeech',
+      icon: Mic2,
+      image: homeIcons.textToSpeech,
+      tileClass: 'from-indigo-500 via-blue-600 to-cyan-700',
+      iconClass: 'text-blue-500 bg-blue-100/80 group-hover:bg-blue-500 group-hover:text-white group-hover:shadow-blue-500/20',
+      hoverClass: 'hover:border-blue-200 hover:shadow-blue-100',
+      darkIconClass: 'text-blue-300 bg-blue-500/15 group-hover:bg-blue-500 group-hover:text-white group-hover:shadow-blue-500/20',
+      darkHoverClass: 'hover:border-blue-500/50 hover:shadow-blue-950/30',
+    },
   ];
+
+  // 首页只展示统一入口，旧路径仍由路由保留兼容。
+  const visibleFeatures = features.filter(
+    (feature) => !feature.path.startsWith('/imageWorkshop') || feature.path === '/imageWorkshop',
+  );
+  const getFeatureTitle = (feature: (typeof features)[number]) =>
+    feature.path.startsWith('/imageWorkshop') ? '图片素材工坊' : feature.title;
+  const getFeatureDescription = (feature: (typeof features)[number]) =>
+    feature.path.startsWith('/imageWorkshop')
+      ? '标准素材生产与专业无损切片，按模式独立处理'
+      : feature.description;
 
   if (homeSkin === 'metal-brass') {
     return (
@@ -268,7 +314,7 @@ const HomePage: React.FC<{
             </div>
 
             <div className="mt-10 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {features.map((feature) => {
+              {visibleFeatures.map((feature) => {
                 const Icon = feature.icon;
                 return (
                   <button
@@ -282,15 +328,24 @@ const HomePage: React.FC<{
                     type="button"
                   >
                     <span className="absolute right-5 top-5 h-5 w-5 rounded-full border-2 border-white/80 bg-transparent transition-all duration-300 group-hover:border-emerald-200 group-hover:bg-emerald-400 group-hover:shadow-[0_0_16px_rgba(74,222,128,0.95)]" />
-                    <div className="flex h-24 w-24 items-center justify-center text-white drop-shadow-sm">
-                      <Icon className="h-20 w-20" strokeWidth={2.2} />
+                    <div className="flex h-28 w-28 items-center justify-center">
+                      {feature.image ? (
+                        <img
+                          src={feature.image}
+                          alt=""
+                          className="h-28 w-28 rounded-[28px] object-cover shadow-[0_18px_36px_rgba(15,23,42,0.28)] ring-1 ring-white/40"
+                          draggable={false}
+                        />
+                      ) : (
+                        <Icon className="h-20 w-20 text-white drop-shadow-sm" strokeWidth={2.2} />
+                      )}
                     </div>
                     <div className="mt-auto">
                       <h2 className="text-3xl font-black leading-tight text-white drop-shadow-sm">
-                        {feature.title}
+                        {getFeatureTitle(feature)}
                       </h2>
                       <p className="mt-4 text-xl font-medium leading-8 text-white/86">
-                        {feature.description}
+                        {getFeatureDescription(feature)}
                       </p>
                     </div>
                   </button>
@@ -409,11 +464,12 @@ const HomePage: React.FC<{
           </div>
 
           <div className="mt-5 grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature) => {
+            {visibleFeatures.map((feature) => {
               const Icon = feature.icon;
               return (
                 <button
                   key={feature.path}
+                  data-testid={`home-feature-${feature.path.replace(/^\//, '')}`}
                   onClick={() => onNavigate(feature.path)}
                   className={`group relative flex min-h-[164px] flex-col rounded-lg border p-5 text-left transition-all duration-200 hover:-translate-y-0.5 ${
                     isDarkTheme
@@ -422,15 +478,28 @@ const HomePage: React.FC<{
                   }`}
                   type="button"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF385C]/10 text-[#FF385C] transition-all group-hover:bg-[#FF385C] group-hover:text-white">
-                    <Icon className="h-5 w-5" strokeWidth={2.2} />
-                  </div>
+                  {feature.image ? (
+                    <div className={`h-16 w-16 overflow-hidden rounded-2xl shadow-[0_12px_24px_rgba(34,34,34,0.10)] ring-1 ${
+                      isDarkTheme ? 'ring-white/10' : 'ring-black/5'
+                    }`}>
+                      <img
+                        src={feature.image}
+                        alt=""
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        draggable={false}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF385C]/10 text-[#FF385C] transition-all group-hover:bg-[#FF385C] group-hover:text-white">
+                      <Icon className="h-5 w-5" strokeWidth={2.2} />
+                    </div>
+                  )}
                   <div className="mt-6">
                     <h2 className="text-base font-black leading-tight">
-                      {feature.title}
+                      {getFeatureTitle(feature)}
                     </h2>
                     <p className={`mt-2 line-clamp-2 text-sm font-medium leading-6 ${isDarkTheme ? 'text-slate-500' : 'text-slate-500'}`}>
-                      {feature.description}
+                      {getFeatureDescription(feature)}
                     </p>
                   </div>
                   <ArrowRight className="absolute bottom-5 right-5 h-4 w-4 text-slate-300 opacity-0 transition-all group-hover:translate-x-1 group-hover:text-[#FF385C] group-hover:opacity-100" />
@@ -589,13 +658,17 @@ const AppContent: React.FC = () => {
       <Routes>
         <Route path="/unauthorized" element={<UnauthorizedMode />} />
         <Route path="/videoMerge" element={<VideoMergeMode />} />
+        <Route path="/videoDedup" element={<VideoDedupMode />} />
+        <Route path="/imageWorkshop" element={<ImageMaterialWorkshopMode />} />
         <Route path="/imageMaterial" element={<ImageMaterialMode />} />
         <Route path="/fileNameExtractor" element={<FileNameExtractorMode />} />
+        <Route path="/coverToolbox" element={<CoverToolboxMode />} />
         <Route path="/coverFormat" element={<CoverFormatMode />} />
         <Route path="/coverCompress" element={<CoverCompressMode />} />
         <Route path="/losslessGrid" element={<LosslessGridMode />} />
         <Route path="/resize" element={<ResizeMode />} />
         <Route path="/subtitleExtractor" element={<SubtitleExtractorMode />} />
+        <Route path="/textToSpeech" element={<TextToSpeechMode />} />
         <Route path="/skinStore" element={<SkinStoreMode />} />
         <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />

@@ -369,45 +369,45 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onViewAllTask
         <div className="bg-black/50 border border-slate-800 rounded-lg p-3 shrink-0">
           <div className="flex items-center gap-8">
             {/* 并发任务 */}
-            <div className="flex flex-col gap-1">
+            <div className="task-concurrency-group flex flex-col gap-1">
               <div className="flex items-center gap-3">
                 <span className="text-xs text-slate-400 w-16">并发任务</span>
                 <Slider.Root
-                  className="relative flex items-center select-none touch-none w-36 h-5"
+                  className="task-concurrency-slider relative flex items-center select-none touch-none w-40 h-6"
                   value={[localMaxTasks]}
                   onValueChange={([v]) => handleMaxTasksChange(v)}
                   max={16}
                   min={1}
                   step={1}
                 >
-                  <Slider.Track className="bg-slate-800 relative grow rounded-full h-1.5">
-                    <Slider.Range className="absolute bg-violet-500 rounded-full h-full" />
+                  <Slider.Track className="task-concurrency-track relative grow rounded-full h-2">
+                    <Slider.Range className="task-concurrency-range absolute rounded-full h-full" />
                   </Slider.Track>
-                  <Slider.Thumb className="block w-4 h-4 bg-white rounded-full shadow-lg hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer transition-colors" />
+                  <Slider.Thumb className="task-concurrency-thumb block w-5 h-5 rounded-full cursor-pointer transition-all focus:outline-none" />
                 </Slider.Root>
-                <span className="text-xs text-violet-400 font-mono w-5 text-center">{localMaxTasks}</span>
+                <span className="task-concurrency-value text-xs font-mono text-center">{localMaxTasks}</span>
               </div>
               <span className="text-[10px] text-slate-600 ml-[76px]">同时执行的任务数量</span>
             </div>
             
             {/* 编码线程 */}
-            <div className="flex flex-col gap-1">
+            <div className="task-concurrency-group flex flex-col gap-1">
               <div className="flex items-center gap-3">
                 <span className="text-xs text-slate-400 w-16">编码线程</span>
                 <Slider.Root
-                  className="relative flex items-center select-none touch-none w-36 h-5"
+                  className="task-concurrency-slider relative flex items-center select-none touch-none w-40 h-6"
                   value={[localThreads]}
                   onValueChange={([v]) => handleThreadsChange(v)}
                   max={16}
                   min={1}
                   step={1}
                 >
-                  <Slider.Track className="bg-slate-800 relative grow rounded-full h-1.5">
-                    <Slider.Range className="absolute bg-cyan-500 rounded-full h-full" />
+                  <Slider.Track className="task-concurrency-track relative grow rounded-full h-2">
+                    <Slider.Range className="task-concurrency-range absolute rounded-full h-full" />
                   </Slider.Track>
-                  <Slider.Thumb className="block w-4 h-4 bg-white rounded-full shadow-lg hover:bg-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 cursor-pointer transition-colors" />
+                  <Slider.Thumb className="task-concurrency-thumb block w-5 h-5 rounded-full cursor-pointer transition-all focus:outline-none" />
                 </Slider.Root>
-                <span className="text-xs text-cyan-400 font-mono w-5 text-center">{localThreads}</span>
+                <span className="task-concurrency-value text-xs font-mono text-center">{localThreads}</span>
               </div>
               <span className="text-[10px] text-slate-600 ml-[76px]">FFmpeg 编码线程（不含解码/滤镜）</span>
             </div>

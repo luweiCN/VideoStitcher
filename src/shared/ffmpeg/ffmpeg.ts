@@ -13,6 +13,10 @@ import type { FfmpegResult, FfmpegLogCallback } from './types';
  * 获取 FFmpeg 可执行文件路径
  */
 export function getFfmpegPath(): string {
+  if (process.env.VIDEOSTITCHER_FFMPEG_PATH) {
+    return process.env.VIDEOSTITCHER_FFMPEG_PATH;
+  }
+
   if (app.isPackaged) {
     // 打包后：ffmpeg 在 app.asar.unpacked/node_modules/ffmpeg-static/
     const resourcesPath = process.resourcesPath;
