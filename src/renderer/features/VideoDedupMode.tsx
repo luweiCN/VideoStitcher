@@ -14,12 +14,14 @@ import {
   Library,
   MapPin,
   Play,
+  Plus,
   RefreshCw,
   Search,
   Shuffle,
   SlidersHorizontal,
   Sparkles,
   Sticker,
+  Trash2,
 } from 'lucide-react';
 import PageHeader from '@/components/PageHeader';
 import PageThemeToggle from '@/components/PageThemeToggle';
@@ -52,11 +54,27 @@ const DEFAULT_ELEMENT_SCALE_PERCENT = 22;
 const CUSTOM_ELEMENT_SCALE_PERCENT = 25;
 const MIN_ELEMENT_SCALE_PERCENT = 5;
 const MAX_ELEMENT_SCALE_PERCENT = 50;
+const MIN_MANUAL_TIMELINE_DURATION = 0.1;
 const GENERATION_RULES_STORAGE_KEY = 'video-dedup-generation-rules';
 
 interface GenerationRules {
   copies: number;
   overlaysPerVideo: number;
+  minDuration: number;
+  maxDuration: number;
+}
+
+type TimelineEditMode = 'move' | 'resize-start' | 'resize-end';
+
+interface TimelineEditSession {
+  eventArrayIndex: number;
+  mode: TimelineEditMode;
+  pointerStartX: number;
+  trackWidth: number;
+  initialStart: number;
+  initialEnd: number;
+  lowerBoundary: number;
+  upperBoundary: number;
   minDuration: number;
   maxDuration: number;
 }
@@ -103,6 +121,13 @@ const readStoredGenerationRules = (): GenerationRules => {
   } catch {
     return { ...DEFAULT_GENERATION_RULES };
   }
+};
+
+const roundTimelineTime = (value: number): number => Math.round(value * 1000) / 1000;
+
+const clampTimelineTime = (value: number, min: number, max: number, fallback: number): number => {
+  if (max < min) return fallback;
+  return Math.min(max, Math.max(min, value));
 };
 
 interface NumberFieldProps {
@@ -191,6 +216,7 @@ const VideoDedupMode: React.FC = () => {
   const sourceSelectorRef = useRef<FileSelectorRef>(null);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const previewPathRef = useRef('');
+  const timelineTrackRef = useRef<HTMLDivElement>(null);
   const thumbnailAttemptedPathsRef = useRef<Set<string>>(new Set());
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('process');
   const [sourceVideos, setSourceVideos] = useState<string[]>([]);
@@ -235,6 +261,10 @@ const VideoDedupMode: React.FC = () => {
   const [previewStep, setPreviewStep] = useState('');
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [previewSignature, setPreviewSignature] = useState('');
+  const [isTimelineEdited, setIsTimelineEdited] = useState(false);
+  const [hasCustomTimeline, setHasCustomTimeline] = useState(false);
+  const [selectedTimelineEventIndex, setSelectedTimelineEventIndex] = useState<number | null>(null);
+  const [timelineEditSession, setTimelineEditSession] = useState<TimelineEditSession | null>(null);
   const { isLightTheme, togglePageTheme } = usePageTheme();
   const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
 
@@ -341,7 +371,99 @@ const VideoDedupMode: React.FC = () => {
     sourceVideos,
   ]);
 
-  const isPreviewStale = Boolean(previewUrl && previewSignature !== currentPreviewSignature);
+  const canRenderEditedTimeline = Boolean(
+    isTimelineEdited
+    && previewEvents.length > 0
+    && previewSignature === currentPreviewSignature,
+  );
+  const isPreviewStale = Boolean(
+    previewUrl
+    && (previewSignature !== currentPreviewSignature || isTimelineEdited),
+  );
+  const selectedTimelineEvent = selectedTimelineEventIndex === null
+    ? null
+    : previewEvents[selectedTimelineEventIndex] || null;
+
+  useEffect(() => {
+    if (!timelineEditSession) return undefined;
+
+    const previousCursor = document.body.style.cursor;
+    document.body.style.cursor = timelineEditSession.mode === 'move' ? 'grabbing' : 'ew-resize';
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const deltaSeconds = (
+        (event.clientX - timelineEditSession.pointerStartX)
+        / timelineEditSession.trackWidth
+      ) * previewDuration;
+      let nextStart = timelineEditSession.initialStart;
+      let nextEnd = timelineEditSession.initialEnd;
+
+      if (timelineEditSession.mode === 'move') {
+        const duration = timelineEditSession.initialEnd - timelineEditSession.initialStart;
+        nextStart = clampTimelineTime(
+          timelineEditSession.initialStart + deltaSeconds,
+          timelineEditSession.lowerBoundary,
+          timelineEditSession.upperBoundary - duration,
+          timelineEditSession.initialStart,
+        );
+        nextEnd = nextStart + duration;
+      } else if (timelineEditSession.mode === 'resize-start') {
+        nextStart = clampTimelineTime(
+          timelineEditSession.initialStart + deltaSeconds,
+          Math.max(
+            timelineEditSession.lowerBoundary,
+            timelineEditSession.initialEnd - timelineEditSession.maxDuration,
+          ),
+          timelineEditSession.initialEnd - timelineEditSession.minDuration,
+          timelineEditSession.initialStart,
+        );
+      } else {
+        nextEnd = clampTimelineTime(
+          timelineEditSession.initialEnd + deltaSeconds,
+          timelineEditSession.initialStart + timelineEditSession.minDuration,
+          Math.min(
+            timelineEditSession.upperBoundary,
+            timelineEditSession.initialStart + timelineEditSession.maxDuration,
+          ),
+          timelineEditSession.initialEnd,
+        );
+      }
+
+      nextStart = roundTimelineTime(nextStart);
+      nextEnd = roundTimelineTime(nextEnd);
+      const changed = Math.abs(nextStart - timelineEditSession.initialStart) > 0.001
+        || Math.abs(nextEnd - timelineEditSession.initialEnd) > 0.001;
+      if (!changed) return;
+
+      setPreviewEvents((current) => current.map((timelineEvent, index) => (
+        index === timelineEditSession.eventArrayIndex
+          ? {
+            ...timelineEvent,
+            start: nextStart,
+            end: nextEnd,
+            duration: roundTimelineTime(nextEnd - nextStart),
+          }
+          : timelineEvent
+      )));
+      setIsTimelineEdited(true);
+      setHasCustomTimeline(true);
+    };
+
+    const handlePointerUp = () => {
+      setTimelineEditSession(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+    window.addEventListener('pointercancel', handlePointerUp, { once: true });
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+    };
+  }, [previewDuration, timelineEditSession]);
 
   const scanLibrary = useCallback(async (rootDir: string, showMessage = false) => {
     if (!rootDir) {
@@ -501,6 +623,138 @@ const VideoDedupMode: React.FC = () => {
     localStorage.setItem('video-dedup-element-scale', String(normalizedValue));
   }, []);
 
+  const handleTimelinePointerDown = useCallback((
+    pointerEvent: React.PointerEvent<HTMLElement>,
+    eventArrayIndex: number,
+    mode: TimelineEditMode,
+  ) => {
+    const trackWidth = timelineTrackRef.current?.getBoundingClientRect().width || 0;
+    const timelineEvent = previewEvents[eventArrayIndex];
+    if (!timelineEvent || trackWidth <= 0 || previewDuration <= 0) return;
+
+    pointerEvent.preventDefault();
+    pointerEvent.stopPropagation();
+    const previousEvent = previewEvents[eventArrayIndex - 1];
+    const nextEvent = previewEvents[eventArrayIndex + 1];
+    const lowerBoundary = Math.max(
+      0,
+      skipHead,
+      previousEvent ? previousEvent.end + minimumGap : 0,
+    );
+    const upperBoundary = Math.min(
+      previewDuration,
+      previewDuration - Math.max(0, skipTail),
+      nextEvent ? nextEvent.start - minimumGap : previewDuration,
+    );
+
+    setSelectedTimelineEventIndex(eventArrayIndex);
+    setTimelineEditSession({
+      eventArrayIndex,
+      mode,
+      pointerStartX: pointerEvent.clientX,
+      trackWidth,
+      initialStart: timelineEvent.start,
+      initialEnd: timelineEvent.end,
+      lowerBoundary,
+      upperBoundary,
+      minDuration: MIN_MANUAL_TIMELINE_DURATION,
+      maxDuration: Math.max(MIN_MANUAL_TIMELINE_DURATION, upperBoundary - lowerBoundary),
+    });
+
+    if (previewVideoRef.current) {
+      previewVideoRef.current.currentTime = Math.min(
+        timelineEvent.start + timelineEvent.duration / 2,
+        Math.max(0, previewDuration - 0.05),
+      );
+    }
+  }, [minimumGap, previewDuration, previewEvents, skipHead, skipTail]);
+
+  const handleAddTimelineEvent = useCallback(() => {
+    if (!libraryScan?.success || libraryScan.elements.length === 0 || previewDuration <= 0) {
+      toast.warning('请先生成包含可用变体元素的效果预览');
+      return;
+    }
+
+    const rangeStart = Math.max(0, skipHead);
+    const rangeEnd = Math.min(previewDuration, previewDuration - Math.max(0, skipTail));
+    const sortedEvents = [...previewEvents].sort((left, right) => left.start - right.start);
+    const freeRanges: Array<{ start: number; end: number; capacity: number }> = [];
+    let cursor = rangeStart;
+
+    sortedEvents.forEach((timelineEvent) => {
+      const freeEnd = Math.min(rangeEnd, timelineEvent.start - minimumGap);
+      if (freeEnd - cursor >= MIN_MANUAL_TIMELINE_DURATION) {
+        freeRanges.push({ start: cursor, end: freeEnd, capacity: freeEnd - cursor });
+      }
+      cursor = Math.max(cursor, timelineEvent.end + minimumGap);
+    });
+
+    if (rangeEnd - cursor >= MIN_MANUAL_TIMELINE_DURATION) {
+      freeRanges.push({ start: cursor, end: rangeEnd, capacity: rangeEnd - cursor });
+    }
+    if (freeRanges.length === 0) {
+      toast.warning('时间轴没有可容纳新变体的空档，请先移动或缩短现有片段');
+      return;
+    }
+
+    const preferredRanges = freeRanges.filter((range) => range.capacity >= 3);
+    const candidateRanges = preferredRanges.length > 0
+      ? preferredRanges
+      : [freeRanges.reduce((largest, range) => (range.capacity > largest.capacity ? range : largest))];
+    const selectedRange = candidateRanges[Math.floor(Math.random() * candidateRanges.length)];
+    const duration = roundTimelineTime(Math.min(3, selectedRange.capacity));
+    const availableSlack = Math.max(0, selectedRange.capacity - duration);
+    const start = roundTimelineTime(selectedRange.start + Math.random() * availableSlack);
+    const end = roundTimelineTime(start + duration);
+    const element = libraryScan.elements[Math.floor(Math.random() * libraryScan.elements.length)];
+    const position = enabledPositions[Math.floor(Math.random() * enabledPositions.length)] || 'top_left';
+    const newEvent: VideoDedupEvent = {
+      index: previewEvents.length,
+      elementPath: element.path,
+      elementType: element.type,
+      start,
+      duration: roundTimelineTime(end - start),
+      end,
+      position,
+      recipe: element.recipe,
+    };
+    const nextEvents = [...previewEvents, newEvent]
+      .sort((left, right) => left.start - right.start)
+      .map((timelineEvent, index) => ({ ...timelineEvent, index }));
+    const nextSelectedIndex = nextEvents.findIndex((timelineEvent) => timelineEvent === newEvent
+      || (timelineEvent.elementPath === newEvent.elementPath
+        && timelineEvent.start === newEvent.start
+        && timelineEvent.end === newEvent.end));
+
+    setPreviewEvents(nextEvents);
+    setSelectedTimelineEventIndex(nextSelectedIndex);
+    setIsTimelineEdited(true);
+    setHasCustomTimeline(true);
+    if (previewVideoRef.current) {
+      previewVideoRef.current.currentTime = Math.min(
+        start + duration / 2,
+        Math.max(0, previewDuration - 0.05),
+      );
+    }
+  }, [enabledPositions, libraryScan, minimumGap, previewDuration, previewEvents, skipHead, skipTail, toast]);
+
+  const handleDeleteSelectedTimelineEvent = useCallback(() => {
+    if (selectedTimelineEventIndex === null) return;
+    if (previewEvents.length <= 1) {
+      toast.warning('时间轴至少需要保留一个变体，请先增加新变体再删除');
+      return;
+    }
+
+    const nextEvents = previewEvents
+      .filter((_, index) => index !== selectedTimelineEventIndex)
+      .map((timelineEvent, index) => ({ ...timelineEvent, index }));
+    setPreviewEvents(nextEvents);
+    setSelectedTimelineEventIndex(null);
+    setTimelineEditSession(null);
+    setIsTimelineEdited(true);
+    setHasCustomTimeline(true);
+  }, [previewEvents, selectedTimelineEventIndex, toast]);
+
   const handleSaveRecipe = useCallback(async () => {
     if (!selectedElement || selectedElement.type !== 'green_video') return;
     setIsSavingRecipe(true);
@@ -589,7 +843,11 @@ const VideoDedupMode: React.FC = () => {
         positions: enabledPositions,
         randomSeed,
       };
-      const events = buildVideoDedupSchedule(metadata.duration, libraryScan.elements, scheduleConfig);
+      const shouldRenderEditedTimeline = canRenderEditedTimeline
+        && Math.abs(metadata.duration - previewDuration) < 0.05;
+      const events = shouldRenderEditedTimeline
+        ? previewEvents.map((event) => ({ ...event }))
+        : buildVideoDedupSchedule(metadata.duration, libraryScan.elements, scheduleConfig);
       const usedPaths = new Set(events.map((event) => event.elementPath));
       const config: VideoDedupTaskConfig = {
         ...scheduleConfig,
@@ -621,15 +879,19 @@ const VideoDedupMode: React.FC = () => {
       setPreviewEvents(result.events || events);
       setPreviewDuration(metadata.duration);
       setPreviewSignature(currentPreviewSignature);
+      setIsTimelineEdited(false);
+      setHasCustomTimeline(shouldRenderEditedTimeline);
+      if (!shouldRenderEditedTimeline) setSelectedTimelineEventIndex(null);
       setPreviewProgress(100);
       setPreviewStep('预览生成完成');
-      toast.success('视频降重效果预览已生成');
+      toast.success(shouldRenderEditedTimeline ? '调整后的时间轴已重新渲染' : '视频降重效果预览已生成');
     } catch (error) {
       toast.error(`生成效果预览失败：${(error as Error).message}`);
     } finally {
       setIsGeneratingPreview(false);
     }
   }, [
+    canRenderEditedTimeline,
     currentPreviewSignature,
     elementScalePercent,
     enabledPositions,
@@ -638,6 +900,8 @@ const VideoDedupMode: React.FC = () => {
     minDuration,
     minimumGap,
     overlaysPerVideo,
+    previewDuration,
+    previewEvents,
     scheduleMode,
     skipHead,
     skipTail,
@@ -689,7 +953,15 @@ const VideoDedupMode: React.FC = () => {
             positions: enabledPositions,
             randomSeed,
           };
-          const events = buildVideoDedupSchedule(metadata.duration, libraryScan.elements, scheduleConfig);
+          const shouldUseCustomTimeline = hasCustomTimeline
+            && sourcePath === sourceVideos[0]
+            && variantIndex === 1
+            && previewEvents.length > 0
+            && Math.abs(metadata.duration - previewDuration) < 0.05
+            && previewSignature === currentPreviewSignature;
+          const events = shouldUseCustomTimeline
+            ? previewEvents.map((event) => ({ ...event }))
+            : buildVideoDedupSchedule(metadata.duration, libraryScan.elements, scheduleConfig);
           const usedPaths = new Set(events.map((event) => event.elementPath));
           const usedElements = libraryScan.elements.filter((element) => usedPaths.has(element.path));
           const config: VideoDedupTaskConfig = {
@@ -741,14 +1013,19 @@ const VideoDedupMode: React.FC = () => {
   }, [
     batchCreateTasks,
     copies,
+    currentPreviewSignature,
     elementScalePercent,
     enabledPositions,
+    hasCustomTimeline,
     libraryScan,
     maxDuration,
     minDuration,
     minimumGap,
     outputDir,
     overlaysPerVideo,
+    previewDuration,
+    previewEvents,
+    previewSignature,
     scheduleMode,
     skipHead,
     skipTail,
@@ -948,7 +1225,13 @@ const VideoDedupMode: React.FC = () => {
                   className="metal-primary flex h-8 items-center gap-1.5 rounded-lg bg-[#FF385C] px-3 text-[11px] font-bold text-white transition-all hover:bg-[#e93252] disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500"
                 >
                   {isGeneratingPreview ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  {isGeneratingPreview ? `${previewProgress}%` : previewUrl ? '重新生成预览' : '生成效果预览'}
+                  {isGeneratingPreview
+                    ? `${previewProgress}%`
+                    : canRenderEditedTimeline
+                      ? '重新渲染'
+                      : previewUrl
+                        ? '重新生成预览'
+                        : '生成效果预览'}
                 </button>
               </div>
             </div>
@@ -968,7 +1251,7 @@ const VideoDedupMode: React.FC = () => {
                     />
                     {isPreviewStale && (
                       <div className="absolute right-3 top-3 z-20 rounded-lg border border-amber-500/40 bg-amber-950/90 px-3 py-2 text-[11px] font-bold text-amber-300">
-                        参数已经变化，请重新生成预览
+                        {canRenderEditedTimeline ? '时间轴已调整，请重新渲染' : '参数已经变化，请重新生成预览'}
                       </div>
                     )}
                   </>
@@ -1009,37 +1292,107 @@ const VideoDedupMode: React.FC = () => {
                     </p>
                     <p className="mt-0.5 text-[10px] text-slate-500">
                       {previewEvents.length > 0
-                        ? `${previewEvents.length} 次元素事件，单轨防重叠校验已通过`
+                        ? isTimelineEdited
+                          ? '时间轴已调整，点击右上角“重新渲染”查看修改后的效果'
+                          : `${previewEvents.length} 次元素事件；拖动素材块调整位置，拖动两端可自由调整时长`
                         : '生成效果预览后显示真实元素与时间区间'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] text-slate-500">
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-sky-500" />PNG</span>
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-violet-500" />GIF</span>
-                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-500" />绿幕 MP4</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        data-testid="video-dedup-add-timeline-event"
+                        onClick={handleAddTimelineEvent}
+                        disabled={previewDuration <= 0 || !libraryScan?.elements.length}
+                        className="video-dedup-timeline-action video-dedup-timeline-add flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-bold transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Plus className="h-3 w-3" />
+                        增加变体
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="video-dedup-delete-timeline-event"
+                        data-active={selectedTimelineEventIndex !== null}
+                        aria-pressed={selectedTimelineEventIndex !== null}
+                        onClick={handleDeleteSelectedTimelineEvent}
+                        disabled={selectedTimelineEventIndex === null}
+                        className={`video-dedup-timeline-action video-dedup-timeline-delete flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-bold transition-all disabled:cursor-not-allowed ${
+                          selectedTimelineEventIndex !== null ? 'metal-primary bg-[#FF385C] text-white' : ''
+                        }`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        删除所选
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <span className="video-dedup-type-color h-2 w-2 rounded-sm" data-element-type="image" />
+                        静态贴纸
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="video-dedup-type-color h-2 w-2 rounded-sm" data-element-type="gif" />
+                        GIF
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="video-dedup-type-color h-2 w-2 rounded-sm" data-element-type="green_video" />
+                        绿幕视频
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <div className="relative h-12 overflow-hidden rounded-lg border border-slate-800 bg-slate-950/60">
+                <div
+                  ref={timelineTrackRef}
+                  data-testid="video-dedup-timeline-track"
+                  data-duration={previewDuration}
+                  className="relative h-14 overflow-hidden rounded-lg border border-slate-800 bg-slate-950/60"
+                >
                   <div className="absolute inset-y-0 left-1/4 border-l border-dashed border-slate-700" />
                   <div className="absolute inset-y-0 left-1/2 border-l border-dashed border-slate-700" />
                   <div className="absolute inset-y-0 left-3/4 border-l border-dashed border-slate-700" />
-                  {previewDuration > 0 && previewEvents.map((event) => {
+                  {previewDuration > 0 && previewEvents.map((event, eventArrayIndex) => {
                     const left = Math.max(0, (event.start / previewDuration) * 100);
                     const width = Math.max(1.5, (event.duration / previewDuration) * 100);
-                    const colorClass = event.elementType === 'image'
-                      ? 'bg-sky-500/85'
-                      : event.elementType === 'gif'
-                        ? 'bg-violet-500/85'
-                        : 'bg-emerald-500/85';
                     const elementName = event.elementPath.split(/[/\\]/).pop() || `元素 ${event.index + 1}`;
                     return (
                       <div
                         key={`${event.index}-${event.elementPath}`}
-                        className={`absolute top-2 h-7 overflow-hidden rounded px-2 text-[10px] leading-7 text-white ${colorClass}`}
+                        role="button"
+                        tabIndex={0}
+                        data-testid={`video-dedup-timeline-event-${eventArrayIndex}`}
+                        data-element-type={event.elementType}
+                        data-start={event.start}
+                        data-end={event.end}
+                        className={`video-dedup-timeline-event absolute top-2 h-9 overflow-hidden text-[10px] leading-9 text-white ${
+                          selectedTimelineEventIndex === eventArrayIndex ? 'video-dedup-timeline-event-selected' : ''
+                        }`}
                         style={{ left: `${left}%`, width: `${Math.min(width, 100 - left)}%` }}
                         title={`${elementName} · ${event.start.toFixed(1)}-${event.end.toFixed(1)} 秒`}
+                        onPointerDown={(pointerEvent) => handleTimelinePointerDown(
+                          pointerEvent,
+                          eventArrayIndex,
+                          'move',
+                        )}
                       >
-                        <span className="block truncate">{elementName} · {event.duration.toFixed(1)}s</span>
+                        <span
+                          data-testid={`video-dedup-timeline-resize-start-${eventArrayIndex}`}
+                          className="video-dedup-timeline-resize-handle video-dedup-timeline-resize-start"
+                          onPointerDown={(pointerEvent) => handleTimelinePointerDown(
+                            pointerEvent,
+                            eventArrayIndex,
+                            'resize-start',
+                          )}
+                        />
+                        <span className="block truncate px-3">{elementName} · {event.duration.toFixed(1)}s</span>
+                        <span
+                          data-testid={`video-dedup-timeline-resize-end-${eventArrayIndex}`}
+                          className="video-dedup-timeline-resize-handle video-dedup-timeline-resize-end"
+                          onPointerDown={(pointerEvent) => handleTimelinePointerDown(
+                            pointerEvent,
+                            eventArrayIndex,
+                            'resize-end',
+                          )}
+                        />
                       </div>
                     );
                   })}
@@ -1054,6 +1407,26 @@ const VideoDedupMode: React.FC = () => {
                   <span>{previewDuration > 0 ? `${(previewDuration / 2).toFixed(1)}s` : '--'}</span>
                   <span>{previewDuration > 0 ? `${previewDuration.toFixed(1)}s` : '--'}</span>
                 </div>
+                {selectedTimelineEvent && (
+                  <div className="mt-2 flex items-center justify-between rounded-md border border-slate-800 bg-black/20 px-2.5 py-1.5 text-[10px]">
+                    <span className="max-w-[65%] truncate text-slate-400">
+                      当前：{selectedTimelineEvent.elementPath.split(/[/\\]/).pop() || `元素 ${selectedTimelineEvent.index + 1}`}
+                    </span>
+                    <span className="font-semibold text-slate-300">
+                      {selectedTimelineEvent.start.toFixed(1)}–{selectedTimelineEvent.end.toFixed(1)}s · {selectedTimelineEvent.duration.toFixed(1)}s
+                    </span>
+                  </div>
+                )}
+                {previewEvents.length > 0 && (
+                  <p className="mt-2 text-[10px] text-slate-500">
+                    手动调整不受生成规则的最短/最长持续限制，仍会自动避开片头片尾与相邻元素。
+                  </p>
+                )}
+                {hasCustomTimeline && !isTimelineEdited && (
+                  <p className="mt-2 text-[10px] text-slate-500">
+                    已保存手动编排：加入任务时应用于首条视频的第 1 个变体，其余变体继续按规则随机生成。
+                  </p>
+                )}
               </div>
             </div>
           </main>
@@ -1115,6 +1488,7 @@ const VideoDedupMode: React.FC = () => {
                     key={position}
                     type="button"
                     data-selected={enabled}
+                    aria-pressed={enabled}
                     onClick={() => togglePosition(position)}
                     className={`video-dedup-position-button flex h-9 items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-all ${
                       enabled

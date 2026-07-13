@@ -4758,27 +4758,162 @@ html body .image-preview-mode-surface.image-preview-mode-surface-selected {
   box-shadow: 0 6px 14px rgba(255, 56, 92, 0.18) !important;
 }
 
-/* 视频降重：位置选择使用红色矩形选中态，不跟随全局胶囊按钮样式 */
-.video-merge-airbnb .metal-control button.video-dedup-position-button,
-.video-merge-metal .metal-control button.video-dedup-position-button {
+/* 视频降重：位置选择强制使用红色矩形选中态，不受任何皮肤胶囊按钮规则影响 */
+html body button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button {
   border-radius: 8px !important;
+  background-image: none !important;
 }
 
-.video-merge-airbnb .metal-control button.video-dedup-position-button[data-selected="true"],
-.video-merge-airbnb:not(.theme-light-page) .metal-control button.video-dedup-position-button[data-selected="true"],
-.video-merge-metal .metal-control button.video-dedup-position-button[data-selected="true"] {
+html body button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button[data-selected="true"],
+html body button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button[aria-pressed="true"] {
   border-color: #ff385c !important;
   background: #ff385c !important;
+  background-color: #ff385c !important;
+  background-image: none !important;
   color: #ffffff !important;
   box-shadow: 0 4px 12px rgba(255, 56, 92, 0.22) !important;
+  text-shadow: none !important;
 }
 
-.video-merge-airbnb .metal-control button.video-dedup-position-button[data-selected="true"]:hover,
-.video-merge-airbnb:not(.theme-light-page) .metal-control button.video-dedup-position-button[data-selected="true"]:hover,
-.video-merge-metal .metal-control button.video-dedup-position-button[data-selected="true"]:hover {
+html body button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button[data-selected="true"] *,
+html body button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button[aria-pressed="true"] * {
+  color: #ffffff !important;
+}
+
+html body button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button[data-selected="true"]:hover,
+html body button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button.video-dedup-position-button[aria-pressed="true"]:hover {
   border-color: #e93252 !important;
   background: #e93252 !important;
+  background-color: #e93252 !important;
+  background-image: none !important;
   color: #ffffff !important;
+}
+
+/* 视频降重时间轴：使用独立色值区分三类变体，避免被全局主题色覆盖 */
+html body .video-dedup-type-color[data-element-type="image"] {
+  background: #0ea5e9 !important;
+}
+
+html body .video-dedup-type-color[data-element-type="gif"] {
+  background: #8b5cf6 !important;
+}
+
+html body .video-dedup-type-color[data-element-type="green_video"] {
+  background: #10b981 !important;
+}
+
+html body button.video-dedup-timeline-action.video-dedup-timeline-action {
+  border-radius: 6px !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html body button.video-dedup-timeline-add.video-dedup-timeline-add {
+  border-color: rgba(255, 56, 92, 0.55) !important;
+  background: rgba(255, 56, 92, 0.12) !important;
+  color: #ff6b83 !important;
+}
+
+html body button.video-dedup-timeline-add.video-dedup-timeline-add:hover:not(:disabled) {
+  border-color: #ff385c !important;
+  background: rgba(255, 56, 92, 0.22) !important;
+  color: #ffffff !important;
+}
+
+html body button.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete[data-active="false"] {
+  border-color: rgba(100, 116, 139, 0.45) !important;
+  background: rgba(15, 23, 42, 0.35) !important;
+  color: #64748b !important;
+}
+
+html body button.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete[data-active="true"],
+html body button.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete[aria-pressed="true"] {
+  border-color: #ff385c !important;
+  background: #ff385c !important;
+  background-color: #ff385c !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 10px rgba(255, 56, 92, 0.22) !important;
+}
+
+html body button.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete[data-active="true"] *,
+html body button.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete.video-dedup-timeline-delete[aria-pressed="true"] * {
+  color: #ffffff !important;
+}
+
+html body button.video-dedup-timeline-action.video-dedup-timeline-action * {
+  color: inherit !important;
+}
+
+html body .video-dedup-timeline-event.video-dedup-timeline-event {
+  border: 1px solid transparent !important;
+  border-radius: 7px !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.24) !important;
+}
+
+html body .video-dedup-timeline-event.video-dedup-timeline-event:active {
+  cursor: grabbing;
+}
+
+html body .video-dedup-timeline-event.video-dedup-timeline-event[data-element-type="image"] {
+  border-color: #38bdf8 !important;
+  background: #0284c7 !important;
+  background-color: #0284c7 !important;
+}
+
+html body .video-dedup-timeline-event.video-dedup-timeline-event[data-element-type="gif"] {
+  border-color: #a78bfa !important;
+  background: #7c3aed !important;
+  background-color: #7c3aed !important;
+}
+
+html body .video-dedup-timeline-event.video-dedup-timeline-event[data-element-type="green_video"] {
+  border-color: #34d399 !important;
+  background: #059669 !important;
+  background-color: #059669 !important;
+}
+
+html body .video-dedup-timeline-event.video-dedup-timeline-event.video-dedup-timeline-event-selected {
+  border-color: #ff385c !important;
+  background: #ff385c !important;
+  background-color: #ff385c !important;
+  background-image: none !important;
+  outline: 2px solid rgba(255, 255, 255, 0.88) !important;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(255, 56, 92, 0.30), 0 5px 14px rgba(0, 0, 0, 0.30) !important;
+}
+
+html body .video-dedup-timeline-event.video-dedup-timeline-event * {
+  color: #ffffff !important;
+}
+
+html body .video-dedup-timeline-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 9px;
+  cursor: ew-resize;
+  background: rgba(255, 255, 255, 0.18) !important;
+  transition: background-color 120ms ease;
+}
+
+html body .video-dedup-timeline-resize-handle:hover {
+  background: rgba(255, 255, 255, 0.42) !important;
+}
+
+html body .video-dedup-timeline-resize-start {
+  left: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+html body .video-dedup-timeline-resize-end {
+  right: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.55);
 }
 
 /* 视频降重：元素分布与位置范围共用红色矩形选中规范 */

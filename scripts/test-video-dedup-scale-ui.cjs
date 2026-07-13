@@ -3,6 +3,7 @@ const path = require('path');
 const WebSocket = require('ws');
 
 const port = Number(process.env.VIDEO_STITCHER_CDP_PORT || 9349);
+const homeSkin = process.env.VIDEO_STITCHER_HOME_SKIN || 'airbnb-minimal';
 const screenshotDir = process.env.VIDEO_STITCHER_SCREENSHOT_DIR
   || path.join(process.env.TEMP, 'videostitcher-scale-ui-screenshots');
 
@@ -96,6 +97,7 @@ async function main() {
 
   await client.evaluate(`(async () => {
     localStorage.setItem('home-theme', 'dark');
+    localStorage.setItem('home-skin', ${JSON.stringify(homeSkin)});
     localStorage.removeItem('video-dedup-element-scale');
     location.hash = '#/';
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -116,11 +118,21 @@ async function main() {
     slider.closest('.metal-control').scrollIntoView({ block: 'center' });
     const selected = slider.closest('.metal-control').querySelector('[data-selected="true"]');
     const style = getComputedStyle(selected);
+    const positionButtons = [...document.querySelectorAll('.video-dedup-position-button')].map((button) => {
+      const buttonStyle = getComputedStyle(button);
+      return {
+        selected: button.dataset.selected,
+        pressed: button.getAttribute('aria-pressed'),
+        background: buttonStyle.backgroundColor,
+        radius: buttonStyle.borderRadius,
+      };
+    });
     return {
       value: slider.value,
       selectedText: selected.textContent.trim(),
       selectedBackground: style.backgroundColor,
       selectedRadius: style.borderRadius,
+      positionButtons,
     };
   })()`);
   console.log('[元素尺寸 UI 验收] 已读取默认状态');
@@ -155,6 +167,14 @@ async function main() {
   }
   if (defaultState.selectedBackground !== 'rgb(255, 56, 92)' || defaultState.selectedRadius !== '8px') {
     throw new Error(`默认选中样式不正确：${JSON.stringify(defaultState)}`);
+  }
+  if (defaultState.positionButtons.length !== 4 || defaultState.positionButtons.some((button) => (
+    button.selected !== 'true'
+    || button.pressed !== 'true'
+    || button.background !== 'rgb(255, 56, 92)'
+    || button.radius !== '8px'
+  ))) {
+    throw new Error(`随机位置选中样式不正确：${JSON.stringify(defaultState.positionButtons)}`);
   }
   if (customResult.value !== '41' || customResult.savedValue !== '41'
     || customResult.selectedText !== '自定义' || !customResult.visibleValue) {
