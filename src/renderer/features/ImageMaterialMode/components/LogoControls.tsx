@@ -34,7 +34,7 @@ const LogoControls: React.FC<LogoControlsProps> = ({
         onValueCommit={([value]) => onScaleCommit?.(value)}
         min={0.1}
         max={3}
-        step={0.1}
+        step={0.01}
       >
         <Slider.Track className="bg-slate-800 relative grow rounded-full h-1.5">
           <Slider.Range className="absolute h-full rounded-full bg-amber-500" />
@@ -44,6 +44,9 @@ const LogoControls: React.FC<LogoControlsProps> = ({
           aria-label="Logo 缩放"
         />
       </Slider.Root>
+      <p className="text-[11px] text-slate-500">
+        100% 为 Logo 原始尺寸，也可拖动预览中 Logo 的四角缩放
+      </p>
     </div>
   );
 };

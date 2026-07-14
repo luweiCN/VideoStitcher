@@ -20,17 +20,24 @@ const PREVIEW_SIZE_MODES: Record<
 interface PreviewModeSelectorProps {
   value: PreviewSizeMode;
   onChange: (mode: PreviewSizeMode) => void;
+  isBypassed?: boolean;
 }
 
 const PreviewModeSelector: React.FC<PreviewModeSelectorProps> = ({
   value,
   onChange,
+  isBypassed = false,
 }) => {
   return (
     <div className="metal-panel bg-black/50 border border-slate-800 rounded-xl p-4 space-y-2">
       <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
         预览模式
       </h3>
+      <p className={`text-xs ${isBypassed ? "text-amber-400" : "text-slate-500"}`}>
+        {isBypassed
+          ? "当前为横版/竖版图：已自动跳过裁切并保留原比例"
+          : "以下模式仅应用于正方形素材"}
+      </p>
       <div className="space-y-2">
         {(Object.keys(PREVIEW_SIZE_MODES) as PreviewSizeMode[]).map(
           (mode) => (

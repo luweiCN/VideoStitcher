@@ -11,6 +11,148 @@ import { SHARP_CONSTANTS, type ProcessResult, type LogoPosition, type ExportOpti
 import { generateFileName } from '@shared/utils/fileNameHelper';
 import { createGridImage } from './grid';
 
+interface OrientedImageSize {
+  width: number;
+  height: number;
+}
+
+interface LogoOverlay {
+  input: Buffer;
+  left: number;
+  top: number;
+  blend: 'over';
+}
+
+/**
+ * 获取图片按 EXIF 方向旋转后的实际宽高
+ */
+function getOrientedImageSize(metadata: sharp.Metadata): OrientedImageSize {
+  const width = metadata.width || 0;
+  const height = metadata.height || 0;
+  const shouldSwap = metadata.orientation !== undefined && metadata.orientation >= 5 && metadata.orientation <= 8;
+
+  return shouldSwap
+    ? { width: height, height: width }
+    : { width, height };
+}
+
+/**
+ * 裁出 Logo 位于画面内的可见部分，允许 Logo 跨出任意边缘
+ */
+async function createVisibleLogoOverlay(
+  logoBuffer: Buffer,
+  logoSize: OrientedImageSize,
+  desiredLeft: number,
+  desiredTop: number,
+  canvasSize: OrientedImageSize
+): Promise<LogoOverlay | null> {
+  const sourceLeft = Math.max(0, -desiredLeft);
+  const sourceTop = Math.max(0, -desiredTop);
+  const targetLeft = Math.max(0, desiredLeft);
+  const targetTop = Math.max(0, desiredTop);
+  const visibleWidth = Math.min(
+    logoSize.width - sourceLeft,
+    canvasSize.width - targetLeft
+  );
+  const visibleHeight = Math.min(
+    logoSize.height - sourceTop,
+    canvasSize.height - targetTop
+  );
+
+  if (visibleWidth <= 0 || visibleHeight <= 0) {
+    return null;
+  }
+
+  const isFullyVisible = sourceLeft === 0 && sourceTop === 0 &&
+    visibleWidth === logoSize.width && visibleHeight === logoSize.height;
+  const visibleLogoBuffer = isFullyVisible
+    ? logoBuffer
+    : await sharp(logoBuffer)
+        .extract({
+          left: sourceLeft,
+          top: sourceTop,
+          width: visibleWidth,
+          height: visibleHeight,
+        })
+        .toBuffer();
+
+  return {
+    input: visibleLogoBuffer,
+    left: targetLeft,
+    top: targetTop,
+    blend: 'over',
+  };
+}
+
+/**
+ * 处理横版或竖版素材：保留原始宽高，只叠加 Logo，不生成九宫格
+ */
+async function processOriginalAspectMaterial(
+  inputPath: string,
+  inputBaseName: string,
+  imageSize: OrientedImageSize,
+  logoPath: string | null,
+  outputDir: string,
+  logoPosition: LogoPosition | null,
+  logoScale: number
+): Promise<ProcessResult> {
+  const singleDir = path.join(outputDir, 'single');
+  await fs.mkdir(singleDir, { recursive: true });
+
+  const nameSuffix = logoPath ? '原比例Logo图' : '原比例完整图';
+  const rawName = getModifiedName(inputBaseName, nameSuffix);
+  const outName = generateFileName(singleDir, rawName, {
+    extension: '.jpg',
+    reserveSuffixSpace: 5,
+  });
+  const outputPath = path.join(singleDir, outName);
+  const imagePipeline = sharp(inputPath).rotate();
+
+  if (logoPath) {
+    const logoMetadata = await sharp(logoPath).metadata();
+    const logoOriginalSize = Math.max(logoMetadata.width || 0, logoMetadata.height || 0);
+    // 前端以最长边 800 像素作为统一坐标系，导出时按原图最长边等比换算
+    const coordinateScale = Math.max(imageSize.width, imageSize.height) / SHARP_CONSTANTS.SINGLE_SIZE;
+    // 100% 对应 Logo 原始尺寸，不再设置额外的像素上限
+    const logoSizeOnPreview = Math.max(1, Math.floor(logoOriginalSize * logoScale));
+    const finalLogoSize = Math.max(1, Math.round(logoSizeOnPreview * coordinateScale));
+    const { data: logoBuffer, info: logoInfo } = await sharp(logoPath)
+      .resize(finalLogoSize, finalLogoSize, { fit: 'inside' })
+      .toBuffer({ resolveWithObject: true });
+
+    const useCustomPosition = logoPosition &&
+      (logoPosition.x !== SHARP_CONSTANTS.DEFAULT_LOGO_POSITION.x ||
+       logoPosition.y !== SHARP_CONSTANTS.DEFAULT_LOGO_POSITION.y);
+
+    const desiredLeft = useCustomPosition
+      ? Math.round(logoPosition!.x * coordinateScale)
+      : imageSize.width - logoInfo.width;
+    const desiredTop = useCustomPosition
+      ? Math.round(logoPosition!.y * coordinateScale)
+      : imageSize.height - logoInfo.height;
+    const visibleOverlay = await createVisibleLogoOverlay(
+      logoBuffer,
+      { width: logoInfo.width, height: logoInfo.height },
+      desiredLeft,
+      desiredTop,
+      imageSize
+    );
+    if (visibleOverlay) {
+      imagePipeline.composite([visibleOverlay]);
+    }
+  }
+
+  await imagePipeline
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
+    .jpeg({ quality: SHARP_CONSTANTS.DEFAULT_QUALITY, progressive: true })
+    .toFile(outputPath);
+
+  return {
+    success: true,
+    results: { logo: outputPath },
+  };
+}
+
 /**
  * 辅助函数：在第 N 个分隔符左侧插入文本
  */
@@ -77,6 +219,25 @@ export async function processImageMaterial(
   const inputBaseName = path.parse(inputPath).name;
   const results: ProcessResult['results'] = {};
 
+  const inputMetadata = await sharp(inputPath).metadata();
+  const imageSize = getOrientedImageSize(inputMetadata);
+  if (!imageSize.width || !imageSize.height) {
+    throw new Error('无法读取素材图片尺寸');
+  }
+
+  // 横版和竖版素材只执行原比例加 Logo，不应用方图裁切、缩放或九宫格选项
+  if (imageSize.width !== imageSize.height) {
+    return processOriginalAspectMaterial(
+      inputPath,
+      inputBaseName,
+      imageSize,
+      logoPath,
+      outputDir,
+      logoPosition,
+      logoScale
+    );
+  }
+
   const masterTmpDir = path.join(os.tmpdir(), 'videostitcher-temp');
   await fs.mkdir(masterTmpDir, { recursive: true });
   const masterPath = path.join(masterTmpDir, `${inputBaseName}_master.png`);
@@ -100,8 +261,9 @@ export async function processImageMaterial(
     const logoMetadata = await sharp(logoPath).metadata();
     const logoOriginalSize = Math.max(logoMetadata.width || 0, logoMetadata.height || 0);
 
-    const logoSizeOn800 = Math.floor(logoOriginalSize * logoScale);
-    const finalLogoSize = Math.min(logoSizeOn800, SHARP_CONSTANTS.MAX_LOGO_SIZE) * 3;
+    // 100% 对应 Logo 原始尺寸，主图使用 3 倍坐标系
+    const logoSizeOn800 = Math.max(1, Math.floor(logoOriginalSize * logoScale));
+    const finalLogoSize = logoSizeOn800 * 3;
 
     logoMasterPath = path.join(masterTmpDir, `${inputBaseName}_master_logo.png`);
 
@@ -110,27 +272,29 @@ export async function processImageMaterial(
       (logoPosition.x !== SHARP_CONSTANTS.DEFAULT_LOGO_POSITION.x ||
        logoPosition.y !== SHARP_CONSTANTS.DEFAULT_LOGO_POSITION.y);
 
-    const logoBuffer = await sharp(logoPath)
+    const { data: logoBuffer, info: logoInfo } = await sharp(logoPath)
       .resize(finalLogoSize, finalLogoSize, { fit: 'inside' })
-      .toBuffer();
+      .toBuffer({ resolveWithObject: true });
 
-    const compositeOptions = useCustomPosition
-      ? {
-          input: logoBuffer,
-          left: Math.round(logoPosition!.x * 3),
-          top: Math.round(logoPosition!.y * 3),
-          blend: 'over' as const,
-        }
-      : {
-          input: logoBuffer,
-          gravity: 'southeast' as const,
-          blend: 'over' as const,
-        };
+    const masterPipeline = sharp(masterPath);
+    const desiredLeft = useCustomPosition
+      ? Math.round(logoPosition!.x * 3)
+      : SHARP_CONSTANTS.GRID_SIZE - logoInfo.width;
+    const desiredTop = useCustomPosition
+      ? Math.round(logoPosition!.y * 3)
+      : SHARP_CONSTANTS.GRID_SIZE - logoInfo.height;
+    const visibleOverlay = await createVisibleLogoOverlay(
+      logoBuffer,
+      { width: logoInfo.width, height: logoInfo.height },
+      desiredLeft,
+      desiredTop,
+      { width: SHARP_CONSTANTS.GRID_SIZE, height: SHARP_CONSTANTS.GRID_SIZE }
+    );
+    if (visibleOverlay) {
+      masterPipeline.composite([visibleOverlay]);
+    }
 
-    await sharp(masterPath)
-      .composite([compositeOptions])
-      .png()
-      .toFile(logoMasterPath);
+    await masterPipeline.png().toFile(logoMasterPath);
   }
 
   // 导出单图

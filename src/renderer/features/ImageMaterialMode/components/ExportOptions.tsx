@@ -56,6 +56,9 @@ const ExportOptionsPanel: React.FC<ExportOptionsPanelProps> = ({
         </Checkbox.Root>
         <span className="text-sm text-slate-300">九宫格切片</span>
       </label>
+      <p className="pt-1 text-xs leading-5 text-slate-500">
+        横版/竖版图片会自动保留原尺寸与比例，仅导出加 Logo 完整图，不生成九宫格。
+      </p>
     </div>
   );
 };

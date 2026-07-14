@@ -24,7 +24,6 @@ export const SHARP_CONSTANTS = {
   // Logo 默认位置
   DEFAULT_LOGO_POSITION: { x: 50, y: 50 },
   DEFAULT_LOGO_SCALE: 1,
-  MAX_LOGO_SIZE: 400,
 } as const;
 
 // ============================================

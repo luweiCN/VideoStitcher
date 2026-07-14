@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, Layers, Plus } from "lucide-react";
+import { Layers, Plus, Trash2 } from "lucide-react";
 import PageHeader from "../components/PageHeader";
 import OutputDirSelector from "../components/OutputDirSelector";
 import OperationLogPanel from "../components/OperationLogPanel";
@@ -26,8 +26,61 @@ import {
   type ExportOptions,
 } from "./ImageMaterialMode/components";
 
+type LogoResizeCorner = "nw" | "ne" | "sw" | "se";
+
+interface LogoPreviewRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface LogoResizeHandle {
+  corner: LogoResizeCorner;
+  x: number;
+  y: number;
+  cursor: "nwse-resize" | "nesw-resize";
+}
+
+interface LogoResizeState {
+  corner: LogoResizeCorner;
+  anchor: { x: number; y: number };
+  startVector: { x: number; y: number };
+  startScale: number;
+}
+
+const LOGO_MIN_SCALE = 0.1;
+const LOGO_MAX_SCALE = 3;
+const LOGO_RESIZE_HANDLE_SIZE = 7;
+const LOGO_RESIZE_HANDLE_HIT_RADIUS = 12;
+
+/**
+ * 获取 Logo 四角的缩放拖点
+ */
+function getLogoResizeHandles(rect: LogoPreviewRect): LogoResizeHandle[] {
+  return [
+    { corner: "nw", x: rect.x, y: rect.y, cursor: "nwse-resize" },
+    { corner: "ne", x: rect.x + rect.width, y: rect.y, cursor: "nesw-resize" },
+    { corner: "sw", x: rect.x, y: rect.y + rect.height, cursor: "nesw-resize" },
+    { corner: "se", x: rect.x + rect.width, y: rect.y + rect.height, cursor: "nwse-resize" },
+  ];
+}
+
+/**
+ * 获取缩放拖点对应的固定对角
+ */
+function getResizeAnchor(rect: LogoPreviewRect, corner: LogoResizeCorner): { x: number; y: number } {
+  const anchors: Record<LogoResizeCorner, { x: number; y: number }> = {
+    nw: { x: rect.x + rect.width, y: rect.y + rect.height },
+    ne: { x: rect.x, y: rect.y + rect.height },
+    sw: { x: rect.x + rect.width, y: rect.y },
+    se: { x: rect.x, y: rect.y },
+  };
+  return anchors[corner];
+}
+
 const ImageMaterialMode: React.FC = () => {
-  const PREVIEW_SIZE = 400;
+  const PREVIEW_SIZE = 1200;
   const BASE_SIZE = 800;
 
   const navigate = useNavigate();
@@ -63,14 +116,61 @@ const ImageMaterialMode: React.FC = () => {
   const [selectedImagePaths, setSelectedImagePaths] = useState<string[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isGeneratingTasks, setIsGeneratingTasks] = useState(false);
+  const taskGenerationRequestRef = useRef(0);
+  const previewLoadRequestRef = useRef(0);
 
   // Logo 拖动状态
   const [previewImageKey, setPreviewImageKey] = useState(0);
+  const [previewCanvasSize, setPreviewCanvasSize] = useState({
+    width: BASE_SIZE,
+    height: BASE_SIZE,
+    isSquare: true,
+  });
   const [isDraggingLogo, setIsDraggingLogo] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [logoResizeState, setLogoResizeState] = useState<LogoResizeState | null>(null);
+  const [canvasCursor, setCanvasCursor] = useState("default");
+  const [isLogoHovered, setIsLogoHovered] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewImageRef = useRef<HTMLImageElement | null>(null);
+  const taskSettingsRef = useRef({
+    previewSizeMode,
+    logoPosition,
+    logoScale,
+    exportOptions,
+    outputDir,
+  });
+  taskSettingsRef.current = {
+    previewSizeMode,
+    logoPosition,
+    logoScale,
+    exportOptions,
+    outputDir,
+  };
+
+  /**
+   * 计算 Logo 在当前预览画布中的实际位置和尺寸
+   */
+  const getLogoPreviewRect = useCallback((
+    position: { x: number; y: number },
+    scale: number,
+  ) => {
+    if (!logoImage) return null;
+
+    // 100% 直接对应 Logo 原始尺寸
+    const width = logoImage.width * scale;
+    const height = logoImage.height * scale;
+    const isDefaultPosition = position.x === 50 && position.y === 50;
+    const x = isDefaultPosition
+      ? previewCanvasSize.width - width
+      : position.x;
+    const y = isDefaultPosition
+      ? previewCanvasSize.height - height
+      : position.y;
+
+    return { x, y, width, height };
+  }, [logoImage, previewCanvasSize]);
 
   // 日志管理
   const {
@@ -96,8 +196,9 @@ const ImageMaterialMode: React.FC = () => {
   // 输出配置
   const outputConfig = useMemo((): OutputConfig => {
     const modes: string[] = [];
-    if (exportOptions.single) modes.push("单图 800×800");
-    if (exportOptions.grid) modes.push("九宫格切片");
+    if (exportOptions.single) modes.push("正方图 800×800");
+    if (exportOptions.grid) modes.push("正方图九宫格");
+    modes.push("横竖图原比例 Logo 图");
 
     return {
       resolution: modes.join(" + ") || "无",
@@ -113,11 +214,15 @@ const ImageMaterialMode: React.FC = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, BASE_SIZE, BASE_SIZE);
+    const canvasWidth = previewCanvasSize.width;
+    const canvasHeight = previewCanvasSize.height;
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     if (previewImageRef.current) {
       const img = previewImageRef.current;
-      if (previewSizeMode === "fill") {
+      if (!previewCanvasSize.isSquare) {
+        ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+      } else if (previewSizeMode === "fill") {
         ctx.drawImage(img, 0, 0, BASE_SIZE, BASE_SIZE);
       } else if (previewSizeMode === "cover") {
         const size = Math.min(img.width, img.height);
@@ -141,7 +246,7 @@ const ImageMaterialMode: React.FC = () => {
       ctx.strokeRect(0, 0, BASE_SIZE, BASE_SIZE);
     }
 
-    if (exportOptions.grid) {
+    if (exportOptions.grid && previewCanvasSize.isSquare) {
       ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -157,16 +262,39 @@ const ImageMaterialMode: React.FC = () => {
     }
 
     if (logoImage) {
-      const w = logoImage.width * pendingLogoScale;
-      const h = logoImage.height * pendingLogoScale;
-      ctx.save();
-      ctx.strokeStyle = "#f59e0b";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(pendingLogoPosition.x, pendingLogoPosition.y, w, h);
-      ctx.drawImage(logoImage, pendingLogoPosition.x, pendingLogoPosition.y, w, h);
-      ctx.restore();
+      const logoRect = getLogoPreviewRect(pendingLogoPosition, pendingLogoScale);
+      if (!logoRect) return;
+      ctx.drawImage(logoImage, logoRect.x, logoRect.y, logoRect.width, logoRect.height);
+
+      if (isLogoHovered || isDraggingLogo || logoResizeState) {
+        // 悬停编辑态：使用轻量选框和小型方形拖点
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 56, 92, 0.9)";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(logoRect.x, logoRect.y, logoRect.width, logoRect.height);
+
+        for (const handle of getLogoResizeHandles(logoRect)) {
+          const halfSize = LOGO_RESIZE_HANDLE_SIZE / 2;
+          ctx.fillStyle = "rgba(255, 255, 255, 0.96)";
+          ctx.fillRect(
+            handle.x - halfSize,
+            handle.y - halfSize,
+            LOGO_RESIZE_HANDLE_SIZE,
+            LOGO_RESIZE_HANDLE_SIZE,
+          );
+          ctx.strokeStyle = "#FF385C";
+          ctx.lineWidth = 1.25;
+          ctx.strokeRect(
+            handle.x - halfSize,
+            handle.y - halfSize,
+            LOGO_RESIZE_HANDLE_SIZE,
+            LOGO_RESIZE_HANDLE_SIZE,
+          );
+        }
+        ctx.restore();
+      }
     }
-  }, [logoImage, pendingLogoPosition, pendingLogoScale, exportOptions.grid, previewSizeMode]);
+  }, [logoImage, pendingLogoPosition, pendingLogoScale, exportOptions.grid, previewSizeMode, previewCanvasSize, getLogoPreviewRect, isLogoHovered, isDraggingLogo, logoResizeState]);
 
   // 切换任务时重绘
   useEffect(() => {
@@ -175,69 +303,115 @@ const ImageMaterialMode: React.FC = () => {
 
   useEffect(() => {
     drawPreview();
-  }, [logoImage, pendingLogoPosition, pendingLogoScale, exportOptions, previewSizeMode]);
+  }, [logoImage, pendingLogoPosition, pendingLogoScale, exportOptions, previewSizeMode, isLogoHovered, isDraggingLogo, logoResizeState]);
 
   /**
    * 生成任务列表（通过 IPC 调用主进程）
    */
   const generateTasks = useCallback(async () => {
+    const requestId = ++taskGenerationRequestRef.current;
     if (selectedImagePaths.length === 0) {
       setTasks([]);
+      setIsGeneratingTasks(false);
       return;
     }
 
     setIsGeneratingTasks(true);
+    const settings = taskSettingsRef.current;
 
-    await new Promise(resolve => setTimeout(resolve, 0));
+    try {
+      const result = await window.api.generateImageMaterialTasks({
+        images: selectedImagePaths,
+        logoPath: logoPath || undefined,
+        ...settings,
+      });
 
-    const result = await window.api.generateImageMaterialTasks({
-      images: selectedImagePaths,
-      logoPath: logoPath || undefined,
-      previewSizeMode,
-      logoPosition,
-      logoScale,
-      exportOptions,
-      outputDir,
-    });
+      if (requestId !== taskGenerationRequestRef.current) return;
 
-    if (result.success && result.tasks) {
-      await new Promise(resolve => setTimeout(resolve, 0));
-      setTasks(result.tasks as Task[]);
-      setCurrentIndex(0);
-    } else {
-      setTasks([]);
+      if (result.success && result.tasks) {
+        const latestSettings = taskSettingsRef.current;
+        const generatedTasks = (result.tasks as Task[]).map((task) => ({
+          ...task,
+          config: {
+            ...task.config,
+            previewSizeMode: latestSettings.previewSizeMode,
+            logoPosition: latestSettings.logoPosition,
+            logoScale: latestSettings.logoScale,
+            exportOptions: latestSettings.exportOptions,
+          },
+          outputDir: latestSettings.outputDir,
+        }));
+        setTasks(generatedTasks);
+        setCurrentIndex(0);
+      } else {
+        setTasks([]);
+      }
+    } catch (err) {
+      if (requestId === taskGenerationRequestRef.current) {
+        setTasks([]);
+        addLog(`生成任务失败: ${err}`, "error");
+      }
+    } finally {
+      if (requestId === taskGenerationRequestRef.current) {
+        setIsGeneratingTasks(false);
+      }
     }
+  }, [selectedImagePaths, logoPath, addLog]);
 
-    setIsGeneratingTasks(false);
-  }, [selectedImagePaths, logoPath, previewSizeMode, logoPosition, logoScale, exportOptions, outputDir]);
-
-  // 当参数变化时重新生成任务
+  // 只有素材文件发生变化时才重新生成任务结构
   useEffect(() => {
     generateTasks();
-  }, [selectedImagePaths.length, logoPath, previewSizeMode, logoPosition, logoScale, exportOptions.single, exportOptions.grid, outputDir]);
+  }, [generateTasks]);
+
+  // Logo 位置、大小等纯配置直接同步到现有任务，避免拖动后重建任务列表造成画面抖动
+  useEffect(() => {
+    setTasks((currentTasks) => currentTasks.map((task) => ({
+      ...task,
+      config: {
+        ...task.config,
+        previewSizeMode,
+        logoPosition,
+        logoScale,
+        exportOptions,
+      },
+      outputDir,
+    })));
+  }, [previewSizeMode, logoPosition, logoScale, exportOptions, outputDir]);
+
+  const currentPreviewPath = tasks[currentIndex]?.files?.[0]?.path;
 
   // 加载当前任务的预览图
   useEffect(() => {
-    if (tasks.length > 0 && currentIndex >= 0 && currentIndex < tasks.length) {
-      const task = tasks[currentIndex];
-      const filePath = task.files?.[0]?.path;
-      if (filePath) {
-        requestAnimationFrame(async () => {
-          try {
-            const img = await loadImageAsElement(filePath);
-            if (img) {
-              previewImageRef.current = img;
-              setPreviewImageKey(k => k + 1);
-            }
-          } catch (err) {
-            addLog(`加载预览失败: ${err}`, "error");
-          }
-        });
-      }
-    } else {
+    const requestId = ++previewLoadRequestRef.current;
+
+    if (!currentPreviewPath) {
       previewImageRef.current = null;
+      setPreviewCanvasSize({ width: BASE_SIZE, height: BASE_SIZE, isSquare: true });
+      setPreviewImageKey((key) => key + 1);
+      return;
     }
-  }, [currentIndex, tasks.length]);
+
+    requestAnimationFrame(async () => {
+      try {
+        const img = await loadImageAsElement(currentPreviewPath);
+        if (img && requestId === previewLoadRequestRef.current) {
+          previewImageRef.current = img;
+          const longestSide = Math.max(img.naturalWidth, img.naturalHeight);
+          const previewScale = BASE_SIZE / longestSide;
+          setPreviewCanvasSize({
+            width: Math.max(1, Math.round(img.naturalWidth * previewScale)),
+            height: Math.max(1, Math.round(img.naturalHeight * previewScale)),
+            isSquare: img.naturalWidth === img.naturalHeight,
+          });
+          setPreviewImageKey((key) => key + 1);
+        }
+      } catch (err) {
+        if (requestId === previewLoadRequestRef.current) {
+          addLog(`加载预览失败: ${err}`, "error");
+        }
+      }
+    });
+  }, [currentPreviewPath, addLog]);
 
   /**
    * 处理图片选择
@@ -272,47 +446,160 @@ const ImageMaterialMode: React.FC = () => {
     }
   }, [addLog]);
 
-  // Logo 拖动处理
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  /**
+   * 将指针坐标换算到 800 基准画布坐标系
+   */
+  const getCanvasPointerPosition = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) * (canvas.width / rect.width),
+      y: (e.clientY - rect.top) * (canvas.height / rect.height),
+    };
+  }, []);
+
+  /**
+   * 查找指针命中的 Logo 缩放拖点
+   */
+  const findResizeHandle = useCallback((
+    pointer: { x: number; y: number },
+    logoRect: LogoPreviewRect,
+  ) => getLogoResizeHandles(logoRect).find((handle) => (
+    Math.hypot(pointer.x - handle.x, pointer.y - handle.y) <= LOGO_RESIZE_HANDLE_HIT_RADIUS
+  )), []);
+
+  // Logo 移动与缩放处理
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!logoImage || !canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const scaleFactor = BASE_SIZE / rect.width;
-    const mouseX = (e.clientX - rect.left) * scaleFactor;
-    const mouseY = (e.clientY - rect.top) * scaleFactor;
-    const w = logoImage.width * pendingLogoScale;
-    const h = logoImage.height * pendingLogoScale;
-    if (mouseX >= pendingLogoPosition.x && mouseX <= pendingLogoPosition.x + w &&
-        mouseY >= pendingLogoPosition.y && mouseY <= pendingLogoPosition.y + h) {
+    const pointer = getCanvasPointerPosition(e);
+    const logoRect = getLogoPreviewRect(pendingLogoPosition, pendingLogoScale);
+    if (!pointer || !logoRect) return;
+
+    const resizeHandle = findResizeHandle(pointer, logoRect);
+    if (resizeHandle) {
+      const anchor = getResizeAnchor(logoRect, resizeHandle.corner);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      setLogoResizeState({
+        corner: resizeHandle.corner,
+        anchor,
+        startVector: {
+          x: resizeHandle.x - anchor.x,
+          y: resizeHandle.y - anchor.y,
+        },
+        startScale: pendingLogoScale,
+      });
+      setIsDraggingLogo(false);
+      setIsLogoHovered(true);
+      setCanvasCursor(resizeHandle.cursor);
+      return;
+    }
+
+    if (pointer.x >= logoRect.x && pointer.x <= logoRect.x + logoRect.width &&
+        pointer.y >= logoRect.y && pointer.y <= logoRect.y + logoRect.height) {
+      e.currentTarget.setPointerCapture(e.pointerId);
       setIsDraggingLogo(true);
-      setDragOffset({ x: mouseX - pendingLogoPosition.x, y: mouseY - pendingLogoPosition.y });
+      setIsLogoHovered(true);
+      setDragOffset({ x: pointer.x - logoRect.x, y: pointer.y - logoRect.y });
+      setCanvasCursor("move");
     }
-  }, [logoImage, pendingLogoScale, pendingLogoPosition]);
+  }, [logoImage, pendingLogoScale, pendingLogoPosition, getCanvasPointerPosition, getLogoPreviewRect, findResizeHandle]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDraggingLogo || !logoImage || !canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const scaleFactor = BASE_SIZE / rect.width;
-    const mouseX = (e.clientX - rect.left) * scaleFactor;
-    const mouseY = (e.clientY - rect.top) * scaleFactor;
-    // 只更新预览位置，不触发任务生成
-    setPendingLogoPosition({ x: mouseX - dragOffset.x, y: mouseY - dragOffset.y });
-  }, [isDraggingLogo, logoImage, dragOffset]);
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!logoImage || !canvasRef.current) return;
+    const pointer = getCanvasPointerPosition(e);
+    const logoRect = getLogoPreviewRect(pendingLogoPosition, pendingLogoScale);
+    if (!pointer || !logoRect) return;
 
-  const handleMouseUp = useCallback(() => {
+    if (logoResizeState) {
+      setIsLogoHovered(true);
+      const currentVector = {
+        x: pointer.x - logoResizeState.anchor.x,
+        y: pointer.y - logoResizeState.anchor.y,
+      };
+      const startLengthSquared =
+        logoResizeState.startVector.x ** 2 + logoResizeState.startVector.y ** 2;
+      const scaleRatio = startLengthSquared > 0
+        ? (
+            currentVector.x * logoResizeState.startVector.x +
+            currentVector.y * logoResizeState.startVector.y
+          ) / startLengthSquared
+        : 1;
+      const nextScale = Math.min(
+        LOGO_MAX_SCALE,
+        Math.max(LOGO_MIN_SCALE, logoResizeState.startScale * scaleRatio),
+      );
+      const nextWidth = logoImage.width * nextScale;
+      const nextHeight = logoImage.height * nextScale;
+      let nextX = logoResizeState.anchor.x;
+      let nextY = logoResizeState.anchor.y;
+
+      if (logoResizeState.corner === "nw" || logoResizeState.corner === "sw") {
+        nextX -= nextWidth;
+      }
+      if (logoResizeState.corner === "nw" || logoResizeState.corner === "ne") {
+        nextY -= nextHeight;
+      }
+
+      setPendingLogoPosition({ x: nextX, y: nextY });
+      setPendingLogoScale(nextScale);
+      return;
+    }
+
     if (isDraggingLogo) {
-      // 松开时提交位置，触发任务生成
+      setIsLogoHovered(true);
+      // 只更新预览位置，不触发任务生成
+      setPendingLogoPosition({
+        x: pointer.x - dragOffset.x,
+        y: pointer.y - dragOffset.y,
+      });
+      return;
+    }
+
+    const resizeHandle = findResizeHandle(pointer, logoRect);
+    if (resizeHandle) {
+      setIsLogoHovered(true);
+      setCanvasCursor(resizeHandle.cursor);
+    } else if (pointer.x >= logoRect.x && pointer.x <= logoRect.x + logoRect.width &&
+               pointer.y >= logoRect.y && pointer.y <= logoRect.y + logoRect.height) {
+      setIsLogoHovered(true);
+      setCanvasCursor("move");
+    } else {
+      setIsLogoHovered(false);
+      setCanvasCursor("default");
+    }
+  }, [logoImage, logoResizeState, isDraggingLogo, dragOffset, pendingLogoPosition, pendingLogoScale, getCanvasPointerPosition, getLogoPreviewRect, findResizeHandle]);
+
+  const commitLogoInteraction = useCallback(() => {
+    if (isDraggingLogo) {
       setLogoPosition(pendingLogoPosition);
     }
-    setIsDraggingLogo(false);
-  }, [isDraggingLogo, pendingLogoPosition]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (isDraggingLogo) {
-      // 离开时也提交位置
+    if (logoResizeState) {
       setLogoPosition(pendingLogoPosition);
+      setLogoScale(pendingLogoScale);
     }
     setIsDraggingLogo(false);
-  }, [isDraggingLogo, pendingLogoPosition]);
+    setLogoResizeState(null);
+    setCanvasCursor(logoImage ? "move" : "default");
+  }, [isDraggingLogo, logoResizeState, logoImage, pendingLogoPosition, pendingLogoScale]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    commitLogoInteraction();
+  }, [commitLogoInteraction]);
+
+  const handlePointerCancel = useCallback(() => {
+    commitLogoInteraction();
+  }, [commitLogoInteraction]);
+
+  const handlePointerLeave = useCallback(() => {
+    if (!isDraggingLogo && !logoResizeState) {
+      setIsLogoHovered(false);
+      setCanvasCursor("default");
+    }
+  }, [isDraggingLogo, logoResizeState]);
 
   /**
    * 核心添加逻辑
@@ -371,13 +658,28 @@ const ImageMaterialMode: React.FC = () => {
    * 清空编辑区域
    */
   const clearEditor = () => {
+    // 使仍在执行的任务生成和预览加载结果立即失效
+    taskGenerationRequestRef.current += 1;
+    previewLoadRequestRef.current += 1;
     fileSelectorGroupRef.current?.clearAll();
     setSelectedImagePaths([]);
     setLogoPath("");
     setLogoImage(null);
     setTasks([]);
     setCurrentIndex(0);
-    addLog("已清空编辑区域", "info");
+    setIsGeneratingTasks(false);
+    previewImageRef.current = null;
+    setPreviewCanvasSize({ width: BASE_SIZE, height: BASE_SIZE, isSquare: true });
+    setPreviewImageKey((key) => key + 1);
+    setLogoPosition({ x: 50, y: 50 });
+    setPendingLogoPosition({ x: 50, y: 50 });
+    setLogoScale(1);
+    setPendingLogoScale(1);
+    setIsDraggingLogo(false);
+    setLogoResizeState(null);
+    setIsLogoHovered(false);
+    setCanvasCursor("default");
+    addLog("已一键清除全部素材", "info");
   };
 
   const handleMetalMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -401,15 +703,16 @@ const ImageMaterialMode: React.FC = () => {
         title="图片素材工坊 · 标准素材"
         icon={Layers}
         iconColor={isLightTheme ? "text-amber-600" : "text-amber-400"}
-        description="标准化尺寸、Logo、水印与九宫格素材生产"
+        description="方图标准化生产，横竖图原比例批量加 Logo"
         featureInfo={{
           title: "图片素材处理",
-          description: "批量为图片添加 Logo 水印，支持导出九宫格切片和预览图。",
+          description: "自动识别图片版式：方图按标准素材规则处理，横竖图保留原比例批量添加 Logo。",
           details: [
             "支持批量上传图片，自动添加 Logo 水印",
+            "横版、竖版图片自动跳过裁切并保留原始尺寸",
             "Logo 可拖动调整位置，支持缩放大小",
-            "三种预览模式：裁剪正方形、拉伸填充、保持比例",
-            "导出选项：单张完整图（800×800）、九宫格切片（9张）",
+            "正方形素材支持裁剪、拉伸填充、保持比例三种模式",
+            "正方形素材可导出 800×800 完整图和九宫格切片",
             "实时预览效果，所见即所得",
           ],
           themeColor: "amber",
@@ -445,6 +748,18 @@ const ImageMaterialMode: React.FC = () => {
               />
             </FileSelectorGroup>
 
+            <Button
+              onClick={clearEditor}
+              disabled={isAdding || (selectedImagePaths.length === 0 && !logoPath)}
+              variant="secondary"
+              size="sm"
+              themeColor="rose"
+              fullWidth
+              leftIcon={<Trash2 className="w-4 h-4" />}
+            >
+              一键清除所有素材
+            </Button>
+
             <LogoControls
               logoImage={logoImage}
               logoScale={pendingLogoScale}
@@ -455,6 +770,7 @@ const ImageMaterialMode: React.FC = () => {
             <PreviewModeSelector
               value={previewSizeMode}
               onChange={setPreviewSizeMode}
+              isBypassed={!previewCanvasSize.isSquare}
             />
 
             <ExportOptionsPanel
@@ -489,17 +805,26 @@ const ImageMaterialMode: React.FC = () => {
             <CanvasPreview
               canvasRef={canvasRef}
               previewSize={PREVIEW_SIZE}
-              baseSize={BASE_SIZE}
+              baseWidth={previewCanvasSize.width}
+              baseHeight={previewCanvasSize.height}
               hasLogo={!!logoImage}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseLeave}
+              cursor={canvasCursor}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerCancel}
+              onPointerLeave={handlePointerLeave}
             />
             {tasks.length > 0 && (
               <div className="text-center mt-3 text-xs text-slate-500">
-                {exportOptions.grid && <span className="mr-3">九宫格切片导出</span>}
-                {exportOptions.single && <span>800x800 完整图</span>}
+                {!previewCanvasSize.isSquare ? (
+                  <span className="text-amber-400">横竖图：保留原尺寸，仅导出加 Logo 完整图</span>
+                ) : (
+                  <>
+                    {exportOptions.grid && <span className="mr-3">九宫格切片导出</span>}
+                    {exportOptions.single && <span>800x800 完整图</span>}
+                  </>
+                )}
               </div>
             )}
           </div>
