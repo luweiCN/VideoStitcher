@@ -1,10 +1,13 @@
 import React, { createContext, useContext } from "react";
 
-export type ImageWorkshopMode = "standard" | "lossless" | "cover";
+export type ImageWorkshopMode = "standard" | "lossless" | "cover" | "overlay";
+
+export type ImageWorkshopModeChangeGuard = (nextMode: ImageWorkshopMode) => boolean;
 
 interface ImageWorkshopModeContextValue {
   mode: ImageWorkshopMode;
   setMode: (mode: ImageWorkshopMode) => void;
+  registerModeChangeGuard: (guard: ImageWorkshopModeChangeGuard) => () => void;
 }
 
 const ImageWorkshopModeContext = createContext<ImageWorkshopModeContextValue | null>(null);

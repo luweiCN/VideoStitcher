@@ -10,13 +10,23 @@ import fs from 'fs';
 import { runMigrations } from './migrations';
 
 let db: Database.Database | null = null;
+let activeDatabasePath: string | null = null;
+
+function getPrimaryDatabasePath(): string {
+  return path.join(app.getPath('userData'), 'VideoStitcher.db');
+}
+
+function getRecoveredDatabasePath(): string {
+  return path.join(app.getPath('userData'), 'VideoStitcher.recovered.db');
+}
 
 /**
  * 获取数据库文件路径
  */
 export function getDatabasePath(): string {
-  const userDataPath = app.getPath('userData');
-  return path.join(userDataPath, 'VideoStitcher.db');
+  if (activeDatabasePath) return activeDatabasePath;
+  const recoveredPath = getRecoveredDatabasePath();
+  return fs.existsSync(recoveredPath) ? recoveredPath : getPrimaryDatabasePath();
 }
 
 /**
@@ -27,13 +37,89 @@ export function getBackupDir(): string {
   return path.join(userDataPath, 'backups');
 }
 
+function closeConnection(connection: Database.Database | null): void {
+  if (!connection) return;
+  try {
+    connection.close();
+  } catch {
+    // 恢复流程中尽力关闭连接，不覆盖原始错误。
+  }
+}
+
+function openConfiguredDatabase(dbPath: string): Database.Database {
+  let connection = new Database(dbPath);
+  try {
+    connection.pragma('busy_timeout = 5000');
+    try {
+      connection.pragma('journal_mode = WAL');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/disk I\/O error/i.test(message)) throw error;
+      // Windows 异常退出后可能残留不可用的 WAL/SHM 状态，先尝试普通日志模式。
+      console.warn('[数据库] WAL 模式不可用，尝试 DELETE 日志模式:', message);
+      closeConnection(connection);
+      connection = new Database(dbPath);
+      connection.pragma('busy_timeout = 5000');
+      connection.pragma('journal_mode = DELETE');
+    }
+    connection.pragma('synchronous = NORMAL');
+    connection.pragma('cache_size = -64000'); // 64MB
+    connection.pragma('temp_store = MEMORY');
+    connection.pragma('foreign_keys = ON');
+    return connection;
+  } catch (error) {
+    closeConnection(connection);
+    throw error;
+  }
+}
+
+/**
+ * 原路径的 WAL/SHM 无法再打开时，将主体和日志复制到新文件名完成检查点合并。
+ * 原始文件全部保留，恢复失败也不会覆盖历史任务数据。
+ */
+function createRecoveredDatabase(primaryPath: string, recoveredPath: string): void {
+  const temporaryPath = `${recoveredPath}.tmp-${process.pid}-${Date.now()}`;
+  const temporaryFiles = [temporaryPath, `${temporaryPath}-wal`, `${temporaryPath}-shm`];
+  try {
+    fs.copyFileSync(primaryPath, temporaryPath);
+    for (const suffix of ['-wal', '-shm']) {
+      const source = `${primaryPath}${suffix}`;
+      if (fs.existsSync(source)) fs.copyFileSync(source, `${temporaryPath}${suffix}`);
+    }
+
+    const recoveryConnection = new Database(temporaryPath);
+    try {
+      recoveryConnection.pragma('busy_timeout = 5000');
+      const integrity = recoveryConnection.pragma('integrity_check', { simple: true }) as string;
+      if (integrity !== 'ok') throw new Error(`数据库恢复副本完整性检查失败: ${integrity}`);
+      recoveryConnection.pragma('wal_checkpoint(TRUNCATE)');
+      recoveryConnection.pragma('journal_mode = DELETE');
+    } finally {
+      closeConnection(recoveryConnection);
+    }
+
+    fs.renameSync(temporaryPath, recoveredPath);
+    console.warn(`[数据库] 原路径日志文件异常，已无损切换到恢复副本: ${recoveredPath}`);
+  } finally {
+    for (const filePath of temporaryFiles) {
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch {
+          // 临时文件清理失败不影响已完成的恢复副本。
+        }
+      }
+    }
+  }
+}
+
 /**
  * 初始化数据库
  */
 export function initDatabase(): Database.Database {
   if (db) return db;
 
-  const dbPath = getDatabasePath();
+  let dbPath = getDatabasePath();
   const dbDir = path.dirname(dbPath);
 
   // 确保目录存在
@@ -42,17 +128,25 @@ export function initDatabase(): Database.Database {
   }
 
   // 检查是否是新数据库
-  const isNewDatabase = !fs.existsSync(dbPath);
+  let isNewDatabase = !fs.existsSync(dbPath);
 
   // 只有全部初始化步骤成功后才发布连接，避免后续模块拿到半失效实例
-  const connection = new Database(dbPath);
+  let connection: Database.Database | null = null;
   try {
-    connection.pragma('busy_timeout = 5000');
-    connection.pragma('journal_mode = WAL');
-    connection.pragma('synchronous = NORMAL');
-    connection.pragma('cache_size = -64000'); // 64MB
-    connection.pragma('temp_store = MEMORY');
-    connection.pragma('foreign_keys = ON');
+    try {
+      connection = openConfiguredDatabase(dbPath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const primaryPath = getPrimaryDatabasePath();
+      if (!/disk I\/O error/i.test(message) || dbPath !== primaryPath || !fs.existsSync(primaryPath)) {
+        throw error;
+      }
+      const recoveredPath = getRecoveredDatabasePath();
+      createRecoveredDatabase(primaryPath, recoveredPath);
+      dbPath = recoveredPath;
+      isNewDatabase = false;
+      connection = openConfiguredDatabase(dbPath);
+    }
 
     runMigrations(connection);
     if (isNewDatabase) {
@@ -60,14 +154,11 @@ export function initDatabase(): Database.Database {
     }
 
     db = connection;
+    activeDatabasePath = dbPath;
     console.log(`[数据库] 初始化完成: ${dbPath}`);
     return connection;
   } catch (error) {
-    try {
-      connection.close();
-    } catch {
-      // 初始化失败时尽力关闭，不覆盖原始错误
-    }
+    closeConnection(connection);
     db = null;
     throw error;
   }

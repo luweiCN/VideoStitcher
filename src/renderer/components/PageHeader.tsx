@@ -34,6 +34,8 @@ interface PageHeaderProps {
   showTaskIndicator?: boolean;
   /** 返回按钮固定跳转路径；未提供时返回浏览历史上一页 */
   backPath?: string;
+  /** 自定义返回行为，用于需要离开确认的编辑页。 */
+  onBack?: () => void;
 }
 
 /**
@@ -54,10 +56,15 @@ const PageHeader: React.FC<PageHeaderProps> = ({
   backButtonContent,
   showTaskIndicator = true,
   backPath,
+  onBack,
 }) => {
   const navigate = useNavigate();
 
   const handleBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
     if (backPath) {
       navigate(backPath, { replace: true });
       return;

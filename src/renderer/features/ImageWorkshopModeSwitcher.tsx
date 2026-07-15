@@ -1,5 +1,5 @@
 import React from "react";
-import { Image as ImageIcon, Scissors, Sparkles } from "lucide-react";
+import { Image as ImageIcon, Layers3, Scissors, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   useImageWorkshopMode,
@@ -73,6 +73,20 @@ const ImageWorkshopModeSwitcher: React.FC<ImageWorkshopModeSwitcherProps> = ({ m
       >
         <ImageIcon className="h-3.5 w-3.5" />
         封面工具
+      </button>
+      <button
+        type="button"
+        onClick={() => switchMode("overlay")}
+        className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+          activeMode === "overlay"
+            ? "metal-primary image-workshop-mode-active bg-[#FF385C] text-white shadow-[0_4px_12px_rgba(255,56,92,0.28)]"
+            : "text-slate-500 hover:bg-slate-800 hover:text-slate-300"
+        }`}
+        style={activeMode === "overlay" ? { backgroundColor: "#FF385C", color: "#FFFFFF" } : undefined}
+        title="贴片生成器：批量制作中间透明的 1080×1920 竖版贴片"
+      >
+        <Layers3 className="h-3.5 w-3.5" />
+        贴片生成器
       </button>
     </div>
   );

@@ -17,6 +17,8 @@ import {
 } from '@shared/sharp';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 import { SafeOutput } from '@shared/utils/safeOutput';
+import { renderOverlayGeneratorTask } from '@shared/sharp/overlay';
+import type { OverlayGeneratorTaskConfig } from '@shared/overlay';
 
 // TaskFile 接口（与任务中心一致）
 interface TaskFile {
@@ -930,5 +932,31 @@ export async function executeCoverFormatTask(
         resolve({ success: false, error: '处理超时' });
       }
     }, 5 * 60 * 1000);
+  });
+}
+
+/**
+ * 执行单个贴片生成任务。
+ * 该流程直接通过 Sharp 从原图渲染，并在关键阶段检查取消状态。
+ */
+export async function executeOverlayGeneratorTask(
+  task: {
+    id: number;
+    files: TaskFile[];
+    config?: OverlayGeneratorTaskConfig;
+    outputDir: string;
+  },
+  onLog?: (message: string) => void,
+  onProgress?: (progress: number, step: string) => void,
+  isCancelled?: () => boolean,
+): Promise<{ success: boolean; outputs?: { path: string; type: 'image' }[]; error?: string }> {
+  if (!task.config) {
+    return { success: false, error: '缺少贴片裁切配置' };
+  }
+
+  return renderOverlayGeneratorTask(task.config, task.outputDir, {
+    onLog,
+    onProgress,
+    isCancelled,
   });
 }

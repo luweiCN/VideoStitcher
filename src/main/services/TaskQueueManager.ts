@@ -11,8 +11,14 @@ import { processMonitor } from './ProcessMonitor';
 import { taskRepository } from '../database/repositories/task.repository';
 import { taskLogRepository } from '../database/repositories/task-log.repository';
 import { configRepository } from '../database/repositories/config.repository';
+import { initDatabase } from '../database';
 import { executeSingleMergeTask, executeResizeTask, executeStitchTask } from '../ipc/video';
-import { executeImageMaterialTask, executeCoverFormatTask, executeLosslessGridTask } from '../ipc/image';
+import {
+  executeImageMaterialTask,
+  executeCoverFormatTask,
+  executeLosslessGridTask,
+  executeOverlayGeneratorTask,
+} from '../ipc/image';
 import { executeVideoDedupTask } from './VideoDedupEngine';
 import type { Task, TaskCenterConfig, QueueStatus, TaskOutput, TaskStats } from '@shared/types/task';
 import { DEFAULT_TASK_CENTER_CONFIG } from '@shared/types/task';
@@ -62,6 +68,8 @@ export class TaskQueueManager {
    */
   init(): void {
     if (this.initialized) return;
+    // 启动阶段初始化失败时，首次任务请求会在这里自动重试。
+    initDatabase();
     this.config = configRepository.getAll();
     this.initialized = true;
     
@@ -151,9 +159,8 @@ export class TaskQueueManager {
    * 确保已初始化
    */
   private ensureInitialized(): void {
-    if (!this.initialized || !this.config) {
-      this.config = { ...DEFAULT_TASK_CENTER_CONFIG };
-    }
+    if (!this.initialized) this.init();
+    if (!this.config) this.config = { ...DEFAULT_TASK_CENTER_CONFIG };
   }
 
   /**
@@ -506,6 +513,10 @@ export class TaskQueueManager {
 
       case 'lossless_grid':
         await this.executeLosslessGridTaskMethod(task, executor);
+        break;
+
+      case 'overlay_generator':
+        await this.executeOverlayGeneratorTaskMethod(task, executor);
         break;
 
       case 'cover_compress':
@@ -879,6 +890,54 @@ export class TaskQueueManager {
     } else {
       throw new Error(result.error || '任务执行失败');
     }
+  }
+
+  /** 执行贴片生成任务。 */
+  private async executeOverlayGeneratorTaskMethod(
+    task: Task,
+    _executor: TaskExecutor
+  ): Promise<void> {
+    this.addLog(task.id, 'info', '开始执行贴片生成任务');
+    let lastProgress = -1;
+
+    const result = await executeOverlayGeneratorTask(
+      {
+        id: task.id,
+        files: task.files || [],
+        config: task.config as any,
+        outputDir: task.outputDir || '',
+      },
+      (message: string) => {
+        if (!this.runningTasks.has(task.id)) {
+          throw new TaskCancelledError();
+        }
+        this.addLog(task.id, 'info', message);
+      },
+      (progress: number, step: string) => {
+        if (!this.runningTasks.has(task.id)) {
+          throw new TaskCancelledError();
+        }
+        if (progress === lastProgress) return;
+        lastProgress = progress;
+        taskRepository.updateTaskProgress(task.id, progress, step);
+        this.sendTaskProgress({ taskId: task.id, progress, step });
+      },
+      () => !this.runningTasks.has(task.id),
+    );
+
+    if (result.success) {
+      const outputs: TaskOutput[] = (result.outputs || []).map((output) => ({
+        path: output.path,
+        type: 'image' as const,
+      }));
+      this.handleTaskComplete(task.id, outputs);
+      return;
+    }
+
+    if (result.error === '任务已取消' || !this.runningTasks.has(task.id)) {
+      throw new TaskCancelledError();
+    }
+    throw new Error(result.error || '贴片生成失败');
   }
 
   /**

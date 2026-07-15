@@ -22,7 +22,8 @@ export type TaskType =
   | 'image_material' // 图片素材处理
   | 'cover_format'   // 封面格式转换
   | 'cover_compress' // 封面压缩
-  | 'lossless_grid'; // 专业无损九宫格
+  | 'lossless_grid'  // 专业无损九宫格
+  | 'overlay_generator'; // 竖版视频贴片生成
 
 // ==================== 任务文件 ====================
 
@@ -224,6 +225,7 @@ export const TASK_TYPE_LABELS: Record<TaskType, string> = {
   cover_format: '封面格式转换',
   cover_compress: '封面压缩',
   lossless_grid: '专业无损九宫格',
+  overlay_generator: '贴片生成器',
 };
 
 // ==================== 任务状态显示名称 ====================

@@ -17,7 +17,7 @@ import type {
 
 function getTaskErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  if (/disk I\/O error|database.*(?:未初始化|not initialized)/i.test(message)) {
+  if (/disk I\/O error|(?:database|数据库).*(?:未初始化|not initialized)/i.test(message)) {
     return '任务数据库当前不可用，请完全退出重复运行的软件窗口后重新打开';
   }
   return message;
@@ -34,6 +34,7 @@ export function registerTaskHandlers(): void {
    */
   ipcMain.handle('task:create', async (_event, request: CreateTaskRequest) => {
     try {
+      taskQueueManager.init();
       const task = taskRepository.createTask({
         type: request.type,
         name: request.name,
@@ -78,6 +79,7 @@ export function registerTaskHandlers(): void {
     outputDir?: string;
   }>) => {
     try {
+      taskQueueManager.init();
       const createdTasks: Task[] = [];
       const errors: { index: number; error: string }[] = [];
 

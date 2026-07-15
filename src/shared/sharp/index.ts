@@ -7,3 +7,4 @@ export * from './compress';
 export * from './convert';
 export * from './grid';
 export * from './material';
+export * from './overlay';

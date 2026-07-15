@@ -655,7 +655,7 @@ const TaskDetailPage: React.FC = () => {
           <section className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800/50 flex items-center justify-between">
               <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                {task.type === 'image_material' || task.type === 'cover_format' || task.type === 'lossless_grid' ? (
+                {task.type === 'image_material' || task.type === 'cover_format' || task.type === 'lossless_grid' || task.type === 'overlay_generator' ? (
                   <ImageIcon className="w-4 h-4 text-emerald-400" />
                 ) : (
                   <Video className="w-4 h-4 text-emerald-400" />
