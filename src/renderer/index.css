@@ -5110,3 +5110,29 @@ html body .video-dedup-realtime-resize-handle {
   font-weight: 800 !important;
   line-height: 22px !important;
 }
+
+/* 贴片生成器：修复按钮和当前编辑目标使用固定语义色，不受皮肤按钮规则覆盖。 */
+html body button.overlay-repair-button:not(:disabled) {
+  border-color: #bfe9bb !important;
+  background: #d9f5d6 !important;
+  background-color: #d9f5d6 !important;
+  background-image: none !important;
+  color: #2f6b35 !important;
+  box-shadow: 0 3px 10px rgba(126, 190, 122, 0.14) !important;
+}
+
+html body button.overlay-repair-button:not(:disabled):hover {
+  border-color: #a9dda5 !important;
+  background: #cbeec7 !important;
+  background-color: #cbeec7 !important;
+  color: #285f2e !important;
+}
+
+html body button.overlay-editing-target-button[data-selected="true"] {
+  border-color: #ff385c !important;
+  background: #ff385c !important;
+  background-color: #ff385c !important;
+  background-image: none !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 10px rgba(255, 56, 92, 0.24) !important;
+}

@@ -83,7 +83,7 @@ const ImageWorkshopModeSwitcher: React.FC<ImageWorkshopModeSwitcherProps> = ({ m
             : "text-slate-500 hover:bg-slate-800 hover:text-slate-300"
         }`}
         style={activeMode === "overlay" ? { backgroundColor: "#FF385C", color: "#FFFFFF" } : undefined}
-        title="贴片生成器：批量制作中间透明的 1080×1920 竖版贴片"
+        title="贴片生成器：批量制作竖版与横版透明视频贴片"
       >
         <Layers3 className="h-3.5 w-3.5" />
         贴片生成器

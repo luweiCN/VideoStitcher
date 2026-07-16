@@ -7,12 +7,12 @@ import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import {
-  OVERLAY_CANVAS_HEIGHT,
-  OVERLAY_CANVAS_WIDTH,
-  OVERLAY_VIDEO_HEIGHT,
-  clampOverlayVideoY,
+  clampOverlayPosition,
+  getOverlayModeConfig,
+  getOverlayRegionRect,
   type OverlayGeneratorTaskConfig,
   type OverlayRegionConfig,
+  type OverlayTemplateMode,
 } from '@shared/overlay';
 import { generateFileName } from '@shared/utils/fileNameHelper';
 import { SafeOutput } from '@shared/utils/safeOutput';
@@ -27,6 +27,37 @@ interface OverlayRenderCallbacks {
   onLog?: (message: string) => void;
   onProgress?: (progress: number, step: string) => void;
   isCancelled?: () => boolean;
+}
+
+interface ResolvedOverlayGeneratorConfig {
+  mode: OverlayTemplateMode;
+  position: number;
+  first: OverlayRegionConfig;
+  second: OverlayRegionConfig;
+}
+
+/** 解析新旧任务字段；缺少模式的历史任务固定回退为竖版。 */
+export function resolveOverlayGeneratorConfig(
+  config: OverlayGeneratorTaskConfig,
+): ResolvedOverlayGeneratorConfig {
+  const mode: OverlayTemplateMode = config.mode === 'landscape' ? 'landscape' : 'portrait';
+  const modeConfig = getOverlayModeConfig(mode);
+  const rawPosition = mode === 'landscape'
+    ? config.position ?? config.videoX ?? modeConfig.centerPosition
+    : config.position ?? config.videoY ?? modeConfig.centerPosition;
+  const first = config.first ?? (mode === 'landscape' ? config.left : config.top);
+  const second = config.second ?? (mode === 'landscape' ? config.right : config.bottom);
+
+  if (!first || !second) {
+    throw new Error(`${modeConfig.firstLabel}或${modeConfig.secondLabel}裁切配置缺失`);
+  }
+
+  return {
+    mode,
+    position: clampOverlayPosition(rawPosition, mode),
+    first,
+    second,
+  };
 }
 
 /** 检查缩放后的图片是否完整覆盖裁切区域。 */
@@ -79,10 +110,10 @@ async function renderRegion(region: OverlayRegionConfig): Promise<Buffer> {
 }
 
 /** 生成用于预览导出的棋盘格背景。 */
-function createCheckerboardSvg(): Buffer {
+function createCheckerboardSvg(width: number, height: number): Buffer {
   const size = 48;
   return Buffer.from(`
-    <svg width="${OVERLAY_CANVAS_WIDTH}" height="${OVERLAY_CANVAS_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <pattern id="checker" width="${size * 2}" height="${size * 2}" patternUnits="userSpaceOnUse">
           <rect width="${size * 2}" height="${size * 2}" fill="#E2E8F0"/>
@@ -95,13 +126,17 @@ function createCheckerboardSvg(): Buffer {
   `);
 }
 
-/** 从上下素材文件名生成默认成品基础名。 */
-function getOverlayBaseName(config: OverlayGeneratorTaskConfig): string {
-  const topName = path.parse(config.top.sourcePath).name;
-  const bottomName = path.parse(config.bottom.sourcePath).name;
-  return config.sameSource || config.top.sourcePath === config.bottom.sourcePath
-    ? topName
-    : `${topName}_${bottomName}`;
+/** 从透明窗口两侧素材文件名生成默认成品基础名。 */
+function getOverlayBaseName(
+  config: OverlayGeneratorTaskConfig,
+  first: OverlayRegionConfig,
+  second: OverlayRegionConfig,
+): string {
+  const firstName = path.parse(first.sourcePath).name;
+  const secondName = path.parse(second.sourcePath).name;
+  return config.sameSource || first.sourcePath === second.sourcePath
+    ? firstName
+    : `${firstName}_${secondName}`;
 }
 
 /**
@@ -120,42 +155,56 @@ export async function renderOverlayGeneratorTask(
     if (!fs.existsSync(outputDir)) throw new Error('输出目录不存在');
     await fs.promises.access(outputDir, fs.constants.W_OK);
 
-    const videoY = clampOverlayVideoY(config.videoY);
-    const bottomHeight = OVERLAY_CANVAS_HEIGHT - videoY - OVERLAY_VIDEO_HEIGHT;
-    if (config.top.cropArea.width !== OVERLAY_CANVAS_WIDTH || config.top.cropArea.height !== videoY) {
-      throw new Error('上半部分裁切区域与横版区域位置不一致');
+    const resolved = resolveOverlayGeneratorConfig(config);
+    const modeConfig = getOverlayModeConfig(resolved.mode);
+    const firstRect = getOverlayRegionRect(resolved.position, 'first', resolved.mode);
+    const secondRect = getOverlayRegionRect(resolved.position, 'second', resolved.mode);
+    if (
+      resolved.first.cropArea.width !== firstRect.width ||
+      resolved.first.cropArea.height !== firstRect.height
+    ) {
+      throw new Error(`${modeConfig.firstLabel}裁切区域与透明窗口位置不一致`);
     }
-    if (config.bottom.cropArea.width !== OVERLAY_CANVAS_WIDTH || config.bottom.cropArea.height !== bottomHeight) {
-      throw new Error('下半部分裁切区域与横版区域位置不一致');
+    if (
+      resolved.second.cropArea.width !== secondRect.width ||
+      resolved.second.cropArea.height !== secondRect.height
+    ) {
+      throw new Error(`${modeConfig.secondLabel}裁切区域与透明窗口位置不一致`);
     }
     if (!Object.values(config.exportOptions).some(Boolean)) {
       throw new Error('请至少选择一种导出选项');
     }
 
-    onLog?.('正在从原始图片渲染上半部分');
-    onProgress?.(10, '渲染上半部分');
-    const topBuffer = videoY > 0 ? await renderRegion(config.top) : null;
+    onLog?.(`正在从原始图片渲染${modeConfig.firstLabel}`);
+    onProgress?.(10, `渲染${modeConfig.firstLabel}`);
+    const firstBuffer = firstRect.width > 0 && firstRect.height > 0
+      ? await renderRegion(resolved.first)
+      : null;
     if (isCancelled?.()) throw new Error('任务已取消');
 
-    onLog?.('正在从原始图片渲染下半部分');
-    onProgress?.(45, '渲染下半部分');
-    const bottomBuffer = bottomHeight > 0 ? await renderRegion(config.bottom) : null;
+    onLog?.(`正在从原始图片渲染${modeConfig.secondLabel}`);
+    onProgress?.(45, `渲染${modeConfig.secondLabel}`);
+    const secondBuffer = secondRect.width > 0 && secondRect.height > 0
+      ? await renderRegion(resolved.second)
+      : null;
     if (isCancelled?.()) throw new Error('任务已取消');
 
     const layers: sharp.OverlayOptions[] = [];
-    if (topBuffer) layers.push({ input: topBuffer, top: 0, left: 0 });
-    if (bottomBuffer) {
+    if (firstBuffer) {
+      layers.push({ input: firstBuffer, top: firstRect.y, left: firstRect.x });
+    }
+    if (secondBuffer) {
       layers.push({
-        input: bottomBuffer,
-        top: videoY + OVERLAY_VIDEO_HEIGHT,
-        left: 0,
+        input: secondBuffer,
+        top: secondRect.y,
+        left: secondRect.x,
       });
     }
 
     const transparentCanvas = await sharp({
       create: {
-        width: OVERLAY_CANVAS_WIDTH,
-        height: OVERLAY_CANVAS_HEIGHT,
+        width: modeConfig.canvasWidth,
+        height: modeConfig.canvasHeight,
         channels: 4,
         background: { r: 0, g: 0, b: 0, alpha: 0 },
       },
@@ -166,7 +215,7 @@ export async function renderOverlayGeneratorTask(
 
     onProgress?.(70, '写入贴片文件');
     const outputs: Array<{ path: string; type: 'image' }> = [];
-    const baseName = getOverlayBaseName(config);
+    const baseName = getOverlayBaseName(config, resolved.first, resolved.second);
 
     const writeOutput = async (suffix: string, buffer: Buffer) => {
       if (isCancelled?.()) throw new Error('任务已取消');
@@ -185,34 +234,34 @@ export async function renderOverlayGeneratorTask(
     };
 
     if (config.exportOptions.transparentPng) {
-      await writeOutput('_贴片', transparentCanvas);
+      await writeOutput(`_${modeConfig.outputSuffix}`, transparentCanvas);
     }
     if (config.exportOptions.solidPreview) {
       const solidPreview = await sharp({
         create: {
-          width: OVERLAY_CANVAS_WIDTH,
-          height: OVERLAY_CANVAS_HEIGHT,
+          width: modeConfig.canvasWidth,
+          height: modeConfig.canvasHeight,
           channels: 4,
           background: { r: 15, g: 23, b: 42, alpha: 1 },
         },
       }).composite([{ input: transparentCanvas, top: 0, left: 0 }]).png().toBuffer();
-      await writeOutput('_贴片_纯色预览', solidPreview);
+      await writeOutput(`_${modeConfig.outputSuffix}_纯色预览`, solidPreview);
     }
     if (config.exportOptions.checkerPreview) {
-      const checkerPreview = await sharp(createCheckerboardSvg())
+      const checkerPreview = await sharp(createCheckerboardSvg(modeConfig.canvasWidth, modeConfig.canvasHeight))
         .composite([{ input: transparentCanvas, top: 0, left: 0 }])
         .png()
         .toBuffer();
-      await writeOutput('_贴片_棋盘格预览', checkerPreview);
+      await writeOutput(`_${modeConfig.outputSuffix}_棋盘格预览`, checkerPreview);
     }
-    if (config.exportOptions.topOnly && topBuffer) {
-      await writeOutput('_贴片_上半部分', topBuffer);
+    if (config.exportOptions.topOnly && firstBuffer) {
+      await writeOutput(`_${modeConfig.outputSuffix}_${modeConfig.firstLabel}`, firstBuffer);
     }
-    if (config.exportOptions.bottomOnly && bottomBuffer) {
-      await writeOutput('_贴片_下半部分', bottomBuffer);
+    if (config.exportOptions.bottomOnly && secondBuffer) {
+      await writeOutput(`_${modeConfig.outputSuffix}_${modeConfig.secondLabel}`, secondBuffer);
     }
     if (outputs.length === 0) {
-      throw new Error('所选导出区域高度为 0，没有生成任何文件');
+      throw new Error('所选导出区域尺寸为 0，没有生成任何文件');
     }
 
     onProgress?.(100, '处理完成');

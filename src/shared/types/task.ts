@@ -23,7 +23,7 @@ export type TaskType =
   | 'cover_format'   // 封面格式转换
   | 'cover_compress' // 封面压缩
   | 'lossless_grid'  // 专业无损九宫格
-  | 'overlay_generator'; // 竖版视频贴片生成
+  | 'overlay_generator'; // 竖版与横版视频贴片生成
 
 // ==================== 任务文件 ====================
 

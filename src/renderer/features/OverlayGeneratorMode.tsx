@@ -21,11 +21,12 @@ import {
 } from 'lucide-react';
 import {
   DEFAULT_OVERLAY_EXPORT_OPTIONS,
-  OVERLAY_CENTER_Y,
-  OVERLAY_VIDEO_HEIGHT,
-  clampOverlayVideoY,
+  clampOverlayPosition,
+  getOverlayModeConfig,
   type OverlayCropTransform,
   type OverlayExportOptions,
+  type OverlayRegionKey,
+  type OverlayTemplateMode,
 } from '@shared/overlay';
 import PageHeader from '@/components/PageHeader';
 import OutputDirSelector from '@/components/OutputDirSelector';
@@ -48,10 +49,11 @@ import {
   createContainTransform,
   createCoverTransform,
   denormalizeTransform,
-  getOverlayRegionHeight,
+  getOverlayRegionSize,
   getRegionCoverageGaps,
   isRegionCovered,
   normalizeTransform,
+  repairCoverageTransform,
   toOverlayGeneratorTaskConfig,
   validateOverlayTask,
 } from '@/features/OverlayGeneratorMode/geometry';
@@ -88,6 +90,20 @@ const STATUS_STYLES: Record<OverlayTaskStatus, string> = {
   cancelled: 'border-slate-700 bg-slate-800/50 text-slate-500',
 };
 
+interface OverlayModeEditorState {
+  tasks: OverlayEditorTask[];
+  currentTaskId: string | null;
+  editingTarget: OverlayEditingTarget;
+  taskFilter: 'all' | 'incomplete' | 'failed';
+}
+
+const createEmptyModeState = (): OverlayModeEditorState => ({
+  tasks: [],
+  currentTaskId: null,
+  editingTarget: 'first',
+  taskFilter: 'all',
+});
+
 const createLocalTaskId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -95,12 +111,18 @@ const createLocalTaskId = () =>
 
 const getBaseName = (fileName: string) => fileName.replace(/\.[^.]+$/, '');
 
-const getTaskName = (top: OverlayAsset | null, bottom: OverlayAsset | null, sameSource: boolean) => {
-  if (!top && !bottom) return '未命名贴片';
-  if (sameSource || !top || !bottom || top.path === bottom.path) {
-    return `${getBaseName((top || bottom)!.name)}_贴片`;
+const getTaskName = (
+  first: OverlayAsset | null,
+  second: OverlayAsset | null,
+  sameSource: boolean,
+  mode: OverlayTemplateMode,
+) => {
+  const suffix = getOverlayModeConfig(mode).outputSuffix;
+  if (!first && !second) return `未命名_${suffix}`;
+  if (sameSource || !first || !second || first.path === second.path) {
+    return `${getBaseName((first || second)!.name)}_${suffix}`;
   }
-  return `${getBaseName(top.name)}_${getBaseName(bottom.name)}_贴片`;
+  return `${getBaseName(first.name)}_${getBaseName(second.name)}_${suffix}`;
 };
 
 const getDisplayStatus = (task: OverlayEditorTask): OverlayTaskStatus => {
@@ -119,22 +141,57 @@ const OverlayGeneratorMode: React.FC = () => {
   const { outputDir, setOutputDir } = useOutputDirCache('OverlayGeneratorMode');
   const { isLightTheme, togglePageTheme } = usePageTheme();
   const { isMetalSkin, workspaceSkinClassName } = useHomeSkin();
-  const {
-    createTask,
-    startTask,
-    cancelTask,
-    isPaused,
-  } = useTaskContext();
+  const { createTask, startTask, cancelTask, isPaused } = useTaskContext();
 
-  const [tasks, setTasks] = useState<OverlayEditorTask[]>([]);
-  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
-  const [editingTarget, setEditingTarget] = useState<OverlayEditingTarget>('top');
+  const [activeMode, setActiveMode] = useState<OverlayTemplateMode>('portrait');
+  const [modeStates, setModeStates] = useState<Record<OverlayTemplateMode, OverlayModeEditorState>>({
+    portrait: createEmptyModeState(),
+    landscape: createEmptyModeState(),
+  });
   const [isImporting, setIsImporting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [taskFilter, setTaskFilter] = useState<'all' | 'incomplete' | 'failed'>('all');
   const [confirmAction, setConfirmAction] = useState<OverlayConfirmAction | null>(null);
   const [exportSessionIds, setExportSessionIds] = useState<string[]>([]);
-  tasksRef.current = tasks;
+
+  const modeState = modeStates[activeMode];
+  const { tasks, currentTaskId, editingTarget, taskFilter } = modeState;
+  const modeConfig = getOverlayModeConfig(activeMode);
+  const allTasks = useMemo(
+    () => [...modeStates.portrait.tasks, ...modeStates.landscape.tasks],
+    [modeStates],
+  );
+  tasksRef.current = allTasks;
+
+  const updateActiveModeState = useCallback((
+    updater: (state: OverlayModeEditorState) => OverlayModeEditorState,
+  ) => {
+    setModeStates((current) => ({
+      ...current,
+      [activeMode]: updater(current[activeMode]),
+    }));
+  }, [activeMode]);
+
+  const setTasks = useCallback((action: React.SetStateAction<OverlayEditorTask[]>) => {
+    updateActiveModeState((state) => ({
+      ...state,
+      tasks: typeof action === 'function' ? action(state.tasks) : action,
+    }));
+  }, [updateActiveModeState]);
+
+  const setCurrentTaskId = useCallback((action: React.SetStateAction<string | null>) => {
+    updateActiveModeState((state) => ({
+      ...state,
+      currentTaskId: typeof action === 'function' ? action(state.currentTaskId) : action,
+    }));
+  }, [updateActiveModeState]);
+
+  const setEditingTarget = useCallback((target: OverlayEditingTarget) => {
+    updateActiveModeState((state) => ({ ...state, editingTarget: target }));
+  }, [updateActiveModeState]);
+
+  const setTaskFilter = useCallback((filter: OverlayModeEditorState['taskFilter']) => {
+    updateActiveModeState((state) => ({ ...state, taskFilter: filter }));
+  }, [updateActiveModeState]);
 
   const {
     logs,
@@ -161,11 +218,25 @@ const OverlayGeneratorMode: React.FC = () => {
     [tasks, currentTaskId],
   );
 
+  /** 按任务 ID 跨模式更新，确保切换模式后任务中心事件仍能正确回写。 */
   const updateTask = useCallback((
     taskId: string,
     updater: (task: OverlayEditorTask) => OverlayEditorTask,
   ) => {
-    setTasks((current) => current.map((task) => task.id === taskId ? updater(task) : task));
+    setModeStates((current) => {
+      let changed = false;
+      const next = { ...current };
+      (['portrait', 'landscape'] as OverlayTemplateMode[]).forEach((mode) => {
+        const tasksInMode = current[mode].tasks;
+        if (!tasksInMode.some((task) => task.id === taskId)) return;
+        changed = true;
+        next[mode] = {
+          ...current[mode],
+          tasks: tasksInMode.map((task) => task.id === taskId ? updater(task) : task),
+        };
+      });
+      return changed ? next : current;
+    });
   }, []);
 
   const updateCurrentTask = useCallback((updater: (task: OverlayEditorTask) => OverlayEditorTask) => {
@@ -190,20 +261,25 @@ const OverlayGeneratorMode: React.FC = () => {
     };
   }, [addLog]);
 
-  const createEditorTask = useCallback((asset: OverlayAsset): OverlayEditorTask => {
-    const topHeight = OVERLAY_CENTER_Y;
-    const bottomHeight = OVERLAY_CENTER_Y;
+  const createEditorTask = useCallback((
+    asset: OverlayAsset,
+    mode: OverlayTemplateMode,
+  ): OverlayEditorTask => {
+    const config = getOverlayModeConfig(mode);
+    const firstSize = getOverlayRegionSize(config.centerPosition, 'first', mode);
+    const secondSize = getOverlayRegionSize(config.centerPosition, 'second', mode);
     return {
       id: createLocalTaskId(),
-      name: `${getBaseName(asset.name)}_贴片`,
-      topAsset: asset,
-      bottomAsset: asset,
+      name: getTaskName(asset, asset, true, mode),
+      mode,
+      firstAsset: asset,
+      secondAsset: asset,
       sameSource: true,
-      videoY: OVERLAY_CENTER_Y,
-      topTransform: createCoverTransform(asset, topHeight),
-      bottomTransform: createCoverTransform(asset, bottomHeight),
-      topLocked: false,
-      bottomLocked: false,
+      position: config.centerPosition,
+      firstTransform: createCoverTransform(asset, firstSize),
+      secondTransform: createCoverTransform(asset, secondSize),
+      firstLocked: false,
+      secondLocked: false,
       selected: true,
       status: 'pending',
       error: null,
@@ -215,64 +291,76 @@ const OverlayGeneratorMode: React.FC = () => {
 
   const importPaths = useCallback(async (paths: string[]) => {
     if (paths.length === 0) return;
+    const importMode = activeMode;
     setIsImporting(true);
-    addLog(`正在读取 ${paths.length} 张图片...`, 'info');
-    const existingPaths = new Set(tasks.filter((task) => task.sameSource).map((task) => task.topAsset?.path));
+    addLog(`正在为${getOverlayModeConfig(importMode).label}读取 ${paths.length} 张图片...`, 'info');
+    const existingPaths = new Set(
+      modeStates[importMode].tasks
+        .filter((task) => task.sameSource)
+        .map((task) => task.firstAsset?.path),
+    );
     const created: OverlayEditorTask[] = [];
 
     // 逐张读取，避免批量导入时同时解码所有原图。
     for (const filePath of paths) {
       if (existingPaths.has(filePath)) {
-        addLog(`已跳过重复任务: ${filePath}`, 'warning');
+        addLog(`已跳过当前模式的重复任务: ${filePath}`, 'warning');
         continue;
       }
       const asset = await loadAsset(filePath);
       if (!asset) continue;
-      created.push(createEditorTask(asset));
+      created.push(createEditorTask(asset, importMode));
       existingPaths.add(filePath);
     }
 
     if (created.length > 0) {
-      setTasks((current) => [...current, ...created]);
-      setCurrentTaskId((current) => current || created[0].id);
-      addLog(`已创建 ${created.length} 个贴片任务，请逐张检查后导出`, 'success');
+      setModeStates((current) => ({
+        ...current,
+        [importMode]: {
+          ...current[importMode],
+          tasks: [...current[importMode].tasks, ...created],
+          currentTaskId: current[importMode].currentTaskId || created[0].id,
+        },
+      }));
+      addLog(`已创建 ${created.length} 个${getOverlayModeConfig(importMode).label}任务，请逐张检查后导出`, 'success');
     }
     setIsImporting(false);
-  }, [tasks, loadAsset, createEditorTask, addLog]);
+  }, [activeMode, modeStates, loadAsset, createEditorTask, addLog]);
 
   const pickAndImport = useCallback(async (multiple: boolean) => {
     const paths = await window.api.pickFiles(
-      multiple ? '批量导入贴片素材' : '导入贴片素材',
+      multiple ? `批量导入${modeConfig.label}素材` : `导入${modeConfig.label}素材`,
       IMAGE_FILTERS,
       multiple,
     );
     await importPaths(paths);
-  }, [importPaths]);
+  }, [importPaths, modeConfig.label]);
 
   const replaceRegionAsset = useCallback(async (
-    region: 'top' | 'bottom',
+    region: OverlayRegionKey,
     filePath?: string,
     fromDrop = false,
   ) => {
     if (!currentTask) return;
+    const regionLabel = region === 'first' ? modeConfig.firstLabel : modeConfig.secondLabel;
     const paths = filePath
       ? [filePath]
-      : await window.api.pickFiles(`替换${region === 'top' ? '上' : '下'}半部分素材`, IMAGE_FILTERS, false);
+      : await window.api.pickFiles(`替换${regionLabel}素材`, IMAGE_FILTERS, false);
     if (!paths[0]) return;
     const asset = await loadAsset(paths[0]);
     if (!asset) return;
 
     updateCurrentTask((task) => {
-      const topHeight = getOverlayRegionHeight(task.videoY, 'top');
-      const bottomHeight = getOverlayRegionHeight(task.videoY, 'bottom');
+      const firstSize = getOverlayRegionSize(task.position, 'first', task.mode);
+      const secondSize = getOverlayRegionSize(task.position, 'second', task.mode);
       if (task.sameSource && !fromDrop) {
         return {
           ...task,
-          topAsset: asset,
-          bottomAsset: asset,
-          topTransform: createCoverTransform(asset, topHeight),
-          bottomTransform: createCoverTransform(asset, bottomHeight),
-          name: getTaskName(asset, asset, true),
+          firstAsset: asset,
+          secondAsset: asset,
+          firstTransform: createCoverTransform(asset, firstSize),
+          secondTransform: createCoverTransform(asset, secondSize),
+          name: getTaskName(asset, asset, true, task.mode),
           status: 'editing',
           error: null,
           progress: 0,
@@ -280,39 +368,39 @@ const OverlayGeneratorMode: React.FC = () => {
         };
       }
 
-      const next = region === 'top'
+      const next = region === 'first'
         ? {
             ...task,
-            topAsset: asset,
-            topTransform: createCoverTransform(asset, topHeight),
+            firstAsset: asset,
+            firstTransform: createCoverTransform(asset, firstSize),
             sameSource: false,
           }
         : {
             ...task,
-            bottomAsset: asset,
-            bottomTransform: createCoverTransform(asset, bottomHeight),
+            secondAsset: asset,
+            secondTransform: createCoverTransform(asset, secondSize),
             sameSource: false,
           };
       return {
         ...next,
-        name: getTaskName(next.topAsset, next.bottomAsset, next.sameSource),
+        name: getTaskName(next.firstAsset, next.secondAsset, next.sameSource, task.mode),
         status: 'editing',
         error: null,
         progress: 0,
         outputs: [],
       };
     });
-    addLog(`${region === 'top' ? '上' : '下'}半部分素材已替换为 ${asset.name}`, 'info');
-  }, [currentTask, loadAsset, updateCurrentTask, addLog]);
+    addLog(`${regionLabel}素材已替换为 ${asset.name}`, 'info');
+  }, [currentTask, modeConfig.firstLabel, modeConfig.secondLabel, loadAsset, updateCurrentTask, addLog]);
 
-  const clearRegionAsset = useCallback((region: 'top' | 'bottom') => {
+  const clearRegionAsset = useCallback((region: OverlayRegionKey) => {
     updateCurrentTask((task) => {
-      const next = region === 'top'
-        ? { ...task, topAsset: null, topTransform: EMPTY_OVERLAY_TRANSFORM, sameSource: false }
-        : { ...task, bottomAsset: null, bottomTransform: EMPTY_OVERLAY_TRANSFORM, sameSource: false };
+      const next = region === 'first'
+        ? { ...task, firstAsset: null, firstTransform: EMPTY_OVERLAY_TRANSFORM, sameSource: false }
+        : { ...task, secondAsset: null, secondTransform: EMPTY_OVERLAY_TRANSFORM, sameSource: false };
       return {
         ...next,
-        name: getTaskName(next.topAsset, next.bottomAsset, false),
+        name: getTaskName(next.firstAsset, next.secondAsset, false, task.mode),
         status: 'editing',
         error: null,
         progress: 0,
@@ -323,23 +411,25 @@ const OverlayGeneratorMode: React.FC = () => {
 
   const toggleSameSource = useCallback((sameSource: boolean) => {
     updateCurrentTask((task) => {
-      if (!sameSource) return { ...task, sameSource: false, status: 'editing', progress: 0, outputs: [] };
-      const asset = task.topAsset || task.bottomAsset;
+      if (!sameSource) {
+        return { ...task, sameSource: false, status: 'editing', progress: 0, outputs: [] };
+      }
+      const asset = task.firstAsset || task.secondAsset;
       if (!asset) return task;
-      const topTransform = task.topAsset?.path === asset.path
-        ? task.topTransform
-        : createCoverTransform(asset, getOverlayRegionHeight(task.videoY, 'top'));
-      const bottomTransform = task.bottomAsset?.path === asset.path
-        ? task.bottomTransform
-        : createCoverTransform(asset, getOverlayRegionHeight(task.videoY, 'bottom'));
+      const firstTransform = task.firstAsset?.path === asset.path
+        ? task.firstTransform
+        : createCoverTransform(asset, getOverlayRegionSize(task.position, 'first', task.mode));
+      const secondTransform = task.secondAsset?.path === asset.path
+        ? task.secondTransform
+        : createCoverTransform(asset, getOverlayRegionSize(task.position, 'second', task.mode));
       return {
         ...task,
-        topAsset: asset,
-        bottomAsset: asset,
-        topTransform,
-        bottomTransform,
+        firstAsset: asset,
+        secondAsset: asset,
+        firstTransform,
+        secondTransform,
         sameSource: true,
-        name: getTaskName(asset, asset, true),
+        name: getTaskName(asset, asset, true, task.mode),
         status: 'editing',
         error: null,
         progress: 0,
@@ -350,32 +440,32 @@ const OverlayGeneratorMode: React.FC = () => {
 
   const swapAssets = useCallback(() => {
     updateCurrentTask((task) => {
-      const topHeight = getOverlayRegionHeight(task.videoY, 'top');
-      const bottomHeight = getOverlayRegionHeight(task.videoY, 'bottom');
-      const nextTopTransform = task.bottomAsset
+      const firstSize = getOverlayRegionSize(task.position, 'first', task.mode);
+      const secondSize = getOverlayRegionSize(task.position, 'second', task.mode);
+      const nextFirstTransform = task.secondAsset
         ? denormalizeTransform(
-            task.bottomAsset,
-            topHeight,
-            normalizeTransform(task.bottomAsset, bottomHeight, task.bottomTransform),
+            task.secondAsset,
+            firstSize,
+            normalizeTransform(task.secondAsset, secondSize, task.secondTransform),
           )
         : EMPTY_OVERLAY_TRANSFORM;
-      const nextBottomTransform = task.topAsset
+      const nextSecondTransform = task.firstAsset
         ? denormalizeTransform(
-            task.topAsset,
-            bottomHeight,
-            normalizeTransform(task.topAsset, topHeight, task.topTransform),
+            task.firstAsset,
+            secondSize,
+            normalizeTransform(task.firstAsset, firstSize, task.firstTransform),
           )
         : EMPTY_OVERLAY_TRANSFORM;
       return {
         ...task,
-        topAsset: task.bottomAsset,
-        bottomAsset: task.topAsset,
-        topTransform: nextTopTransform,
-        bottomTransform: nextBottomTransform,
-        topLocked: task.bottomLocked,
-        bottomLocked: task.topLocked,
+        firstAsset: task.secondAsset,
+        secondAsset: task.firstAsset,
+        firstTransform: nextFirstTransform,
+        secondTransform: nextSecondTransform,
+        firstLocked: task.secondLocked,
+        secondLocked: task.firstLocked,
         sameSource: false,
-        name: getTaskName(task.bottomAsset, task.topAsset, false),
+        name: getTaskName(task.secondAsset, task.firstAsset, false, task.mode),
         status: 'editing',
         error: null,
         progress: 0,
@@ -385,15 +475,18 @@ const OverlayGeneratorMode: React.FC = () => {
   }, [updateCurrentTask]);
 
   const removeTask = useCallback((taskId: string) => {
-    setTasks((current) => {
-      const index = current.findIndex((task) => task.id === taskId);
-      const next = current.filter((task) => task.id !== taskId);
-      if (currentTaskId === taskId) {
-        setCurrentTaskId(next[Math.min(index, Math.max(0, next.length - 1))]?.id || null);
-      }
-      return next;
+    updateActiveModeState((state) => {
+      const index = state.tasks.findIndex((task) => task.id === taskId);
+      const nextTasks = state.tasks.filter((task) => task.id !== taskId);
+      return {
+        ...state,
+        tasks: nextTasks,
+        currentTaskId: state.currentTaskId === taskId
+          ? nextTasks[Math.min(index, Math.max(0, nextTasks.length - 1))]?.id || null
+          : state.currentTaskId,
+      };
     });
-  }, [currentTaskId]);
+  }, [updateActiveModeState]);
 
   const requestRemoveTask = useCallback((taskId: string) => {
     const task = tasks.find((item) => item.id === taskId);
@@ -412,8 +505,8 @@ const OverlayGeneratorMode: React.FC = () => {
       ...currentTask,
       id: createLocalTaskId(),
       name: `${currentTask.name}_副本`,
-      topTransform: { ...currentTask.topTransform },
-      bottomTransform: { ...currentTask.bottomTransform },
+      firstTransform: { ...currentTask.firstTransform },
+      secondTransform: { ...currentTask.secondTransform },
       exportOptions: { ...currentTask.exportOptions },
       status: 'editing',
       error: null,
@@ -423,42 +516,45 @@ const OverlayGeneratorMode: React.FC = () => {
     };
     setTasks((current) => [...current, duplicate]);
     setCurrentTaskId(duplicate.id);
-  }, [currentTask]);
+  }, [currentTask, setCurrentTaskId, setTasks]);
 
   const clearAllTasks = useCallback(() => {
     if (tasks.some((task) => task.status === 'exporting')) return;
     setConfirmAction({
-      title: '清空全部任务',
-      message: `确认清空当前 ${tasks.length} 个贴片任务吗？原始图片不会被删除。`,
+      title: `清空${modeConfig.label}任务`,
+      message: `确认清空当前 ${tasks.length} 个${modeConfig.label}任务吗？原始图片不会被删除。`,
       confirmText: '确认清空',
       onConfirm: () => {
         setTasks([]);
         setCurrentTaskId(null);
-        setExportSessionIds([]);
-        addLog('已清空全部贴片任务', 'info');
+        addLog(`已清空${modeConfig.label}任务`, 'info');
       },
     });
-  }, [tasks, addLog]);
+  }, [tasks, modeConfig.label, setTasks, setCurrentTaskId, addLog]);
 
   const moveCurrent = useCallback((delta: number) => {
     if (!currentTaskId || tasks.length === 0) return;
     const index = tasks.findIndex((task) => task.id === currentTaskId);
     const nextIndex = Math.min(tasks.length - 1, Math.max(0, index + delta));
     setCurrentTaskId(tasks[nextIndex]?.id || currentTaskId);
-  }, [currentTaskId, tasks]);
+  }, [currentTaskId, tasks, setCurrentTaskId]);
 
   const mutateActiveTransform = useCallback((
-    updater: (transform: OverlayCropTransform, asset: OverlayAsset, regionHeight: number) => OverlayCropTransform,
+    updater: (
+      transform: OverlayCropTransform,
+      asset: OverlayAsset,
+      regionSize: { width: number; height: number },
+    ) => OverlayCropTransform,
   ) => {
     if (!currentTask || editingTarget === 'video') return;
-    const asset = editingTarget === 'top' ? currentTask.topAsset : currentTask.bottomAsset;
-    const locked = editingTarget === 'top' ? currentTask.topLocked : currentTask.bottomLocked;
+    const asset = editingTarget === 'first' ? currentTask.firstAsset : currentTask.secondAsset;
+    const locked = editingTarget === 'first' ? currentTask.firstLocked : currentTask.secondLocked;
     if (!asset || locked) return;
-    const key = editingTarget === 'top' ? 'topTransform' : 'bottomTransform';
-    const regionHeight = getOverlayRegionHeight(currentTask.videoY, editingTarget);
+    const key = editingTarget === 'first' ? 'firstTransform' : 'secondTransform';
+    const regionSize = getOverlayRegionSize(currentTask.position, editingTarget, currentTask.mode);
     updateCurrentTask((task) => ({
       ...task,
-      [key]: updater(task[key], asset, regionHeight),
+      [key]: updater(task[key], asset, regionSize),
       status: 'editing',
       error: null,
       progress: 0,
@@ -466,7 +562,7 @@ const OverlayGeneratorMode: React.FC = () => {
     }));
   }, [currentTask, editingTarget, updateCurrentTask]);
 
-  const applyVideoY = useCallback((target: 'all' | 'selected') => {
+  const applyPosition = useCallback((target: 'all' | 'selected') => {
     if (!currentTask) return;
     const targetTasks = tasks.filter((task) =>
       task.id !== currentTask.id && (target === 'all' || task.selected),
@@ -476,69 +572,81 @@ const OverlayGeneratorMode: React.FC = () => {
       return;
     }
     setConfirmAction({
-      title: '批量应用横版区域位置',
-      message: `确认将 Y=${currentTask.videoY} 应用到 ${targetTasks.length} 个任务吗？`,
+      title: `批量应用${modeConfig.transparentLabel}位置`,
+      message: `确认将 ${modeConfig.axisLabel}=${currentTask.position} 应用到 ${targetTasks.length} 个任务吗？`,
       confirmText: '确认应用',
       onConfirm: () => {
         setTasks((current) => current.map((task) => {
           if (!targetTasks.some((targetTask) => targetTask.id === task.id)) return task;
-          const oldTopHeight = getOverlayRegionHeight(task.videoY, 'top');
-          const oldBottomHeight = getOverlayRegionHeight(task.videoY, 'bottom');
-          const newTopHeight = getOverlayRegionHeight(currentTask.videoY, 'top');
-          const newBottomHeight = getOverlayRegionHeight(currentTask.videoY, 'bottom');
+          const oldFirstSize = getOverlayRegionSize(task.position, 'first', task.mode);
+          const oldSecondSize = getOverlayRegionSize(task.position, 'second', task.mode);
+          const newFirstSize = getOverlayRegionSize(currentTask.position, 'first', task.mode);
+          const newSecondSize = getOverlayRegionSize(currentTask.position, 'second', task.mode);
           return {
             ...task,
-            videoY: currentTask.videoY,
-            topTransform: task.topAsset
-              ? denormalizeTransform(task.topAsset, newTopHeight, normalizeTransform(task.topAsset, oldTopHeight, task.topTransform))
-              : task.topTransform,
-            bottomTransform: task.bottomAsset
-              ? denormalizeTransform(task.bottomAsset, newBottomHeight, normalizeTransform(task.bottomAsset, oldBottomHeight, task.bottomTransform))
-              : task.bottomTransform,
+            position: currentTask.position,
+            firstTransform: task.firstAsset
+              ? denormalizeTransform(
+                  task.firstAsset,
+                  newFirstSize,
+                  normalizeTransform(task.firstAsset, oldFirstSize, task.firstTransform),
+                )
+              : task.firstTransform,
+            secondTransform: task.secondAsset
+              ? denormalizeTransform(
+                  task.secondAsset,
+                  newSecondSize,
+                  normalizeTransform(task.secondAsset, oldSecondSize, task.secondTransform),
+                )
+              : task.secondTransform,
             status: 'editing',
             error: null,
             progress: 0,
             outputs: [],
           };
         }));
-        addLog(`已将横版区域位置应用到 ${targetTasks.length} 个任务`, 'success');
+        addLog(`已将${modeConfig.transparentLabel}位置应用到 ${targetTasks.length} 个任务`, 'success');
       },
     });
-  }, [currentTask, tasks, addLog]);
+  }, [currentTask, tasks, modeConfig, setTasks, addLog]);
 
   const applyActiveRegion = useCallback((target: 'all' | 'selected') => {
     if (!currentTask || editingTarget === 'video') return;
-    const sourceAsset = editingTarget === 'top' ? currentTask.topAsset : currentTask.bottomAsset;
-    const sourceTransform = editingTarget === 'top' ? currentTask.topTransform : currentTask.bottomTransform;
+    const first = editingTarget === 'first';
+    const sourceAsset = first ? currentTask.firstAsset : currentTask.secondAsset;
+    const sourceTransform = first ? currentTask.firstTransform : currentTask.secondTransform;
     if (!sourceAsset) return;
-    const sourceHeight = getOverlayRegionHeight(currentTask.videoY, editingTarget);
-    const normalized = normalizeTransform(sourceAsset, sourceHeight, sourceTransform);
-    const targetTasks = tasks.filter((task) => task.id !== currentTask.id && (target === 'all' || task.selected));
+    const sourceSize = getOverlayRegionSize(currentTask.position, editingTarget, currentTask.mode);
+    const normalized = normalizeTransform(sourceAsset, sourceSize, sourceTransform);
+    const targetTasks = tasks.filter((task) =>
+      task.id !== currentTask.id && (target === 'all' || task.selected),
+    );
     if (targetTasks.length === 0) return;
+    const regionLabel = first ? modeConfig.firstLabel : modeConfig.secondLabel;
     setConfirmAction({
-      title: `批量应用${editingTarget === 'top' ? '上' : '下'}半部分参数`,
+      title: `批量应用${regionLabel}参数`,
       message: `将按标准化缩放和构图位置应用到 ${targetTasks.length} 个任务，确认继续吗？`,
       confirmText: '确认应用',
       onConfirm: () => {
         setTasks((current) => current.map((task) => {
           if (!targetTasks.some((item) => item.id === task.id)) return task;
-          const asset = editingTarget === 'top' ? task.topAsset : task.bottomAsset;
+          const asset = first ? task.firstAsset : task.secondAsset;
           if (!asset) return task;
-          const regionHeight = getOverlayRegionHeight(task.videoY, editingTarget);
-          const key = editingTarget === 'top' ? 'topTransform' : 'bottomTransform';
+          const regionSize = getOverlayRegionSize(task.position, editingTarget, task.mode);
+          const key = first ? 'firstTransform' : 'secondTransform';
           return {
             ...task,
-            [key]: denormalizeTransform(asset, regionHeight, normalized),
+            [key]: denormalizeTransform(asset, regionSize, normalized),
             status: 'editing',
             error: null,
             progress: 0,
             outputs: [],
           };
         }));
-        addLog(`已应用${editingTarget === 'top' ? '上' : '下'}半部分参数`, 'success');
+        addLog(`已应用${regionLabel}参数`, 'success');
       },
     });
-  }, [currentTask, editingTarget, tasks, addLog]);
+  }, [currentTask, editingTarget, tasks, modeConfig, setTasks, addLog]);
 
   const startExport = useCallback(async (requestedTasks: OverlayEditorTask[]) => {
     if (isPaused) {
@@ -565,10 +673,16 @@ const OverlayGeneratorMode: React.FC = () => {
     setIsSubmitting(true);
     cancelRequestedRef.current = false;
     setExportSessionIds(validTasks.map((task) => task.id));
-    setTasks((current) => current.map((task) => validTasks.some((item) => item.id === task.id)
-      ? { ...task, status: 'exporting', error: null, progress: 0, outputs: [] }
-      : task));
-    addLog(`正在将 ${validTasks.length} 个贴片任务加入任务中心...`, 'info');
+    validTasks.forEach((task) => {
+      updateTask(task.id, (current) => ({
+        ...current,
+        status: 'exporting',
+        error: null,
+        progress: 0,
+        outputs: [],
+      }));
+    });
+    addLog(`正在将 ${validTasks.length} 个${getOverlayModeConfig(validTasks[0].mode).label}任务加入任务中心...`, 'info');
 
     for (const task of validTasks) {
       if (cancelRequestedRef.current) {
@@ -581,14 +695,23 @@ const OverlayGeneratorMode: React.FC = () => {
         continue;
       }
       try {
+        const taskModeConfig = getOverlayModeConfig(task.mode);
         const result = await createTask({
           type: 'overlay_generator',
           name: task.name,
           outputDir,
           params: { ...toOverlayGeneratorTaskConfig(task) },
           files: [
-            { path: task.topAsset!.path, category: 'top', categoryLabel: '上半部分素材' },
-            { path: task.bottomAsset!.path, category: 'bottom', categoryLabel: '下半部分素材' },
+            {
+              path: task.firstAsset!.path,
+              category: task.mode === 'landscape' ? 'left' : 'top',
+              categoryLabel: `${taskModeConfig.firstLabel}素材`,
+            },
+            {
+              path: task.secondAsset!.path,
+              category: task.mode === 'landscape' ? 'right' : 'bottom',
+              categoryLabel: `${taskModeConfig.secondLabel}素材`,
+            },
           ],
           maxRetry: 1,
         });
@@ -660,8 +783,10 @@ const OverlayGeneratorMode: React.FC = () => {
   }, [updateTask, addLog]);
 
   const exportSessionTasks = useMemo(
-    () => exportSessionIds.map((id) => tasks.find((task) => task.id === id)).filter(Boolean) as OverlayEditorTask[],
-    [exportSessionIds, tasks],
+    () => exportSessionIds
+      .map((id) => allTasks.find((task) => task.id === id))
+      .filter(Boolean) as OverlayEditorTask[],
+    [exportSessionIds, allTasks],
   );
   const exportingTasks = exportSessionTasks.filter((task) => task.status === 'exporting');
   const successfulCount = exportSessionTasks.filter((task) => task.status === 'success').length;
@@ -677,14 +802,21 @@ const OverlayGeneratorMode: React.FC = () => {
 
   const cancelExports = useCallback(async () => {
     cancelRequestedRef.current = true;
-    const taskCenterIds = exportingTasks.map((task) => task.taskCenterId).filter((id): id is number => !!id);
-    setTasks((current) => current.map((task) => (
-      exportSessionIds.includes(task.id) && task.status === 'exporting' && !task.taskCenterId
-        ? { ...task, status: 'cancelled', error: '用户已取消', progress: 0 }
-        : task
-    )));
+    const taskCenterIds = exportingTasks
+      .map((task) => task.taskCenterId)
+      .filter((id): id is number => !!id);
+    exportSessionTasks.forEach((task) => {
+      if (task.status === 'exporting' && !task.taskCenterId) {
+        updateTask(task.id, (current) => ({
+          ...current,
+          status: 'cancelled',
+          error: '用户已取消',
+          progress: 0,
+        }));
+      }
+    });
     await Promise.all(taskCenterIds.map((id) => cancelTask(id)));
-  }, [exportingTasks, exportSessionIds, cancelTask]);
+  }, [exportingTasks, exportSessionTasks, cancelTask, updateTask]);
 
   const filteredTasks = useMemo(() => tasks.filter((task) => {
     if (taskFilter === 'failed') return task.status === 'failed';
@@ -694,29 +826,29 @@ const OverlayGeneratorMode: React.FC = () => {
 
   const selectedTasks = tasks.filter((task) => task.selected);
   const activeAsset = currentTask && editingTarget !== 'video'
-    ? (editingTarget === 'top' ? currentTask.topAsset : currentTask.bottomAsset)
+    ? (editingTarget === 'first' ? currentTask.firstAsset : currentTask.secondAsset)
     : null;
   const activeTransform = currentTask && editingTarget !== 'video'
-    ? (editingTarget === 'top' ? currentTask.topTransform : currentTask.bottomTransform)
+    ? (editingTarget === 'first' ? currentTask.firstTransform : currentTask.secondTransform)
     : null;
   const activeLocked = currentTask && editingTarget !== 'video'
-    ? (editingTarget === 'top' ? currentTask.topLocked : currentTask.bottomLocked)
+    ? (editingTarget === 'first' ? currentTask.firstLocked : currentTask.secondLocked)
     : false;
-  const activeRegionHeight = currentTask && editingTarget !== 'video'
-    ? getOverlayRegionHeight(currentTask.videoY, editingTarget)
-    : 0;
+  const activeRegionSize = currentTask && editingTarget !== 'video'
+    ? getOverlayRegionSize(currentTask.position, editingTarget, currentTask.mode)
+    : { width: 0, height: 0 };
   const activeCoverScale = activeAsset
-    ? createCoverTransform(activeAsset, activeRegionHeight).scale
+    ? createCoverTransform(activeAsset, activeRegionSize).scale
     : 1;
   const activeZoomPercent = activeTransform && activeCoverScale > 0
     ? Math.round((activeTransform.scale / activeCoverScale) * 100)
     : 100;
   const activeCovered = editingTarget === 'video'
     ? true
-    : isRegionCovered(activeAsset, activeTransform || EMPTY_OVERLAY_TRANSFORM, activeRegionHeight);
+    : isRegionCovered(activeAsset, activeTransform || EMPTY_OVERLAY_TRANSFORM, activeRegionSize);
   const activeCoverageGaps = editingTarget === 'video'
     ? { left: 0, right: 0, top: 0, bottom: 0 }
-    : getRegionCoverageGaps(activeAsset, activeTransform || EMPTY_OVERLAY_TRANSFORM, activeRegionHeight);
+    : getRegionCoverageGaps(activeAsset, activeTransform || EMPTY_OVERLAY_TRANSFORM, activeRegionSize);
   const activeCoverageMessage = [
     activeCoverageGaps.top > 0 ? `顶部缺少 ${activeCoverageGaps.top}px` : '',
     activeCoverageGaps.bottom > 0 ? `底部缺少 ${activeCoverageGaps.bottom}px` : '',
@@ -725,23 +857,23 @@ const OverlayGeneratorMode: React.FC = () => {
   ].filter(Boolean).join('、');
 
   const updateExportOptions = useCallback((key: keyof OverlayExportOptions, checked: boolean) => {
-    setTasks((current) => current.map((task) => ({
+    updateCurrentTask((task) => ({
       ...task,
       exportOptions: { ...task.exportOptions, [key]: checked },
       status: task.status === 'exporting' ? task.status : 'editing',
       progress: task.status === 'exporting' ? task.progress : 0,
       outputs: task.status === 'exporting' ? task.outputs : [],
-    })));
-  }, []);
+    }));
+  }, [updateCurrentTask]);
 
-  const hasUnexportedTasks = tasks.some((task) => task.status !== 'success');
+  const hasUnexportedTasks = allTasks.some((task) => task.status !== 'success');
   const canLeave = useCallback(() => {
     if (isExporting) {
       window.alert('贴片任务正在处理中，请先取消处理后再离开。');
       return false;
     }
     if (hasUnexportedTasks) {
-      return window.confirm('当前还有未导出的贴片任务，确认离开吗？');
+      return window.confirm('竖版或横版中还有未导出的贴片任务，确认离开吗？');
     }
     return true;
   }, [isExporting, hasUnexportedTasks]);
@@ -769,6 +901,21 @@ const OverlayGeneratorMode: React.FC = () => {
     root.style.setProperty('--metal-glint-y', `${event.clientY}px`);
   }, []);
 
+  const firstRegionSize = currentTask
+    ? getOverlayRegionSize(currentTask.position, 'first', currentTask.mode)
+    : getOverlayRegionSize(modeConfig.centerPosition, 'first', activeMode);
+  const secondRegionSize = currentTask
+    ? getOverlayRegionSize(currentTask.position, 'second', currentTask.mode)
+    : getOverlayRegionSize(modeConfig.centerPosition, 'second', activeMode);
+  const activeRegionLabel = editingTarget === 'first'
+    ? modeConfig.firstLabel
+    : editingTarget === 'second'
+      ? modeConfig.secondLabel
+      : modeConfig.transparentLabel;
+  const activeRegionShortLabel = editingTarget === 'first'
+    ? (activeMode === 'portrait' ? '上半部分' : '左侧')
+    : (activeMode === 'portrait' ? '下半部分' : '右侧');
+
   return (
     <div
       ref={metalRootRef}
@@ -781,16 +928,16 @@ const OverlayGeneratorMode: React.FC = () => {
         title="图片素材工坊 · 贴片生成器"
         icon={Layers3}
         iconColor={isLightTheme ? 'text-amber-600' : 'text-amber-400'}
-        description="批量制作 1080×1920 中间透明的竖版视频贴片"
+        description={`批量制作 ${modeConfig.canvasWidth}×${modeConfig.canvasHeight} 中间透明的${modeConfig.label}`}
         onBack={handleBack}
         featureInfo={{
           title: '贴片生成器',
-          description: '从上下原始图片高清裁切，中间保留固定 1080×608 Alpha 透明区域。',
+          description: '竖版和横版使用同一套高清裁切、Canvas 预览与任务中心导出流程。',
           details: [
-            '每个任务拥有独立的上、下素材槽和裁切参数',
-            '横版透明区域只能上下移动，并支持 Y 坐标输入',
-            '预览使用 Canvas，最终导出由 Sharp 从原图重新渲染',
-            '批量导出接入任务中心，可取消并保留失败原因',
+            '竖版与横版任务、当前编辑项和筛选状态相互隔离',
+            '透明窗口支持画布拖动、坐标输入和方向键微调',
+            '每个任务都可使用同一素材或两张不同素材',
+            '最终导出由 Sharp 从原图重新渲染，不使用 Canvas 截图',
           ],
           themeColor: 'amber',
         }}
@@ -801,6 +948,32 @@ const OverlayGeneratorMode: React.FC = () => {
           </div>
         }
       />
+
+      <div className="flex shrink-0 items-center justify-center border-b border-slate-800 bg-black/20 px-3 py-2">
+        <div className="grid w-[360px] grid-cols-2 rounded-xl border border-slate-700 bg-slate-950/80 p-1" aria-label="贴片方向模式">
+          {(['portrait', 'landscape'] as OverlayTemplateMode[]).map((mode) => {
+            const config = getOverlayModeConfig(mode);
+            const count = modeStates[mode].tasks.length;
+            return (
+              <button
+                type="button"
+                key={mode}
+                disabled={isExporting || isImporting}
+                onClick={() => setActiveMode(mode)}
+                className={`rounded-lg px-3 py-2 text-xs font-bold transition-colors disabled:opacity-40 ${
+                  activeMode === mode
+                    ? 'bg-[#FF385C] text-white shadow-[0_4px_12px_rgba(255,56,92,0.28)]'
+                    : 'text-slate-500 hover:bg-slate-800 hover:text-slate-200'
+                }`}
+                style={activeMode === mode ? { backgroundColor: '#FF385C', color: '#FFFFFF' } : undefined}
+              >
+                {config.label}
+                {count > 0 && <span className="ml-1 text-[9px] opacity-70">({count})</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="flex min-h-0 flex-1 gap-2 overflow-hidden p-2">
         <aside
@@ -838,18 +1011,18 @@ const OverlayGeneratorMode: React.FC = () => {
                 批量导入
               </Button>
             </div>
-            <p className="mt-2 text-center text-[10px] text-slate-600">也可将多张图片拖入此栏，每张图创建一个任务</p>
+            <p className="mt-2 text-center text-[10px] text-slate-600">也可拖入多张图片，每张图创建一个{modeConfig.label}任务</p>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col border-b border-slate-800">
             <div className="flex items-center justify-between gap-2 px-3 py-2">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
                 <ListFilter className="h-3.5 w-3.5" />
-                任务列表 <span className="text-slate-600">{filteredTasks.length}/{tasks.length}</span>
+                {modeConfig.label}任务 <span className="text-slate-600">{filteredTasks.length}/{tasks.length}</span>
               </div>
               <select
                 value={taskFilter}
-                onChange={(event) => setTaskFilter(event.target.value as typeof taskFilter)}
+                onChange={(event) => setTaskFilter(event.target.value as OverlayModeEditorState['taskFilter'])}
                 className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] text-slate-400 outline-none"
               >
                 <option value="all">全部任务</option>
@@ -860,7 +1033,7 @@ const OverlayGeneratorMode: React.FC = () => {
             <div className="flex-1 space-y-1.5 overflow-y-auto px-2 pb-2 custom-scrollbar">
               {filteredTasks.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-800 px-4 py-8 text-center text-xs text-slate-600">
-                  暂无贴片任务
+                  暂无{modeConfig.label}任务
                 </div>
               ) : filteredTasks.map((task, index) => {
                 const status = getDisplayStatus(task);
@@ -888,7 +1061,7 @@ const OverlayGeneratorMode: React.FC = () => {
                       />
                       <span className="w-5 shrink-0 text-center text-[10px] font-bold text-slate-500">{index + 1}</span>
                       <div className="flex -space-x-2">
-                        {[task.topAsset, task.bottomAsset].map((asset, assetIndex) => (
+                        {[task.firstAsset, task.secondAsset].map((asset, assetIndex) => (
                           <div key={assetIndex} className="h-8 w-8 overflow-hidden rounded-md border-2 border-slate-900 bg-slate-800">
                             {asset?.thumbnail && <img src={asset.thumbnail} alt="" className="h-full w-full object-cover" />}
                           </div>
@@ -899,8 +1072,8 @@ const OverlayGeneratorMode: React.FC = () => {
                         <div className="mt-1 flex items-center gap-1">
                           <span className={`rounded border px-1.5 py-0.5 text-[9px] ${STATUS_STYLES[status]}`}>{STATUS_LABELS[status]}</span>
                           <span className="text-[9px] text-slate-600">{task.sameSource ? '同素材' : '双素材'}</span>
-                          {task.topLocked && <Lock className="h-2.5 w-2.5 text-amber-500" />}
-                          {task.bottomLocked && <Lock className="h-2.5 w-2.5 text-amber-500" />}
+                          {task.firstLocked && <Lock className="h-2.5 w-2.5 text-amber-500" />}
+                          {task.secondLocked && <Lock className="h-2.5 w-2.5 text-amber-500" />}
                         </div>
                       </div>
                       <button
@@ -937,7 +1110,7 @@ const OverlayGeneratorMode: React.FC = () => {
           {currentTask && (
             <div className="max-h-[43%] space-y-2 overflow-y-auto p-3 custom-scrollbar">
               <label className="flex items-center justify-between rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-xs text-slate-300">
-                <span>上下使用同一素材</span>
+                <span>{modeConfig.firstLabel}与{modeConfig.secondLabel}使用同一素材</span>
                 <input
                   type="checkbox"
                   checked={currentTask.sameSource}
@@ -947,27 +1120,27 @@ const OverlayGeneratorMode: React.FC = () => {
                 />
               </label>
               <AssetSlot
-                label="上半部分素材"
-                asset={currentTask.topAsset}
-                active={editingTarget === 'top'}
-                locked={currentTask.topLocked}
+                label={`${modeConfig.firstLabel}素材`}
+                asset={currentTask.firstAsset}
+                active={editingTarget === 'first'}
+                locked={currentTask.firstLocked}
                 disabled={isExporting}
-                onSelect={() => setEditingTarget('top')}
-                onReplace={() => void replaceRegionAsset('top')}
-                onClear={() => clearRegionAsset('top')}
+                onSelect={() => setEditingTarget('first')}
+                onReplace={() => void replaceRegionAsset('first')}
+                onClear={() => clearRegionAsset('first')}
               />
               <AssetSlot
-                label="下半部分素材"
-                asset={currentTask.bottomAsset}
-                active={editingTarget === 'bottom'}
-                locked={currentTask.bottomLocked}
+                label={`${modeConfig.secondLabel}素材`}
+                asset={currentTask.secondAsset}
+                active={editingTarget === 'second'}
+                locked={currentTask.secondLocked}
                 disabled={isExporting}
-                onSelect={() => setEditingTarget('bottom')}
-                onReplace={() => void replaceRegionAsset('bottom')}
-                onClear={() => clearRegionAsset('bottom')}
+                onSelect={() => setEditingTarget('second')}
+                onReplace={() => void replaceRegionAsset('second')}
+                onClear={() => clearRegionAsset('second')}
               />
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="ghost" size="sm" disabled={isExporting} leftIcon={<ArrowDownUp className="h-3.5 w-3.5" />} onClick={swapAssets}>上下互换</Button>
+                <Button variant="ghost" size="sm" disabled={isExporting} leftIcon={<ArrowDownUp className={`h-3.5 w-3.5 ${activeMode === 'landscape' ? 'rotate-90' : ''}`} />} onClick={swapAssets}>{activeMode === 'portrait' ? '上下互换' : '左右互换'}</Button>
                 <Button variant="ghost" size="sm" disabled={isExporting || currentTask.sameSource} leftIcon={<Link className="h-3.5 w-3.5" />} onClick={() => toggleSameSource(true)}>重新关联</Button>
               </div>
             </div>
@@ -977,9 +1150,11 @@ const OverlayGeneratorMode: React.FC = () => {
         <main className="metal-panel metal-workspace flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800">
           <div className="flex h-12 shrink-0 items-center justify-between border-b border-slate-800 px-3">
             <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-slate-200">{currentTask?.name || '贴片预览区'}</p>
+              <p className="truncate text-xs font-bold text-slate-200">{currentTask?.name || `${modeConfig.label}预览区`}</p>
               <p className="mt-0.5 text-[10px] text-slate-600">
-                {currentTask ? `当前编辑：${editingTarget === 'top' ? '上半部分' : editingTarget === 'bottom' ? '下半部分' : '横版透明区域'}` : '固定画布 1080×1920'}
+                {currentTask
+                  ? `当前正在编辑：${activeRegionLabel}`
+                  : `固定画布 ${modeConfig.canvasWidth}×${modeConfig.canvasHeight}`}
               </p>
             </div>
             <div className="flex items-center gap-1.5">
@@ -991,6 +1166,7 @@ const OverlayGeneratorMode: React.FC = () => {
           <div className="min-h-0 flex-1">
             <OverlayCanvas
               task={currentTask}
+              mode={activeMode}
               editingTarget={editingTarget}
               onEditingTargetChange={setEditingTarget}
               onTaskChange={updateCurrentTask}
@@ -999,9 +1175,9 @@ const OverlayGeneratorMode: React.FC = () => {
             />
           </div>
           <div className="grid h-12 shrink-0 grid-cols-3 border-t border-slate-800 bg-black/20 text-center text-[10px] text-slate-500">
-            <div className="flex items-center justify-center">上半部分：{currentTask?.videoY ?? OVERLAY_CENTER_Y}px</div>
-            <div className="flex items-center justify-center border-x border-slate-800 text-cyan-400">透明区域：1080×608</div>
-            <div className="flex items-center justify-center">下半部分：{currentTask ? getOverlayRegionHeight(currentTask.videoY, 'bottom') : OVERLAY_CENTER_Y}px</div>
+            <div className="flex items-center justify-center">{modeConfig.firstLabel}：{modeConfig.movementAxis === 'y' ? firstRegionSize.height : firstRegionSize.width}px</div>
+            <div className="flex items-center justify-center border-x border-slate-800 text-cyan-400">透明区域：{modeConfig.windowWidth}×{modeConfig.windowHeight}</div>
+            <div className="flex items-center justify-center">{modeConfig.secondLabel}：{modeConfig.movementAxis === 'y' ? secondRegionSize.height : secondRegionSize.width}px</div>
           </div>
         </main>
 
@@ -1010,18 +1186,24 @@ const OverlayGeneratorMode: React.FC = () => {
             <section className="rounded-xl border border-slate-800 bg-black/30 p-3">
               <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">编辑目标</p>
               <div className="grid grid-cols-3 gap-1.5">
-                {(['top', 'video', 'bottom'] as OverlayEditingTarget[]).map((target) => (
+                {(['first', 'video', 'second'] as OverlayEditingTarget[]).map((target) => (
                   <button
                     type="button"
                     key={target}
                     onClick={() => setEditingTarget(target)}
-                    className={`rounded-lg border px-2 py-1.5 text-[10px] transition-colors ${
+                    data-selected={editingTarget === target}
+                    className={`overlay-editing-target-button rounded-lg border px-2 py-1.5 text-[10px] transition-colors ${
                       editingTarget === target
-                        ? 'border-amber-500/50 bg-amber-500/15 text-amber-300'
+                        ? 'border-[#FF385C] bg-[#FF385C] text-white shadow-[0_3px_10px_rgba(255,56,92,0.24)]'
                         : 'border-slate-800 text-slate-500 hover:text-slate-300'
                     }`}
+                    style={editingTarget === target ? {
+                      backgroundColor: '#FF385C',
+                      borderColor: '#FF385C',
+                      color: '#FFFFFF',
+                    } : undefined}
                   >
-                    {target === 'top' ? '上半部分' : target === 'bottom' ? '下半部分' : '透明区域'}
+                    {target === 'first' ? modeConfig.firstLabel : target === 'second' ? modeConfig.secondLabel : '透明区域'}
                   </button>
                 ))}
               </div>
@@ -1029,19 +1211,20 @@ const OverlayGeneratorMode: React.FC = () => {
 
             <section className="rounded-xl border border-slate-800 bg-black/30 p-3">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-slate-400">横版区域 Y 坐标</label>
-                <span className="text-[10px] text-slate-600">范围 0–1312</span>
+                <label className="text-[11px] font-bold text-slate-400">{modeConfig.transparentLabel} {modeConfig.axisLabel} 坐标</label>
+                <span className="text-[10px] text-slate-600">范围 0–{modeConfig.maxPosition}</span>
               </div>
               <div className="mt-2 flex gap-2">
                 <input
                   type="number"
                   min={0}
-                  max={1312}
-                  value={currentTask?.videoY ?? OVERLAY_CENTER_Y}
+                  max={modeConfig.maxPosition}
+                  step={1}
+                  value={currentTask?.position ?? modeConfig.centerPosition}
                   disabled={!currentTask || isExporting}
                   onChange={(event) => updateCurrentTask((task) => ({
                     ...task,
-                    videoY: clampOverlayVideoY(Number(event.target.value)),
+                    position: clampOverlayPosition(Number(event.target.value), task.mode),
                     status: 'editing',
                     error: null,
                     progress: 0,
@@ -1054,18 +1237,18 @@ const OverlayGeneratorMode: React.FC = () => {
                   size="sm"
                   themeColor="amber"
                   disabled={!currentTask || isExporting}
-                  onClick={() => updateCurrentTask((task) => ({ ...task, videoY: OVERLAY_CENTER_Y, status: 'editing', progress: 0, outputs: [] }))}
+                  onClick={() => updateCurrentTask((task) => ({ ...task, position: modeConfig.centerPosition, status: 'editing', progress: 0, outputs: [] }))}
                 >
-                  垂直居中
+                  {modeConfig.movementAxis === 'y' ? '垂直居中' : '水平居中'}
                 </Button>
               </div>
-              <p className="mt-2 text-[10px] text-slate-600">画布内拖动透明区域，或聚焦画布后用 ↑ / ↓ 微调（Shift 为 10px）</p>
+              <p className="mt-2 text-[10px] text-slate-600">画布内拖动透明区域，或聚焦画布后用 {modeConfig.movementAxis === 'y' ? '↑ / ↓' : '← / →'} 微调（Shift 为 10px）</p>
             </section>
 
             {currentTask && editingTarget !== 'video' && activeTransform && (
               <section className="rounded-xl border border-slate-800 bg-black/30 p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-bold text-slate-400">{editingTarget === 'top' ? '上' : '下'}半部分裁切参数</p>
+                  <p className="text-[11px] font-bold text-slate-400">{activeRegionLabel}裁切参数</p>
                   <span className={`rounded border px-1.5 py-0.5 text-[9px] ${activeCovered ? 'border-emerald-500/30 text-emerald-400' : 'border-rose-500/30 text-rose-400'}`}>
                     {activeCovered ? '覆盖完整' : '覆盖不完整'}
                   </span>
@@ -1081,37 +1264,37 @@ const OverlayGeneratorMode: React.FC = () => {
                   step={1}
                   value={Math.min(300, Math.max(50, activeZoomPercent))}
                   disabled={activeLocked || isExporting}
-                  onChange={(event) => mutateActiveTransform((transform, asset, height) => ({
+                  onChange={(event) => mutateActiveTransform((transform, asset, regionSize) => ({
                     ...transform,
-                    scale: createCoverTransform(asset, height).scale * (Number(event.target.value) / 100),
+                    scale: createCoverTransform(asset, regionSize).scale * (Number(event.target.value) / 100),
                   }))}
                   className="mt-1 w-full accent-amber-500 disabled:opacity-40"
                 />
                 <div className="mt-2 grid grid-cols-3 gap-2">
-                  {[
+                  {([
                     ['缩放%', activeZoomPercent, 'scale'],
                     ['X', Math.round(activeTransform.x), 'x'],
                     ['Y', Math.round(activeTransform.y), 'y'],
-                  ].map(([label, value, key]) => (
-                    <label key={String(key)} className="text-[9px] text-slate-600">
+                  ] as Array<[string, number, 'scale' | 'x' | 'y']>).map(([label, value, key]) => (
+                    <label key={key} className="text-[9px] text-slate-600">
                       {label}
                       <input
                         type="number"
-                        value={Number(value)}
+                        value={value}
                         min={key === 'scale' ? 50 : undefined}
                         max={key === 'scale' ? 300 : undefined}
                         step={1}
                         disabled={activeLocked || isExporting}
-                        onChange={(event) => mutateActiveTransform((transform, asset, height) => {
+                        onChange={(event) => mutateActiveTransform((transform, asset, regionSize) => {
                           const nextValue = Number(event.target.value);
                           if (key === 'scale') {
                             const nextPercent = Math.min(300, Math.max(50, nextValue));
                             return {
                               ...transform,
-                              scale: createCoverTransform(asset, height).scale * (nextPercent / 100),
+                              scale: createCoverTransform(asset, regionSize).scale * (nextPercent / 100),
                             };
                           }
-                          return { ...transform, [key as 'x' | 'y']: nextValue };
+                          return { ...transform, [key]: nextValue };
                         })}
                         className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] text-slate-300 outline-none focus:border-amber-500 disabled:opacity-40"
                       />
@@ -1119,9 +1302,17 @@ const OverlayGeneratorMode: React.FC = () => {
                   ))}
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-1.5">
-                  <button type="button" disabled={!activeAsset || activeLocked || isExporting} onClick={() => mutateActiveTransform((_transform, asset, height) => createCoverTransform(asset, height))} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30"><Maximize2 className="mr-1 inline h-3 w-3" />填充区域</button>
-                  <button type="button" disabled={!activeAsset || activeLocked || isExporting} onClick={() => mutateActiveTransform((_transform, asset, height) => createContainTransform(asset, height))} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">适应区域</button>
-                  <button type="button" disabled={!activeAsset || activeLocked || isExporting} onClick={() => mutateActiveTransform((transform, asset, height) => centerTransform(asset, height, transform))} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">图片居中</button>
+                  <button
+                    type="button"
+                    disabled={!activeAsset || activeLocked || isExporting}
+                    onClick={() => mutateActiveTransform((transform, asset, regionSize) => repairCoverageTransform(asset, regionSize, transform))}
+                    className="overlay-repair-button rounded-lg border border-[#BFE9BB] bg-[#D9F5D6] px-2 py-1.5 text-[9px] font-medium text-[#2F6B35] shadow-[0_3px_10px_rgba(126,190,122,0.14)] transition-colors disabled:opacity-30"
+                    style={{ backgroundColor: '#D9F5D6', borderColor: '#BFE9BB', color: '#2F6B35' }}
+                  >
+                    <Maximize2 className="mr-1 inline h-3 w-3" />填充区域
+                  </button>
+                  <button type="button" disabled={!activeAsset || activeLocked || isExporting} onClick={() => mutateActiveTransform((_transform, asset, regionSize) => createContainTransform(asset, regionSize))} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">适应区域</button>
+                  <button type="button" disabled={!activeAsset || activeLocked || isExporting} onClick={() => mutateActiveTransform((transform, asset, regionSize) => centerTransform(asset, regionSize, transform))} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">图片居中</button>
                 </div>
                 {!activeCovered && (
                   <div className="mt-2 rounded-lg border border-rose-500/20 bg-rose-500/5 p-2 text-[10px] leading-4 text-rose-400">
@@ -1130,18 +1321,18 @@ const OverlayGeneratorMode: React.FC = () => {
                   </div>
                 )}
                 <div className="mt-2 grid grid-cols-2 gap-2">
-                  <Button variant="ghost" size="sm" disabled={!activeAsset || isExporting} leftIcon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => mutateActiveTransform((_transform, asset, height) => createCoverTransform(asset, height))}>恢复默认</Button>
+                  <Button variant="secondary" size="sm" themeColor="amber" disabled={!activeAsset || isExporting} leftIcon={<RotateCcw className="h-3.5 w-3.5" />} onClick={() => mutateActiveTransform((_transform, asset, regionSize) => createCoverTransform(asset, regionSize))}>恢复默认</Button>
                   <Button
                     variant="secondary"
                     size="sm"
                     themeColor={activeLocked ? 'rose' : 'amber'}
                     disabled={isExporting}
                     leftIcon={activeLocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-                    onClick={() => updateCurrentTask((task) => editingTarget === 'top'
-                      ? { ...task, topLocked: !task.topLocked }
-                      : { ...task, bottomLocked: !task.bottomLocked })}
+                    onClick={() => updateCurrentTask((task) => editingTarget === 'first'
+                      ? { ...task, firstLocked: !task.firstLocked }
+                      : { ...task, secondLocked: !task.secondLocked })}
                   >
-                    {activeLocked ? '解锁区域' : '锁定区域'}
+                    {activeLocked ? `解锁${activeRegionShortLabel}` : `锁定${activeRegionShortLabel}`}
                   </Button>
                 </div>
               </section>
@@ -1150,8 +1341,8 @@ const OverlayGeneratorMode: React.FC = () => {
             <section className="rounded-xl border border-slate-800 bg-black/30 p-3">
               <p className="mb-2 text-[11px] font-bold text-slate-400">应用到其他任务</p>
               <div className="grid grid-cols-2 gap-1.5">
-                <button type="button" disabled={!currentTask || isExporting} onClick={() => applyVideoY('all')} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">Y 坐标 → 全部</button>
-                <button type="button" disabled={!currentTask || selectedTasks.length === 0 || isExporting} onClick={() => applyVideoY('selected')} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">Y 坐标 → 选中</button>
+                <button type="button" disabled={!currentTask || isExporting} onClick={() => applyPosition('all')} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">{modeConfig.axisLabel} 坐标 → 全部</button>
+                <button type="button" disabled={!currentTask || selectedTasks.length === 0 || isExporting} onClick={() => applyPosition('selected')} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">{modeConfig.axisLabel} 坐标 → 选中</button>
                 <button type="button" disabled={!currentTask || editingTarget === 'video' || isExporting} onClick={() => applyActiveRegion('all')} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">当前区域 → 全部</button>
                 <button type="button" disabled={!currentTask || editingTarget === 'video' || selectedTasks.length === 0 || isExporting} onClick={() => applyActiveRegion('selected')} className="rounded-lg border border-slate-700 px-2 py-1.5 text-[9px] text-slate-300 hover:border-amber-500/40 disabled:opacity-30">当前区域 → 选中</button>
               </div>
@@ -1161,11 +1352,11 @@ const OverlayGeneratorMode: React.FC = () => {
               <p className="mb-2 text-[11px] font-bold text-slate-400">导出选项</p>
               <div className="space-y-1.5">
                 {([
-                  ['transparentPng', '完整透明贴片 PNG'],
+                  ['transparentPng', `完整${modeConfig.label} PNG`],
                   ['solidPreview', '带纯色背景的预览图'],
                   ['checkerPreview', '带棋盘格的预览图'],
-                  ['topOnly', '仅导出上半部分'],
-                  ['bottomOnly', '仅导出下半部分'],
+                  ['topOnly', `仅导出${modeConfig.firstLabel}`],
+                  ['bottomOnly', `仅导出${modeConfig.secondLabel}`],
                 ] as Array<[keyof OverlayExportOptions, string]>).map(([key, label]) => (
                   <label key={key} className="flex items-center gap-2 text-[10px] text-slate-400">
                     <input
@@ -1229,7 +1420,7 @@ const OverlayGeneratorMode: React.FC = () => {
             {isExporting ? (
               <Button variant="danger" size="sm" fullWidth leftIcon={<CircleStop className="h-3.5 w-3.5" />} onClick={() => void cancelExports()}>取消处理</Button>
             ) : outputDir ? (
-              <Button variant="ghost" size="sm" fullWidth leftIcon={<FolderOpen className="h-3.5 w-3.5" />} onClick={() => void window.api.openPath(outputDir)}>打开输出目录</Button>
+              <Button variant="secondary" size="sm" themeColor="amber" fullWidth leftIcon={<FolderOpen className="h-3.5 w-3.5" />} onClick={() => void window.api.openPath(outputDir)}>打开输出目录</Button>
             ) : null}
 
             <div className="min-h-[260px]">

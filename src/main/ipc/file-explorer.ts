@@ -89,7 +89,23 @@ async function handleBatchRename(event: Electron.IpcMainInvokeEvent, { operation
     try {
       const dir = path.dirname(sourcePath);
       const ext = path.extname(sourcePath);
-      const targetPath = path.join(dir, targetName + ext);
+      const safeTargetName = targetName.trim();
+
+      // 主进程再次校验文件名，避免渲染进程传入路径或系统非法名称。
+      if (!safeTargetName) {
+        throw new Error('目标文件名不能为空');
+      }
+      if (safeTargetName !== path.basename(safeTargetName) || /[<>:"/\\|?*\u0000-\u001f]/.test(safeTargetName)) {
+        throw new Error('目标文件名包含非法字符');
+      }
+      if (/[. ]$/.test(safeTargetName)) {
+        throw new Error('目标文件名不能以点或空格结尾');
+      }
+      if (/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(safeTargetName)) {
+        throw new Error('目标文件名为系统保留名称');
+      }
+
+      const targetPath = path.join(dir, safeTargetName + ext);
 
       // 检查源文件是否存在
       try {

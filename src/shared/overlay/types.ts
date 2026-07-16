@@ -2,6 +2,8 @@
  * 贴片生成器在渲染进程与主进程之间共享的数据结构。
  */
 
+import type { OverlayTemplateMode } from './modeConfig';
+
 export const OVERLAY_CANVAS_WIDTH = 1080;
 export const OVERLAY_CANVAS_HEIGHT = 1920;
 export const OVERLAY_VIDEO_HEIGHT = 608;
@@ -46,9 +48,21 @@ export interface OverlayGeneratorTaskConfig {
   /** 页面内任务 ID，用于把任务中心事件映射回编辑列表。 */
   sourceTaskId: string;
   sameSource: boolean;
-  videoY: number;
-  top: OverlayRegionConfig;
-  bottom: OverlayRegionConfig;
+  /** 新任务使用的模板模式；历史任务缺失时按竖版处理。 */
+  mode?: OverlayTemplateMode;
+  /** 新任务使用的通用透明窗口位置。 */
+  position?: number;
+  /** 新任务使用的通用前后区域。 */
+  first?: OverlayRegionConfig;
+  second?: OverlayRegionConfig;
+  /** 以下字段用于兼容历史竖版任务和便于任务数据排查。 */
+  videoY?: number;
+  top?: OverlayRegionConfig;
+  bottom?: OverlayRegionConfig;
+  /** 横版任务的语义化镜像字段。 */
+  videoX?: number;
+  left?: OverlayRegionConfig;
+  right?: OverlayRegionConfig;
   exportOptions: OverlayExportOptions;
 }
 
@@ -65,4 +79,3 @@ export function clampOverlayVideoY(value: number): number {
   if (!Number.isFinite(value)) return OVERLAY_CENTER_Y;
   return Math.round(Math.min(OVERLAY_MAX_VIDEO_Y, Math.max(0, value)));
 }
-

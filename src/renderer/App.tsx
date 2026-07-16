@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Maximize2, Grid3X3, Settings, FileText, Image as ImageIcon, Layers, Captions, Mic2, ArrowRight, Play, Moon, Sun, Palette, Shuffle } from 'lucide-react';
+import { Maximize2, Grid3X3, Settings, FileText, Image as ImageIcon, Layers, Captions, Mic2, AudioLines, ArrowRight, Play, Moon, Sun, Palette, Shuffle } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { ToastProvider } from './components/Toast';
 import VideoMergeMode from './features/VideoMergeMode';
@@ -15,6 +15,7 @@ import ImageMaterialWorkshopMode from './features/ImageMaterialWorkshopMode';
 import ResizeMode from './features/ResizeMode';
 import SubtitleExtractorMode from './features/SubtitleExtractorMode';
 import TextToSpeechMode from './features/TextToSpeechMode';
+import SoundEffectNamingMode from '@/features/SoundEffectNamingMode';
 import VideoDedupMode from './features/VideoDedupMode';
 import AdminMode from './features/AdminMode';
 import UnauthorizedMode from './features/UnauthorizedMode';
@@ -236,6 +237,18 @@ const HomePage: React.FC<{
       hoverClass: 'hover:border-blue-200 hover:shadow-blue-100',
       darkIconClass: 'text-blue-300 bg-blue-500/15 group-hover:bg-blue-500 group-hover:text-white group-hover:shadow-blue-500/20',
       darkHoverClass: 'hover:border-blue-500/50 hover:shadow-blue-950/30',
+    },
+    {
+      title: '音效命名工具',
+      description: '批量识别短音效台词，校对后直接重命名文件',
+      path: '/soundEffectNaming',
+      icon: AudioLines,
+      image: '',
+      tileClass: 'from-emerald-500 via-teal-600 to-cyan-700',
+      iconClass: 'text-emerald-500 bg-emerald-100/80 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-emerald-500/20',
+      hoverClass: 'hover:border-emerald-200 hover:shadow-emerald-100',
+      darkIconClass: 'text-emerald-300 bg-emerald-500/15 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-emerald-500/20',
+      darkHoverClass: 'hover:border-emerald-500/50 hover:shadow-emerald-950/30',
     },
   ];
 
@@ -669,6 +682,7 @@ const AppContent: React.FC = () => {
         <Route path="/resize" element={<ResizeMode />} />
         <Route path="/subtitleExtractor" element={<SubtitleExtractorMode />} />
         <Route path="/textToSpeech" element={<TextToSpeechMode />} />
+        <Route path="/soundEffectNaming" element={<SoundEffectNamingMode />} />
         <Route path="/skinStore" element={<SkinStoreMode />} />
         <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />

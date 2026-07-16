@@ -1,9 +1,10 @@
 import type {
   OverlayCropTransform,
   OverlayExportOptions,
+  OverlayTemplateMode,
 } from '@shared/overlay';
 
-export type OverlayEditingTarget = 'top' | 'video' | 'bottom';
+export type OverlayEditingTarget = 'first' | 'video' | 'second';
 export type OverlayTaskStatus =
   | 'pending'
   | 'editing'
@@ -27,14 +28,15 @@ export interface OverlayAsset {
 export interface OverlayEditorTask {
   id: string;
   name: string;
-  topAsset: OverlayAsset | null;
-  bottomAsset: OverlayAsset | null;
+  mode: OverlayTemplateMode;
+  firstAsset: OverlayAsset | null;
+  secondAsset: OverlayAsset | null;
   sameSource: boolean;
-  videoY: number;
-  topTransform: OverlayCropTransform;
-  bottomTransform: OverlayCropTransform;
-  topLocked: boolean;
-  bottomLocked: boolean;
+  position: number;
+  firstTransform: OverlayCropTransform;
+  secondTransform: OverlayCropTransform;
+  firstLocked: boolean;
+  secondLocked: boolean;
   selected: boolean;
   status: OverlayTaskStatus;
   error: string | null;
@@ -50,4 +52,3 @@ export interface OverlayConfirmAction {
   confirmText?: string;
   onConfirm: () => void;
 }
-

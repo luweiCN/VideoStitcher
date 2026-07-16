@@ -13,7 +13,7 @@ interface AssetSlotProps {
   onClear: () => void;
 }
 
-/** 上下素材槽位，展示缩略图、文件名和原图尺寸。 */
+/** 通用素材槽位，展示缩略图、文件名和原图尺寸。 */
 const AssetSlot: React.FC<AssetSlotProps> = ({
   label,
   asset,
@@ -63,6 +63,8 @@ const AssetSlot: React.FC<AssetSlotProps> = ({
         type="button"
         onClick={onReplace}
         disabled={disabled}
+        aria-label={`替换${label}`}
+        title={`替换${label}`}
         className="flex items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-900/70 px-2 py-1.5 text-[10px] text-slate-300 transition-colors hover:border-amber-500/40 hover:text-amber-300 disabled:opacity-40"
       >
         <RefreshCw className="h-3 w-3" />
@@ -72,6 +74,8 @@ const AssetSlot: React.FC<AssetSlotProps> = ({
         type="button"
         onClick={onClear}
         disabled={disabled || !asset}
+        aria-label={`清除${label}`}
+        title={`清除${label}`}
         className="flex items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-900/70 px-2 py-1.5 text-[10px] text-slate-400 transition-colors hover:border-rose-500/40 hover:text-rose-300 disabled:opacity-40"
       >
         <Trash2 className="h-3 w-3" />
@@ -82,4 +86,3 @@ const AssetSlot: React.FC<AssetSlotProps> = ({
 );
 
 export default AssetSlot;
-
