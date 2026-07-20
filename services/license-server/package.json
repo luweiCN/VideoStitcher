@@ -1,0 +1,48 @@
+{
+  "name": "@videostitcher/license-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && concurrently --kill-others --names 服务端编译,授权服务,管理后台 \"npm run dev:server:build\" \"npm run dev:server\" \"npm run dev:admin\"",
+    "dev:server:build": "tsc -p tsconfig.json --watch --preserveWatchOutput",
+    "dev:server": "node --watch dist/src/local.js",
+    "dev:admin": "vite build --watch --config admin/vite.config.ts",
+    "build": "npm run build:server && npm run build:admin",
+    "build:server": "tsc -p tsconfig.json",
+    "build:admin": "tsc -p admin/tsconfig.json --noEmit && vite build --config admin/vite.config.ts",
+    "prepare:deploy": "node scripts/prepare-vefaas-deploy.mjs",
+    "build:deploy": "npm run build && npm run prepare:deploy",
+    "deploy:login": "vefaas login --sso --keychain --region cn-beijing",
+    "deploy:link": "vefaas link --func videostitcher-license-prod --region cn-beijing",
+    "deploy": "vefaas deploy --func videostitcher-license-prod --region cn-beijing --buildCommand 'npm run build:deploy' --outputPath .deploy --minInstance 0 --maxInstance 2 --yes",
+    "deploy:logs": "vefaas function logs --func videostitcher-license-prod --region cn-beijing",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p admin/tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "start": "node dist/src/local.js"
+  },
+  "dependencies": {
+    "@volcengine/tos-sdk": "^2.9.1"
+  },
+  "devDependencies": {
+    "@mantine/core": "^9.4.1",
+    "@mantine/form": "^9.4.1",
+    "@mantine/hooks": "^9.4.1",
+    "@mantine/modals": "^9.4.1",
+    "@mantine/notifications": "^9.4.1",
+    "@tabler/icons-react": "^3.45.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "@types/node": "^25.2.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "@volcengine/vefaas-cli": "0.3.1",
+    "concurrently": "^9.2.1",
+    "typescript": "~5.8.2",
+    "vite": "^6.4.3"
+  },
+  "overrides": {
+    "axios": "1.18.1"
+  }
+}

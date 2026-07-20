@@ -404,7 +404,7 @@ const LosslessGridMode: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   onClick={resetToNineGrid}
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   className="w-full text-slate-400"
                   themeColor="cyan"
@@ -413,7 +413,7 @@ const LosslessGridMode: React.FC = () => {
                 </Button>
                 <Button
                   onClick={clearLines}
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   className="w-full text-red-400 border-red-900/30"
                   themeColor="cyan"

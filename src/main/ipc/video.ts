@@ -3,7 +3,8 @@
  * 扩展现有的视频处理功能, 支持 VideoMaster 的所有视频模式
  */
 
-import { ipcMain, IpcMainInvokeEvent, app } from 'electron';
+import { IpcMainInvokeEvent, app } from 'electron';
+import { trustedIpcMain as ipcMain } from './security';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -18,6 +19,7 @@ import {
   getSubtitleModelStatus,
   type SubtitleExtractRequest,
 } from '@main/services/SubtitleExtractor';
+import { withLicenseAccess } from '@main/services/LicenseGate';
 
 interface VideoDimensions {
   width: number;
@@ -91,14 +93,6 @@ interface VerticalMergeConfig {
   bPositions?: Position[];
   bgPosition?: Position;
   coverPosition?: Position;
-}
-
-interface ResizeConfig {
-  videos: Array<{ path: string; id: string }>;
-  mode: string;
-  blurAmount: number;
-  outputDir: string;
-  concurrency?: number;
 }
 
 // 创建任务队列
@@ -756,7 +750,7 @@ async function handleMergePreviewFast(
       aPath: aVideo, bPath: bVideo, outPath: previewPath, bgImage, coverImage,
       aPosition, bPosition, coverPosition, orientation: orientation as 'vertical' | 'horizontal',
       preview: previewConfig, trim, coverDuration: 0.3,
-      hasAudioA: !!metaA?.audio, hasAudioB: !!metaB?.audio,
+      hasAudioA: metaA?.hasAudio ?? false, hasAudioB: metaB.hasAudio,
       durationA: metaA?.duration, durationB: metaB?.duration,
     });
 
@@ -1134,29 +1128,24 @@ async function handleDeleteTempPreview(tempPath: string): Promise<{ success: boo
  */
 export function registerVideoHandlers(): void {
   // A+B 前后拼接
-  ipcMain.handle('video-stitch-ab', async (event, config: Task[]) => {
+  ipcMain.handle('video-stitch-ab', withLicenseAccess(async (event, config: Task[]) => {
     return handleStitchAB(event, config);
-  });
-
-  // 智能改尺寸
-  ipcMain.handle('video-resize', async (event, config: ResizeConfig) => {
-    return handleResize(event, config);
-  });
+  }));
 
   // 横屏合成预览
-  ipcMain.handle('preview-horizontal', async (event, config) => {
+  ipcMain.handle('preview-horizontal', withLicenseAccess(async (event, config) => {
     return handleHorizontalPreview(event, config);
-  });
+  }));
 
   // 竖屏合成预览
-  ipcMain.handle('preview-vertical', async (event, config) => {
+  ipcMain.handle('preview-vertical', withLicenseAccess(async (event, config) => {
     return handleVerticalPreview(event, config);
-  });
+  }));
 
   // 极速合成快速预览
-  ipcMain.handle('preview-merge-fast', async (event, config) => {
+  ipcMain.handle('preview-merge-fast', withLicenseAccess(async (event, config) => {
     return handleMergePreviewFast(event, config);
-  });
+  }));
 
   // 清理预览文件
   ipcMain.handle('clear-previews', async () => {
@@ -1164,9 +1153,9 @@ export function registerVideoHandlers(): void {
   });
 
   // 智能改尺寸预览
-  ipcMain.handle('generate-resize-previews', async (event, config) => {
+  ipcMain.handle('generate-resize-previews', withLicenseAccess(async (event, config) => {
     return handleGenerateResizePreviews(event, config);
-  });
+  }));
 
   // 清理智能改尺寸预览
   ipcMain.handle('clear-resize-previews', async (event, config) => {
@@ -1194,9 +1183,9 @@ export function registerVideoHandlers(): void {
   });
 
   // 生成 A+B 拼接预览视频
-  ipcMain.handle('generate-stitch-preview', async (event, config) => {
+  ipcMain.handle('generate-stitch-preview', withLicenseAccess(async (event, config) => {
     return handleGenerateStitchPreview(event, config);
-  });
+  }));
 
   // 删除临时预览文件
   ipcMain.handle('delete-temp-preview', async (_event, tempPath: string) => {
@@ -1204,11 +1193,11 @@ export function registerVideoHandlers(): void {
   });
 
   // 视频台词识别
-  ipcMain.handle('video:extract-subtitles', async (event, request: SubtitleExtractRequest) => {
+  ipcMain.handle('video:extract-subtitles', withLicenseAccess(async (event, request: SubtitleExtractRequest) => {
     return extractSubtitles(request, progress => {
       event.sender.send('subtitle-extract-progress', progress);
     });
-  });
+  }));
 
   // 获取字幕识别模型状态
   ipcMain.handle('video:subtitle-model-status', async () => {

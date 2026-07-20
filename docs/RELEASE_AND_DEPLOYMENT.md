@@ -1,0 +1,58 @@
+# 发布与部署说明
+
+桌面客户端和授权服务使用两条独立流水线：授权服务部署到 veFaaS；常规桌面版本只发布到专用 TOS 更新桶。迁移期间仅使用一次 GitHub 桥接 Workflow，让旧客户端安装内置 TOS 更新地址的新版本；桥接版运行时仍然只访问 TOS。私有 GitHub 仓库只保存源码和运行 CI，不作为客户端更新源。授权业务 JSON 与更新安装包必须使用不同的 TOS Bucket 和不同的最小权限凭据。
+
+## 授权服务自动部署
+
+`.github/workflows/deploy-license-server.yml` 在 Pull Request 中执行类型检查、测试、构建与依赖门禁，合并到 `master` 后部署 `videostitcher-license-prod`。在 GitHub Environment `license-production` 中配置：
+
+| 类型 | 名称 | 用途 |
+|---|---|---|
+| Secret | `VOLC_ACCESS_KEY_ID` | 仅能部署目标函数的火山子账号 AK |
+| Secret | `VOLC_SECRET_ACCESS_KEY` | 对应 SK |
+| Secret | `VOLC_SESSION_TOKEN` | 使用 STS 时设置，可留空 |
+| Variable | `LICENSE_SERVER_HEALTH_URL` | 必填的线上 `/health` HTTPS 地址 |
+
+函数自身的签名私钥、pepper、TOS 业务存储配置和管理员初始化配置留在 veFaaS 加密环境变量中，Workflow 不修改这些秘密。首次创建所有者时临时设置 `LICENSE_ALLOW_ADMIN_BOOTSTRAP=true`；成功后确认独立初始化标记存在，立即改为 `false`。
+
+## 桌面客户端发布
+
+在 GitHub Environment `desktop-release` 中配置：
+
+| 类型 | 名称 | 用途 |
+|---|---|---|
+| Variable | `VIDEO_STITCHER_LICENSE_API_URL` | 正式授权 API 的 HTTPS 根地址 |
+| Secret | `VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64` | Ed25519 PEM 公钥的 Base64 |
+| Variable | `VIDEO_STITCHER_UPDATE_BASE_URL` | TOS/CDN 的 `stable` HTTPS 目录 |
+| Secret | `MACOS_CSC_LINK` / `MACOS_CSC_KEY_PASSWORD` | Developer ID 证书与密码 |
+| Secret | `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` | macOS 公证配置 |
+| Secret | `WINDOWS_CSC_LINK` / `WINDOWS_CSC_KEY_PASSWORD` | Windows Authenticode 证书与密码 |
+| Secret | `TOS_UPDATE_ACCESS_KEY_ID` / `TOS_UPDATE_SECRET_ACCESS_KEY` | 只允许写更新桶指定前缀的凭据 |
+| Secret | `TOS_UPDATE_SESSION_TOKEN` | 使用 STS 时设置，可留空 |
+| Variable | `TOS_UPDATE_REGION` / `TOS_UPDATE_ENDPOINT` / `TOS_UPDATE_BUCKET` | 更新桶配置 |
+| Variable | `TOS_UPDATE_PREFIX` | 默认 `stable`，需与更新 URL 对应 |
+| Variable | `RELEASE_NOTES_AI_MODEL` | 可选，GitHub Models 模型；默认 `openai/gpt-4o` |
+
+建议两个 Environment 都启用 Required reviewers。正式发布流程不会改写或推送版本提交：维护人员先提交并评审版本号，再手动输入相同版本触发 Workflow。任何测试、配置、签名、公证或产物检查失败都会阻止 Release。
+
+- Workflow 自动读取上一个私有版本标签到当前提交之间的标题与正文，再由 GitHub Models 整理成面向用户的简体中文更新说明。提交内容只作为不可信数据，不上传源码差异。AI 超时、限流或格式异常时自动退回规则摘要，不会阻断发布；触发页面仍保留可选的人工覆盖字段处理特殊情况。
+- 最终同一份说明会写入 `latest.yml`、`latest-mac.yml`，客户端从 TOS 检查更新时直接展示；同时保存为不可变的 `stable/releases/<version>.json`。每次 TOS 发布成功后创建私有 Git 标签，作为下一版的提交比较基线。
+- “发布桌面客户端到 TOS”用于所有常规版本，只发布 TOS。上传后会对安装包和 blockmap 发起 Range 请求，未返回 `206 Partial Content` 时发布失败，避免误以为差分更新已经可用。
+- “发布一次性 GitHub 桥接版本”仅在迁移时使用一次。它调用同一构建流程，先发布并验证 TOS，再把已经写入更新说明的同一批 Actions Artifacts 发布为 GitHub Release，不会重新构建。
+- 桥接 Workflow 需要 `contents: write` 创建 tag 和 Release；常规 Workflow 保持 `contents: read`。
+
+## 自定义域名
+
+授权函数通过 API 网关服务对外提供访问。生产环境建议先给现有网关服务绑定稳定域名，例如 `license.example.com`，配置 HTTPS 证书与 CNAME 后，再把 `VIDEO_STITCHER_LICENSE_API_URL` 和 `LICENSE_SERVER_HEALTH_URL` 改为该域名。后续更换网关时只需调整 DNS，不必为了修改授权 API 地址重新发布客户端。
+
+更新安装包不经过函数或 API 网关。若需要 `download.example.com`，应单独在 TOS/CDN 配置，并把 `VIDEO_STITCHER_UPDATE_BASE_URL` 指向其 `stable` 目录，避免由网关中转大文件产生额外流量和破坏 Range 差分下载。
+
+## 私有仓库切换与存量客户端迁移
+
+1. 先配置更新专用 TOS Bucket；安装包和 blockmap 使用带版本文件名及长缓存，`latest.yml`、`latest-mac.yml` 使用短缓存或不缓存。
+2. 在受审查的提交中把版本号提升到严格高于 `v2.8.0`，例如 `v2.9.0`。该桥接版的构建配置和运行时代码都只认识 TOS。
+3. 手动触发“发布一次性 GitHub 桥接版本”，填写版本号，通常让更新说明覆盖字段保持为空。Workflow 自动生成说明且只构建一次，先按 pointer-last 顺序发布 TOS，再把完全相同的安装包、blockmap、manifest 和说明发布到 GitHub Release。
+4. 已安装的旧版本通过现有 GitHub 更新源发现并安装桥接版；桥接版启动后只从 TOS 检查后续版本，不保留 GitHub 网络故障回退。
+5. 通过授权心跳中的客户端版本确认活跃用户已经迁移，再使用“发布桌面客户端到 TOS”发布一个仅存在于 TOS 的更高版本，实测桥接版到新版本的增量更新。
+6. 验证成功后把 GitHub 仓库转为私有。遗漏迁移的旧客户端使用 TOS 上保留的签名桥接安装包手动覆盖安装，不能在客户端嵌入 GitHub Token。
+7. GitHub Actions 的临时构建产物只保留三天，不写入客户端，也不是更新回退源。

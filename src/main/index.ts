@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
+import { pathToFileURL } from 'url';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 
 // 初始化日志模块（必须在其他模块之前导入）
@@ -27,9 +28,6 @@ import { taskQueueManager, TaskCancelledError } from '@main/services/TaskQueueMa
 
 // 导入自动更新模块
 import { setupAutoUpdater, setMainWindow as setAutoUpdaterWindow, setDevelopmentMode } from '@main/autoUpdater';
-
-// macOS 更新处理器
-import { setupUpdateHandlers } from '@main/ipc-handlers';
 
 // 全局错误处理：忽略任务取消错误
 process.on('uncaughtException', (error) => {
@@ -85,6 +83,28 @@ function createWindow(): void {
     },
   });
 
+  const rendererHtmlPath = join(__dirname, '../renderer/index.html');
+  const rendererFileUrl = pathToFileURL(rendererHtmlPath);
+  const developmentRendererUrl = process.env['ELECTRON_RENDERER_URL'];
+
+  const isTrustedRendererUrl = (targetUrl: string): boolean => {
+    try {
+      const target = new URL(targetUrl);
+
+      if (is.dev && developmentRendererUrl) {
+        return target.origin === new URL(developmentRendererUrl).origin;
+      }
+
+      return target.protocol === 'file:' && target.pathname === rendererFileUrl.pathname;
+    } catch {
+      return false;
+    }
+  };
+
+  // 所有外部页面必须通过受限的 openExternal IPC 在系统浏览器中打开。
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-attach-webview', (event) => event.preventDefault());
+
   // 窗口准备好后显示
   win.once('ready-to-show', () => {
     console.log('[主进程] 窗口 ready-to-show，即将显示');
@@ -107,10 +127,11 @@ function createWindow(): void {
     win = null;
   });
 
-  // 阻止默认的拖放行为
+  // 禁止当前高权限 renderer 导航到非应用页面。
   win.webContents.on('will-navigate', (event, url) => {
-    if (url.startsWith('file://')) {
+    if (!isTrustedRendererUrl(url)) {
       event.preventDefault();
+      console.warn('[主进程] 已阻止非受信任页面导航');
     }
   });
 
@@ -153,9 +174,8 @@ function createWindow(): void {
     });
   } else {
     console.log("Production mode: loading built files");
-    const htmlPath = join(__dirname, '../renderer/index.html');
-    console.log("Loading HTML from:", htmlPath);
-    win.loadFile(htmlPath).catch((err) => {
+    console.log("Loading HTML from:", rendererHtmlPath);
+    win.loadFile(rendererHtmlPath).catch((err) => {
       console.error("Failed to load production build:", err);
     });
   }
@@ -171,14 +191,14 @@ function registerAllHandlers(): void {
 
   // 设置主窗口引用
   registerFileExplorerHandlers(win);
-  registerApplicationHandlers(win);
+  registerApplicationHandlers();
   setAutoUpdaterWindow(win);
   setTaskQueueMainWindow(win);
 
   // 注册各模块处理器
   registerVideoHandlers();
   registerImageHandlers();
-  registerAuthHandlers();
+  registerAuthHandlers(win);
   registerTaskGeneratorHandlers();
   registerSystemHandlers();
   registerTtsHandlers();
@@ -236,19 +256,6 @@ app.whenReady().then(() => {
     registerAllHandlers();
   } catch (err) {
     console.error('[主进程] 注册 IPC 处理器失败:', err);
-  }
-
-  // macOS 应用内更新处理器
-  if (process.platform === 'darwin') {
-    try {
-      console.log('[主进程] 加载 macOS 更新处理器...');
-      if (win) {
-        (win as any).macUpdater = setupUpdateHandlers(win);
-      }
-      console.log('[主进程] macOS 更新处理器已启用');
-    } catch (err) {
-      console.error('[主进程] macOS 更新处理器加载失败:', err);
-    }
   }
 
   // 配置自动更新

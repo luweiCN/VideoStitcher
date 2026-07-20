@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { HashRouter, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { HashRouter, Navigate, Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Maximize2, Grid3X3, Settings, FileText, Image as ImageIcon, Layers, Captions, Mic2, AudioLines, ArrowRight, Play, Moon, Sun, Palette, Shuffle } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { ToastProvider } from './components/Toast';
+import { ToastProvider, useToastMessages } from './components/Toast';
 import VideoMergeMode from './features/VideoMergeMode';
 import FileNameExtractorMode from './features/FileNameExtractorMode';
 import CoverToolboxMode from './features/CoverToolboxMode';
@@ -534,10 +534,12 @@ const HomePage: React.FC<{
 const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToastMessages();
   const [searchParams] = useSearchParams();
+  const currentAdminTab = searchParams.get('tab');
   
   // 检查是否在版本更新页面
-  const isOnUpdatesTab = location.pathname === '/admin' && searchParams.get('tab') === 'updates';
+  const isOnUpdatesTab = location.pathname === '/admin' && currentAdminTab === 'updates';
   
   const [appVersion, setAppVersion] = useState<string>('加载中...');
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -548,6 +550,24 @@ const AppContent: React.FC = () => {
   // 授权状态
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [isCheckingLicense, setIsCheckingLicense] = useState(true);
+
+  const handleUnauthorized = useCallback(async () => {
+    try {
+      const queue = await window.api.getQueueStatus();
+      if (queue.running > 0) {
+        toast.warning(
+          '当前正在运行的任务会继续完成，但不会再启动下一项。续费或兑换套餐后可恢复队列。',
+          '套餐已到期',
+          8000,
+        );
+        navigate('/taskCenter', { replace: true });
+        return;
+      }
+    } catch {
+      // 无法读取队列时按未授权流程处理。
+    }
+    navigate('/unauthorized', { replace: true });
+  }, [navigate, toast]);
 
   // 获取应用版本
   useEffect(() => {
@@ -564,17 +584,23 @@ const AppContent: React.FC = () => {
 
   // 检查授权状态
   useEffect(() => {
+    const canOpenWithoutAccess = location.pathname === '/unauthorized'
+      || location.pathname === '/license'
+      || location.pathname === '/taskCenter'
+      || location.pathname === '/tasks'
+      || location.pathname.startsWith('/task/')
+      || (location.pathname === '/admin' && (currentAdminTab === 'license' || currentAdminTab === 'updates'));
     const checkLicense = async () => {
       try {
         const result = await window.api.checkLicense();
         setIsAuthorized(result.authorized);
-        if (!result.authorized) {
-          navigate('/unauthorized', { replace: true });
+        if (!result.authorized && !canOpenWithoutAccess) {
+          await handleUnauthorized();
         }
       } catch (error) {
         console.error('授权检查失败:', error);
         setIsAuthorized(false);
-        navigate('/unauthorized', { replace: true });
+        if (!canOpenWithoutAccess) await handleUnauthorized();
       } finally {
         setIsCheckingLicense(false);
       }
@@ -584,13 +610,13 @@ const AppContent: React.FC = () => {
 
     const cleanup = window.api.onLicenseStatusChanged((data) => {
       setIsAuthorized(data.authorized);
-      if (!data.authorized) {
-        navigate('/unauthorized', { replace: true });
+      if (!data.authorized && !canOpenWithoutAccess) {
+        void handleUnauthorized();
       }
     });
 
     return cleanup;
-  }, [navigate]);
+  }, [currentAdminTab, handleUnauthorized, location.pathname]);
 
   // 监听更新事件
   useEffect(() => {
@@ -670,6 +696,7 @@ const AppContent: React.FC = () => {
     <>
       <Routes>
         <Route path="/unauthorized" element={<UnauthorizedMode />} />
+        <Route path="/license" element={<Navigate to="/admin?tab=license" replace />} />
         <Route path="/videoMerge" element={<VideoMergeMode />} />
         <Route path="/videoDedup" element={<VideoDedupMode />} />
         <Route path="/imageWorkshop" element={<ImageMaterialWorkshopMode />} />

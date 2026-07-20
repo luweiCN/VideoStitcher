@@ -3,7 +3,8 @@
  * 使用 Sharp 处理图片相关功能
  */
 
-import { ipcMain, IpcMainInvokeEvent, app } from 'electron';
+import { IpcMainInvokeEvent, app } from 'electron';
+import { trustedIpcMain as ipcMain } from './security';
 import { fork, ChildProcess } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -19,6 +20,7 @@ import { generateFileName } from '@shared/utils/fileNameHelper';
 import { SafeOutput } from '@shared/utils/safeOutput';
 import { renderOverlayGeneratorTask } from '@shared/sharp/overlay';
 import type { OverlayGeneratorTaskConfig } from '@shared/overlay';
+import { withLicenseAccess } from '@main/services/LicenseGate';
 
 // TaskFile 接口（与任务中心一致）
 interface TaskFile {
@@ -551,14 +553,14 @@ export function registerImageHandlers(): void {
   });
 
   // 图片压缩
-  ipcMain.handle('image-compress', async (event, config: ImageCompressConfig) => {
+  ipcMain.handle('image-compress', withLicenseAccess(async (event, config: ImageCompressConfig) => {
     return handleImageCompress(event, config);
-  });
+  }));
 
   // 图片素材处理预览
-  ipcMain.handle('preview-image-material', async (event, config: ImageMaterialPreviewConfig) => {
+  ipcMain.handle('preview-image-material', withLicenseAccess(async (event, config: ImageMaterialPreviewConfig) => {
     return handleImageMaterialPreview(event, config);
-  });
+  }));
 
   // 获取预览文件的 URL
   ipcMain.handle('get-preview-url', async (_event, filePath: string) => {

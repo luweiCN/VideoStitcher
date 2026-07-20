@@ -2,6 +2,11 @@ import { contextBridge, webUtils } from 'electron';
 import { electronAPI } from '@electron-toolkit/preload';
 import type { Task } from '../shared/types/task';
 import type {
+  LicensePackageCenterResult,
+  PublicLicensePlanResult,
+  RedeemLicensePackageCodeResult,
+} from '@shared/types/license';
+import type {
   GreenScreenRecipe,
   VideoDedupEvent,
   VideoDedupLibraryScanResult,
@@ -345,12 +350,9 @@ export interface ElectronAPI {
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
-
-  // macOS 应用内更新 API
-  macSetUpdateInfo: (updateInfo: { version: string; releaseDate: string; releaseNotes: string }) => Promise<{ success: boolean; error?: string }>;
-  macCheckForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
-  macDownloadUpdate: () => Promise<{ success: boolean; error?: string }>;
-  macInstallUpdate: () => Promise<{ success: boolean; error?: string }>;
+  getLogFilePath: () => Promise<{ path: string }>;
+  getLogContent: (lines?: number) => Promise<{ success: boolean; content?: string; error?: string }>;
+  openLogDirectory: () => Promise<{ success: boolean; error?: string }>;
 
   // 自动更新事件
   onUpdateChecking: (callback: () => void) => () => void;
@@ -362,6 +364,9 @@ export interface ElectronAPI {
 
   // === 授权 API ===
   getMachineId: () => Promise<{ success: boolean; machineId?: string; error?: string }>;
+  getPublicLicensePlans: () => Promise<PublicLicensePlanResult>;
+  getLicensePackageCenter: () => Promise<LicensePackageCenterResult>;
+  redeemLicensePackageCode: (code: string) => Promise<RedeemLicensePackageCodeResult>;
   checkLicense: (params?: { forceRefresh?: boolean }) => Promise<{
     authorized: boolean;
     developmentMode?: boolean;
@@ -373,6 +378,8 @@ export interface ElectronAPI {
     updatedAt?: string;
     offline?: boolean;
     needsOnlineVerification?: boolean;
+    trialExpired?: boolean;
+    accessSource?: 'trial' | 'complimentary' | 'paid' | 'legacy';
   }>;
   getLicenseInfo: () => Promise<{
     authorized: boolean;
@@ -475,6 +482,10 @@ export interface ElectronAPI {
   generateLosslessGridTasks: (config: {
     images: string[];
     outputDir: string;
+    config?: {
+      horizontalLines?: number[];
+      verticalLines?: number[];
+    };
   }) => Promise<{
     success: boolean;
     tasks: Task[];
@@ -692,12 +703,6 @@ const api: ElectronAPI = {
   getLogContent: (lines?: number) => ipcRenderer.invoke("get-log-content", lines),
   openLogDirectory: () => ipcRenderer.invoke("open-log-directory"),
 
-  // macOS 应用内更新 API
-  macSetUpdateInfo: (updateInfo) => ipcRenderer.invoke("mac-set-update-info", updateInfo),
-  macCheckForUpdates: () => ipcRenderer.invoke("mac-check-for-updates"),
-  macDownloadUpdate: () => ipcRenderer.invoke("mac-download-update"),
-  macInstallUpdate: () => ipcRenderer.invoke("mac-install-update"),
-
   // 自动更新事件
   onUpdateChecking: (cb) => ipcRenderer.on("update-checking", () => cb()),
   onUpdateAvailable: (cb) => ipcRenderer.on("update-available", (_e, data) => cb(data)),
@@ -708,6 +713,9 @@ const api: ElectronAPI = {
 
   // 授权 API
   getMachineId: () => ipcRenderer.invoke("auth:get-machine-id"),
+  getPublicLicensePlans: () => ipcRenderer.invoke("auth:get-public-plans"),
+  getLicensePackageCenter: () => ipcRenderer.invoke("auth:get-package-center"),
+  redeemLicensePackageCode: (code) => ipcRenderer.invoke("auth:redeem-package-code", code),
   checkLicense: (params) => ipcRenderer.invoke("auth:check-license", params || {}),
   getLicenseInfo: () => ipcRenderer.invoke("auth:get-license-info"),
   onLicenseStatusChanged: (cb) => ipcRenderer.on("license-status-changed", (_e, data) => cb(data)),

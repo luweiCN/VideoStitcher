@@ -3,7 +3,8 @@
  * 在主进程中生成任务，减轻渲染进程负担
  */
 
-import { ipcMain } from 'electron';
+import { trustedIpcMain as ipcMain } from './security';
+import { withLicenseAccess } from '@main/services/LicenseGate';
 
 interface SortConfig {
   priority: number[];
@@ -516,27 +517,27 @@ function generateLosslessGridTasks(_event: Electron.IpcMainInvokeEvent, params: 
  */
 export function registerTaskGeneratorHandlers(): void {
   // 生成 A+B 前后拼接任务
-  ipcMain.handle("task:generate-stitch", generateStitchTasks);
+  ipcMain.handle("task:generate-stitch", withLicenseAccess(generateStitchTasks));
   console.log("[主进程] 任务生成器已注册: task:generate-stitch");
 
   // 生成视频合成任务
-  ipcMain.handle("task:generate-merge", generateMergeTasks);
+  ipcMain.handle("task:generate-merge", withLicenseAccess(generateMergeTasks));
   console.log("[主进程] 任务生成器已注册: task:generate-merge");
 
   // 生成智能改尺寸任务
-  ipcMain.handle("task:generate-resize", generateResizeTasks);
+  ipcMain.handle("task:generate-resize", withLicenseAccess(generateResizeTasks));
   console.log("[主进程] 任务生成器已注册: task:generate-resize");
 
   // 生成图片素材处理任务
-  ipcMain.handle("task:generate-image-material", generateImageMaterialTasks);
+  ipcMain.handle("task:generate-image-material", withLicenseAccess(generateImageMaterialTasks));
   console.log("[主进程] 任务生成器已注册: task:generate-image-material");
 
   // 生成封面格式转换任务
-  ipcMain.handle("task:generate-cover-format", generateCoverFormatTasks);
+  ipcMain.handle("task:generate-cover-format", withLicenseAccess(generateCoverFormatTasks));
   console.log("[主进程] 任务生成器已注册: task:generate-cover-format");
 
   // 生成无损九宫格任务
-  ipcMain.handle("task:generate-lossless-grid", generateLosslessGridTasks);
+  ipcMain.handle("task:generate-lossless-grid", withLicenseAccess(generateLosslessGridTasks));
   console.log("[主进程] 任务生成器已注册: task:generate-lossless-grid");
 }
 
@@ -548,4 +549,3 @@ export {
   generateCoverFormatTasks,
   generateLosslessGridTasks,
 };
-

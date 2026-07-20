@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 out/
 dist/
+.release/
 
 # Local subtitle recognition demo assets
 .demo-tools/
@@ -35,3 +36,7 @@ npm-debug.log*
 # OS generated files
 Thumbs.db
 *.tsbuildinfo
+
+# 本地授权服务部署产物和临时装配目录
+services/license-server/.deploy/
+services/license-server/videostitcher-license-server-*.zip

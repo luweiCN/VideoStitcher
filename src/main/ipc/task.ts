@@ -3,11 +3,13 @@
  * 处理任务相关的 IPC 通信
  */
 
-import { ipcMain, BrowserWindow } from 'electron';
-import { taskRepository } from '../database/repositories/task.repository';
-import { taskLogRepository } from '../database/repositories/task-log.repository';
-import { configRepository } from '../database/repositories/config.repository';
-import { taskQueueManager } from '../services/TaskQueueManager';
+import { BrowserWindow } from 'electron';
+import { trustedIpcMain as ipcMain } from '@main/ipc/security';
+import { taskRepository } from '@main/database/repositories/task.repository';
+import { taskLogRepository } from '@main/database/repositories/task-log.repository';
+import { configRepository } from '@main/database/repositories/config.repository';
+import { taskQueueManager } from '@main/services/TaskQueueManager';
+import { licenseGate } from '@main/services/LicenseGate';
 import type {
   CreateTaskRequest,
   TaskListOptions,
@@ -34,6 +36,7 @@ export function registerTaskHandlers(): void {
    */
   ipcMain.handle('task:create', async (_event, request: CreateTaskRequest) => {
     try {
+      await licenseGate.assertAccess();
       taskQueueManager.init();
       const task = taskRepository.createTask({
         type: request.type,
@@ -79,6 +82,7 @@ export function registerTaskHandlers(): void {
     outputDir?: string;
   }>) => {
     try {
+      await licenseGate.assertAccess();
       taskQueueManager.init();
       const createdTasks: Task[] = [];
       const errors: { index: number; error: string }[] = [];
@@ -205,6 +209,7 @@ export function registerTaskHandlers(): void {
    */
   ipcMain.handle('task:start', async (_event, taskId: number) => {
     try {
+      await licenseGate.assertAccess();
       const task = taskRepository.getTaskById(taskId);
       if (!task) {
         return { success: false, error: '任务不存在' };
@@ -238,6 +243,7 @@ export function registerTaskHandlers(): void {
    */
   ipcMain.handle('task:retry', async (_event, taskId: number) => {
     try {
+      await licenseGate.assertAccess();
       const task = taskRepository.getTaskById(taskId);
       if (!task) {
         return { success: false, error: '任务不存在' };
@@ -261,6 +267,7 @@ export function registerTaskHandlers(): void {
    */
   ipcMain.handle('task:start-all', async () => {
     try {
+      await licenseGate.assertAccess();
       const count = taskQueueManager.resumeAll();
       return { success: true, count };
     } catch (err) {

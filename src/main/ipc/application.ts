@@ -3,39 +3,20 @@
  * 包含：应用版本、全局配置、自动更新、日志管理
  */
 
-import { ipcMain, app, BrowserWindow, shell } from 'electron';
+import { app, shell } from 'electron';
+import { trustedIpcMain as ipcMain } from './security';
 import { autoUpdater } from 'electron-updater';
+import log from 'electron-log';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { getLogFilePath, getLogContent, getLogDirectory } from '@main/utils/logger';
-
-let mainWindow: BrowserWindow | null = null;
+import { checkForUpdates, processReleaseNotes } from '@main/autoUpdater';
 
 /**
  * 检测开发环境
  */
-export const isDevelopment: boolean =
-  process.env.NODE_ENV === 'development' ||
-  process.env.DEBUG === 'true' ||
-  !app.isPackaged;
-
-/**
- * 设置主窗口引用
- */
-export function setMainWindow(win: BrowserWindow): void {
-  mainWindow = win;
-}
-
-/**
- * 处理 releaseNotes
- */
-function processReleaseNotes(releaseNotes: string | any[] | undefined): string {
-  if (!releaseNotes) return '';
-  if (typeof releaseNotes === 'string') return releaseNotes;
-  if (Array.isArray(releaseNotes)) return releaseNotes.map(n => n.note || '').join('\n');
-  return '';
-}
+export const isDevelopment: boolean = !app.isPackaged;
 
 // ==================== 应用信息 ====================
 
@@ -134,38 +115,13 @@ async function handleSetGlobalSettings(_event: Electron.IpcMainInvokeEvent, sett
  */
 async function handleCheckForUpdates(): Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }> {
   try {
-    const log = require('electron-log');
     const currentVersion = app.getVersion();
 
-    log.info('=== 开始检查更新 ===');
-    log.info('当前应用版本:', currentVersion);
+    log.info('[自动更新] 手动检查开始，当前版本:', currentVersion);
 
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      const currentVersionStr = JSON.stringify(currentVersion);
-      mainWindow.webContents.executeJavaScript(`
-        console.log('%c[检查更新]', 'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px;', '开始检查...');
-        console.log('当前版本:', ${currentVersionStr});
-      `);
-    }
+    const result = await checkForUpdates();
 
-    const result = await autoUpdater.checkForUpdates();
-
-    log.info('检查更新结果:', JSON.stringify(result, null, 2));
-
-    if (mainWindow && !mainWindow.isDestroyed() && result) {
-      const hasUpdate = result.versionInfo && result.versionInfo.version !== currentVersion;
-      const resultStr = JSON.stringify({
-        hasUpdate,
-        currentVersion,
-        latestVersion: result.versionInfo?.version,
-        updateInfo: result.updateInfo,
-      });
-      mainWindow.webContents.executeJavaScript(`
-        console.log('检查结果:', ${resultStr});
-      `);
-    }
-
-    const hasUpdate = result?.versionInfo?.version !== currentVersion;
+    const hasUpdate = Boolean(result?.versionInfo?.version && result.versionInfo.version !== currentVersion);
     const updateInfo = result?.updateInfo
       ? {
           ...result.updateInfo,
@@ -175,15 +131,7 @@ async function handleCheckForUpdates(): Promise<{ success: boolean; hasUpdate?: 
 
     return { success: true, hasUpdate, updateInfo };
   } catch (err: any) {
-    const log = require('electron-log');
-    log.error('检查更新失败:', err);
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      const errorMsg = JSON.stringify(err.message);
-      mainWindow.webContents.executeJavaScript(`
-        console.error('%c[检查更新失败]', 'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px;', ${errorMsg});
-      `);
-    }
+    log.error('[自动更新] 手动检查失败:', err);
 
     return { success: false, error: err.message };
   }
@@ -193,7 +141,6 @@ async function handleCheckForUpdates(): Promise<{ success: boolean; hasUpdate?: 
  * 下载更新
  */
 async function handleDownloadUpdate(): Promise<{ success: boolean; error?: string }> {
-  const log = require('electron-log');
   log.info('[下载更新] 开始下载');
 
   try {
@@ -210,7 +157,6 @@ async function handleDownloadUpdate(): Promise<{ success: boolean; error?: strin
  * 安装更新
  */
 async function handleInstallUpdate(): Promise<{ success: boolean; error?: string }> {
-  const log = require('electron-log');
   log.info('[安装更新] 开始安装并重启');
 
   try {
@@ -260,11 +206,7 @@ async function handleOpenLogDirectory(): Promise<{ success: boolean; error?: str
 /**
  * 注册所有应用信息 IPC 处理器
  */
-export function registerApplicationHandlers(win?: BrowserWindow): void {
-  if (win) {
-    mainWindow = win;
-  }
-
+export function registerApplicationHandlers(): void {
   // 应用信息
   ipcMain.handle('get-app-version', handleGetAppVersion);
 

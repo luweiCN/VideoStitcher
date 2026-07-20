@@ -3,10 +3,12 @@
  * 先接入高拟真配音的本机原型环境，后续再替换为正式的按需安装目录。
  */
 
-import { ipcMain, app, shell } from 'electron';
+import { app, shell } from 'electron';
+import { trustedIpcMain as ipcMain } from './security';
 import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { withLicenseAccess } from '@main/services/LicenseGate';
 
 interface TtsEngineStatus {
   installed: boolean;
@@ -169,6 +171,6 @@ async function handleOpenTtsOutput(_event: Electron.IpcMainInvokeEvent, filePath
 
 export function registerTtsHandlers(): void {
   ipcMain.handle('tts:get-status', handleGetTtsStatus);
-  ipcMain.handle('tts:generate', handleGenerateTts);
+  ipcMain.handle('tts:generate', withLicenseAccess(handleGenerateTts));
   ipcMain.handle('tts:open-output', handleOpenTtsOutput);
 }

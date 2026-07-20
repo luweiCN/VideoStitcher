@@ -1,5 +1,10 @@
 import type { Task } from '@shared/types/task';
 import type {
+  LicensePackageCenterResult,
+  PublicLicensePlanResult,
+  RedeemLicensePackageCodeResult,
+} from '@shared/types/license';
+import type {
   GreenScreenRecipe,
   VideoDedupEvent,
   VideoDedupLibraryScanResult,
@@ -371,15 +376,24 @@ export interface ElectronAPI {
   getLogContent: (lines?: number) => Promise<{ success: boolean; content?: string; error?: string }>;
   openLogDirectory: () => Promise<{ success: boolean; error?: string }>;
 
-  // macOS 应用内更新 API
-  macSetUpdateInfo: (updateInfo: {
-    version: string;
-    releaseDate: string;
-    releaseNotes: string;
-  }) => Promise<{ success: boolean; error?: string }>;
-  macCheckForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
-  macDownloadUpdate: () => Promise<{ success: boolean; error?: string }>;
-  macInstallUpdate: () => Promise<{ success: boolean; error?: string }>;
+  getTtsEngineStatus: () => Promise<{
+    installed: boolean;
+    engineName: string;
+    message: string;
+    outputDir?: string;
+  }>;
+  generateTtsPreview: (config: {
+    text: string;
+    voicePackageId: 'cosyvoice';
+  }) => Promise<{
+    success: boolean;
+    outputPath?: string;
+    fileUrl?: string;
+    duration?: number;
+    message?: string;
+    error?: string;
+  }>;
+  openTtsOutput: (filePath: string) => Promise<{ success: boolean; error?: string }>;
 
   // 自动更新事件
   onUpdateChecking: (callback: () => void) => () => void;
@@ -404,6 +418,9 @@ export interface ElectronAPI {
 
   // 授权 API
   getMachineId: () => Promise<{ success: boolean; machineId?: string; error?: string }>;
+  getPublicLicensePlans: () => Promise<PublicLicensePlanResult>;
+  getLicensePackageCenter: () => Promise<LicensePackageCenterResult>;
+  redeemLicensePackageCode: (code: string) => Promise<RedeemLicensePackageCodeResult>;
   checkLicense: (params?: { forceRefresh?: boolean }) => Promise<{
     authorized: boolean;
     developmentMode?: boolean;
@@ -415,6 +432,8 @@ export interface ElectronAPI {
     updatedAt?: string;
     offline?: boolean;
     needsOnlineVerification?: boolean;
+    trialExpired?: boolean;
+    accessSource?: 'trial' | 'complimentary' | 'paid' | 'legacy';
   }>;
   getLicenseInfo: () => Promise<{
     authorized: boolean;
@@ -524,6 +543,10 @@ export interface ElectronAPI {
   generateLosslessGridTasks: (config: {
     images: string[];
     outputDir: string;
+    config?: {
+      horizontalLines?: number[];
+      verticalLines?: number[];
+    };
   }) => Promise<{
     success: boolean;
     tasks: Task[];

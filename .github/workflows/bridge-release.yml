@@ -1,0 +1,28 @@
+name: 发布一次性 GitHub 桥接版本
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '桥接版本，必须与 package.json 一致并高于 GitHub 当前正式版'
+        required: true
+        type: string
+      release_notes_override:
+        description: '可选：人工覆盖 AI 自动生成的更新说明；通常留空'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+  models: read
+
+jobs:
+  bridge-release:
+    name: 构建并双发布桥接版本
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ inputs.version }}
+      release_notes_override: ${{ inputs.release_notes_override }}
+      publish_github_bridge: true
+    secrets: inherit

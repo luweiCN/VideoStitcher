@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Settings,
@@ -25,9 +25,11 @@ import {
   AlertTriangle,
   Archive,
   RotateCcw,
-  FileText
+  FileText,
+  KeyRound,
 } from 'lucide-react';
 import ConcurrencySelector from '@/components/ConcurrencySelector';
+import PackageCenterMode from '@/features/PackageCenterMode';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { useHomeSkin } from '@/hooks/useHomeSkin';
 
@@ -53,6 +55,13 @@ interface UpdateInfo {
   releaseNotes: string;
 }
 
+const ADMIN_SECTIONS = ['system', 'settings', 'license', 'updates', 'database'] as const;
+type AdminSection = (typeof ADMIN_SECTIONS)[number];
+
+function isAdminSection(value: string | null): value is AdminSection {
+  return value !== null && ADMIN_SECTIONS.includes(value as AdminSection);
+}
+
 const AdminMode: React.FC<AdminModeProps> = ({
   initialUpdateInfo,
 }) => {
@@ -61,12 +70,11 @@ const AdminMode: React.FC<AdminModeProps> = ({
   const { workspaceSkinClassName } = useHomeSkin();
   
   // 从 URL 读取当前标签
-  const tabParam = searchParams.get('tab') as 'system' | 'settings' | 'updates' | 'database' | null;
-  const activeSection: 'system' | 'settings' | 'updates' | 'database' = 
-    (tabParam === 'settings' || tabParam === 'updates' || tabParam === 'database') ? tabParam : 'system';
+  const tabParam = searchParams.get('tab');
+  const activeSection: AdminSection = isAdminSection(tabParam) ? tabParam : 'system';
   
   // 切换标签时更新 URL
-  const setActiveSection = useCallback((section: 'system' | 'settings' | 'updates' | 'database') => {
+  const setActiveSection = useCallback((section: AdminSection) => {
     if (section === 'system') {
       setSearchParams({}, { replace: true });
     } else {
@@ -109,17 +117,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
   const [dbRepairResult, setDbRepairResult] = useState<{ success: boolean; needReset?: boolean; error?: string; details?: string[] } | null>(null);
   const [cleanupDays, setCleanupDays] = useState(7);
 
-  // 检测是否为 macOS
-  const isMacOS = navigator.platform.includes('Mac');
-  const isWindows = navigator.platform.includes('Win');
-
-  // 使用 ref 保存 isWindows 的值，避免闭包问题
-  const isWindowsRef = useRef(isWindows);
-  isWindowsRef.current = isWindows;
-
-  // 保存 setUpdateStatus 的原始引用
-  const setUpdateStatusRef = useRef(setUpdateStatus);
-  setUpdateStatusRef.current = setUpdateStatus;
+  const supportsAutoUpdate = navigator.platform.includes('Mac') || navigator.platform.includes('Win');
 
   // 页面加载动画
   const [pageLoaded, setPageLoaded] = useState(false);
@@ -136,10 +134,6 @@ const AdminMode: React.FC<AdminModeProps> = ({
       setUpdateInfo(initialUpdateInfo);
       setUpdateStatus('available');
 
-      // macOS：初始化后端的 updateInfo，避免点击下载时出现"未找到更新信息"
-      if (isMacOS) {
-        window.api.macSetUpdateInfo(initialUpdateInfo);
-      }
     }
   }, [initialUpdateInfo]);
 
@@ -211,10 +205,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
     setUpdateError('');
 
     try {
-      // macOS 使用应用内更新
-      const result = isMacOS 
-        ? await window.api.macCheckForUpdates()
-        : await window.api.checkForUpdates();
+      const result = await window.api.checkForUpdates();
 
       if (result.success && result.hasUpdate && result.updateInfo) {
         setUpdateInfo(result.updateInfo);
@@ -231,74 +222,33 @@ const AdminMode: React.FC<AdminModeProps> = ({
   };
 
   const handleDownloadUpdate = async () => {
-    console.log('%c[AdminMode] 📥 handleDownloadUpdate() 被调用', 'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px;');
-    console.log('[AdminMode] 当前平台:', { isMacOS, isWindows, platform: navigator.platform });
-
     setUpdateStatus('downloading');
     setUpdateError('');
 
     try {
-      // macOS 使用应用内更新
-      console.log('[AdminMode] 开始调用下载 API...');
-      const result = isMacOS
-        ? await window.api.macDownloadUpdate()
-        : await window.api.downloadUpdate();
-
-      console.log('[AdminMode] 下载 API 返回结果:', result);
+      const result = await window.api.downloadUpdate();
 
       if (result.error) {
-        console.error('[AdminMode] 下载返回错误:', result.error);
         setUpdateError(result.error);
         setUpdateStatus('error');
-      } else {
-        console.log('[AdminMode] 下载成功，等待 update-downloaded 事件...');
-        // Windows 和 macOS 都会通过事件触发 downloaded 状态
-        if (isWindows || isMacOS) {
-          setTimeout(() => {
-            console.log('[AdminMode] setTimeout 触发，设置状态为 downloaded');
-            setUpdateStatus('downloaded');
-          }, 100);
-        }
       }
     } catch (err: any) {
-      console.error('[AdminMode] 下载异常:', err);
       setUpdateError(err.message || '下载更新失败');
       setUpdateStatus('error');
     }
   };
 
   const handleInstallUpdate = async () => {
-    console.log('%c[AdminMode] 🔧 handleInstallUpdate() 被调用', 'background: #f59e0b; color: white; padding: 2px 5px; border-radius: 3px;');
-    console.log('[AdminMode] 当前平台:', { isMacOS, isWindows, platform: navigator.platform });
-
     try {
-      // macOS 使用应用内更新
-      if (isMacOS) {
-        console.log('[AdminMode] 调用 macInstallUpdate()...');
-        const result = await window.api.macInstallUpdate();
-        console.log('[AdminMode] macInstallUpdate() 返回结果:', result);
-        if (result.error) {
-          console.error('[AdminMode] 安装返回错误:', result.error);
-          setUpdateError(result.error);
-          setUpdateStatus('error');
-        } else {
-          console.log('[AdminMode] 安装成功，应用应该即将退出');
-        }
-      } else {
-        console.log('[AdminMode] 调用 Windows 安装...');
-        await window.api.installUpdate();
+      const result = await window.api.installUpdate();
+      if (result.error) {
+        setUpdateError(result.error);
+        setUpdateStatus('error');
       }
     } catch (err: any) {
-      console.error('[AdminMode] 安装异常:', err);
       setUpdateError(err.message || '安装更新失败');
       setUpdateStatus('error');
     }
-  };
-
-  // macOS 用户跳转到 GitHub Releases 页面下载更新（保留作为备用）
-  const handleGoToRelease = () => {
-    const releaseUrl = 'https://github.com/luweiCN/VideoStitcher/releases/latest';
-    window.api.openExternal(releaseUrl);
   };
 
   // 保存全局配置
@@ -523,16 +473,6 @@ const AdminMode: React.FC<AdminModeProps> = ({
     }
   };
 
-  /**
-   * 清理更新日志 HTML
-   * 移除 commit hash 链接，例如: (<a ...>94282b6</a>)
-   */
-  const cleanReleaseNotes = (html: string): string => {
-    // 移除包含 commit hash 的 <a> 标签
-    // 匹配模式: (<a class="commit-link" ...><tt>hash</tt></a>)
-    return html.replace(/\s*\(\<a\s+class="commit-link"[^>]*\>\<tt\>[0-9a-f]+\<\/tt\>\<\/a\>\)/gi, '');
-  };
-
   return (
     <div className={`${workspaceSkinClassName} h-screen bg-[#181818] text-[#D1D1D1] overflow-hidden flex`}>
       {/* 动态背景 */}
@@ -577,6 +517,18 @@ const AdminMode: React.FC<AdminModeProps> = ({
           >
             <Gauge className="w-5 h-5" />
             <span className="hidden lg:block font-medium">全局配置</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSection('license')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
+              activeSection === 'license'
+                ? 'bg-gradient-to-r from-violet-600/20 to-purple-600/20 text-violet-400 border border-violet-500/30'
+                : 'hover:bg-slate-800/50 text-slate-400 hover:text-white border border-transparent'
+            }`}
+          >
+            <KeyRound className="w-5 h-5" />
+            <span className="hidden lg:block font-medium">软件授权</span>
           </button>
 
           <button
@@ -629,12 +581,14 @@ const AdminMode: React.FC<AdminModeProps> = ({
               <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                 {activeSection === 'system' && '系统概览'}
                 {activeSection === 'settings' && '全局配置'}
+                {activeSection === 'license' && '软件授权'}
                 {activeSection === 'updates' && '版本更新'}
                 {activeSection === 'database' && '数据库管理'}
               </h1>
               <p className="text-sm text-slate-500 mt-0.5">
                 {activeSection === 'system' && '查看系统信息和应用状态'}
                 {activeSection === 'settings' && '配置默认工作参数'}
+                {activeSection === 'license' && '查看当前设备权益、套餐队列和兑换码'}
                 {activeSection === 'updates' && '检查并安装应用更新'}
                 {activeSection === 'database' && '数据库维护与备份管理'}
               </p>
@@ -1070,7 +1024,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                             <div className="flex-1">
                               <div className="font-medium text-emerald-400">发现新版本 {updateInfo?.version}</div>
                             </div>
-                            {isMacOS || isWindows ? (
+                            {supportsAutoUpdate ? (
                               <button
                                 onClick={handleDownloadUpdate}
                                 className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30"
@@ -1122,7 +1076,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                             <div className="flex-1">
                               <div className="font-medium text-green-400">更新已下载，准备安装</div>
                             </div>
-                            {isMacOS || isWindows ? (
+                            {supportsAutoUpdate ? (
                               <button
                                 onClick={handleInstallUpdate}
                                 className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-lg font-medium transition-all flex items-center gap-2 shadow-lg shadow-green-600/20 hover:shadow-green-600/30"
@@ -1179,10 +1133,9 @@ const AdminMode: React.FC<AdminModeProps> = ({
                           {updateInfo.releaseNotes && (
                             <div>
                               <div className="text-xs text-slate-500 mb-2">更新说明</div>
-                              <div
-                                className="text-sm text-slate-300 release-notes-html"
-                                dangerouslySetInnerHTML={{ __html: cleanReleaseNotes(updateInfo.releaseNotes) }}
-                              />
+                              <div className="text-sm text-slate-300 whitespace-pre-wrap break-words">
+                                {updateInfo.releaseNotes}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1215,6 +1168,8 @@ const AdminMode: React.FC<AdminModeProps> = ({
                 </div>
               </div>
             )}
+
+            {activeSection === 'license' && <PackageCenterMode />}
 
             {activeSection === 'database' && (
               <div className="space-y-6">
@@ -1615,35 +1570,6 @@ const AdminMode: React.FC<AdminModeProps> = ({
           background: rgba(148, 163, 184, 0.5);
         }
 
-        .release-notes-html h1,
-        .release-notes-html h2,
-        .release-notes-html h3 {
-          font-weight: 600;
-          margin-top: 1em;
-          margin-bottom: 0.5em;
-          color: #e2e8f0;
-        }
-        .release-notes-html ul,
-        .release-notes-html ol {
-          margin-left: 1.5em;
-          margin-bottom: 1em;
-        }
-        .release-notes-html li {
-          margin-bottom: 0.25em;
-        }
-        .release-notes-html code {
-          background: rgba(30, 41, 59, 0.5);
-          padding: 0.125rem 0.375rem;
-          border-radius: 0.25rem;
-          font-size: 0.875em;
-        }
-        .release-notes-html a {
-          color: #a78bfa;
-          text-decoration: underline;
-        }
-        .release-notes-html a:hover {
-          color: #c4b5fd;
-        }
       `}</style>
     </div>
   );

@@ -1,4 +1,5 @@
-import { app, ipcMain } from 'electron';
+import { app } from 'electron';
+import { trustedIpcMain as ipcMain } from './security';
 import { execFile } from 'child_process';
 import fs from 'fs';
 import os from 'os';
@@ -6,6 +7,7 @@ import path from 'path';
 import sharp from 'sharp';
 import { getFfmpegPath } from '@shared/ffmpeg';
 import { executeVideoDedupTask } from '../services/VideoDedupEngine';
+import { withLicenseAccess } from '@main/services/LicenseGate';
 import type { Task } from '@shared/types/task';
 import {
   DEFAULT_GREEN_SCREEN_RECIPE,
@@ -344,16 +346,18 @@ export function registerVideoDedupHandlers(): void {
 
   ipcMain.handle(
     'video-dedup:preview-green',
-    async (_event, filePath: string, recipe: GreenScreenRecipe) => previewGreenScreenElement(filePath, recipe),
+    withLicenseAccess(async (_event, filePath: string, recipe: GreenScreenRecipe) => (
+      previewGreenScreenElement(filePath, recipe)
+    )),
   );
 
   ipcMain.handle(
     'video-dedup:generate-preview',
-    async (event, sourcePath: string, config: VideoDedupTaskConfig) => generateVideoDedupPreview(
+    withLicenseAccess(async (event, sourcePath: string, config: VideoDedupTaskConfig) => generateVideoDedupPreview(
       sourcePath,
       config,
       (progress, step) => event.sender.send('video-dedup:preview-progress', { progress, step }),
-    ),
+    )),
   );
 
   ipcMain.handle(

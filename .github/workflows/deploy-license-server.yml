@@ -1,0 +1,129 @@
+name: 部署授权服务
+
+on:
+  pull_request:
+    paths:
+      - 'services/license-server/**'
+      - '.github/workflows/deploy-license-server.yml'
+  push:
+    branches:
+      - master
+    paths:
+      - 'services/license-server/**'
+      - '.github/workflows/deploy-license-server.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: services/license-server
+
+jobs:
+  verify:
+    name: 验证授权服务
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/license-server/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci --ignore-scripts
+
+      - name: 检查生产依赖严重漏洞
+        run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org
+
+      - name: 检查类型
+        run: npm run typecheck
+
+      - name: 运行测试
+        run: npm test
+
+      - name: 检查管理后台产物
+        run: |
+          test -s dist/src/admin/index.html
+          test "$(find dist/src/admin -maxdepth 1 -name 'app-*.js' | wc -l)" -eq 1
+          test "$(find dist/src/admin -maxdepth 1 -name 'styles-*.css' | wc -l)" -eq 1
+          find dist/src/admin -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: 检查 veFaaS 部署目录
+        run: |
+          npm run prepare:deploy
+          test -s .deploy/index.js
+          test -s .deploy/dist/src/vefaas.js
+          test -d .deploy/node_modules/@volcengine/tos-sdk
+          test ! -e .deploy/node_modules/@volcengine/vefaas-cli
+
+  deploy:
+    name: 部署到 veFaaS 生产环境
+    if: github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: license-production
+    concurrency:
+      group: license-server-production
+      cancel-in-progress: false
+    env:
+      VOLC_ACCESS_KEY_ID: ${{ secrets.VOLC_ACCESS_KEY_ID }}
+      VOLC_SECRET_ACCESS_KEY: ${{ secrets.VOLC_SECRET_ACCESS_KEY }}
+      VOLC_SESSION_TOKEN: ${{ secrets.VOLC_SESSION_TOKEN }}
+      NO_UPDATE_NOTIFIER: '1'
+      NO_COLOR: '1'
+      LICENSE_SERVER_HEALTH_URL: ${{ vars.LICENSE_SERVER_HEALTH_URL }}
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/license-server/package-lock.json
+
+      - name: 配置 veFaaS 临时目录
+        run: echo "VEFAAS_HOME=$RUNNER_TEMP/vefaas" >> "$GITHUB_ENV"
+
+      - name: 安装依赖
+        run: npm ci --ignore-scripts
+
+      - name: 检查部署凭据
+        run: |
+          if [ -z "$VOLC_ACCESS_KEY_ID" ] || [ -z "$VOLC_SECRET_ACCESS_KEY" ] || [ -z "$LICENSE_SERVER_HEALTH_URL" ]; then
+            echo "缺少火山引擎部署凭据或 LICENSE_SERVER_HEALTH_URL，请检查 license-production Environment。"
+            exit 1
+          fi
+
+      - name: 验证火山引擎身份
+        run: ./node_modules/.bin/vefaas login --check --region cn-beijing --yes
+
+      - name: 发布授权服务
+        run: npm run deploy
+
+      - name: 验证线上健康状态
+        run: |
+          curl --fail --silent --show-error \
+            --retry 5 --retry-delay 5 --retry-all-errors \
+            "$LICENSE_SERVER_HEALTH_URL" \
+            | jq --exit-status '.success == true and .data.status == "ok"' > /dev/null
+          echo "线上健康检查通过。"
+
+      - name: 写入部署摘要
+        run: |
+          echo "### 授权服务部署完成" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 函数：\`videostitcher-license-prod\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 地域：\`cn-beijing\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 提交：\`${GITHUB_SHA::7}\`" >> "$GITHUB_STEP_SUMMARY"

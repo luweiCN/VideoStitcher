@@ -3,7 +3,8 @@
  * 包含：系统内存、下载目录、外部链接、平台信息、CPU 占用率等
  */
 
-import { ipcMain, app, shell } from 'electron';
+import { app, shell } from 'electron';
+import { trustedIpcMain as ipcMain } from './security';
 import os from 'os';
 import si from 'systeminformation';
 import { taskQueueManager } from '../services/TaskQueueManager';
@@ -231,7 +232,16 @@ async function handleGetTaskProcessStats(): Promise<{
  */
 async function handleOpenExternal(_event: Electron.IpcMainInvokeEvent, url: string): Promise<{ success: boolean; error?: string }> {
   try {
-    await shell.openExternal(url);
+    if (typeof url !== 'string' || url.length > 2_048) {
+      return { success: false, error: '链接格式无效' };
+    }
+
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol !== 'https:' || !parsedUrl.hostname) {
+      return { success: false, error: '只允许打开 HTTPS 链接' };
+    }
+
+    await shell.openExternal(parsedUrl.toString());
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message };

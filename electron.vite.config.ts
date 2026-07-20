@@ -3,9 +3,20 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
+const licenseApiBaseUrl = process.env.VIDEO_STITCHER_LICENSE_API_URL?.trim() ?? '';
+const licenseSigningPublicKey = process.env.VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64
+  ? Buffer.from(process.env.VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64, 'base64').toString('utf8')
+  : '';
+const updateBaseUrl = process.env.VIDEO_STITCHER_UPDATE_BASE_URL?.trim() ?? '';
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    define: {
+      __LICENSE_API_BASE_URL__: JSON.stringify(licenseApiBaseUrl),
+      __LICENSE_SIGNING_PUBLIC_KEY__: JSON.stringify(licenseSigningPublicKey),
+      __UPDATE_BASE_URL__: JSON.stringify(updateBaseUrl),
+    },
     resolve: {
       alias: {
         '@main': resolve(__dirname, 'src/main'),

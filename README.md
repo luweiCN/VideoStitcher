@@ -52,7 +52,7 @@
 - **进度显示** - 实时显示处理进度和日志
 - **拖拽操作** - 支持文件拖拽导入
 - **暗色主题** - 护眼的深色界面
-- **自动更新** - Windows 支持自动更新，macOS 提示手动更新
+- **安全自动更新** - Windows 与 macOS 使用签名安装包，并且只从火山 TOS 更新
 
 ---
 
@@ -66,15 +66,15 @@
 
 ### 方式一：下载预编译版本
 
-前往 [Releases](https://github.com/luweiCN/VideoStitcher/releases) 页面下载对应平台的安装包：
+从官方 QQ 群或产品下载页获取由 TOS 提供的签名安装包：
 
 | 平台 | 推荐下载 |
 |------|---------|
-| **Windows** | `VideoStitcher-setup.exe` (支持自动更新) |
+| **Windows** | `VideoStitcher-*.exe`（支持自动更新） |
 | **macOS** | `VideoStitcher-*.dmg` |
 | **Linux** | `videostitcher_*.deb` 或 `.rpm` |
 
-### 方式二：从源码运行
+### 方式二：团队成员从私有仓库运行
 
 ```bash
 # 克隆项目
@@ -138,22 +138,29 @@ VideoStitcher/
 
 ```bash
 # Windows
-npm run make
+npm run dist:win
 
-# macOS / Linux
-npm run make
+# macOS
+npm run dist:mac
+
+# Linux
+npm run dist:linux
 ```
 
-输出目录：`out/make/`
+输出目录：`dist/`。正式安装包必须提供授权 API、公钥、更新源和平台代码签名配置；缺失时构建会主动失败。
 
 ### 自动发布
 
 通过 GitHub Actions 自动构建并发布：
 
-1. 推送代码到 `master` 分支
-2. 在 Actions 页面手动触发 `Release` workflow
-3. 选择版本类型（patch/minor/major）
-4. 等待构建完成
+1. 先在代码中更新 `package.json` 与锁文件版本并完成评审；
+2. 在 Actions 页面手动触发“发布桌面客户端”；
+3. 输入与 `package.json` 完全一致的版本号；
+4. Workflow 通过测试、签名和公证后，按 pointer-last 顺序发布到火山 TOS；GitHub 私有仓库不作为更新源。
+
+从公开 GitHub Release 迁移到 TOS 时，单独触发一次“发布一次性 GitHub 桥接版本”。该 Workflow 先发布 TOS，再把同一批产物发布到 GitHub；桥接版安装后只访问 TOS，不包含 GitHub 运行时回退。
+
+授权服务合并到 `master` 后由“部署授权服务”独立发布到 veFaaS。完整的 Environment 变量、密钥和迁移步骤见 [发布与部署说明](docs/RELEASE_AND_DEPLOYMENT.md)。
 
 ---
 
@@ -163,12 +170,9 @@ npm run make
 
 A: 右键安装包，选择"属性"，勾选"解除锁定"后再安装。
 
-### Q: macOS 提示"已损坏"
+### Q: macOS 无法验证或打开应用
 
-A: 在终端执行：
-```bash
-sudo xattr -cr /Applications/VideoStitcher.app
-```
+A: 正式版本应带 Developer ID 签名和公证票据。不要通过清除隔离属性绕过 Gatekeeper；请保留提示截图、应用版本和下载来源并联系维护人员。
 
 ### Q: 处理速度慢怎么办？
 

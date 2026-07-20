@@ -1,306 +1,454 @@
-name: 发布版本
+name: 发布桌面客户端到 TOS
 
 on:
   workflow_dispatch:
     inputs:
-      version_type:
-        description: '版本更新类型'
+      version:
+        description: '待发布版本，必须与 package.json 一致，例如 2.9.0'
         required: true
-        type: choice
-        options:
-          - patch  # 0.1.0 -> 0.1.1 (修复 bug)
-          - minor  # 0.1.0 -> 0.2.0 (新功能)
-          - major  # 0.1.0 -> 1.0.0 (破坏性变更)
-      pre_release:
-        description: '是否为预发布版本'
+        type: string
+      release_notes_override:
+        description: '可选：人工覆盖 AI 自动生成的更新说明；通常留空'
         required: false
-        type: boolean
+        default: ''
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        description: '待发布版本，必须与 package.json 一致'
+        required: true
+        type: string
+      release_notes_override:
+        description: '可选：人工覆盖 AI 自动生成的更新说明'
+        required: false
+        default: ''
+        type: string
+      publish_github_bridge:
+        description: '是否同时发布一次性 GitHub 桥接 Release'
+        required: false
         default: false
+        type: boolean
 
 permissions:
-  contents: write
+  contents: read
+  models: read
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22'
 
 jobs:
-  # 版本号更新任务 - 只运行一次
-  version:
-    name: 更新版本号
+  verify:
+    name: 发布前验证
     runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.new_version.outputs.version }}
-      release_notes: ${{ steps.release_notes.outputs.notes }}
+    timeout-minutes: 20
+    environment: desktop-release
+    env:
+      VIDEO_STITCHER_LICENSE_API_URL: ${{ vars.VIDEO_STITCHER_LICENSE_API_URL }}
+      VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64: ${{ secrets.VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64 }}
+      VIDEO_STITCHER_UPDATE_BASE_URL: ${{ vars.VIDEO_STITCHER_UPDATE_BASE_URL }}
 
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+      - name: 检出固定提交
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: 设置 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: 获取当前版本号
-        id: version
+      - name: 校验版本
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-          echo "当前版本: $CURRENT_VERSION"
+          node -e "const version=process.env.RELEASE_VERSION; if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) throw new Error('版本号格式无效'); if (require('./package.json').version !== version) throw new Error('输入版本与 package.json 不一致')"
 
-      - name: 计算新版本号
-        id: new_version
-        run: |
-          VERSION_TYPE="${{ inputs.version_type }}"
-          CURRENT_VERSION="${{ steps.version.outputs.current }}"
+      - name: 收集版本提交
+        run: node scripts/prepare-release-notes.mjs --mode=collect --version=${{ inputs.version }} --output-directory=.release
 
-          # 解析版本号并递增
-          IFS='.' read -ra PARTS <<< "$CURRENT_VERSION"
-          MAJOR=${PARTS[0]}
-          MINOR=${PARTS[1]}
-          PATCH=${PARTS[2]}
-
-          case "$VERSION_TYPE" in
-            major)
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-              ;;
-            minor)
-              MINOR=$((MINOR + 1))
-              PATCH=0
-              ;;
-            patch)
-              PATCH=$((PATCH + 1))
-              ;;
-          esac
-
-          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "新版本: $NEW_VERSION"
-
-      - name: 更新 package.json 版本号
-        run: |
-          NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          npm version $NEW_VERSION --no-git-tag-version
-
-      - name: 提交并推送版本变更
-        run: |
-          NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
-          git commit -m "chore: 升级版本到 ${NEW_VERSION}"
-          git push
-
-
-      - name: 生成更新日志
-        id: release_notes
-        run: |
-          NEW_VERSION="${{ steps.new_version.outputs.version }}"
-
-          # 获取自上一个标签以来的所有提交
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -z "$LAST_TAG" ]; then
-            COMMITS="初始发布"
-          else
-            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%h)" || echo "无提交记录")
-          fi
-
-          NOTES="## 📦 发布版本 ${NEW_VERSION}
-
-          **版本类型:** ${{ inputs.version_type }}
-          **发布日期:** $(date +'%Y年%m月%d日')
-
-          ### 📝 更新内容
-          ${COMMITS}
-
-          ### 📥 下载
-
-          #### macOS
-          - **DMG:** 推荐安装方式，拖拽安装 (.dmg)
-          - **ZIP:** 支持应用内自动更新 (.zip)
-
-          #### Windows
-          - **安装包:** 支持应用内自动更新的 NSIS 安装程序 (.exe)
-          "
-
-          # 创建 JSON 格式以便安全处理多行内容
-          NOTES_JSON=$(echo "$NOTES" | jq -Rs .)
-          echo "notes=${NOTES_JSON}" >> $GITHUB_OUTPUT
-
-
-      - name: 创建 Git 标签
-        run: |
-          NEW_VERSION="${{ steps.new_version.outputs.version }}"
-          git tag -a "v${NEW_VERSION}" -m "发布版本 v${NEW_VERSION}"
-          git push origin "v${NEW_VERSION}"
-
-      - name: 上传版本信息
-        uses: actions/upload-artifact@v4
+      - name: AI 整理用户更新说明
+        id: ai_release_notes
+        if: ${{ inputs.release_notes_override == '' }}
+        continue-on-error: true
+        uses: actions/ai-inference@a7805884c80886efc241e94a5351df715968a0ad # v2.1.1
         with:
-          name: version-info
+          prompt-file: .release/release-notes-source.txt
+          system-prompt-file: .github/prompts/release-notes-system.txt
+          model: ${{ vars.RELEASE_NOTES_AI_MODEL || 'openai/gpt-4o' }}
+          max-completion-tokens: 800
+          temperature: 0.1
+
+      - name: 确定最终更新说明
+        env:
+          RELEASE_NOTES_OVERRIDE: ${{ inputs.release_notes_override }}
+          AI_RELEASE_NOTES_FILE: ${{ steps.ai_release_notes.outputs['response-file'] }}
+        run: |
+          node scripts/prepare-release-notes.mjs \
+            --mode=finalize \
+            --version=${{ inputs.version }} \
+            --output-directory=.release \
+            --override-env=RELEASE_NOTES_OVERRIDE \
+            --ai-response-file-env=AI_RELEASE_NOTES_FILE
+          node scripts/update-manifest-release-notes.mjs \
+            --check-notes \
+            --release-notes-file=.release/release-notes.txt
+
+      - name: 测试发布脚本
+        run: npm run test:release-scripts
+
+      - name: 校验桥接版本高于 GitHub 当前正式版
+        if: ${{ inputs.publish_github_bridge }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          LATEST_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+          LATEST_VERSION="${LATEST_TAG#v}"
+          export LATEST_VERSION
+          node <<'NODE'
+          const parseVersion = (value, label) => {
+            if (!/^\d+\.\d+\.\d+$/.test(value)) {
+              throw new Error(`${label}必须是稳定语义化版本：${value}`);
+            }
+            return value.split('.').map(Number);
+          };
+
+          const current = parseVersion(process.env.RELEASE_VERSION ?? '', '桥接版本');
+          const latest = parseVersion(process.env.LATEST_VERSION ?? '', 'GitHub 当前版本');
+          const comparison = current.findIndex((part, index) => part !== latest[index]);
+          if (comparison === -1 || current[comparison] < latest[comparison]) {
+            throw new Error(`桥接版本必须高于 GitHub 当前版本 ${process.env.LATEST_VERSION}`);
+          }
+          console.log(`[发布检查] 桥接版本 ${process.env.RELEASE_VERSION} 高于 GitHub 当前版本 ${process.env.LATEST_VERSION}`);
+          NODE
+
+      - name: 安装桌面端依赖
+        run: npm ci
+
+      - name: 检查桌面端生产依赖严重漏洞
+        run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org
+
+      - name: 校验正式构建配置
+        run: npm run verify:license-release-config
+
+      - name: 检查桌面端类型
+        run: npm run typecheck
+
+      - name: 构建桌面端
+        run: npm run build
+
+      - name: 安装授权服务依赖
+        run: npm ci --prefix services/license-server --ignore-scripts
+
+      - name: 测试授权服务
+        run: npm test --prefix services/license-server
+
+      - name: 上传本次版本说明
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-notes
+          if-no-files-found: error
+          retention-days: 3
           path: |
-            package.json
-            package-lock.json
+            .release/release-notes.txt
+            .release/release-notes.json
 
-  # 构建 macOS
   build-macos:
-    name: 构建 macOS
-    needs: version
+    name: 构建并签名 macOS
+    needs: verify
     runs-on: macos-latest
+    timeout-minutes: 45
+    environment: desktop-release
+    env:
+      VIDEO_STITCHER_LICENSE_API_URL: ${{ vars.VIDEO_STITCHER_LICENSE_API_URL }}
+      VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64: ${{ secrets.VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64 }}
+      VIDEO_STITCHER_UPDATE_BASE_URL: ${{ vars.VIDEO_STITCHER_UPDATE_BASE_URL }}
+      CSC_LINK: ${{ secrets.MACOS_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.MACOS_CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+      - name: 检出固定提交
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: 设置 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
-
-      - name: 下载版本信息
-        uses: actions/download-artifact@v4
-        with:
-          name: version-info
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: 安装依赖
-        run: |
-          npm ci --prefer-offline --no-audit || {
-            echo "第一次安装失败，重试中..."
-            npm ci
-          }
-        timeout-minutes: 15
+        run: npm ci
 
-      - name: 构建 macOS
-        run: |
-          npm run build
-          npm run dist:mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: 校验签名配置
+        run: npm run verify:signing:mac
 
-      - name: 检查构建输出
-        run: |
-          echo "=== 检查 dist 目录 ==="
-          ls -la dist/ || echo "dist 目录不存在"
+      - name: 构建、签名并公证
+        run: npm run dist:mac
 
-      - name: 清理不需要的调试文件
+      - name: 验证签名身份与公证票据
         run: |
-          rm -f dist/builder-debug.yml || true
+          APP_PATH="$(find dist -type d -name 'VideoStitcher.app' | head -n 1)"
+          test -n "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -F "TeamIdentifier=${APPLE_TEAM_ID}"
+          xcrun stapler validate "$APP_PATH"
+          find dist -maxdepth 1 -name '*.dmg' -print0 | xargs -0 -n1 xcrun stapler validate
 
-      - name: 上传 macOS 构建产物
-        uses: actions/upload-artifact@v4
+      - name: 上传 macOS 产物
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: macos-build
+          if-no-files-found: error
+          retention-days: 3
           path: |
             dist/*.dmg
             dist/*.zip
-            dist/*.yml
             dist/*.blockmap
-          if-no-files-found: ignore
+            dist/latest-mac.yml
 
-  # 构建 Windows
   build-windows:
-    name: 构建 Windows
-    needs: version
+    name: 构建并签名 Windows
+    needs: verify
     runs-on: windows-latest
+    timeout-minutes: 45
+    environment: desktop-release
+    env:
+      VIDEO_STITCHER_LICENSE_API_URL: ${{ vars.VIDEO_STITCHER_LICENSE_API_URL }}
+      VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64: ${{ secrets.VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64 }}
+      VIDEO_STITCHER_UPDATE_BASE_URL: ${{ vars.VIDEO_STITCHER_UPDATE_BASE_URL }}
+      CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
 
     steps:
-      - name: 检出代码
-        uses: actions/checkout@v4
+      - name: 检出固定提交
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: 设置 Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
-
-      - name: 下载版本信息
-        uses: actions/download-artifact@v4
-        with:
-          name: version-info
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: 安装依赖
+        run: npm ci
+
+      - name: 校验签名配置
+        run: npm run verify:signing:win
+
+      - name: 构建并签名
+        run: npm run dist:win
+
+      - name: 验证安装包签名
+        shell: pwsh
         run: |
-          npm ci --prefer-offline --no-audit || {
-            echo "第一次安装失败，重试中..."
-            npm ci
+          $installers = Get-ChildItem dist -Filter *.exe
+          if ($installers.Count -eq 0) { throw '没有找到 Windows 安装包' }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature $installer.FullName
+            if ($signature.Status -ne 'Valid') {
+              throw "安装包签名无效：$($installer.Name)，状态：$($signature.Status)"
+            }
           }
-        timeout-minutes: 15
 
-      - name: 构建 Windows
-        shell: pwsh
-        run: |
-          npm run build
-          npm run dist:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 检查构建输出
-        shell: pwsh
-        run: |
-          Write-Host "=== 检查 dist 目录 ==="
-          Get-ChildItem -Recurse dist | Select-Object FullName, Length
-
-      - name: 上传 Windows 构建产物
-        uses: actions/upload-artifact@v4
+      - name: 上传 Windows 产物
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: windows-build
+          if-no-files-found: error
+          retention-days: 3
           path: |
             dist/*.exe
-            dist/*.yml
             dist/*.blockmap
-          if-no-files-found: error
+            dist/latest.yml
 
-      - name: 清理不需要的调试文件
-        shell: pwsh
-        run: |
-          if (Test-Path "dist/builder-debug.yml") {
-            Remove-Item "dist/builder-debug.yml"
-          }
-        continue-on-error: true
-
-  # 创建发布（需要所有构建完成）
-  release:
-    name: 创建发布
-    needs: [version, build-macos, build-windows]
+  publish-tos:
+    name: 发布到 TOS
+    needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: desktop-release
+    env:
+      TOS_UPDATE_ACCESS_KEY_ID: ${{ secrets.TOS_UPDATE_ACCESS_KEY_ID }}
+      TOS_UPDATE_SECRET_ACCESS_KEY: ${{ secrets.TOS_UPDATE_SECRET_ACCESS_KEY }}
+      TOS_UPDATE_SESSION_TOKEN: ${{ secrets.TOS_UPDATE_SESSION_TOKEN }}
+      TOS_UPDATE_REGION: ${{ vars.TOS_UPDATE_REGION }}
+      TOS_UPDATE_ENDPOINT: ${{ vars.TOS_UPDATE_ENDPOINT }}
+      TOS_UPDATE_BUCKET: ${{ vars.TOS_UPDATE_BUCKET }}
+      TOS_UPDATE_PREFIX: ${{ vars.TOS_UPDATE_PREFIX }}
+      VIDEO_STITCHER_UPDATE_BASE_URL: ${{ vars.VIDEO_STITCHER_UPDATE_BASE_URL }}
 
     steps:
-      - name: 下载 macOS 构建
-        uses: actions/download-artifact@v4
-        continue-on-error: true
+      - name: 检出固定提交
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: services/license-server/package-lock.json
+
+      - name: 下载 macOS 产物
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: macos-build
-          path: macos
+          path: artifacts/macos
 
-      - name: 下载 Windows 构建
-        uses: actions/download-artifact@v4
-        continue-on-error: true
+      - name: 下载 Windows 产物
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: windows-build
-          path: windows
+          path: artifacts/windows
 
-      - name: 创建 GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: 下载本次版本说明
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          tag_name: v${{ needs.version.outputs.new_version }}
-          name: 发布版本 v${{ needs.version.outputs.new_version }}
-          body: ${{ fromJSON(needs.version.outputs.release_notes) }}
-          draft: false
-          prerelease: ${{ inputs.pre_release }}
-          files: macos/**/*,windows/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: release-notes
+          path: artifacts/release
 
-      - name: 发布摘要
+      - name: 安装 TOS 发布依赖
+        run: npm ci --prefix services/license-server --ignore-scripts
+
+      - name: 将更新说明写入两端清单
+        run: node scripts/update-manifest-release-notes.mjs --version=${{ inputs.version }} --release-notes-file=artifacts/release/release-notes.txt artifacts/macos artifacts/windows
+
+      - name: 校验更新清单与安装包
+        run: node scripts/verify-update-artifacts.mjs --version=${{ inputs.version }} --release-notes-file=artifacts/release/release-notes.txt artifacts/macos artifacts/windows
+
+      - name: 保存已写入更新说明的桥接产物
+        if: ${{ inputs.publish_github_bridge }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bridge-release-build
+          if-no-files-found: error
+          retention-days: 3
+          path: |
+            artifacts/macos
+            artifacts/windows
+
+      - name: 检查 TOS 更新桶权限
+        run: node services/license-server/scripts/publish-updates-to-tos.mjs --check
+
+      - name: 按 pointer-last 顺序同步到 TOS
         run: |
-          echo "### ✅ 发布成功！" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**版本:** v${{ needs.version.outputs.new_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**类型:** ${{ inputs.version_type }}" >> $GITHUB_STEP_SUMMARY
-          echo "**预发布:** ${{ inputs.pre_release }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "#### 📦 构建产物" >> $GITHUB_STEP_SUMMARY
-          echo "- macOS: DMG + ZIP" >> $GITHUB_STEP_SUMMARY
-          echo "- Windows: ZIP + NSIS 安装包" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📥 [下载发布包](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.version.outputs.new_version }})" >> $GITHUB_STEP_SUMMARY
+          node services/license-server/scripts/publish-updates-to-tos.mjs \
+            --release-version=${{ inputs.version }} \
+            --release-metadata=artifacts/release/release-notes.json \
+            artifacts/macos artifacts/windows
+
+      - name: 验证公网清单与差分下载
+        run: node scripts/verify-public-update-source.mjs --base-url-env=VIDEO_STITCHER_UPDATE_BASE_URL --version=${{ inputs.version }} --release-notes-file=artifacts/release/release-notes.txt
+
+      - name: 写入发布摘要
+        run: |
+          echo "### 桌面客户端发布完成" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 版本：\`v${{ inputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 更新源：仅使用 TOS，channel manifest 最后发布" >> "$GITHUB_STEP_SUMMARY"
+
+  tag-release:
+    name: 创建私有版本标签
+    if: ${{ !inputs.publish_github_bridge }}
+    needs: publish-tos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: v${{ inputs.version }}
+
+    steps:
+      - name: 创建不可变发布边界
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" > /dev/null 2>&1; then
+            echo "Git 标签 ${RELEASE_TAG} 已存在，禁止覆盖。"
+            exit 1
+          fi
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/tags/${RELEASE_TAG}" \
+            -f sha="${GITHUB_SHA}"
+          echo "已创建私有版本标签 ${RELEASE_TAG}。"
+
+  publish-github-bridge:
+    name: 发布一次性 GitHub 桥接版本
+    if: ${{ inputs.publish_github_bridge }}
+    needs: publish-tos
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: desktop-release
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: v${{ inputs.version }}
+
+    steps:
+      - name: 下载与 TOS 完全相同的桥接产物
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: bridge-release-build
+          path: artifacts
+
+      - name: 下载与 TOS 完全相同的版本说明
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-notes
+          path: artifacts/release
+
+      - name: 拒绝覆盖已有标签或 Release
+        run: |
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            echo "GitHub Release ${RELEASE_TAG} 已存在，禁止覆盖。"
+            exit 1
+          fi
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" > /dev/null 2>&1; then
+            echo "Git 标签 ${RELEASE_TAG} 已存在，禁止改变标签指向。"
+            exit 1
+          fi
+
+      - name: 发布同一批桥接产物到 GitHub Release
+        run: |
+          mapfile -d '' -t release_files < <(find artifacts/macos artifacts/windows -maxdepth 1 -type f -print0)
+          if [ "${#release_files[@]}" -eq 0 ]; then
+            echo "没有找到可发布的桥接产物。"
+            exit 1
+          fi
+
+          gh release create "$RELEASE_TAG" "${release_files[@]}" \
+            --target "$GITHUB_SHA" \
+            --title "VideoStitcher ${RELEASE_TAG}" \
+            --notes-file artifacts/release/release-notes.txt \
+            --latest
+
+          local_count="${#release_files[@]}"
+          remote_count="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets | length')"
+          if [ "$local_count" -ne "$remote_count" ]; then
+            echo "GitHub Release 资产数量不一致：本地 ${local_count}，远端 ${remote_count}。"
+            exit 1
+          fi
+
+          is_draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')"
+          if [ "$is_draft" != "false" ]; then
+            echo "GitHub Release 仍处于草稿状态。"
+            exit 1
+          fi
+          echo "GitHub 桥接 Release 发布完成。"
+
+      - name: 写入桥接发布摘要
+        run: |
+          echo "### GitHub 桥接版本发布完成" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 版本：\`${RELEASE_TAG}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 构建产物：与已发布到 TOS 的 Actions Artifacts 完全相同" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 客户端运行时更新源：仅使用 TOS" >> "$GITHUB_STEP_SUMMARY"

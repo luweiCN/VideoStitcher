@@ -20,6 +20,7 @@ import {
   executeOverlayGeneratorTask,
 } from '../ipc/image';
 import { executeVideoDedupTask } from './VideoDedupEngine';
+import { licenseGate } from './LicenseGate';
 import type { Task, TaskCenterConfig, QueueStatus, TaskOutput, TaskStats } from '@shared/types/task';
 import { DEFAULT_TASK_CENTER_CONFIG } from '@shared/types/task';
 
@@ -58,6 +59,8 @@ export class TaskQueueManager {
   private sessionStartTime: number = 0;
   private currentSessionRunTime: number = 0;
   private initialized: boolean = false;
+  private refreshingLicense = false;
+  private licenseBlockedLogged = false;
 
   constructor() {
     this.runningTasks = new Map();
@@ -168,6 +171,15 @@ export class TaskQueueManager {
    */
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window;
+  }
+
+  /**
+   * 授权恢复后继续尚未启动的队列；用户主动暂停的队列仍保持暂停。
+   */
+  notifyLicenseRestored(): void {
+    if (!this.initialized || this.config?.isPaused) return;
+    this.licenseBlockedLogged = false;
+    this.tryStartNext();
   }
 
   /**
@@ -420,6 +432,41 @@ export class TaskQueueManager {
     if (this.config?.isPaused) {
       return;
     }
+
+    // 每个新任务开始前都由主进程确认授权。已经运行的原子任务可以完成，
+    // 但套餐到期后不会继续启动队列中的下一项。
+    if (!licenseGate.hasCurrentAccess()) {
+      if (!this.refreshingLicense) {
+        this.refreshingLicense = true;
+        void licenseGate.refresh()
+          .then((status) => {
+            if (status.authorized) {
+              this.licenseBlockedLogged = false;
+              this.tryStartNext();
+            } else if (!this.licenseBlockedLogged) {
+              this.licenseBlockedLogged = true;
+              this.broadcastLog(
+                'task-center',
+                'system',
+                status.reason || '当前套餐不可用，队列已停止启动新任务',
+                'warning',
+              );
+            }
+          })
+          .catch((error: unknown) => {
+            if (!this.licenseBlockedLogged) {
+              this.licenseBlockedLogged = true;
+              const message = error instanceof Error ? error.message : String(error);
+              this.broadcastLog('task-center', 'system', `授权检查失败：${message}`, 'warning');
+            }
+          })
+          .finally(() => {
+            this.refreshingLicense = false;
+          });
+      }
+      return;
+    }
+    this.licenseBlockedLogged = false;
     
     // 检查是否有空闲执行槽
     while (this.runningTasks.size < this.config!.maxConcurrentTasks) {

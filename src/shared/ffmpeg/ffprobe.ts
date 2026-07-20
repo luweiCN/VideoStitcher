@@ -14,6 +14,7 @@ export interface VideoMetadata {
   width: number;
   height: number;
   duration: number;
+  hasAudio?: boolean;
 }
 
 /**
@@ -97,8 +98,7 @@ export async function getVideoMetadata(filePath: string): Promise<VideoMetadata>
   return new Promise((resolve, reject) => {
     const args = [
       '-v', 'error',
-      '-select_streams', 'v:0',
-      '-show_entries', 'stream=width,height,duration:stream_tags=rotate:stream_side_data=rotation',
+      '-show_entries', 'stream=codec_type,width,height,duration:stream_tags=rotate:stream_side_data=rotation',
       '-of', 'json',
       filePath,
     ];
@@ -123,7 +123,11 @@ export async function getVideoMetadata(filePath: string): Promise<VideoMetadata>
       try {
         const output = JSON.parse(stdout);
         if (output.streams && output.streams.length > 0) {
-          const stream = output.streams[0];
+          const stream = output.streams.find((item: { codec_type?: string }) => item.codec_type === 'video');
+          if (!stream) {
+            reject(new Error('没有找到视频流'));
+            return;
+          }
           const sideDataRotation = Array.isArray(stream.side_data_list)
             ? stream.side_data_list.find((item: { rotation?: number }) => Number.isFinite(Number(item.rotation)))?.rotation
             : undefined;
@@ -135,6 +139,7 @@ export async function getVideoMetadata(filePath: string): Promise<VideoMetadata>
             width,
             height,
             duration: stream.duration ? parseFloat(stream.duration) : 0,
+            hasAudio: output.streams.some((item: { codec_type?: string }) => item.codec_type === 'audio'),
           });
         } else {
           reject(new Error('无法解析视频元数据'));

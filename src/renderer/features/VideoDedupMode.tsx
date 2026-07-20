@@ -530,7 +530,8 @@ const VideoDedupMode: React.FC = () => {
       activeCanvasEvent.recipe || DEFAULT_GREEN_SCREEN_RECIPE,
     ).then((result) => {
       if (!cancelled && result.success && result.preview) {
-        setGreenLayerPreviews((current) => ({ ...current, [activeCanvasEvent.elementPath]: result.preview }));
+        const preview = result.preview;
+        setGreenLayerPreviews((current) => ({ ...current, [activeCanvasEvent.elementPath]: preview }));
       }
     });
     return () => {

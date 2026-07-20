@@ -2,7 +2,8 @@
  * 数据库管理 IPC 接口
  */
 
-import { ipcMain, dialog } from 'electron';
+import { dialog } from 'electron';
+import { trustedIpcMain as ipcMain } from './security';
 import {
   getDatabaseStats,
   getLogSize,

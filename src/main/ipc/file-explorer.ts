@@ -3,10 +3,12 @@
  * 包含：文件选择对话框、批量重命名、目录读取、文件操作等
  */
 
-import { ipcMain, dialog, shell, BrowserWindow } from 'electron';
+import { dialog, shell, BrowserWindow } from 'electron';
+import { trustedIpcMain as ipcMain } from './security';
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
+import { withLicenseAccess } from '@main/services/LicenseGate';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -306,9 +308,9 @@ export function registerFileExplorerHandlers(win?: BrowserWindow): void {
   ipcMain.handle('pick-outdir', handlePickOutDir);
 
   // 批量重命名
-  ipcMain.handle('file:batch-rename', async (event, params) => {
+  ipcMain.handle('file:batch-rename', withLicenseAccess(async (event, params) => {
     return handleBatchRename(event, params);
-  });
+  }));
 
   // 读取目录内容
   ipcMain.handle('file:read-directory', async (event, params) => {
