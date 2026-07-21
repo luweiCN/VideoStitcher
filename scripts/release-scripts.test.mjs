@@ -28,6 +28,24 @@ sha512: example
 releaseDate: '2026-07-20T00:00:00.000Z'
 `;
 
+test('TOS 桶权限检查按 SDK 要求直接传入桶名', async () => {
+  const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const publishScript = await readFile(
+    path.join(
+      scriptsDirectory,
+      '..',
+      'services',
+      'license-server',
+      'scripts',
+      'publish-updates-to-tos.mjs',
+    ),
+    'utf8',
+  );
+
+  assert.match(publishScript, /await client\.headBucket\(bucket\);/);
+  assert.doesNotMatch(publishScript, /headBucket\(\{\s*bucket\s*\}\)/);
+});
+
 test('将中文多行更新说明安全写入并读回更新清单', () => {
   const releaseNotes = '新增软件授权中心\n\n- 修复“检查更新”提示\n- 支持冒号：正常显示';
   const updatedManifest = addReleaseNotesToManifest(baseManifest, releaseNotes, '2.9.0');

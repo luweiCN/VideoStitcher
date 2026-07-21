@@ -27,7 +27,7 @@ const client = new TosClient({
   endpoint: process.env.TOS_UPDATE_ENDPOINT.trim(),
 });
 
-await client.headBucket({ bucket });
+await client.headBucket(bucket);
 if (process.argv.includes('--check')) {
   console.log('[更新发布] TOS 更新桶访问检查通过');
   process.exit(0);
