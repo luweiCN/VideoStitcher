@@ -632,7 +632,12 @@ const AppContent: React.FC = () => {
   // 监听更新事件
   useEffect(() => {
     const cleanupAvailable = window.api.onUpdateAvailable((data) => {
-      const info = { version: data.version, releaseDate: data.releaseDate, releaseNotes: data.releaseNotes };
+      const info = {
+        version: data.version,
+        releaseDate: data.releaseDate,
+        releaseNotes: data.releaseNotes,
+        manualDownloadUrl: data.manualDownloadUrl,
+      };
       setAvailableUpdate((current) => mergeAvailableUpdate(current, { status: 'available', info }));
 
       // 不在版本更新页面时显示更新通知
@@ -646,7 +651,12 @@ const AppContent: React.FC = () => {
     });
 
     const cleanupDownloaded = window.api.onUpdateDownloaded((data) => {
-      const info = { version: data.version, releaseDate: data.releaseDate, releaseNotes: data.releaseNotes };
+      const info = {
+        version: data.version,
+        releaseDate: data.releaseDate,
+        releaseNotes: data.releaseNotes,
+        manualDownloadUrl: data.manualDownloadUrl,
+      };
       setAvailableUpdate((current) => mergeAvailableUpdate(current, { status: 'downloaded', info }));
 
       // 不在版本更新页面时显示更新通知

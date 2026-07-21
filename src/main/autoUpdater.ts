@@ -2,12 +2,14 @@
  * 自动更新配置模块
  *
  * 正式版本只从火山引擎静态更新源检查，不读取私有 GitHub Release。
- * 下载、完整性校验和安装全部交给 electron-updater，renderer 不能提供下载地址。
+ * 下载、完整性校验和安装全部交给 electron-updater。
+ * 自动更新失败时，由主进程提供经过校验的完整安装包地址。
  */
 
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater, type AppUpdater, type UpdateCheckResult } from 'electron-updater';
 import log from 'electron-log';
+import { buildManualUpdateDownloadUrl, type ClientUpdateInfo } from '@shared/update';
 
 const updateBaseUrl = __UPDATE_BASE_URL__.trim().replace(/\/+$/, '');
 
@@ -54,6 +56,27 @@ export function processReleaseNotes(releaseNotes: unknown): string {
     })
     .filter(Boolean)
     .join('\n');
+}
+
+/**
+ * 将更新信息转换成允许发送给渲染进程的安全结构。
+ */
+export function createClientUpdateInfo(info: {
+  version: string;
+  releaseDate?: string | null;
+  releaseNotes?: unknown;
+}): ClientUpdateInfo {
+  return {
+    version: info.version,
+    releaseDate: info.releaseDate ?? '',
+    releaseNotes: processReleaseNotes(info.releaseNotes),
+    manualDownloadUrl: buildManualUpdateDownloadUrl({
+      baseUrl: updateBaseUrl,
+      version: info.version,
+      platform: process.platform,
+      arch: process.arch,
+    }),
+  };
 }
 
 function sendToRenderer(channel: string, payload?: unknown): void {
@@ -111,11 +134,7 @@ export function setupAutoUpdater(): AppUpdater {
 
   autoUpdater.on('update-available', (info) => {
     log.info('[自动更新] 发现新版本', info.version);
-    sendToRenderer('update-available', {
-      version: info.version,
-      releaseDate: info.releaseDate,
-      releaseNotes: processReleaseNotes(info.releaseNotes),
-    });
+    sendToRenderer('update-available', createClientUpdateInfo(info));
   });
 
   autoUpdater.on('update-not-available', () => {
@@ -139,11 +158,7 @@ export function setupAutoUpdater(): AppUpdater {
 
   autoUpdater.on('update-downloaded', (info) => {
     log.info('[自动更新] 更新下载完成', info.version);
-    sendToRenderer('update-downloaded', {
-      version: info.version,
-      releaseDate: info.releaseDate,
-      releaseNotes: processReleaseNotes(info.releaseNotes),
-    });
+    sendToRenderer('update-downloaded', createClientUpdateInfo(info));
   });
 
   if (isDevelopment) {

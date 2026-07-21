@@ -11,7 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { getLogFilePath, getLogContent, getLogDirectory } from '@main/utils/logger';
-import { checkForUpdates, processReleaseNotes } from '@main/autoUpdater';
+import { checkForUpdates, createClientUpdateInfo } from '@main/autoUpdater';
 
 /**
  * 检测开发环境
@@ -123,10 +123,7 @@ async function handleCheckForUpdates(): Promise<{ success: boolean; hasUpdate?: 
 
     const hasUpdate = Boolean(result?.versionInfo?.version && result.versionInfo.version !== currentVersion);
     const updateInfo = result?.updateInfo
-      ? {
-          ...result.updateInfo,
-          releaseNotes: processReleaseNotes(result.updateInfo.releaseNotes || ''),
-        }
+      ? createClientUpdateInfo(result.updateInfo)
       : undefined;
 
     return { success: true, hasUpdate, updateInfo };

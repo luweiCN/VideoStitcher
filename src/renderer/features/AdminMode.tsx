@@ -210,7 +210,8 @@ const AdminMode: React.FC<AdminModeProps> = ({
       } else if (result.success && !result.hasUpdate) {
         setUpdateStatus('not-available');
       } else {
-        setUpdateStatus('not-available');
+        setUpdateError(result.error || '检查更新失败');
+        setUpdateStatus('error');
       }
     } catch (err: any) {
       setUpdateError(err.message || '检查更新失败');
@@ -1093,8 +1094,18 @@ const AdminMode: React.FC<AdminModeProps> = ({
                             <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
                               <XCircle className="w-5 h-5 text-red-400" />
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <div className="font-medium text-red-400">{updateError || '检查更新失败'}</div>
+                              {updateInfo?.manualDownloadUrl ? (
+                                <div className="mt-3">
+                                  <div className="text-xs text-slate-500 mb-1.5">
+                                    自动更新失败时，请复制下面的地址到浏览器下载，完成后手动安装：
+                                  </div>
+                                  <div className="px-3 py-2.5 rounded-lg border border-slate-800 bg-black/50 font-mono text-xs leading-5 text-slate-300 break-all select-all">
+                                    {updateInfo.manualDownloadUrl}
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                             <button
                               onClick={handleCheckUpdates}

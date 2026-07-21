@@ -10,6 +10,7 @@ import type {
   VideoDedupLibraryScanResult,
   VideoDedupTaskConfig,
 } from '@shared/videoDedup';
+import type { ClientUpdateInfo } from '@shared/update';
 
 // Electron API 类型声明 - 从 preload 导出
 // 此文件复制自 src/preload/index.ts 的接口定义
@@ -366,7 +367,7 @@ export interface ElectronAPI {
     cpu: { usage: number; cores: number[] };
     memory: { total: number; free: number; used: number; usedPercent: number; totalGB: string; freeGB: string; usedGB: string };
   }>;
-  checkForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: any; error?: string }>;
+  checkForUpdates: () => Promise<{ success: boolean; hasUpdate?: boolean; updateInfo?: ClientUpdateInfo; error?: string }>;
   downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
   installUpdate: () => Promise<{ success: boolean; error?: string }>;
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>;
@@ -397,11 +398,7 @@ export interface ElectronAPI {
 
   // 自动更新事件
   onUpdateChecking: (callback: () => void) => () => void;
-  onUpdateAvailable: (callback: (data: {
-    version: string;
-    releaseDate: string;
-    releaseNotes: string;
-  }) => void) => () => void;
+  onUpdateAvailable: (callback: (data: ClientUpdateInfo) => void) => () => void;
   onUpdateNotAvailable: (callback: (data: { version: string }) => void) => () => void;
   onUpdateError: (callback: (data: { message: string }) => void) => () => void;
   onUpdateDownloadProgress: (callback: (data: {
@@ -410,11 +407,7 @@ export interface ElectronAPI {
     transferred: number;
     total: number;
   }) => void) => () => void;
-  onUpdateDownloaded: (callback: (data: {
-    version: string;
-    releaseDate: string;
-    releaseNotes: string;
-  }) => void) => () => void;
+  onUpdateDownloaded: (callback: (data: ClientUpdateInfo) => void) => () => void;
 
   // 授权 API
   getMachineId: () => Promise<{ success: boolean; machineId?: string; error?: string }>;

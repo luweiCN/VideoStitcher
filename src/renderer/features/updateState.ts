@@ -1,8 +1,6 @@
-export interface UpdateInfo {
-  version: string;
-  releaseDate: string;
-  releaseNotes: string;
-}
+import type { ClientUpdateInfo } from '@shared/update';
+
+export type UpdateInfo = ClientUpdateInfo;
 
 export type AvailableUpdateState =
   | { status: 'available'; info: UpdateInfo }
