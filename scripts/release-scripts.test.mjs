@@ -63,6 +63,24 @@ test('版本标签查询失败时不会把错误响应当作已有标签', async
   assert.doesNotMatch(workflow, /EXISTING_SHA=.*\|\| true/);
 });
 
+test('发布流水线先提交版本号并让所有任务锁定版本提交', async () => {
+  const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const workflow = await readFile(
+    path.join(scriptsDirectory, '..', '.github', 'workflows', 'release.yml'),
+    'utf8',
+  );
+
+  assert.match(workflow, /prepare-version:/);
+  assert.match(workflow, /git push origin "HEAD:\$\{GITHUB_REF_NAME\}"/);
+  assert.match(workflow, /release_sha: \$\{\{ steps\.prepare\.outputs\.release_sha \}\}/);
+  assert.equal(
+    workflow.match(/ref: \$\{\{ needs\.prepare-version\.outputs\.release_sha \}\}/g)?.length,
+    4,
+  );
+  assert.match(workflow, /-f sha="\$\{RELEASE_SHA\}"/);
+  assert.match(workflow, /--target "\$RELEASE_SHA"/);
+});
+
 test('版本目录保存不可变清单、安装包大小和下载地址', () => {
   const manifestNames = readManifestArtifactNames(baseManifest);
   const release = createReleaseRecord({
@@ -305,6 +323,51 @@ test('提交采集以最近的私有版本标签作为比较基线', async () =>
   }
 });
 
+test('提交采集可以固定在版本提交之前的源码提交', async () => {
+  const temporaryRoot = await mkdtemp(path.join(tmpdir(), 'videostitcher-source-notes-'));
+  const outputDirectory = path.join(temporaryRoot, '.release');
+  const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const scriptPath = path.join(scriptsDirectory, 'prepare-release-notes.mjs');
+
+  try {
+    runCommand('git', ['init'], temporaryRoot);
+    runCommand('git', ['config', 'user.name', '发布测试'], temporaryRoot);
+    runCommand('git', ['config', 'user.email', 'release-test@example.com'], temporaryRoot);
+    runCommand('git', ['config', 'commit.gpgsign', 'false'], temporaryRoot);
+    await writeFile(path.join(temporaryRoot, 'change.txt'), '初始内容\n', 'utf8');
+    runCommand('git', ['add', 'change.txt'], temporaryRoot);
+    runCommand('git', ['commit', '-m', 'chore: 初始提交'], temporaryRoot);
+    runCommand('git', ['tag', 'v1.0.0'], temporaryRoot);
+    await writeFile(path.join(temporaryRoot, 'change.txt'), '新增功能\n', 'utf8');
+    runCommand('git', ['add', 'change.txt'], temporaryRoot);
+    runCommand('git', ['commit', '-m', 'feat: 新增批量处理'], temporaryRoot);
+    const sourceSha = runCommand('git', ['rev-parse', 'HEAD'], temporaryRoot).stdout.trim();
+    await writeFile(path.join(temporaryRoot, 'package.json'), '{"version":"1.1.0"}\n', 'utf8');
+    runCommand('git', ['add', 'package.json'], temporaryRoot);
+    runCommand('git', ['commit', '-m', 'chore: 升级版本到 1.1.0'], temporaryRoot);
+
+    runCommand(
+      process.execPath,
+      [
+        scriptPath,
+        '--mode=collect',
+        '--version=1.1.0',
+        `--output-directory=${outputDirectory}`,
+        `--head-ref=${sourceSha}`,
+      ],
+      temporaryRoot,
+    );
+    const context = JSON.parse(await readFile(path.join(outputDirectory, 'release-context.json'), 'utf8'));
+    const source = await readFile(path.join(outputDirectory, 'release-notes-source.txt'), 'utf8');
+
+    assert.equal(context.commitCount, 1);
+    assert.match(source, /新增批量处理/);
+    assert.doesNotMatch(source, /升级版本到/);
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('公网更新源必须同时提供清单、安装包和 blockmap 的 Range 响应', async () => {
   const releaseNotes = '修复授权状态刷新问题';
   const manifest = addReleaseNotesToManifest(baseManifest, releaseNotes, '2.9.0');
@@ -434,4 +497,5 @@ function createManifest(entries) {
 function runCommand(command, argumentsList, cwd) {
   const result = spawnSync(command, argumentsList, { cwd, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr || result.stdout);
+  return result;
 }

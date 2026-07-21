@@ -112,6 +112,7 @@ async function main() {
   const argumentsList = process.argv.slice(2);
   const mode = readOption(argumentsList, '--mode=');
   const version = readOption(argumentsList, '--version=');
+  const headRef = readOption(argumentsList, '--head-ref=') || 'HEAD';
   const outputDirectory = path.resolve(readOption(argumentsList, '--output-directory=') || '.release');
 
   if (!semanticVersionPattern.test(version || '')) {
@@ -123,7 +124,7 @@ async function main() {
     const allowEmptyFallback = Boolean(
       overrideEnvironment && process.env[overrideEnvironment]?.trim(),
     );
-    await collectReleaseNoteInputs({ version, outputDirectory, allowEmptyFallback });
+    await collectReleaseNoteInputs({ version, outputDirectory, allowEmptyFallback, headRef });
     return;
   }
   if (mode === 'finalize') {
@@ -133,17 +134,18 @@ async function main() {
   throw new Error('必须通过 --mode=collect 或 --mode=finalize 指定运行模式');
 }
 
-async function collectReleaseNoteInputs({ version, outputDirectory, allowEmptyFallback }) {
+async function collectReleaseNoteInputs({ version, outputDirectory, allowEmptyFallback, headRef }) {
+  const resolvedHead = runGit(['rev-parse', '--verify', `${headRef}^{commit}`]);
   const tagName = `v${version}`;
   if (gitRefExists(`refs/tags/${tagName}`)) {
     throw new Error(`版本标签 ${tagName} 已存在，禁止重复发布`);
   }
 
-  const previousTag = findPreviousReleaseTag();
-  const range = previousTag ? `${previousTag}..HEAD` : 'HEAD';
+  const previousTag = findPreviousReleaseTag(resolvedHead);
+  const range = previousTag ? `${previousTag}..${resolvedHead}` : resolvedHead;
   const commits = readCommits(range);
   const fallback = createFallbackReleaseNotes(commits, { allowEmpty: allowEmptyFallback });
-  const commitDate = new Date(runGit(['show', '-s', '--format=%cI', 'HEAD'])).toISOString();
+  const commitDate = new Date(runGit(['show', '-s', '--format=%cI', resolvedHead])).toISOString();
   const selectedCommits = commits.slice(0, maximumCommitCount);
 
   await mkdir(outputDirectory, { recursive: true });
@@ -223,9 +225,9 @@ function readCommits(range) {
   });
 }
 
-function findPreviousReleaseTag() {
+function findPreviousReleaseTag(headRef = 'HEAD') {
   try {
-    const tag = runGit(['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*']);
+    const tag = runGit(['describe', '--tags', '--abbrev=0', '--match', 'v[0-9]*', headRef]);
     return /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(tag) ? tag : undefined;
   } catch {
     return undefined;

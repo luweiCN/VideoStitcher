@@ -221,6 +221,7 @@ export function createApplication(
         githubRepository: config.releaseManagement.github?.repository ?? 'luweiCN/VideoStitcher',
         githubRef: config.releaseManagement.github?.ref ?? 'master',
         releaseWorkflow: config.releaseManagement.github?.releaseWorkflow ?? 'release.yml',
+        deployWorkflow: config.releaseManagement.github?.deployWorkflow ?? 'deploy-license-server.yml',
         updateBaseUrl: config.releaseManagement.updateBaseUrl,
         signingPrivateKey: config.signingPrivateKey,
         storage,
@@ -429,8 +430,16 @@ export function createApplication(
             throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置');
           }
           const body = await parseJsonBody(request);
+          const version = asString(body.version, 'version', { min: 5, max: 32 }) as string;
           const releaseNotes = asString(body.releaseNotes ?? '', 'releaseNotes', { min: 0, max: 8_000 }) ?? '';
-          return jsonResponse(await releaseManagement.publish(releaseNotes), 202);
+          return jsonResponse(await releaseManagement.publish(version, releaseNotes), 202);
+        }
+        if (request.method === 'POST' && pathName === '/v1/admin/releases/deploy-admin') {
+          requireOwner();
+          if (!releaseManagement) {
+            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置');
+          }
+          return jsonResponse(await releaseManagement.deployAdmin(), 202);
         }
         const releaseCurrentMatch = pathName.match(/^\/v1\/admin\/releases\/([^/]+)\/current$/);
         if (request.method === 'POST' && releaseCurrentMatch?.[1]) {

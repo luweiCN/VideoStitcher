@@ -13,6 +13,7 @@ export interface LicenseServerConfig {
       repository: string;
       ref: string;
       releaseWorkflow: string;
+      deployWorkflow: string;
     };
     channel?: {
       accessKeyId?: string;
@@ -81,6 +82,7 @@ export function loadConfig(
             repository: environment.GITHUB_RELEASE_REPOSITORY?.trim() || 'luweiCN/VideoStitcher',
             ref: environment.GITHUB_RELEASE_REF?.trim() || 'master',
             releaseWorkflow: environment.GITHUB_RELEASE_WORKFLOW?.trim() || 'release.yml',
+            deployWorkflow: environment.GITHUB_DEPLOY_WORKFLOW?.trim() || 'deploy-license-server.yml',
           },
         } : {}),
         ...(updateBucket ? {

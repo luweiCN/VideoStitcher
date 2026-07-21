@@ -4,15 +4,19 @@ import {
   Badge,
   Button,
   Group,
+  Menu,
+  Modal,
   Paper,
   Progress,
   ScrollArea,
+  SegmentedControl,
   SimpleGrid,
   Skeleton,
   Stack,
   Table,
   Text,
   Textarea,
+  TextInput,
   ThemeIcon,
   Title,
 } from '@mantine/core';
@@ -22,6 +26,7 @@ import {
   IconAlertTriangle,
   IconBrandGithub,
   IconCheck,
+  IconChevronDown,
   IconCloudUpload,
   IconDownload,
   IconHistory,
@@ -48,6 +53,8 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
   const [submitting, setSubmitting] = useState(false);
   const [releaseNotes, setReleaseNotes] = useState('');
   const [operation, setOperation] = useState<ReleaseOperation>();
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [targetVersion, setTargetVersion] = useState('');
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -84,7 +91,7 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
         setOperation(visibleOperation);
         if (nextOperation.status !== 'completed') return;
         if (nextOperation.conclusion === 'success') {
-          notifications.show({ color: 'teal', message: '版本任务执行成功' });
+          notifications.show({ color: 'teal', message: getOperationSuccessMessage(visibleOperation) });
           void loadDashboard();
         } else {
           notifications.show({ color: 'red', message: '版本任务执行失败，请查看运行详情' });
@@ -97,17 +104,55 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
   }, [loadDashboard, operation, token]);
 
   const publish = async () => {
+    const normalizedVersion = normalizeVersionInput(targetVersion);
+    if (!normalizedVersion) {
+      notifications.show({ color: 'red', message: '请输入有效版本号，例如 3.5 或 3.5.0' });
+      return;
+    }
     setSubmitting(true);
     try {
       const nextOperation = await apiRequest<ReleaseOperation>('/v1/admin/releases', {
         method: 'POST',
         token,
-        body: JSON.stringify({ releaseNotes }),
+        body: JSON.stringify({ version: normalizedVersion, releaseNotes }),
       });
       setOperation(nextOperation);
+      setPublishModalOpen(false);
+      setReleaseNotes('');
       notifications.show({ color: 'violet', message: `版本 ${nextOperation.version} 已进入发布队列` });
     } catch (error: unknown) {
       notifications.show({ color: 'red', message: getErrorMessage(error, '提交发布任务失败') });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const requestDeployAdmin = () => {
+    modals.openConfirmModal({
+      title: '发布管理后台',
+      children: (
+        <Stack gap="xs">
+          <Text size="sm">将 master 当前代码部署到火山引擎函数服务。</Text>
+          <Text size="sm" c="dimmed">管理后台和授权 API 位于同一个函数包，会一起更新。</Text>
+        </Stack>
+      ),
+      labels: { confirm: '开始部署', cancel: '取消' },
+      confirmProps: { color: 'blue' },
+      onConfirm: () => void deployAdmin(),
+    });
+  };
+
+  const deployAdmin = async () => {
+    setSubmitting(true);
+    try {
+      const nextOperation = await apiRequest<ReleaseOperation>('/v1/admin/releases/deploy-admin', {
+        method: 'POST',
+        token,
+      });
+      setOperation(nextOperation);
+      notifications.show({ color: 'blue', message: '管理后台已进入部署队列' });
+    } catch (error: unknown) {
+      notifications.show({ color: 'red', message: getErrorMessage(error, '提交管理后台部署失败') });
     } finally {
       setSubmitting(false);
     }
@@ -163,13 +208,26 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
   const githubUnavailableMessage = dashboard?.github.status === 'unavailable'
     ? dashboard.github.message
     : undefined;
-  const publishHelp = githubUnavailableMessage
-    ?? (sourceAlreadyPublished
-      ? `无法发布：v${sourceVersion} 已经发布，请先由开发人员更新 package.json 中的版本号。`
-      : isBusy
-        ? '已有版本发布任务正在执行，完成后才能再次发布。'
-        : '发布会同时构建 Windows、Intel Mac 和 Apple Silicon Mac。');
-  const operationHistory = dashboard?.operations.filter((item) => item.status === 'completed').slice(0, 8) ?? [];
+  const versionBase = getLatestVersion([
+    ...(sourceVersion ? [sourceVersion] : []),
+    ...(dashboard?.catalog?.releases.map((release) => release.version) ?? []),
+  ]);
+  const versionSuggestions = versionBase ? {
+    patch: incrementVersion(versionBase, 'patch'),
+    minor: incrementVersion(versionBase, 'minor'),
+    major: incrementVersion(versionBase, 'major'),
+  } : undefined;
+  const selectedSuggestion = versionSuggestions
+    ? (Object.entries(versionSuggestions).find(([, version]) => version === targetVersion)?.[0] ?? '')
+    : '';
+  const openPublishModal = () => {
+    setTargetVersion(versionSuggestions?.patch ?? sourceVersion ?? '');
+    setPublishModalOpen(true);
+  };
+  const dashboardOperations = dashboard?.operations ?? [];
+  const visibleOperations = operation
+    ? [operation, ...dashboardOperations.filter((item) => item.requestId !== operation.requestId)].slice(0, 8)
+    : dashboardOperations.slice(0, 8);
 
   if (loading && !dashboard) return <Paper withBorder p="lg" className="surface"><Skeleton height={420} /></Paper>;
   if (!dashboard) return <Alert color="red" title="版本管理不可用">请检查授权服务的版本管理配置。</Alert>;
@@ -194,14 +252,14 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
         <Paper withBorder p="lg" className="surface release-summary-card">
           <Group justify="space-between" wrap="nowrap">
             <div>
-              <Text size="xs" c="dimmed">master 待发布版本</Text>
+              <Text size="xs" c="dimmed">master 代码版本</Text>
               <Text fz={28} fw={700} mt={4}>{sourceVersion ? `v${sourceVersion}` : '—'}</Text>
-              <Text size="xs" c={sourceAlreadyPublished || githubUnavailableMessage ? 'orange' : 'dimmed'} mt={6}>
+              <Text size="xs" c={githubUnavailableMessage ? 'orange' : 'dimmed'} mt={6}>
                 {githubUnavailableMessage
-                  ? 'GitHub 新版本发布暂不可用'
+                  ? 'GitHub 发布服务暂不可用'
                   : sourceAlreadyPublished
-                    ? '版本号已使用，请先由开发人员更新 package.json'
-                    : '可以提交自动构建'}
+                    ? '已发布，流水线可自动升级到下一版本'
+                    : '发布时可直接使用或升级此版本'}
               </Text>
             </div>
             <ThemeIcon color="violet" variant="light" size={46} radius="md"><IconRocket size={23} /></ThemeIcon>
@@ -222,7 +280,7 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
       {operation ? <OperationPanel operation={operation} /> : null}
 
       {githubUnavailableMessage ? (
-        <Alert color="orange" title="新版本发布暂不可用" icon={<IconAlertTriangle size={19} />}>
+        <Alert color="orange" title="发布服务暂不可用" icon={<IconAlertTriangle size={19} />}>
           {githubUnavailableMessage}。TOS 版本历史和“设为当前”功能不受影响。
         </Alert>
       ) : null}
@@ -236,36 +294,110 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
       <Paper withBorder p="lg" className="surface">
         <Group justify="space-between" align="flex-start" wrap="nowrap" mb="md">
           <div>
-            <Title order={3}>发布新版本</Title>
-            <Text size="sm" c="dimmed" mt={3}>版本号从 master 的 package.json 自动读取，不在后台修改。</Text>
+            <Title order={3}>发布中心</Title>
+            <Text size="sm" c="dimmed" mt={3}>管理后台和桌面应用使用独立流水线，可以分别发布。</Text>
           </div>
           <ThemeIcon color="violet" variant="light" size={40}><IconCloudUpload size={20} /></ThemeIcon>
         </Group>
-        <Textarea
-          label="更新说明（选填）"
-          description="留空时，GitHub Actions 会根据最近提交自动生成用户可读的更新说明。"
-          placeholder="例如：修复批量导出偶发失败的问题"
-          minRows={4}
-          maxLength={8_000}
-          value={releaseNotes}
-          disabled={sourceVersion === undefined}
-          onChange={(event) => setReleaseNotes(event.currentTarget.value)}
-        />
-        <Group justify="space-between" mt="md">
-          <Text id="release-publish-help" size="xs" c={sourceAlreadyPublished ? 'orange' : 'dimmed'}>
-            {publishHelp}
-          </Text>
-          <Button
-            leftSection={<IconRocket size={17} />}
-            loading={submitting}
-            disabled={isBusy || sourceAlreadyPublished || sourceVersion === undefined}
-            aria-describedby="release-publish-help"
-            onClick={() => void publish()}
-          >
-            {sourceVersion ? `发布 v${sourceVersion}` : '发布新版本'}
-          </Button>
-        </Group>
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+          <Paper withBorder p="md" radius="md">
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+              <div>
+                <Text fw={650}>管理后台</Text>
+                <Text size="sm" c="dimmed" mt={4}>部署 master 当前代码，不修改桌面应用版本。</Text>
+              </div>
+              <ThemeIcon color="blue" variant="light"><IconCloudUpload size={18} /></ThemeIcon>
+            </Group>
+            <Button
+              mt="lg"
+              variant="light"
+              color="blue"
+              fullWidth
+              disabled={isBusy || Boolean(githubUnavailableMessage)}
+              onClick={requestDeployAdmin}
+            >
+              发布管理后台
+            </Button>
+          </Paper>
+          <Paper withBorder p="md" radius="md">
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+              <div>
+                <Text fw={650}>桌面应用</Text>
+                <Text size="sm" c="dimmed" mt={4}>选择版本号，构建各平台安装包并发布到 TOS。</Text>
+              </div>
+              <ThemeIcon color="violet" variant="light"><IconRocket size={18} /></ThemeIcon>
+            </Group>
+            <Button
+              mt="lg"
+              fullWidth
+              disabled={isBusy || sourceVersion === undefined || Boolean(githubUnavailableMessage)}
+              onClick={openPublishModal}
+            >
+              发布桌面应用
+            </Button>
+          </Paper>
+        </SimpleGrid>
+        <Text size="xs" c={githubUnavailableMessage ? 'orange' : 'dimmed'} mt="md">
+          {githubUnavailableMessage ?? (isBusy
+            ? '已有发布任务正在执行，完成后才能提交下一项任务。'
+            : '桌面应用发布会构建 Windows、Intel Mac 和 Apple Silicon Mac。')}
+        </Text>
       </Paper>
+
+      <Modal
+        opened={publishModalOpen}
+        onClose={() => setPublishModalOpen(false)}
+        title="发布桌面应用"
+        size="lg"
+        centered
+      >
+        <Stack gap="lg">
+          <div>
+            <Text size="sm" fw={600} mb={8}>快捷选择版本</Text>
+            <SegmentedControl
+              fullWidth
+              value={selectedSuggestion}
+              data={[
+                { value: 'patch', label: 'Patch · 修订版' },
+                { value: 'minor', label: 'Minor · 功能版' },
+                { value: 'major', label: 'Major · 主版本' },
+              ]}
+              disabled={!versionSuggestions}
+              onChange={(value) => {
+                const version = versionSuggestions?.[value as keyof typeof versionSuggestions];
+                if (version) setTargetVersion(version);
+              }}
+            />
+            {versionBase ? <Text size="xs" c="dimmed" mt={7}>基于最新版本 v{versionBase} 计算。</Text> : null}
+          </div>
+          <TextInput
+            label="目标版本"
+            description="可以直接输入 3.5，提交时会规范为 3.5.0。流水线会同步更新 package.json。"
+            placeholder="例如 3.5.0"
+            value={targetVersion}
+            onChange={(event) => setTargetVersion(event.currentTarget.value)}
+            onBlur={() => {
+              const normalized = normalizeVersionInput(targetVersion);
+              if (normalized) setTargetVersion(normalized);
+            }}
+          />
+          <Textarea
+            label="更新说明（选填）"
+            description="留空时，GitHub Actions 会根据最近提交自动生成用户可读的更新说明。"
+            placeholder="例如：修复批量导出偶发失败的问题"
+            minRows={5}
+            maxLength={8_000}
+            value={releaseNotes}
+            onChange={(event) => setReleaseNotes(event.currentTarget.value)}
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setPublishModalOpen(false)}>取消</Button>
+            <Button leftSection={<IconRocket size={17} />} loading={submitting} onClick={() => void publish()}>
+              确认发布{normalizeVersionInput(targetVersion) ? ` v${normalizeVersionInput(targetVersion)}` : ''}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Paper withBorder className="surface table-surface">
         <div className="table-toolbar">
@@ -296,7 +428,7 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
                     </Table.Td>
                     <Table.Td><Text size="sm" className="nowrap">{formatDateTime(release.releaseDate)}</Text></Table.Td>
                     <Table.Td><Text size="sm" className="nowrap">{formatBytes(release.totalSizeBytes)}</Text></Table.Td>
-                    <Table.Td><Text size="sm" lineClamp={2} maw={360}>{release.releaseNotes}</Text></Table.Td>
+                    <Table.Td><ReleaseNotesCell release={release} /></Table.Td>
                     <Table.Td><DownloadLinks release={release} /></Table.Td>
                     <Table.Td className="table-action-column">
                       <Button
@@ -319,29 +451,35 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
         ) : null}
       </Paper>
 
-      {operationHistory.length > 0 ? (
+      {visibleOperations.length > 0 ? (
         <Paper withBorder p="lg" className="surface">
-          <Title order={3} mb="sm">最近任务</Title>
-          <Stack gap="xs">
-            {operationHistory.map((item) => (
+          <Title order={3}>版本操作记录</Title>
+          <Text size="sm" c="dimmed" mt={3} mb="sm">
+            发布桌面应用和管理后台对应 GitHub Actions；切换当前版本由后台直接完成。
+          </Text>
+          <Stack gap="xs" aria-live="polite">
+            {visibleOperations.map((item) => {
+              const status = getOperationStatus(item);
+              return (
               <Group key={`${item.requestId}-${item.updatedAt}`} justify="space-between" className="list-row">
                 <div>
                   <Group gap={7}>
-                    <Text size="sm" fw={600}>{item.kind === 'publish' ? '发布版本' : '切换当前版本'}</Text>
-                    <Badge size="sm" variant="light" color="violet">
-                      {item.version ? `v${item.version}` : '版本未知'}
-                    </Badge>
+                    <Text size="sm" fw={600}>{getOperationLabel(item.kind)}</Text>
+                    {item.version ? (
+                      <Badge size="sm" variant="light" color="violet">v{item.version}</Badge>
+                    ) : null}
                   </Group>
                   <Text size="xs" c="dimmed">{formatDateTime(item.createdAt)}</Text>
                 </div>
                 <Group gap="sm">
-                  <Badge color={item.conclusion === 'success' ? 'teal' : 'red'} variant="light">
-                    {item.conclusion === 'success' ? '成功' : '失败'}
+                  <Badge color={status.color} variant="light">
+                    {status.label}
                   </Badge>
-                  {item.url ? <Anchor href={item.url} target="_blank" rel="noreferrer" size="xs">运行详情</Anchor> : null}
+                  {item.url ? <Anchor href={item.url} target="_blank" rel="noreferrer" size="xs">查看 Workflow</Anchor> : null}
                 </Group>
               </Group>
-            ))}
+              );
+            })}
           </Stack>
         </Paper>
       ) : null}
@@ -353,25 +491,28 @@ function OperationPanel({ operation }: { operation: ReleaseOperation }) {
   const completed = operation.status === 'completed';
   const succeeded = operation.conclusion === 'success';
   const isDirectSwitch = operation.kind === 'set-current';
+  const isAdminDeploy = operation.kind === 'deploy-admin';
   const progress = operation.status === 'waiting' ? 8 : operation.status === 'queued' ? 20 : completed ? 100 : 58;
   return (
     <Alert
       color={completed ? succeeded ? 'teal' : 'red' : 'violet'}
       title={completed
         ? succeeded
-          ? isDirectSwitch ? '当前版本已切换' : '版本任务已完成'
-          : '版本任务执行失败'
-        : '版本任务正在执行'}
+          ? isDirectSwitch ? '当前版本已切换' : isAdminDeploy ? '管理后台部署完成' : '桌面应用发布完成'
+          : isAdminDeploy ? '管理后台部署失败' : '版本任务执行失败'
+        : isAdminDeploy ? '管理后台正在部署' : '版本任务正在执行'}
       icon={completed && !succeeded
         ? <IconAlertTriangle size={19} />
-        : isDirectSwitch ? <IconCheck size={19} /> : <IconBrandGithub size={19} />}
+        : isDirectSwitch ? <IconCheck size={19} /> : isAdminDeploy
+          ? <IconCloudUpload size={19} />
+          : <IconBrandGithub size={19} />}
       role={completed && !succeeded ? 'alert' : 'status'}
       aria-live="polite"
     >
       <Stack gap="sm">
         <Group justify="space-between">
           <Text size="sm">
-            {operation.kind === 'publish' ? '发布版本' : '切换当前版本'} {operation.version ? `v${operation.version}` : ''}
+            {getOperationLabel(operation.kind)} {operation.version ? `v${operation.version}` : ''}
           </Text>
           {operation.url ? <Anchor href={operation.url} target="_blank" rel="noreferrer" size="sm">查看 GitHub 运行详情</Anchor> : null}
         </Group>
@@ -392,22 +533,116 @@ function OperationPanel({ operation }: { operation: ReleaseOperation }) {
 function DownloadLinks({ release }: { release: DesktopReleaseRecord }) {
   if (release.downloads.length === 0) return <Text size="xs" c="dimmed">暂无快捷链接</Text>;
   return (
-    <Group gap={6} wrap="nowrap">
-      {release.downloads.map((download) => (
-        <Anchor
-          key={download.name}
-          href={download.url}
-          target="_blank"
-          rel="noreferrer"
-          title={`${download.name} · ${formatBytes(download.size)}`}
+    <Menu width={360} position="bottom-start" shadow="md" withinPortal>
+      <Menu.Target>
+        <Button
+          size="compact-sm"
+          variant="light"
+          color="gray"
+          leftSection={<IconDownload size={15} />}
+          rightSection={<IconChevronDown size={14} />}
+          aria-label={`下载 v${release.version} 安装包`}
         >
-          <Badge variant="light" color={download.platform === 'windows' ? 'blue' : 'gray'} leftSection={<IconDownload size={12} />}>
-            {download.platform === 'windows' ? 'Windows' : `Mac ${download.arch === 'arm64' ? 'M 芯片' : 'Intel'}`}
-          </Badge>
-        </Anchor>
-      ))}
-    </Group>
+          下载安装包
+        </Button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Label>v{release.version} 安装包</Menu.Label>
+        {release.downloads.map((download) => (
+          <Menu.Item
+            key={download.name}
+            component="a"
+            href={download.url}
+            target="_blank"
+            rel="noreferrer"
+            leftSection={<IconDownload size={16} />}
+          >
+            <Group justify="space-between" gap="md" wrap="nowrap">
+              <div style={{ minWidth: 0 }}>
+                <Text size="sm" fw={600}>{formatDownloadPlatform(download)}</Text>
+                <Text size="xs" c="dimmed" truncate>{download.name}</Text>
+              </div>
+              <Text size="xs" c="dimmed" className="nowrap">{formatBytes(download.size)}</Text>
+            </Group>
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
   );
+}
+
+function ReleaseNotesCell({ release }: { release: DesktopReleaseRecord }) {
+  const showFullNotes = () => {
+    modals.open({
+      title: `v${release.version} 更新说明`,
+      size: 'lg',
+      centered: true,
+      children: (
+        <Stack gap="sm">
+          <Text size="xs" c="dimmed">发布于 {formatDateTime(release.releaseDate)}</Text>
+          <Text size="sm" lh={1.7} style={{ whiteSpace: 'pre-wrap' }}>{release.releaseNotes}</Text>
+        </Stack>
+      ),
+    });
+  };
+
+  return (
+    <Stack gap={5} miw={300} maw={460}>
+      <Text size="sm" lineClamp={2} style={{ whiteSpace: 'pre-line' }}>{release.releaseNotes}</Text>
+      <Button variant="subtle" color="gray" size="compact-xs" w="fit-content" px={0} onClick={showFullNotes}>
+        查看完整说明
+      </Button>
+    </Stack>
+  );
+}
+
+function formatDownloadPlatform(download: DesktopReleaseRecord['downloads'][number]): string {
+  if (download.platform === 'windows') return 'Windows（64 位）';
+  return download.arch === 'arm64' ? 'macOS（Apple 芯片）' : 'macOS（Intel 芯片）';
+}
+
+function getOperationStatus(operation: ReleaseOperation): { label: string; color: string } {
+  if (operation.status === 'waiting') return { label: '等待创建', color: 'gray' };
+  if (operation.status === 'queued') return { label: '排队中', color: 'blue' };
+  if (operation.status === 'in_progress') return { label: '运行中', color: 'violet' };
+  if (operation.conclusion === 'success') return { label: '成功', color: 'teal' };
+  if (operation.conclusion === 'cancelled') return { label: '已取消', color: 'gray' };
+  if (operation.conclusion === 'skipped') return { label: '已跳过', color: 'gray' };
+  if (operation.conclusion === 'timed_out') return { label: '已超时', color: 'orange' };
+  return { label: '失败', color: 'red' };
+}
+
+function getOperationLabel(kind: ReleaseOperation['kind']): string {
+  if (kind === 'publish') return '发布桌面应用';
+  if (kind === 'deploy-admin') return '发布管理后台';
+  return '切换当前版本';
+}
+
+function getOperationSuccessMessage(operation: ReleaseOperation): string {
+  if (operation.kind === 'publish') return `桌面应用${operation.version ? ` v${operation.version}` : ''}发布成功`;
+  if (operation.kind === 'deploy-admin') return '管理后台部署成功';
+  return '当前版本切换成功';
+}
+
+function normalizeVersionInput(value: string): string | undefined {
+  const normalized = value.trim().replace(/^v/i, '');
+  if (/^\d+\.\d+$/.test(normalized)) return `${normalized}.0`;
+  return /^\d+\.\d+\.\d+$/.test(normalized) ? normalized : undefined;
+}
+
+function getLatestVersion(versions: string[]): string | undefined {
+  return versions
+    .filter((version) => /^\d+\.\d+\.\d+$/.test(version))
+    .reduce<string | undefined>((latest, version) => (
+      latest === undefined || compareVersions(version, latest) > 0 ? version : latest
+    ), undefined);
+}
+
+function incrementVersion(version: string, type: 'patch' | 'minor' | 'major'): string {
+  const [major = 0, minor = 0, patch = 0] = version.split('.').map(Number);
+  if (type === 'major') return `${major + 1}.0.0`;
+  if (type === 'minor') return `${major}.${minor + 1}.0`;
+  return `${major}.${minor}.${patch + 1}`;
 }
 
 function formatBytes(bytes: number): string {

@@ -1,4 +1,5 @@
 name: 部署授权服务
+run-name: 部署授权服务 · ${{ inputs.deployment_request_id || 'automatic' }}
 
 on:
   pull_request:
@@ -12,6 +13,12 @@ on:
       - 'services/license-server/**'
       - '.github/workflows/deploy-license-server.yml'
   workflow_dispatch:
+    inputs:
+      deployment_request_id:
+        description: '管理后台生成的部署请求编号；人工部署时留空'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read

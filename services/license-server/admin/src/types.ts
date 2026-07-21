@@ -312,7 +312,7 @@ export interface DesktopReleaseCatalog {
 
 export interface ReleaseOperation {
   requestId: string;
-  kind: 'publish' | 'set-current';
+  kind: 'publish' | 'deploy-admin' | 'set-current';
   version?: string;
   status: 'waiting' | 'queued' | 'in_progress' | 'completed';
   conclusion?: 'success' | 'failure' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | 'neutral' | 'startup_failure' | 'stale';

@@ -33,7 +33,7 @@ export interface DesktopReleaseCatalog {
   releases: DesktopReleaseRecord[];
 }
 
-export type ReleaseOperationKind = 'publish' | 'set-current';
+export type ReleaseOperationKind = 'publish' | 'deploy-admin' | 'set-current';
 export type ReleaseOperationStatus = 'waiting' | 'queued' | 'in_progress' | 'completed';
 
 export interface ReleaseOperation {
@@ -72,7 +72,8 @@ export type ReleaseDashboard = ReleaseDashboardBase & (
 
 export interface ReleaseManagement {
   getDashboard(): Promise<ReleaseDashboard>;
-  publish(releaseNotes: string): Promise<ReleaseOperation>;
+  publish(version: string, releaseNotes: string): Promise<ReleaseOperation>;
+  deployAdmin(): Promise<ReleaseOperation>;
   setCurrent(targetVersion: string, actorId?: string): Promise<ReleaseOperation>;
   getOperation(requestId: string): Promise<ReleaseOperation>;
 }
@@ -99,6 +100,7 @@ interface ReleaseManagementOptions {
   githubRepository: string;
   githubRef: string;
   releaseWorkflow: string;
+  deployWorkflow: string;
   updateBaseUrl: string;
   signingPrivateKey: string;
   releaseChannel?: ReleaseChannel;
@@ -182,25 +184,57 @@ export class ReleaseManagementService implements ReleaseManagement {
     };
   }
 
-  public async publish(releaseNotes: string): Promise<ReleaseOperation> {
+  public async publish(version: string, releaseNotes: string): Promise<ReleaseOperation> {
     this.requireGithubToken();
+    assertStableVersion(version);
     const sourceVersion = await this.readSourceVersion();
-    const [sourceVersionPublished, catalog, activeRuns] = await Promise.all([
-      this.releaseTagExists(sourceVersion),
+    if (compareVersions(version, sourceVersion) < 0) {
+      throw new ApiError(
+        409,
+        'RELEASE_VERSION_BEHIND_SOURCE',
+        `目标版本 ${version} 不能低于代码当前版本 ${sourceVersion}`,
+      );
+    }
+    const [targetVersionPublished, catalog, activeRuns] = await Promise.all([
+      this.releaseTagExists(version),
       this.readCatalog(),
-      this.listActiveRuns(),
+      this.listActiveRuns(this.options.releaseWorkflow),
     ]);
-    if (sourceVersionPublished || catalog?.releases.some((release) => release.version === sourceVersion)) {
-      throw new ApiError(409, 'RELEASE_VERSION_EXISTS', `版本 ${sourceVersion} 已经发布，版本号不能重复使用`);
+    if (targetVersionPublished || catalog?.releases.some((release) => release.version === version)) {
+      throw new ApiError(409, 'RELEASE_VERSION_EXISTS', `版本 ${version} 已经发布，版本号不能重复使用`);
+    }
+    const latestPublishedVersion = catalog?.releases.reduce<string | undefined>(
+      (latest, release) => latest === undefined || compareVersions(release.version, latest) > 0
+        ? release.version
+        : latest,
+      undefined,
+    );
+    if (latestPublishedVersion && compareVersions(version, latestPublishedVersion) <= 0) {
+      throw new ApiError(
+        409,
+        'RELEASE_VERSION_NOT_NEWER',
+        `目标版本 ${version} 必须高于最新发布版本 ${latestPublishedVersion}`,
+      );
     }
     this.assertNoActiveOperation(activeRuns);
     const requestId = randomUUID();
     await this.dispatchWorkflow(this.options.releaseWorkflow, {
-      version: sourceVersion,
+      version,
       release_notes_override: releaseNotes,
       release_request_id: requestId,
     });
-    return { requestId, kind: 'publish', version: sourceVersion, status: 'waiting' };
+    return { requestId, kind: 'publish', version, status: 'waiting' };
+  }
+
+  public async deployAdmin(): Promise<ReleaseOperation> {
+    this.requireGithubToken();
+    const activeRuns = await this.listActiveRuns(this.options.deployWorkflow);
+    this.assertNoActiveOperation(activeRuns, '已有管理后台部署任务正在执行，请等待完成');
+    const requestId = randomUUID();
+    await this.dispatchWorkflow(this.options.deployWorkflow, {
+      deployment_request_id: requestId,
+    });
+    return { requestId, kind: 'deploy-admin', status: 'waiting' };
   }
 
   public async setCurrent(targetVersion: string, actorId = 'admin'): Promise<ReleaseOperation> {
@@ -270,11 +304,18 @@ export class ReleaseManagementService implements ReleaseManagement {
       .find((operation) => operation.requestId === requestId);
     if (setCurrentOperation) return setCurrentOperation;
     this.requireGithubToken();
-    const publishRuns = await this.listWorkflowRuns(this.options.releaseWorkflow);
+    const [publishRuns, deployRuns] = await Promise.all([
+      this.listWorkflowRuns(this.options.releaseWorkflow),
+      this.listWorkflowRuns(this.options.deployWorkflow),
+    ]);
     const publishRun = publishRuns.find((run) => (
       manualRunId === undefined ? run.display_title.includes(requestId) : String(run.id) === manualRunId
     ));
     if (publishRun) return await this.toOperation(publishRun, 'publish', requestId);
+    const deployRun = deployRuns.find((run) => (
+      manualRunId === undefined ? run.display_title.includes(requestId) : String(run.id) === manualRunId
+    ));
+    if (deployRun) return await this.toOperation(deployRun, 'deploy-admin', requestId);
     return { requestId, kind: 'publish', status: 'waiting' };
   }
 
@@ -327,27 +368,34 @@ export class ReleaseManagementService implements ReleaseManagement {
   }> {
     this.requireGithubToken();
     const sourceVersion = await this.readSourceVersion();
-    const [sourceVersionPublished, publishRuns] = await Promise.all([
+    const [sourceVersionPublished, publishRuns, deployRuns] = await Promise.all([
       this.releaseTagExists(sourceVersion),
       this.listWorkflowRuns(this.options.releaseWorkflow),
+      this.listWorkflowRuns(this.options.deployWorkflow),
     ]);
     const operations = await Promise.all(
-      [...publishRuns]
-        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      [
+        ...publishRuns.map((run) => ({ run, kind: 'publish' as const })),
+        ...deployRuns.map((run) => ({ run, kind: 'deploy-admin' as const })),
+      ]
+        .sort((left, right) => right.run.created_at.localeCompare(left.run.created_at))
         .slice(0, 20)
-        .map((run) => this.toOperation(run, 'publish')),
+        .map(({ run, kind }) => this.toOperation(run, kind)),
     );
     return { sourceVersion, sourceVersionPublished, operations };
   }
 
-  private async listActiveRuns(): Promise<GithubRun[]> {
-    return (await this.listWorkflowRuns(this.options.releaseWorkflow))
+  private async listActiveRuns(workflow: string): Promise<GithubRun[]> {
+    return (await this.listWorkflowRuns(workflow))
       .filter((run) => run.status !== 'completed');
   }
 
-  private assertNoActiveOperation(runs: GithubRun[]): void {
+  private assertNoActiveOperation(
+    runs: GithubRun[],
+    message = '已有版本发布任务正在执行，请等待完成',
+  ): void {
     if (runs.length > 0) {
-      throw new ApiError(409, 'RELEASE_OPERATION_ACTIVE', '已有版本发布任务正在执行，请等待完成');
+      throw new ApiError(409, 'RELEASE_OPERATION_ACTIVE', message);
     }
   }
 
@@ -471,7 +519,7 @@ export class ReleaseManagementService implements ReleaseManagement {
         throw new ApiError(
           503,
           'GITHUB_RELEASE_RESOURCE_NOT_FOUND',
-          `GitHub 仓库或发布 Workflow 不存在或无权访问，请检查 ${this.options.githubRepository}、${this.options.githubRef} 和 ${this.options.releaseWorkflow}`,
+          `GitHub 仓库或发布 Workflow 不存在或无权访问，请检查 ${this.options.githubRepository}、${this.options.githubRef}、${this.options.releaseWorkflow} 和 ${this.options.deployWorkflow}`,
         );
       }
       if (response.status === 422) {
@@ -511,6 +559,13 @@ export class ReleaseManagementService implements ReleaseManagement {
 
 function isGithubReleaseError(error: unknown): error is ApiError {
   return error instanceof ApiError && error.code.startsWith('GITHUB_RELEASE_');
+}
+
+function assertStableVersion(value: string): string {
+  if (!/^\d+\.\d+\.\d+$/.test(value)) {
+    throw new ApiError(400, 'INVALID_RELEASE_VERSION', '发布版本必须是稳定语义化版本，例如 2.9.7');
+  }
+  return value;
 }
 
 export function parseCurrentManifest(value: string): { version: string; updatedAt?: string } {

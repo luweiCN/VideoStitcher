@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '桥接版本，必须与 package.json 一致并高于 GitHub 当前正式版'
+        description: '桥接版本，流水线会同步更新 package.json，且必须高于 GitHub 当前正式版'
         required: true
         type: string
       release_notes_override:

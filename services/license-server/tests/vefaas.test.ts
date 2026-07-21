@@ -70,3 +70,22 @@ test('veFaaS 平台临时凭证同时用于直接切换 TOS 当前版本', () =>
     prefix: 'stable',
   });
 });
+
+test('版本管理默认识别桌面发布和管理后台部署 Workflow', () => {
+  const config = createRuntimeConfig({
+    accessKeyId: 'platform-access-key',
+    secretAccessKey: 'platform-secret-key',
+    sessionToken: 'platform-session-token',
+  }, {
+    ...sharedEnvironment,
+    LICENSE_STORAGE_DRIVER: 'tos',
+    TOS_REGION: 'cn-beijing',
+    TOS_ENDPOINT: 'tos-cn-beijing.volces.com',
+    TOS_BUCKET: 'videostitcher-license-test',
+    GITHUB_RELEASE_TOKEN: 'github-token',
+    VIDEO_STITCHER_UPDATE_BASE_URL: 'https://updates.example.com/stable',
+  });
+
+  assert.equal(config.releaseManagement?.github?.releaseWorkflow, 'release.yml');
+  assert.equal(config.releaseManagement?.github?.deployWorkflow, 'deploy-license-server.yml');
+});
