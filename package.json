@@ -1,6 +1,6 @@
 {
   "name": "video-stitcher",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "??????????",
   "author": "Your Name <your.email@example.com>",
   "main": "./out/main/index.js",

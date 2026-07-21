@@ -174,44 +174,53 @@ export default function PackageCenterMode() {
   const waitingForPackage = center?.access.mode === 'none' && center.access.source === 'none';
 
   return (
-    <div className="text-slate-100">
-        {loading ? (
-          <div className="flex min-h-[520px] items-center justify-center" aria-live="polite">
-            <LoaderCircle className="size-7 animate-spin text-violet-400" />
-            <span className="ml-3 text-sm text-slate-400">正在读取套餐信息…</span>
+    <div className="space-y-6 text-slate-100">
+      {loading ? (
+        <div
+          className="relative min-h-[420px] overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm"
+          aria-live="polite"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-600/5 to-purple-600/5" aria-hidden="true" />
+          <div className="relative flex min-h-[420px] items-center justify-center">
+            <div className="text-center">
+              <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 shadow-xl shadow-violet-600/20">
+                <LoaderCircle className="size-7 animate-spin text-white motion-reduce:animate-none" />
+              </div>
+              <p className="mt-4 text-sm font-medium text-slate-300">正在读取授权信息…</p>
+              <p className="mt-1 text-xs text-slate-500">正在同步当前权益和套餐包</p>
+            </div>
           </div>
-        ) : center ? (
-          <>
-            <section className="grid gap-6 py-8 lg:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.82fr)]">
-              <div className="rounded-xl bg-neutral-900 p-6 ring-1 ring-inset ring-slate-800 sm:p-7">
+        </div>
+      ) : center ? (
+        <>
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(340px,0.82fr)]">
+            <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-600/5 to-purple-600/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100 motion-reduce:transition-none" aria-hidden="true" />
+              <div className="relative p-6 sm:p-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <div className="mb-4 flex items-center gap-2 text-sm text-slate-400">
-                      <ShieldCheck className="size-4 text-violet-300" />
-                      当前使用权益
+                  <div className="flex items-center gap-4">
+                    <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-purple-600 shadow-xl shadow-violet-600/20">
+                      <ShieldCheck className="size-7 text-white" />
                     </div>
-                    <h1 className="text-2xl font-semibold tracking-[-0.025em] text-white sm:text-3xl">
-                      {center.access.planName}
-                    </h1>
-                    <p className="mt-3 text-sm text-slate-400">
-                      {center.access.mode === 'default'
-                        ? center.deviceLabel
-                        : `${sourceLabels[center.access.source]} · ${center.deviceLabel}`}
-                    </p>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">当前使用权益</h2>
+                      <p className="mt-0.5 text-sm text-slate-500">当前设备正在使用的套餐</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => void loadCenter()}
+                      aria-label="刷新授权数据"
                       title="刷新授权数据"
-                      className="inline-flex size-8 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+                      className="inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-800/80 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 motion-reduce:transition-none"
                     >
                       <RefreshCw className="size-4" />
                     </button>
-                    <span className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                    <span className={`rounded-xl border px-3 py-1.5 text-sm font-medium ${
                       center.authorized
-                        ? 'bg-emerald-500/10 text-emerald-300'
-                        : 'bg-amber-500/10 text-amber-300'
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
                     }`}>
                       {center.authorized
                         ? '当前可用'
@@ -223,36 +232,52 @@ export default function PackageCenterMode() {
                     </span>
                   </div>
                 </div>
-                <div className="mt-8 grid gap-5 border-t border-slate-800 pt-6 sm:grid-cols-3">
-                  <div>
+
+                <div className="mt-8 rounded-xl border border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-purple-500/10 p-5">
+                  <h1 className="text-2xl font-bold tracking-[-0.025em] text-white sm:text-3xl">
+                    {center.access.planName}
+                  </h1>
+                  <p className="mt-2 text-sm text-slate-400">
+                    {center.access.mode === 'default'
+                      ? center.deviceLabel
+                      : `${sourceLabels[center.access.source]} · ${center.deviceLabel}`}
+                  </p>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-slate-800/50 bg-slate-950/50 p-4">
                     <p className="text-xs text-slate-500">{waitingForPackage ? '当前状态' : '可使用至'}</p>
-                    <p className="mt-2 text-sm font-medium text-slate-200">
+                    <p className="mt-1.5 text-sm font-medium text-white">
                       {waitingForPackage ? '尚未获得套餐' : formatDate(center.access.expiresAt)}
                     </p>
                   </div>
-                  <div>
+                  <div className="rounded-xl border border-slate-800/50 bg-slate-950/50 p-4">
                     <p className="text-xs text-slate-500">套餐包数量</p>
-                    <p className="mt-2 text-sm font-medium text-slate-200">{center.packages.length} 个</p>
+                    <p className="mt-1.5 text-sm font-medium text-white">{center.packages.length} 个</p>
                   </div>
-                  <div>
+                  <div className="rounded-xl border border-slate-800/50 bg-slate-950/50 p-4">
                     <p className="text-xs text-slate-500">等待生效</p>
-                    <p className="mt-2 text-sm font-medium text-slate-200">{center.queuedPackageCount} 个</p>
+                    <p className="mt-1.5 text-sm font-medium text-white">{center.queuedPackageCount} 个</p>
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="rounded-xl bg-neutral-900 p-6 ring-1 ring-inset ring-slate-800 sm:p-7">
-                <div className="flex items-start gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-300">
-                    <KeyRound className="size-5" />
+            <div className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-br from-fuchsia-600/5 to-violet-600/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100 motion-reduce:transition-none" aria-hidden="true" />
+              <div className="relative p-6 sm:p-8">
+                <div className="flex items-center gap-4">
+                  <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-600 to-violet-600 shadow-xl shadow-fuchsia-600/20">
+                    <KeyRound className="size-7 text-white" />
                   </div>
                   <div>
-                    <h2 className="font-semibold text-white">兑换套餐码</h2>
-                    <p className="mt-1 text-sm leading-6 text-slate-400">购买或获赠套餐码后，可直接兑换到当前设备。</p>
+                    <h2 className="text-xl font-bold text-white">兑换套餐码</h2>
+                    <p className="mt-0.5 text-sm text-slate-500">将套餐添加到当前设备</p>
                   </div>
                 </div>
-                <form onSubmit={(event) => void redeemCode(event)} className="mt-6">
-                  <label htmlFor="package-code" className="text-xs text-slate-400">套餐兑换码</label>
+
+                <form onSubmit={(event) => void redeemCode(event)} className="mt-8">
+                  <label htmlFor="package-code" className="text-sm font-medium text-slate-300">套餐兑换码</label>
                   <input
                     id="package-code"
                     value={code}
@@ -260,47 +285,59 @@ export default function PackageCenterMode() {
                     placeholder="VS-XXXX-XXXX-XXXX-XXXX-XXXX"
                     autoComplete="off"
                     spellCheck={false}
-                    className="mt-2 h-11 w-full rounded-lg border border-slate-700 bg-black px-3 font-mono text-sm text-white outline-none transition-colors placeholder:text-slate-600 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                    className="mt-2 h-12 w-full rounded-xl border border-slate-700/70 bg-slate-950/70 px-4 font-mono text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 motion-reduce:transition-none"
                   />
+                  <p className="mt-2 text-xs leading-5 text-slate-500">购买或获赠套餐码后，可直接在这里兑换。</p>
                   <button
                     type="submit"
                     disabled={submitting || !code.trim()}
-                    className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white transition-colors hover:bg-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 text-sm font-medium text-white shadow-lg shadow-violet-600/20 transition-all hover:from-violet-500 hover:to-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:cursor-not-allowed disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:shadow-none motion-reduce:transition-none"
                   >
-                    {submitting ? <LoaderCircle className="size-4 animate-spin" /> : <PackageCheck className="size-4" />}
+                    {submitting ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <PackageCheck className="size-4" />}
                     {submitting ? '正在兑换…' : '兑换到当前设备'}
                   </button>
                 </form>
                 {error ? (
-                  <p className="mt-4 rounded-lg bg-rose-500/10 px-3 py-2.5 text-sm leading-6 text-rose-300" role="alert">
+                  <p className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm leading-6 text-rose-300" role="alert">
                     {error}
                   </p>
                 ) : null}
               </div>
-            </section>
+            </div>
+          </section>
 
-            {plans.length > 0 ? (
-              <section className="border-t border-slate-800 py-8" aria-labelledby="available-plan-title">
-                <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-                  <div>
-                    <h2 id="available-plan-title" className="text-lg font-semibold text-white">可购买套餐</h2>
-                    <p className="mt-1 text-sm text-slate-400">购买完成后，将收到的套餐兑换码填写到上方即可。</p>
+          {plans.length > 0 ? (
+            <section className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm" aria-labelledby="available-plan-title">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 to-pink-600/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100 motion-reduce:transition-none" aria-hidden="true" />
+              <div className="relative p-6 sm:p-8">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 shadow-xl shadow-purple-600/20">
+                      <ShoppingBag className="size-7 text-white" />
+                    </div>
+                    <div>
+                      <h2 id="available-plan-title" className="text-xl font-bold text-white">可购买套餐</h2>
+                      <p className="mt-0.5 text-sm text-slate-500">购买后使用套餐码在当前设备兑换</p>
+                    </div>
                   </div>
-                  <span className="text-xs text-slate-500">一次购买，不会自动续费</span>
+                  <span className="rounded-xl border border-slate-700/50 bg-slate-950/50 px-3 py-2 text-xs text-slate-400">
+                    一次购买，不会自动续费
+                  </span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+                <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {plans.map((plan) => {
                     const purchaseUrl = isSafeExternalUrl(plan.purchaseUrl) ? plan.purchaseUrl : undefined;
                     return (
-                      <article key={plan.id} className="flex flex-col rounded-xl bg-neutral-900 p-5 ring-1 ring-inset ring-slate-800">
+                      <article key={plan.id} className="flex flex-col rounded-xl border border-slate-800/50 bg-slate-950/50 p-5 transition-colors hover:border-violet-500/30 motion-reduce:transition-none">
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-sm text-slate-400">{formatTerm(plan.term)}</span>
                           {plan.recommended ? (
-                            <span className="rounded-full bg-violet-500/10 px-2 py-1 text-xs font-medium text-violet-300">推荐</span>
+                            <span className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-xs font-medium text-violet-300">推荐</span>
                           ) : null}
                         </div>
-                        <h3 className="mt-4 font-semibold text-white">{plan.name}</h3>
-                        {plan.priceLabel ? <p className="mt-2 text-xl font-semibold text-white">{plan.priceLabel}</p> : null}
+                        <h3 className="mt-4 text-base font-bold text-white">{plan.name}</h3>
+                        {plan.priceLabel ? <p className="mt-2 text-2xl font-bold text-white">{plan.priceLabel}</p> : null}
                         <p className="mt-2 flex-1 text-sm leading-6 text-slate-400">
                           {plan.description || '购买后获得套餐兑换码，可兑换到当前设备。'}
                         </p>
@@ -308,7 +345,7 @@ export default function PackageCenterMode() {
                           type="button"
                           disabled={purchaseUrl === undefined}
                           onClick={() => purchaseUrl === undefined ? undefined : void openPurchasePage(purchaseUrl)}
-                          className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 text-sm font-medium text-slate-100 transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 disabled:cursor-not-allowed disabled:bg-slate-900 disabled:text-slate-600"
+                          className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-4 text-sm font-medium text-white transition-all hover:from-violet-500 hover:to-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:cursor-not-allowed disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 motion-reduce:transition-none"
                         >
                           {purchaseUrl === undefined ? '暂未开放购买' : '前往购买'}
                           {purchaseUrl === undefined ? null : <ExternalLink className="size-3.5" aria-hidden="true" />}
@@ -318,54 +355,63 @@ export default function PackageCenterMode() {
                   })}
                 </div>
                 {purchaseError ? (
-                  <p className="mt-4 rounded-lg bg-rose-500/10 px-3 py-2.5 text-sm leading-6 text-rose-300" role="alert">
+                  <p className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm leading-6 text-rose-300" role="alert">
                     {purchaseError}
                   </p>
                 ) : null}
-              </section>
-            ) : null}
+              </div>
+            </section>
+          ) : null}
 
-            <section className="border-t border-slate-800 py-8" aria-labelledby="package-list-title">
-              <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h2 id="package-list-title" className="text-lg font-semibold text-white">我的套餐包</h2>
-                  <p className="mt-1 text-sm text-slate-400">查看当前设备已兑换或获赠的套餐。</p>
+          <section className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm" aria-labelledby="package-list-title">
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-600/5 to-indigo-600/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100 motion-reduce:transition-none" aria-hidden="true" />
+            <div className="relative p-6 sm:p-8">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 shadow-xl shadow-violet-600/20">
+                    <Gift className="size-7 text-white" />
+                  </div>
+                  <div>
+                    <h2 id="package-list-title" className="text-xl font-bold text-white">我的套餐包</h2>
+                    <p className="mt-0.5 text-sm text-slate-500">当前设备已兑换或获赠的全部套餐</p>
+                  </div>
                 </div>
                 {center.queuedPackageCount > 0 ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-violet-300">
+                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
                     <Clock3 className="size-3.5" />
                     {center.queuedPackageCount} 个套餐等待生效
                   </span>
                 ) : null}
               </div>
+
               {center.packages.length === 0 ? (
-                <div className="flex min-h-40 items-center justify-center rounded-xl bg-neutral-900 px-6 text-center ring-1 ring-inset ring-slate-800">
+                <div className="mt-8 flex min-h-40 items-center justify-center rounded-xl border border-slate-800/50 bg-slate-950/50 px-6 text-center">
                   <div>
-                    <Gift className="mx-auto size-6 text-slate-500" />
+                    <Gift className="mx-auto size-7 text-slate-500" />
                     <p className="mt-3 text-sm font-medium text-slate-200">还没有单独兑换或发放的套餐包</p>
                     <p className="mt-1 text-sm text-slate-500">兑换或获赠套餐后，会显示在这里。</p>
                   </div>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-800 rounded-xl bg-neutral-900 px-5 ring-1 ring-inset ring-slate-800 sm:px-6">
+                <div className="mt-8 divide-y divide-slate-800/70 overflow-hidden rounded-xl border border-slate-800/50 bg-slate-950/50 px-5 sm:px-6">
                   {center.packages.map((item) => (
                     <article key={item.id} className="flex flex-wrap items-start justify-between gap-4 py-5">
                       <div className="flex min-w-0 items-start gap-3">
-                        <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-slate-300">
+                        <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-300">
                           {item.source === 'paid'
-                            ? <ShoppingBag className="size-4" />
+                            ? <ShoppingBag className="size-5" />
                             : item.source === 'development'
-                              ? <Code2 className="size-4" />
-                              : <Gift className="size-4" />}
+                              ? <Code2 className="size-5" />
+                              : <Gift className="size-5" />}
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-sm font-semibold text-white">{item.planName}</h3>
-                            <span className={`rounded-full px-2 py-1 text-xs font-medium ${packageStatusClasses[item.status]}`}>
+                            <h3 className="text-sm font-bold text-white">{item.planName}</h3>
+                            <span className={`rounded-lg px-2 py-1 text-xs font-medium ${packageStatusClasses[item.status]}`}>
                               {packageStatusLabels[item.status]}
                             </span>
                             {item.source === 'development' ? (
-                              <span className="rounded-full bg-cyan-500/10 px-2 py-1 text-xs font-medium text-cyan-300">
+                              <span className="rounded-lg bg-cyan-500/10 px-2 py-1 text-xs font-medium text-cyan-300">
                                 仅本地
                               </span>
                             ) : null}
@@ -382,46 +428,59 @@ export default function PackageCenterMode() {
                   ))}
                 </div>
               )}
-            </section>
+            </div>
+          </section>
 
-            <section className="border-t border-slate-800 py-8" aria-labelledby="device-info-title">
-              <div className="flex items-start gap-3">
-                <Monitor className="mt-0.5 size-5 text-slate-500" />
-                <div className="min-w-0 flex-1">
-                  <h2 id="device-info-title" className="text-sm font-semibold text-white">当前授权设备</h2>
-                  <p className="mt-1 text-sm text-slate-400">{center.device.deviceName} · {center.device.platform} · v{center.device.appVersion}</p>
-                  <div className="mt-4 flex items-start gap-2 rounded-lg bg-neutral-900 p-3 ring-1 ring-inset ring-slate-800">
-                    <code className="min-w-0 flex-1 break-all text-xs leading-5 text-slate-300">{machineId || '设备 ID 暂不可用'}</code>
-                    <button
-                      type="button"
-                      onClick={() => void copyMachineId()}
-                      disabled={!machineId}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-50"
-                    >
-                      {copied ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}
-                      {copied ? '已复制' : '复制'}
-                    </button>
-                  </div>
+          <section className="group relative overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm" aria-labelledby="device-info-title">
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-600/5 to-violet-600/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100 motion-reduce:transition-none" aria-hidden="true" />
+            <div className="relative grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(240px,0.7fr)_minmax(0,1.3fr)] lg:items-center">
+              <div className="flex items-center gap-4">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-600 to-violet-600 shadow-lg shadow-violet-600/10">
+                  <Monitor className="size-6 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h2 id="device-info-title" className="text-lg font-bold text-white">当前授权设备</h2>
+                  <p className="mt-1 truncate text-sm text-slate-400">{center.device.deviceName}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{center.device.platform} · v{center.device.appVersion}</p>
                 </div>
               </div>
-            </section>
-          </>
-        ) : (
-          <div className="flex min-h-[520px] items-center justify-center px-6 text-center">
+              <div className="flex items-center gap-2 rounded-xl border border-slate-800/50 bg-slate-950/50 p-3">
+                <code className="min-w-0 flex-1 break-all text-xs leading-5 text-slate-300">{machineId || '设备 ID 暂不可用'}</code>
+                <button
+                  type="button"
+                  onClick={() => void copyMachineId()}
+                  disabled={!machineId}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-slate-400 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+                >
+                  {copied ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}
+                  {copied ? '已复制' : '复制'}
+                </button>
+              </div>
+            </div>
+          </section>
+        </>
+      ) : (
+        <div className="group relative min-h-[420px] overflow-hidden rounded-2xl border border-slate-800/50 bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-gradient-to-br from-rose-600/5 to-violet-600/5" aria-hidden="true" />
+          <div className="relative flex min-h-[420px] items-center justify-center px-6 text-center">
             <div>
-              <KeyRound className="mx-auto size-8 text-slate-600" />
-              <h1 className="mt-4 text-lg font-semibold text-white">套餐信息暂时无法读取</h1>
-              <p className="mt-2 max-w-md text-sm leading-6 text-slate-400">{error || '请检查网络后重试。'}</p>
+              <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-700 to-slate-800">
+                <KeyRound className="size-7 text-slate-300" />
+              </div>
+              <h1 className="mt-4 text-xl font-bold text-white">套餐信息暂时无法读取</h1>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">{error || '请检查网络后重试。'}</p>
               <button
                 type="button"
                 onClick={() => void loadCenter()}
-                className="mt-5 h-10 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white hover:bg-violet-500"
+                className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 px-5 text-sm font-medium text-white transition-all hover:from-violet-500 hover:to-purple-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 motion-reduce:transition-none"
               >
+                <RefreshCw className="size-4" />
                 重新加载
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
     </div>
   );
 }
