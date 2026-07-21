@@ -81,7 +81,9 @@ jobs:
           node -e "const version=process.env.RELEASE_VERSION; if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) throw new Error('版本号格式无效'); if (require('./package.json').version !== version) throw new Error('输入版本与 package.json 不一致')"
 
       - name: 收集版本提交
-        run: node scripts/prepare-release-notes.mjs --mode=collect --version=${{ inputs.version }} --output-directory=.release
+        env:
+          RELEASE_NOTES_OVERRIDE: ${{ inputs.release_notes_override }}
+        run: node scripts/prepare-release-notes.mjs --mode=collect --version=${{ inputs.version }} --output-directory=.release --override-env=RELEASE_NOTES_OVERRIDE
 
       - name: AI 整理用户更新说明
         id: ai_release_notes

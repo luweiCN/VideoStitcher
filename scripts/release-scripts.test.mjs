@@ -173,6 +173,13 @@ test('提交摘要优先保留用户可感知变化并忽略内部维护', () =>
   assert.equal(releaseNotes, '• 新增软件授权中心\n• 修复套餐刷新后不显示的问题');
 });
 
+test('人工更新说明允许版本之间只有版本号提交', () => {
+  const commits = [{ subject: 'chore: 升级版本到 2.9.6' }];
+
+  assert.throws(() => createFallbackReleaseNotes(commits), /没有可用于生成更新说明的提交/);
+  assert.equal(createFallbackReleaseNotes(commits, { allowEmpty: true }), '');
+});
+
 test('AI 输出必须是简短项目列表，异常时自动使用提交摘要', () => {
   assert.equal(
     normalizeAiReleaseNotes('- 新增授权中心\n* 修复更新提示'),
