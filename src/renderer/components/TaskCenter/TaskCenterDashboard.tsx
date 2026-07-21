@@ -35,7 +35,7 @@ interface TaskCenterState {
   runningCount: number;
   pendingCount: number;
   taskStats: { pending: number; running: number; completed: number; failed: number; cancelled: number; totalExecutionTime?: number };
-  tasks: Task[]; // 任务列表（运行中+待执行，最多20条）
+  tasks: Task[]; // 仪表盘任务（运行中和待执行，最多20条）
   systemStats: {
     cpu: { usage: number; cores: number[] };
     memory: { total: number; used: number; usedPercent: number; totalGB: string; usedGB: string };
@@ -197,6 +197,7 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onViewAllTask
   const isPaused = state?.isPaused ?? false;
   const tasks = state?.tasks ?? [];
   const taskStats = state?.taskStats;
+  const activeTaskCount = taskStats ? taskStats.pending + taskStats.running : 0;
   const systemStats = state?.systemStats;
   const taskProcess = state?.systemStats?.taskProcess;
 
@@ -429,6 +430,12 @@ const TaskCenterDashboard: React.FC<TaskCenterDashboardProps> = ({ onViewAllTask
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-emerald-400" />
                 <span className="text-sm font-medium">任务列表</span>
+                <span
+                  className="text-xs text-slate-500 tabular-nums"
+                  title="此处最多显示20条运行中或待执行任务，完整记录请打开任务列表"
+                >
+                  {tasks.length} / {activeTaskCount}
+                </span>
                 {isPaused && <span className="text-xs text-amber-400">(已暂停)</span>}
               </div>
               {((state?.runningCount || 0) + (state?.pendingCount || 0)) > 0 && (

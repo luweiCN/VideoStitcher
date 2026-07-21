@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { ClipboardList, Loader2, ChevronRight, CheckCircle2, Clock } from 'lucide-react';
+import { ClipboardList, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import { useTaskContext } from '@renderer/contexts/TaskContext';
 import { cn } from '@renderer/lib/utils';
 
@@ -46,7 +46,7 @@ const HomeTaskIndicator: React.FC<HomeTaskIndicatorProps> = ({ onClick, theme = 
           'flex h-4 w-4 items-center justify-center transition-all',
           hasRunningTasks
             ? 'text-[#FF385C]'
-            : isDarkTheme ? 'text-slate-400' : 'text-slate-500'
+            : isDarkTheme ? 'text-violet-400' : 'text-violet-500'
         )}
       >
         {hasRunningTasks ? (
@@ -102,10 +102,6 @@ const HomeTaskIndicator: React.FC<HomeTaskIndicatorProps> = ({ onClick, theme = 
         </div>
       )}
 
-      <ChevronRight className={cn(
-        'ml-auto h-3.5 w-3.5 flex-shrink-0 transition-colors',
-        isDarkTheme ? 'text-slate-500 group-hover:text-slate-300' : 'text-slate-400 group-hover:text-slate-700'
-      )} />
     </button>
   );
 };

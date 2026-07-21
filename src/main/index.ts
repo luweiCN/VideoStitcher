@@ -16,7 +16,7 @@ import { initDatabase, closeDatabase } from '@main/database';
 import { registerVideoHandlers } from '@main/ipc/video';
 import { registerImageHandlers } from '@main/ipc/image';
 import { registerAuthHandlers } from '@main/ipc/auth';
-import { registerFileExplorerHandlers } from '@main/ipc/file-explorer';
+import { registerFileExplorerHandlers, setMainWindow as setFileExplorerMainWindow } from '@main/ipc/file-explorer';
 import { registerTaskGeneratorHandlers } from '@main/ipc/taskGenerator';
 import { registerApplicationHandlers, isDevelopment } from '@main/ipc/application';
 import { registerSystemHandlers } from '@main/ipc/system';
@@ -82,6 +82,11 @@ function createWindow(): void {
       webSecurity: true,
     },
   });
+
+  // macOS 关闭窗口后主进程仍会保留，新窗口必须重新绑定所有窗口相关服务。
+  setFileExplorerMainWindow(win);
+  setAutoUpdaterWindow(win);
+  setTaskQueueMainWindow(win);
 
   const rendererHtmlPath = join(__dirname, '../renderer/index.html');
   const rendererFileUrl = pathToFileURL(rendererHtmlPath);

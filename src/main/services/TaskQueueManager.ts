@@ -59,6 +59,7 @@ export class TaskQueueManager {
   private sessionStartTime: number = 0;
   private currentSessionRunTime: number = 0;
   private initialized: boolean = false;
+  private stopped: boolean = false;
   private refreshingLicense = false;
   private licenseBlockedLogged = false;
 
@@ -71,6 +72,7 @@ export class TaskQueueManager {
    */
   init(): void {
     if (this.initialized) return;
+    this.stopped = false;
     // 启动阶段初始化失败时，首次任务请求会在这里自动重试。
     initDatabase();
     this.config = configRepository.getAll();
@@ -171,13 +173,16 @@ export class TaskQueueManager {
    */
   setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window;
+    if (!this.initialized) {
+      this.init();
+    }
   }
 
   /**
    * 授权恢复后继续尚未启动的队列；用户主动暂停的队列仍保持暂停。
    */
   notifyLicenseRestored(): void {
-    if (!this.initialized || this.config?.isPaused) return;
+    if (this.stopped || !this.initialized || this.config?.isPaused) return;
     this.licenseBlockedLogged = false;
     this.tryStartNext();
   }
@@ -426,6 +431,7 @@ export class TaskQueueManager {
    * 从数据库取 pending 状态的任务
    */
   private tryStartNext(): void {
+    if (this.stopped) return;
     this.ensureInitialized();
     
     // 如果任务中心暂停，不启动新任务
@@ -1228,6 +1234,8 @@ export class TaskQueueManager {
    * 停止计时器
    */
   stop(): void {
+    this.stopped = true;
+
     // 保存运行时间
     this.saveRunTime();
     
@@ -1250,12 +1258,19 @@ export class TaskQueueManager {
     for (const executor of this.runningTasks.values()) {
       if (executor.pid) {
         this.killProcess(executor.pid);
-        // 更新任务状态为 pending（下次可恢复）
-        taskRepository.updateTaskStatus(executor.taskId, 'pending');
-        taskRepository.clearTaskPid(executor.taskId);
       }
+
+      // 尚未拿到 PID 的任务也必须恢复为待执行，避免卡在假运行状态。
+      taskRepository.updateTaskStatus(executor.taskId, 'pending');
+      taskRepository.clearTaskPid(executor.taskId);
     }
     this.runningTasks.clear();
+
+    this.mainWindow = null;
+    this.config = null;
+    this.initialized = false;
+    this.refreshingLicense = false;
+    this.licenseBlockedLogged = false;
 
     // 清理临时文件
     this.cleanupTempFiles();
@@ -1281,7 +1296,7 @@ export class TaskQueueManager {
    * 广播完整状态（每秒调用）
    */
   private async broadcastState(): Promise<void> {
-    if (!this.mainWindow) return;
+    if (!this.getActiveMainWindow()) return;
 
     try {
       // 1. 获取系统状态（添加失败降级处理）
@@ -1339,38 +1354,41 @@ export class TaskQueueManager {
         taskStats = { pending: 0, queued: 0, running: 0, paused: 0, completed: 0, failed: 0, cancelled: 0 };
       }
 
-      // 5. 获取任务列表（最多20条，优先显示运行中的任务）
-      const runningTaskIds = Array.from(this.runningTasks.keys());
-      let runningTasks: any[] = [];
-      let otherTasks: any[] = [];
+      // 5. 获取仪表盘中的运行中和待执行任务，最多20条
+      let runningTasks: Task[] = [];
+      let otherTasks: Task[] = [];
 
       try {
-        runningTasks = runningTaskIds
-          .map(id => taskRepository.getTaskById(id))
-          .filter((t): t is Task => t !== null)
-          .map(t => ({
-            ...t,
-            files: taskRepository.getTaskFiles(t.id),
-          }));
+        // 仪表盘与完整任务列表统一以数据库状态为准，避免执行器内存状态失步时漏显。
+        const runningResult = taskRepository.getTasks({
+          filter: { status: ['running'] },
+          sort: { field: 'createdAt', order: 'asc' },
+          pageSize: 20,
+        });
+        runningTasks = runningResult.tasks.map(t => ({
+          ...t,
+          files: taskRepository.getTaskFiles(t.id),
+        }));
+        const runningTaskIds = new Set(runningTasks.map(task => task.id));
 
-        // 获取其他任务填充到20条
+        // 先用待执行任务填充，保持队列监控能力
         const runningCount = runningTasks.length;
         const remainingSlots = Math.max(0, 20 - runningCount);
-        const excludeIds = runningTaskIds;
 
         if (remainingSlots > 0) {
-          const result = taskRepository.getTasks({
+          const pendingResult = taskRepository.getTasks({
             filter: { status: ['pending'] },
             sort: { field: 'createdAt', order: 'asc' },
             pageSize: remainingSlots,
           });
-          otherTasks = result.tasks
-            .filter(t => !excludeIds.includes(t.id))
+          otherTasks = pendingResult.tasks
+            .filter(t => !runningTaskIds.has(t.id))
             .map(t => ({
               ...t,
               files: taskRepository.getTaskFiles(t.id),
             }));
         }
+
       } catch (taskDbError) {
         console.error('[TaskQueueManager] 获取任务列表失败:', taskDbError);
       }
@@ -1383,10 +1401,10 @@ export class TaskQueueManager {
       
       const state = {
         isPaused: this.config?.isPaused || false,
-        runningCount: this.runningTasks.size,
+        runningCount: taskStats.running,
         pendingCount: taskStats.pending,
         taskStats,
-        tasks: allTasks, // 任务列表（运行中+待执行，最多20条）
+        tasks: allTasks, // 仪表盘任务（运行中和待执行，最多20条）
         
         // 系统状态
         systemStats: {
@@ -1415,7 +1433,7 @@ export class TaskQueueManager {
         },
       };
 
-      this.mainWindow.webContents.send('task-center:state', state);
+      this.sendToRenderer('task-center:state', state);
     } catch (err) {
       console.error('[TaskQueueManager] 广播状态失败:', err);
       // 输出更详细的错误信息
@@ -1429,9 +1447,7 @@ export class TaskQueueManager {
    * 广播日志
    */
   broadcastLog(taskId: number | 'task-center', taskType: string, message: string, level: 'info' | 'error' | 'warning' | 'success' = 'info'): void {
-    if (!this.mainWindow) return;
-
-    this.mainWindow.webContents.send('task-center:log', {
+    this.sendToRenderer('task-center:log', {
       taskId,
       taskType,
       message,
@@ -1442,47 +1458,64 @@ export class TaskQueueManager {
 
   // ==================== 事件发送 ====================
 
+  /**
+   * 获取仍可接收事件的主窗口。
+   */
+  private getActiveMainWindow(): BrowserWindow | null {
+    const mainWindow = this.mainWindow;
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) {
+      return null;
+    }
+    return mainWindow;
+  }
+
+  /**
+   * 安全发送渲染进程事件，界面关闭不能中断后台任务执行。
+   */
+  private sendToRenderer(channel: string, ...args: unknown[]): void {
+    const mainWindow = this.getActiveMainWindow();
+    if (!mainWindow) return;
+
+    try {
+      mainWindow.webContents.send(channel, ...args);
+    } catch (error) {
+      if (this.mainWindow === mainWindow) {
+        this.mainWindow = null;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[TaskQueueManager] 发送渲染进程事件失败（${channel}）: ${message}`);
+    }
+  }
+
   private sendTaskUpdated(taskId: number): void {
     const task = taskRepository.getTaskById(taskId);
-    if (task && this.mainWindow) {
-      this.mainWindow.webContents.send('task:updated', task);
+    if (task) {
+      this.sendToRenderer('task:updated', task);
     }
   }
 
   private sendTaskStarted(taskId: number): void {
-    if (this.mainWindow) {
-      this.mainWindow.webContents.send('task:started', { taskId });
-    }
+    this.sendToRenderer('task:started', { taskId });
   }
 
   private sendTaskProgress(event: { taskId: number; progress: number; step?: string }): void {
-    if (this.mainWindow) {
-      this.mainWindow.webContents.send('task:progress', event);
-    }
+    this.sendToRenderer('task:progress', event);
   }
 
   private sendTaskLog(taskId: number, log: any): void {
-    if (this.mainWindow) {
-      this.mainWindow.webContents.send('task:log', { taskId, log });
-    }
+    this.sendToRenderer('task:log', { taskId, log });
   }
 
   private sendTaskCompleted(taskId: number, outputs: TaskOutput[]): void {
-    if (this.mainWindow) {
-      this.mainWindow.webContents.send('task:completed', { taskId, outputs });
-    }
+    this.sendToRenderer('task:completed', { taskId, outputs });
   }
 
   private sendTaskFailed(taskId: number, error: any): void {
-    if (this.mainWindow) {
-      this.mainWindow.webContents.send('task:failed', { taskId, error });
-    }
+    this.sendToRenderer('task:failed', { taskId, error });
   }
 
   private sendTaskCancelled(taskId: number): void {
-    if (this.mainWindow) {
-      this.mainWindow.webContents.send('task:cancelled', { taskId });
-    }
+    this.sendToRenderer('task:cancelled', { taskId });
   }
 }
 

@@ -277,7 +277,6 @@ const HomePage: React.FC<{
           </button>
 
           <div className="flex flex-wrap items-center gap-3">
-            <HomeTaskIndicator onClick={() => onNavigate('/taskCenter')} theme={homeTheme} />
             <button
               onClick={() => onNavigate('/skinStore')}
               className={`group relative flex h-14 items-center gap-3 rounded-md border px-7 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 ${
@@ -292,6 +291,7 @@ const HomePage: React.FC<{
                 皮肤商店
               </span>
             </button>
+            <HomeTaskIndicator onClick={() => onNavigate('/taskCenter')} theme={homeTheme} />
             <button
               onClick={() => onNavigate('/admin')}
               className={`group relative flex h-14 items-center gap-3 rounded-md border px-7 text-left backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 ${
@@ -416,7 +416,6 @@ const HomePage: React.FC<{
             </span>
           </button>
 
-          <HomeTaskIndicator onClick={() => onNavigate('/taskCenter')} theme={homeTheme} />
           <button
             onClick={() => onNavigate('/skinStore')}
             className={navButtonClass}
@@ -425,12 +424,13 @@ const HomePage: React.FC<{
             <Palette className="h-4 w-4 text-[#FF385C]" />
             <span>皮肤商店</span>
           </button>
+          <HomeTaskIndicator onClick={() => onNavigate('/taskCenter')} theme={homeTheme} />
           <button
             onClick={() => onNavigate('/admin')}
             className={navButtonClass}
             type="button"
           >
-            <Settings className="h-4 w-4 text-slate-500" />
+            <Settings className="h-4 w-4 text-indigo-500" />
             <span>系统管理</span>
             {updateAvailable && (
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#FF385C] ring-4 ring-[#FF385C]/10 animate-pulse" />
