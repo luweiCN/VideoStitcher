@@ -973,7 +973,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                       </div>
                       <div>
                         <h2 className="text-xl font-bold text-white">版本更新</h2>
-                        <p className="text-sm text-slate-500 mt-0.5">检查并安装最新版本</p>
+                        <p className="text-sm text-slate-500 mt-0.5">检查并安装当前推荐版本</p>
                       </div>
                     </div>
 
@@ -1024,7 +1024,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                               <CheckCircle className="w-5 h-5 text-emerald-400" />
                             </div>
                             <div className="flex-1">
-                              <div className="font-medium text-emerald-400">发现新版本 {updateInfo?.version}</div>
+                              <div className="font-medium text-emerald-400">发现推荐版本 {updateInfo?.version}</div>
                             </div>
                             {supportsAutoUpdate ? (
                               <button
@@ -1043,7 +1043,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                               <CheckCircle className="w-5 h-5 text-teal-400" />
                             </div>
                             <div className="flex-1">
-                              <div className="font-medium text-teal-400">已是最新版本 {systemInfo?.version}</div>
+                              <div className="font-medium text-teal-400">已是当前推荐版本 {systemInfo?.version}</div>
                             </div>
                             <button
                               onClick={handleCheckUpdates}
@@ -1128,7 +1128,7 @@ const AdminMode: React.FC<AdminModeProps> = ({
                                 <Info className="w-5 h-5 text-emerald-400" />
                               </div>
                               <div>
-                                <div className="text-xs text-slate-500">新版本</div>
+                                <div className="text-xs text-slate-500">推荐版本</div>
                                 <div className="font-medium text-white">{updateInfo.version}</div>
                               </div>
                             </div>

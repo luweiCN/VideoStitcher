@@ -285,4 +285,46 @@ export interface OverviewData {
   };
 }
 
-export type PageKey = 'overview' | 'devices' | 'usage' | 'plans' | 'codes' | 'admins';
+export interface ReleaseDownload {
+  name: string;
+  size: number;
+  url: string;
+  platform: 'windows' | 'macos';
+  arch: 'x64' | 'arm64';
+}
+
+export interface DesktopReleaseRecord {
+  version: string;
+  releaseDate: string;
+  releaseNotes: string;
+  supportsManagedRollback: boolean;
+  totalSizeBytes: number;
+  manifests: { windows: string; macos: string };
+  downloads: ReleaseDownload[];
+}
+
+export interface DesktopReleaseCatalog {
+  schemaVersion: 1;
+  currentVersion: string;
+  updatedAt: string;
+  releases: DesktopReleaseRecord[];
+}
+
+export interface ReleaseOperation {
+  requestId: string;
+  kind: 'publish' | 'set-current';
+  version?: string;
+  status: 'waiting' | 'queued' | 'in_progress' | 'completed';
+  conclusion?: 'success' | 'failure' | 'cancelled' | 'skipped' | 'timed_out' | 'action_required' | 'neutral' | 'startup_failure' | 'stale';
+  url?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReleaseDashboard {
+  sourceVersion: string;
+  catalog?: DesktopReleaseCatalog;
+  operations: ReleaseOperation[];
+}
+
+export type PageKey = 'overview' | 'devices' | 'usage' | 'plans' | 'codes' | 'releases' | 'admins';

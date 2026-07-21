@@ -9,6 +9,10 @@ import { ApiError } from './errors.js';
 import { readDeviceRequestProof, verifyDeviceRequestProof } from './device-proof.js';
 import { MemoryRateLimiter } from './rate-limit.js';
 import {
+  GithubReleaseManagement,
+  type ReleaseManagement,
+} from './release-management.js';
+import {
   LicenseService,
   type ClientDeviceInput,
   type PackageGrantBatchInput,
@@ -169,11 +173,16 @@ export interface LicenseApplication {
   handle(request: Request): Promise<Response>;
   service: LicenseService;
   adminService: AdminService;
+  releaseManagement?: ReleaseManagement;
 }
 
 export function createApplication(
   config = loadConfig(),
-  dependencies: { storage?: LicenseStorage; now?: () => Date } = {},
+  dependencies: {
+    storage?: LicenseStorage;
+    now?: () => Date;
+    releaseManagement?: ReleaseManagement;
+  } = {},
 ): LicenseApplication {
   const storage = dependencies.storage ?? getStorage(config);
   const signingPublicKey = getPublicKeyPem(config.signingPrivateKey);
@@ -195,11 +204,19 @@ export function createApplication(
     }),
     ...(dependencies.now === undefined ? {} : { now: dependencies.now }),
   });
+  const releaseManagement = dependencies.releaseManagement ?? (config.releaseManagement
+    ? new GithubReleaseManagement({
+        ...config.releaseManagement,
+        signingPrivateKey: config.signingPrivateKey,
+        ...(dependencies.now === undefined ? {} : { now: dependencies.now }),
+      })
+    : undefined);
   const rateLimiter = new MemoryRateLimiter();
 
   return {
     service,
     adminService,
+    ...(releaseManagement === undefined ? {} : { releaseManagement }),
     async handle(request: Request): Promise<Response> {
       const url = new URL(request.url);
       const sourceIp = getSourceIp(request);
@@ -381,6 +398,38 @@ export function createApplication(
         }
         if (request.method === 'GET' && pathName === '/v1/admin/overview') {
           return jsonResponse(await service.listAdminOverview());
+        }
+        if (request.method === 'GET' && pathName === '/v1/admin/releases') {
+          requireOwner();
+          if (!releaseManagement) {
+            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置 GitHub 发布凭据');
+          }
+          return jsonResponse(await releaseManagement.getDashboard());
+        }
+        if (request.method === 'POST' && pathName === '/v1/admin/releases') {
+          requireOwner();
+          if (!releaseManagement) {
+            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置 GitHub 发布凭据');
+          }
+          const body = await parseJsonBody(request);
+          const releaseNotes = asString(body.releaseNotes ?? '', 'releaseNotes', { min: 0, max: 8_000 }) ?? '';
+          return jsonResponse(await releaseManagement.publish(releaseNotes), 202);
+        }
+        const releaseCurrentMatch = pathName.match(/^\/v1\/admin\/releases\/([^/]+)\/current$/);
+        if (request.method === 'POST' && releaseCurrentMatch?.[1]) {
+          requireOwner();
+          if (!releaseManagement) {
+            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置 GitHub 发布凭据');
+          }
+          return jsonResponse(await releaseManagement.setCurrent(releaseCurrentMatch[1]), 202);
+        }
+        const releaseOperationMatch = pathName.match(/^\/v1\/admin\/release-operations\/([^/]+)$/);
+        if (request.method === 'GET' && releaseOperationMatch?.[1]) {
+          requireOwner();
+          if (!releaseManagement) {
+            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置 GitHub 发布凭据');
+          }
+          return jsonResponse(await releaseManagement.getOperation(releaseOperationMatch[1]));
         }
         if (request.method === 'POST' && pathName === '/v1/admin/package-grant-batches/preview') {
           const body = await parseJsonBody(request);

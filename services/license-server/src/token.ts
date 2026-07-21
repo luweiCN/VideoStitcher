@@ -12,7 +12,7 @@ export interface SessionTokenClaims {
 
 interface TokenHeader {
   algorithm: 'EdDSA';
-  type: 'VS-LICENSE' | 'VS-ADMIN' | 'VS-ENTITLEMENT';
+  type: 'VS-LICENSE' | 'VS-ADMIN' | 'VS-ENTITLEMENT' | 'VS-RELEASE-ROLLBACK';
   version: 1;
 }
 
@@ -31,6 +31,12 @@ const ADMIN_TOKEN_HEADER: TokenHeader = {
 const ENTITLEMENT_TOKEN_HEADER: TokenHeader = {
   algorithm: 'EdDSA',
   type: 'VS-ENTITLEMENT',
+  version: 1,
+};
+
+const RELEASE_ROLLBACK_TOKEN_HEADER: TokenHeader = {
+  algorithm: 'EdDSA',
+  type: 'VS-RELEASE-ROLLBACK',
   version: 1,
 };
 
@@ -58,6 +64,15 @@ export interface AdminSessionTokenClaims {
   username: string;
   role: AdminRole;
   sessionVersion: number;
+  issuedAt: number;
+  expiresAt: number;
+}
+
+export interface ReleaseRollbackDirectiveClaims {
+  issuer: 'videostitcher-release';
+  targetVersion: string;
+  allowedFromVersions: string[];
+  generation: string;
   issuedAt: number;
   expiresAt: number;
 }
@@ -90,6 +105,15 @@ export function signEntitlementReceipt(
   privateKeyPem: string,
 ): string {
   const signingInput = `${encodeJson(ENTITLEMENT_TOKEN_HEADER)}.${encodeJson(claims)}`;
+  const signature = sign(null, Buffer.from(signingInput), createPrivateKey(privateKeyPem));
+  return `${signingInput}.${signature.toString('base64url')}`;
+}
+
+export function signReleaseRollbackDirective(
+  claims: ReleaseRollbackDirectiveClaims,
+  privateKeyPem: string,
+): string {
+  const signingInput = `${encodeJson(RELEASE_ROLLBACK_TOKEN_HEADER)}.${encodeJson(claims)}`;
   const signature = sign(null, Buffer.from(signingInput), createPrivateKey(privateKeyPem));
   return `${signingInput}.${signature.toString('base64url')}`;
 }

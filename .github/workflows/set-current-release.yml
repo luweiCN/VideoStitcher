@@ -1,0 +1,78 @@
+name: 切换桌面客户端当前版本
+run-name: 切换当前版本到 v${{ inputs.target_version }} · ${{ inputs.release_request_id || 'manual' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: '已经完整发布到 TOS 的目标版本'
+        required: true
+        type: string
+      signed_directive:
+        description: '降低当前版本时由授权服务签发的回退指令；升级时留空'
+        required: false
+        default: ''
+        type: string
+      release_request_id:
+        description: '管理后台生成的请求编号；人工切换时留空'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+jobs:
+  switch-current:
+    name: 校验并切换 TOS 当前版本
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: desktop-release
+    env:
+      TOS_UPDATE_ACCESS_KEY_ID: ${{ secrets.TOS_UPDATE_ACCESS_KEY_ID }}
+      TOS_UPDATE_SECRET_ACCESS_KEY: ${{ secrets.TOS_UPDATE_SECRET_ACCESS_KEY }}
+      TOS_UPDATE_SESSION_TOKEN: ${{ secrets.TOS_UPDATE_SESSION_TOKEN }}
+      TOS_UPDATE_REGION: ${{ vars.TOS_UPDATE_REGION }}
+      TOS_UPDATE_ENDPOINT: ${{ vars.TOS_UPDATE_ENDPOINT }}
+      TOS_UPDATE_BUCKET: ${{ vars.TOS_UPDATE_BUCKET }}
+      TOS_UPDATE_PREFIX: ${{ vars.TOS_UPDATE_PREFIX }}
+      VIDEO_STITCHER_UPDATE_BASE_URL: ${{ vars.VIDEO_STITCHER_UPDATE_BASE_URL }}
+      VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64: ${{ secrets.VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64 }}
+
+    steps:
+      - name: 检出版本管理脚本
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: services/license-server/package-lock.json
+
+      - name: 校验输入版本
+        env:
+          TARGET_VERSION: ${{ inputs.target_version }}
+        run: node -e "if (!/^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$/.test(process.env.TARGET_VERSION || '')) throw new Error('目标版本格式无效')"
+
+      - name: 安装 TOS 发布依赖
+        run: npm ci --prefix services/license-server --ignore-scripts
+
+      - name: 切换当前版本并验证公网清单
+        env:
+          SIGNED_DIRECTIVE: ${{ inputs.signed_directive }}
+        run: |
+          node services/license-server/scripts/set-current-release-on-tos.mjs \
+            --target-version=${{ inputs.target_version }} \
+            --signed-directive="$SIGNED_DIRECTIVE"
+
+      - name: 写入操作摘要
+        run: |
+          echo "### 桌面客户端当前版本已切换" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 当前版本：\`v${{ inputs.target_version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- 安装包和历史版本均未删除" >> "$GITHUB_STEP_SUMMARY"

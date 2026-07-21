@@ -30,6 +30,7 @@ import {
   IconLogout,
   IconPackage,
   IconRefresh,
+  IconRocket,
   IconShieldLock,
 } from '@tabler/icons-react';
 import { Component, useCallback, useEffect, useMemo, useState } from 'react';
@@ -41,13 +42,14 @@ import { AdminsPage } from './pages/AdminsPage';
 import { CodesPage } from './pages/CodesPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { PlansPage } from './pages/PlansPage';
+import { ReleasesPage } from './pages/ReleasesPage';
 import { UsagePage } from './pages/UsagePage';
 import { UsersPage as AuthorizedDevicesPage } from './pages/UsersPage';
 import { adminRoleLabels } from './presentation';
 import type { AdminAccount, AdminSession, AuditEvent, OverviewData, PageKey } from './types';
 
 const SESSION_STORAGE_KEY = 'videostitcher-admin-session-v1';
-const PAGE_KEYS: PageKey[] = ['overview', 'devices', 'usage', 'plans', 'codes', 'admins'];
+const PAGE_KEYS: PageKey[] = ['overview', 'devices', 'usage', 'plans', 'codes', 'releases', 'admins'];
 
 const theme = createTheme({
   primaryColor: 'violet',
@@ -70,6 +72,7 @@ const pageMetadata: Record<PageKey, { title: string; description: string }> = {
   usage: { title: '使用分析', description: '查看每台授权设备的前台时长、启动次数和最近活跃情况。' },
   plans: { title: '套餐包', description: '创建可发放的套餐模板，并管理全局权益和新设备默认权益。' },
   codes: { title: '套餐兑换码', description: '按套餐生成可交付给销售渠道的一次性兑换码批次。' },
+  releases: { title: '版本管理', description: '从 master 发布桌面客户端，并管理 TOS 当前版本和下载入口。' },
   admins: { title: '管理员账号', description: '为团队成员创建独立账号并分配管理权限。' },
 };
 
@@ -205,7 +208,7 @@ function AdminConsole() {
   };
 
   const navigate = (nextPage: PageKey) => {
-    if ((nextPage === 'admins' || nextPage === 'codes') && session?.admin.role !== 'owner') return;
+    if ((nextPage === 'admins' || nextPage === 'codes' || nextPage === 'releases') && session?.admin.role !== 'owner') return;
     setPage(nextPage);
     window.location.hash = nextPage;
     closeMobile();
@@ -219,6 +222,7 @@ function AdminConsole() {
     ...(session?.admin.role === 'owner'
       ? [
           { key: 'codes' as const, icon: IconKey, label: '套餐兑换码' },
+          { key: 'releases' as const, icon: IconRocket, label: '版本管理' },
           { key: 'admins' as const, icon: IconShieldLock, label: '管理员账号' },
         ]
       : []),
@@ -226,7 +230,7 @@ function AdminConsole() {
 
   if (!session) return <LoginScreen onLogin={handleLogin} />;
 
-  const visiblePage = (page === 'admins' || page === 'codes') && session.admin.role !== 'owner'
+  const visiblePage = (page === 'admins' || page === 'codes' || page === 'releases') && session.admin.role !== 'owner'
     ? 'overview'
     : page;
   const metadata = pageMetadata[visiblePage];
@@ -380,6 +384,8 @@ function PageContent({
       return <PlansPage token={session.token} overview={overview} onChanged={refresh} />;
     case 'codes':
       return <CodesPage token={session.token} overview={overview} onChanged={refresh} />;
+    case 'releases':
+      return <ReleasesPage token={session.token} />;
     case 'admins':
       return (
         <AdminsPage

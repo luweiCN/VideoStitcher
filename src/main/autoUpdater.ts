@@ -9,6 +9,7 @@
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater, type AppUpdater, type UpdateCheckResult } from 'electron-updater';
 import log from 'electron-log';
+import { getManagedRollbackTarget } from '@main/releaseDirective';
 import { buildManualUpdateDownloadUrl, type ClientUpdateInfo } from '@shared/update';
 
 const updateBaseUrl = __UPDATE_BASE_URL__.trim().replace(/\/+$/, '');
@@ -16,6 +17,8 @@ const updateBaseUrl = __UPDATE_BASE_URL__.trim().replace(/\/+$/, '');
 let mainWindow: BrowserWindow | null = null;
 let isDevelopment = false;
 let checkPromise: Promise<UpdateCheckResult | null> | null = null;
+let managedRollbackTarget: string | undefined;
+let downloadedRollbackTarget: string | undefined;
 
 interface ProgressInfo {
   percent: number;
@@ -79,6 +82,28 @@ export function createClientUpdateInfo(info: {
   };
 }
 
+export function isManagedRollbackVersion(version: string): boolean {
+  return managedRollbackTarget === version || downloadedRollbackTarget === version;
+}
+
+export function getManagedRollbackTargetVersion(): string | undefined {
+  return downloadedRollbackTarget ?? managedRollbackTarget;
+}
+
+/**
+ * 安装已经下载的较低版本前重新验证授权，避免管理员取消回退后仍安装旧包。
+ */
+export async function validateManagedRollbackInstall(targetVersion: string): Promise<void> {
+  const authorizedTarget = await getManagedRollbackTarget({
+    updateBaseUrl,
+    currentVersion: app.getVersion(),
+    signingPublicKey: __LICENSE_SIGNING_PUBLIC_KEY__.trim(),
+  });
+  if (authorizedTarget !== targetVersion) {
+    throw new Error('当前回退授权已经失效，请重新检查版本');
+  }
+}
+
 function sendToRenderer(channel: string, payload?: unknown): void {
   if (!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
   mainWindow.webContents.send(channel, payload);
@@ -104,7 +129,33 @@ export function checkForUpdates(): Promise<UpdateCheckResult | null> {
   }
 
   checkPromise = (async () => {
+    managedRollbackTarget = undefined;
+    autoUpdater.allowDowngrade = false;
+    try {
+      managedRollbackTarget = await getManagedRollbackTarget({
+        updateBaseUrl,
+        currentVersion: app.getVersion(),
+        signingPublicKey: __LICENSE_SIGNING_PUBLIC_KEY__.trim(),
+      });
+      autoUpdater.allowDowngrade = managedRollbackTarget !== undefined;
+      if (managedRollbackTarget) {
+        log.warn(`[自动更新] 已验证受控回退指令：${app.getVersion()} → ${managedRollbackTarget}`);
+      }
+    } catch (error: unknown) {
+      log.warn('[自动更新] 回退指令不可用，本次检查不允许降级:', error);
+      managedRollbackTarget = undefined;
+      autoUpdater.allowDowngrade = false;
+    }
     const result = await autoUpdater.checkForUpdates();
+    if (managedRollbackTarget && result?.updateInfo.version !== managedRollbackTarget) {
+      const unexpectedVersion = result?.updateInfo.version ?? '无';
+      managedRollbackTarget = undefined;
+      autoUpdater.allowDowngrade = false;
+      const error = new Error(`回退清单版本 ${unexpectedVersion} 与签名目标不一致`);
+      sendToRenderer('update-error', { message: error.message });
+      throw error;
+    }
+    autoUpdater.allowDowngrade = false;
     log.info('[自动更新] 火山更新源检查完成');
     return result;
   })().finally(() => {
@@ -133,6 +184,11 @@ export function setupAutoUpdater(): AppUpdater {
   });
 
   autoUpdater.on('update-available', (info) => {
+    if (managedRollbackTarget && info.version !== managedRollbackTarget) {
+      log.error(`[自动更新] 已阻止与签名目标不一致的回退版本：${info.version}`);
+      return;
+    }
+    if (!managedRollbackTarget) downloadedRollbackTarget = undefined;
     log.info('[自动更新] 发现新版本', info.version);
     sendToRenderer('update-available', createClientUpdateInfo(info));
   });
@@ -157,6 +213,7 @@ export function setupAutoUpdater(): AppUpdater {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
+    downloadedRollbackTarget = managedRollbackTarget === info.version ? info.version : undefined;
     log.info('[自动更新] 更新下载完成', info.version);
     sendToRenderer('update-downloaded', createClientUpdateInfo(info));
   });

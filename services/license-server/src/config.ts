@@ -6,6 +6,14 @@ export interface LicenseServerConfig {
   allowAdminBootstrap?: boolean;
   licenseKeyPepper: string;
   signingPrivateKey: string;
+  releaseManagement?: {
+    githubToken: string;
+    githubRepository: string;
+    githubRef: string;
+    releaseWorkflow: string;
+    setCurrentWorkflow: string;
+    updateBaseUrl: string;
+  };
   storage:
     | { driver: 'file'; filePath: string }
     | {
@@ -43,6 +51,16 @@ export function loadConfig(
     ),
     licenseKeyPepper: requireEnvironment('LICENSE_KEY_PEPPER', environment),
     signingPrivateKey: requireEnvironment('LICENSE_SIGNING_PRIVATE_KEY', environment),
+    ...(environment.GITHUB_RELEASE_TOKEN?.trim() ? {
+      releaseManagement: {
+        githubToken: environment.GITHUB_RELEASE_TOKEN.trim(),
+        githubRepository: environment.GITHUB_RELEASE_REPOSITORY?.trim() || 'luweiCN/VideoStitcher',
+        githubRef: environment.GITHUB_RELEASE_REF?.trim() || 'master',
+        releaseWorkflow: environment.GITHUB_RELEASE_WORKFLOW?.trim() || 'release.yml',
+        setCurrentWorkflow: environment.GITHUB_SET_CURRENT_WORKFLOW?.trim() || 'set-current-release.yml',
+        updateBaseUrl: requireEnvironment('VIDEO_STITCHER_UPDATE_BASE_URL', environment),
+      },
+    } : {}),
   };
 
   if (storageDriver === 'file') {

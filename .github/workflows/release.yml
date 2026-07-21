@@ -1,4 +1,5 @@
 name: 发布桌面客户端到 TOS
+run-name: 发布桌面客户端 v${{ inputs.version }} · ${{ inputs.release_request_id || 'manual' }}
 
 on:
   workflow_dispatch:
@@ -12,6 +13,11 @@ on:
         required: false
         default: ''
         type: string
+      release_request_id:
+        description: '管理后台生成的发布请求编号；人工发布时留空'
+        required: false
+        default: ''
+        type: string
   workflow_call:
     inputs:
       version:
@@ -20,6 +26,11 @@ on:
         type: string
       release_notes_override:
         description: '可选：人工覆盖 AI 自动生成的更新说明'
+        required: false
+        default: ''
+        type: string
+      release_request_id:
+        description: '管理后台生成的发布请求编号'
         required: false
         default: ''
         type: string
@@ -365,9 +376,14 @@ jobs:
     steps:
       - name: 创建不可变发布边界
         run: |
-          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" > /dev/null 2>&1; then
-            echo "Git 标签 ${RELEASE_TAG} 已存在，禁止覆盖。"
-            exit 1
+          EXISTING_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null || true)"
+          if [ -n "$EXISTING_SHA" ]; then
+            if [ "$EXISTING_SHA" != "$GITHUB_SHA" ]; then
+              echo "Git 标签 ${RELEASE_TAG} 已指向其他提交，禁止覆盖。"
+              exit 1
+            fi
+            echo "Git 标签 ${RELEASE_TAG} 已指向本次提交，跳过重复创建。"
+            exit 0
           fi
           gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
             -f ref="refs/tags/${RELEASE_TAG}" \
