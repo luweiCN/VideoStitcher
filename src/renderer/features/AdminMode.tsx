@@ -32,10 +32,7 @@ import ConcurrencySelector from '@/components/ConcurrencySelector';
 import PackageCenterMode from '@/features/PackageCenterMode';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { useHomeSkin } from '@/hooks/useHomeSkin';
-
-interface AdminModeProps {
-  initialUpdateInfo?: UpdateInfo | null;
-}
+import type { AvailableUpdateState, UpdateInfo } from '@/features/updateState';
 
 interface SystemInfo {
   version: string;
@@ -49,10 +46,10 @@ interface SystemInfo {
   ffmpegPath: string;
 }
 
-interface UpdateInfo {
-  version: string;
-  releaseDate: string;
-  releaseNotes: string;
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+
+interface AdminModeProps {
+  initialUpdateState?: AvailableUpdateState | null;
 }
 
 const ADMIN_SECTIONS = ['system', 'settings', 'license', 'updates', 'database'] as const;
@@ -63,7 +60,7 @@ function isAdminSection(value: string | null): value is AdminSection {
 }
 
 const AdminMode: React.FC<AdminModeProps> = ({
-  initialUpdateInfo,
+  initialUpdateState,
 }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -83,8 +80,8 @@ const AdminMode: React.FC<AdminModeProps> = ({
   }, [setSearchParams]);
   
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle');
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>(() => initialUpdateState?.status ?? 'idle');
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(() => initialUpdateState?.info ?? null);
   const [updateError, setUpdateError] = useState<string>('');
   const [downloadProgress, setDownloadProgress] = useState(0);
 
@@ -128,14 +125,14 @@ const AdminMode: React.FC<AdminModeProps> = ({
 
   useEffect(() => {
     loadSystemInfo();
+  }, []);
 
-    // 如果有初始更新信息，设置状态
-    if (initialUpdateInfo) {
-      setUpdateInfo(initialUpdateInfo);
-      setUpdateStatus('available');
-
-    }
-  }, [initialUpdateInfo]);
+  useEffect(() => {
+    if (!initialUpdateState) return;
+    setUpdateInfo(initialUpdateState.info);
+    setUpdateStatus(initialUpdateState.status);
+    if (initialUpdateState.status === 'downloaded') setDownloadProgress(100);
+  }, [initialUpdateState]);
 
   // 监听更新检查事件
   useEffect(() => {
@@ -228,10 +225,14 @@ const AdminMode: React.FC<AdminModeProps> = ({
     try {
       const result = await window.api.downloadUpdate();
 
-      if (result.error) {
-        setUpdateError(result.error);
+      if (!result.success) {
+        setUpdateError(result.error || '下载更新失败');
         setUpdateStatus('error');
+        return;
       }
+
+      setDownloadProgress(100);
+      setUpdateStatus('downloaded');
     } catch (err: any) {
       setUpdateError(err.message || '下载更新失败');
       setUpdateStatus('error');
@@ -241,8 +242,8 @@ const AdminMode: React.FC<AdminModeProps> = ({
   const handleInstallUpdate = async () => {
     try {
       const result = await window.api.installUpdate();
-      if (result.error) {
-        setUpdateError(result.error);
+      if (!result.success) {
+        setUpdateError(result.error || '安装更新失败');
         setUpdateStatus('error');
       }
     } catch (err: any) {

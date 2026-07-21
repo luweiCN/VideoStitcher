@@ -18,18 +18,13 @@ import TextToSpeechMode from './features/TextToSpeechMode';
 import SoundEffectNamingMode from '@/features/SoundEffectNamingMode';
 import VideoDedupMode from './features/VideoDedupMode';
 import AdminMode from './features/AdminMode';
+import { mergeAvailableUpdate, type AvailableUpdateState, type UpdateInfo } from './features/updateState';
 import UnauthorizedMode from './features/UnauthorizedMode';
 import SkinStoreMode from './features/SkinStoreMode';
 import { TaskCenterProvider } from './contexts/TaskContext';
 import { VideoMergeProvider } from './contexts/VideoMergeContext';
 import { TaskCenterListPage, TaskCenterDashboard, HomeTaskIndicator, TaskDetailPage } from './components/TaskCenter';
 import { DEFAULT_HOME_SKIN_ID, HOME_SKIN_STORAGE_KEY, type HomeSkinId, isHomeSkinId } from './constants/homeSkins';
-
-interface UpdateInfo {
-  version: string;
-  releaseDate: string;
-  releaseNotes: string;
-}
 
 type HomeTheme = 'light' | 'dark';
 
@@ -542,10 +537,10 @@ const AppContent: React.FC = () => {
   const isOnUpdatesTab = location.pathname === '/admin' && currentAdminTab === 'updates';
   
   const [appVersion, setAppVersion] = useState<string>('加载中...');
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [availableUpdate, setAvailableUpdate] = useState<AvailableUpdateState | null>(null);
   const [showUpdateNotification, setShowUpdateNotification] = useState(false);
   const [pendingUpdateInfo, setPendingUpdateInfo] = useState<UpdateInfo | null>(null);
+  const updateAvailable = availableUpdate !== null;
 
   // 授权状态
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
@@ -637,9 +632,8 @@ const AppContent: React.FC = () => {
   // 监听更新事件
   useEffect(() => {
     const cleanupAvailable = window.api.onUpdateAvailable((data) => {
-      setUpdateAvailable(true);
       const info = { version: data.version, releaseDate: data.releaseDate, releaseNotes: data.releaseNotes };
-      setUpdateInfo(info);
+      setAvailableUpdate((current) => mergeAvailableUpdate(current, { status: 'available', info }));
 
       // 不在版本更新页面时显示更新通知
       if (!isOnUpdatesTab) {
@@ -652,9 +646,8 @@ const AppContent: React.FC = () => {
     });
 
     const cleanupDownloaded = window.api.onUpdateDownloaded((data) => {
-      setUpdateAvailable(true);
       const info = { version: data.version, releaseDate: data.releaseDate, releaseNotes: data.releaseNotes };
-      setUpdateInfo(info);
+      setAvailableUpdate((current) => mergeAvailableUpdate(current, { status: 'downloaded', info }));
 
       // 不在版本更新页面时显示更新通知
       if (!isOnUpdatesTab) {
@@ -727,7 +720,7 @@ const AppContent: React.FC = () => {
         <Route path="/textToSpeech" element={<TextToSpeechMode />} />
         <Route path="/soundEffectNaming" element={<SoundEffectNamingMode />} />
         <Route path="/skinStore" element={<SkinStoreMode />} />
-        <Route path="/admin" element={<AdminMode initialUpdateInfo={updateAvailable ? updateInfo : null} />} />
+        <Route path="/admin" element={<AdminMode initialUpdateState={availableUpdate} />} />
         <Route path="/taskCenter" element={<TaskCenterDashboard onViewAllTasks={() => navigate('/tasks')} onViewTaskDetail={(id) => navigate(`/task/${id}`)} />} />
         <Route path="/tasks" element={<TaskCenterListPage />} />
         <Route path="/task/:id" element={<TaskDetailPage />} />

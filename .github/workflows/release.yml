@@ -102,6 +102,9 @@ jobs:
       - name: 测试发布脚本
         run: npm run test:release-scripts
 
+      - name: 测试客户端更新状态
+        run: npm run test:update-state
+
       - name: 校验桥接版本高于 GitHub 当前正式版
         if: ${{ inputs.publish_github_bridge }}
         env:

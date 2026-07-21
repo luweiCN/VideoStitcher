@@ -704,12 +704,36 @@ const api: ElectronAPI = {
   openLogDirectory: () => ipcRenderer.invoke("open-log-directory"),
 
   // 自动更新事件
-  onUpdateChecking: (cb) => ipcRenderer.on("update-checking", () => cb()),
-  onUpdateAvailable: (cb) => ipcRenderer.on("update-available", (_e, data) => cb(data)),
-  onUpdateNotAvailable: (cb) => ipcRenderer.on("update-not-available", (_e, data) => cb(data)),
-  onUpdateError: (cb) => ipcRenderer.on("update-error", (_e, data) => cb(data)),
-  onUpdateDownloadProgress: (cb) => ipcRenderer.on("update-download-progress", (_e, data) => cb(data)),
-  onUpdateDownloaded: (cb) => ipcRenderer.on("update-downloaded", (_e, data) => cb(data)),
+  onUpdateChecking: (cb) => {
+    const listener = () => cb();
+    ipcRenderer.on("update-checking", listener);
+    return () => ipcRenderer.removeListener("update-checking", listener);
+  },
+  onUpdateAvailable: (cb) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data);
+    ipcRenderer.on("update-available", listener);
+    return () => ipcRenderer.removeListener("update-available", listener);
+  },
+  onUpdateNotAvailable: (cb) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data);
+    ipcRenderer.on("update-not-available", listener);
+    return () => ipcRenderer.removeListener("update-not-available", listener);
+  },
+  onUpdateError: (cb) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data);
+    ipcRenderer.on("update-error", listener);
+    return () => ipcRenderer.removeListener("update-error", listener);
+  },
+  onUpdateDownloadProgress: (cb) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data);
+    ipcRenderer.on("update-download-progress", listener);
+    return () => ipcRenderer.removeListener("update-download-progress", listener);
+  },
+  onUpdateDownloaded: (cb) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data);
+    ipcRenderer.on("update-downloaded", listener);
+    return () => ipcRenderer.removeListener("update-downloaded", listener);
+  },
 
   // 授权 API
   getMachineId: () => ipcRenderer.invoke("auth:get-machine-id"),

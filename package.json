@@ -1,6 +1,6 @@
 {
   "name": "video-stitcher",
-  "version": "2.9.1",
+  "version": "2.9.2",
   "description": "??????????",
   "author": "Your Name <your.email@example.com>",
   "main": "./out/main/index.js",
@@ -10,6 +10,7 @@
     "build:icons": "node scripts/generate-icons.js",
     "build:icons:dev": "node scripts/generate-icons.js --dev",
     "test:release-scripts": "node --test scripts/release-scripts.test.mjs",
+    "test:update-state": "node --test scripts/update-state.test.mjs",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json --noEmit",
     "dev": "npm run build:icons:dev && electron-vite dev",
     "build": "npm run build:icons && electron-vite build",
