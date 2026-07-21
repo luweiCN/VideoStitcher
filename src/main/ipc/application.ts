@@ -10,8 +10,15 @@ import log from 'electron-log';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { createBackup } from '@main/database';
 import { getLogFilePath, getLogContent, getLogDirectory } from '@main/utils/logger';
-import { checkForUpdates, createClientUpdateInfo } from '@main/autoUpdater';
+import {
+  checkForUpdates,
+  createClientUpdateInfo,
+  getManagedRollbackTargetVersion,
+  isManagedRollbackVersion,
+  validateManagedRollbackInstall,
+} from '@main/autoUpdater';
 
 /**
  * 检测开发环境
@@ -121,8 +128,8 @@ async function handleCheckForUpdates(): Promise<{ success: boolean; hasUpdate?: 
 
     const result = await checkForUpdates();
 
-    const hasUpdate = Boolean(result?.versionInfo?.version && result.versionInfo.version !== currentVersion);
-    const updateInfo = result?.updateInfo
+    const hasUpdate = result?.isUpdateAvailable === true;
+    const updateInfo = hasUpdate && result?.updateInfo
       ? createClientUpdateInfo(result.updateInfo)
       : undefined;
 
@@ -157,6 +164,15 @@ async function handleInstallUpdate(): Promise<{ success: boolean; error?: string
   log.info('[安装更新] 开始安装并重启');
 
   try {
+    const targetVersion = getManagedRollbackTargetVersion();
+    if (targetVersion && isManagedRollbackVersion(targetVersion)) {
+      await validateManagedRollbackInstall(targetVersion);
+      const backup = await createBackup(`回退前_${app.getVersion()}_to_${targetVersion}`);
+      if (!backup.success) {
+        throw new Error(`创建回退前数据备份失败：${backup.error || '未知错误'}`);
+      }
+      log.info('[自动更新] 已创建回退前数据库备份', backup.path);
+    }
     autoUpdater.quitAndInstall();
     return { success: true };
   } catch (err: any) {

@@ -498,7 +498,7 @@ export function resetDatabase(): { success: boolean; error?: string } {
 /**
  * 创建备份
  */
-export function createBackup(description?: string): { success: boolean; path?: string; error?: string } {
+export async function createBackup(description?: string): Promise<{ success: boolean; path?: string; error?: string }> {
   try {
     const database = getDatabase();
     const backupDir = getBackupDir();
@@ -512,7 +512,7 @@ export function createBackup(description?: string): { success: boolean; path?: s
     const backupName = `VideoStitcher_${timestamp}${desc}.db`;
     const backupPath = path.join(backupDir, backupName);
     
-    database.backup(backupPath);
+    await database.backup(backupPath);
     
     console.log(`[数据库] 备份成功: ${backupPath}`);
     return { success: true, path: backupPath };

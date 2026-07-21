@@ -55,9 +55,9 @@ const UpdateNotification: React.FC<{
       <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-5 max-w-md shadow-2xl border border-indigo-400/30">
         <div className="flex items-start gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-bold text-white mb-1">发现新版本</h3>
+            <h3 className="text-lg font-bold text-white mb-1">发现推荐版本</h3>
             <p className="text-sm text-indigo-100 mb-3">
-              版本 <span className="font-semibold text-white">{updateInfo.version}</span> 已发布，点击查看更新详情
+              版本 <span className="font-semibold text-white">{updateInfo.version}</span> 已可用，点击查看详情
             </p>
             <div className="flex gap-2">
               <button

@@ -17,6 +17,12 @@ import {
   selectReleaseNotes,
 } from './prepare-release-notes.mjs';
 import { verifyPublicUpdateSource } from './verify-public-update-source.mjs';
+import {
+  compareReleaseVersions,
+  createReleaseRecord,
+  mergeReleaseCatalog,
+  readManifestArtifactNames,
+} from '../services/license-server/scripts/release-catalog.mjs';
 
 const baseManifest = `version: 2.9.0
 files:
@@ -44,6 +50,85 @@ test('TOS 桶权限检查按 SDK 要求直接传入桶名', async () => {
 
   assert.match(publishScript, /await client\.headBucket\(bucket\);/);
   assert.doesNotMatch(publishScript, /headBucket\(\{\s*bucket\s*\}\)/);
+});
+
+test('版本目录保存不可变清单、安装包大小和下载地址', () => {
+  const manifestNames = readManifestArtifactNames(baseManifest);
+  const release = createReleaseRecord({
+    version: '2.9.0',
+    metadata: {
+      version: '2.9.0',
+      releaseDate: '2026-07-20T00:00:00.000Z',
+      releaseNotes: '修复更新问题',
+    },
+    manifestNames: [...manifestNames, 'VideoStitcher-2.9.0-x64.exe.blockmap'],
+    objects: [
+      { key: 'stable/VideoStitcher-2.9.0-x64.exe', size: 100 },
+      { key: 'stable/VideoStitcher-2.9.0-x64.exe.blockmap', size: 10 },
+    ],
+    prefix: 'stable',
+    baseUrl: 'https://updates.example.com/stable',
+    supportsManagedRollback: true,
+  });
+
+  assert.equal(release.totalSizeBytes, 110);
+  assert.equal(release.downloads[0].url, 'https://updates.example.com/stable/VideoStitcher-2.9.0-x64.exe');
+  assert.equal(release.manifests.windows, 'stable/versions/2.9.0/latest.yml');
+  assert.equal(release.supportsManagedRollback, true);
+});
+
+test('版本目录拒绝缺失当前版本并按语义版本倒序排列', () => {
+  const release = (version) => ({
+    version,
+    releaseDate: '2026-07-20T00:00:00.000Z',
+    releaseNotes: '测试版本',
+    supportsManagedRollback: true,
+    totalSizeBytes: 1,
+    manifests: {},
+    artifacts: [],
+    downloads: [],
+  });
+  const catalog = mergeReleaseCatalog({
+    releases: [release('2.9.9'), release('2.10.0')],
+    currentVersion: '2.10.0',
+    updatedAt: '2026-07-21T00:00:00.000Z',
+  });
+  assert.deepEqual(catalog.releases.map((item) => item.version), ['2.10.0', '2.9.9']);
+  assert.equal(compareReleaseVersions('2.10.0', '2.9.9'), 1);
+  assert.equal(compareReleaseVersions('2.10.0', '2.10.0-beta.1'), 1);
+  assert.throws(() => mergeReleaseCatalog({
+    releases: [release('2.9.9')],
+    currentVersion: '2.10.0',
+    updatedAt: '2026-07-21T00:00:00.000Z',
+  }), /不存在当前版本/);
+});
+
+test('历史回填不能覆盖已经归档的不可变版本记录', () => {
+  const existingRelease = {
+    version: '2.9.5',
+    releaseDate: '2026-07-20T00:00:00.000Z',
+    releaseNotes: '正式发布记录',
+    supportsManagedRollback: true,
+    totalSizeBytes: 100,
+    manifests: {},
+    artifacts: [{ name: '完整产物' }],
+    downloads: [],
+  };
+  const catalog = mergeReleaseCatalog({
+    existing: { schemaVersion: 1, releases: [existingRelease] },
+    releases: [{
+      ...existingRelease,
+      releaseNotes: '历史回填数据',
+      supportsManagedRollback: false,
+      artifacts: [],
+    }],
+    currentVersion: '2.9.5',
+    updatedAt: '2026-07-21T00:00:00.000Z',
+  });
+
+  assert.equal(catalog.releases[0].releaseNotes, '正式发布记录');
+  assert.deepEqual(catalog.releases[0].artifacts, [{ name: '完整产物' }]);
+  assert.equal(catalog.releases[0].supportsManagedRollback, true);
 });
 
 test('将中文多行更新说明安全写入并读回更新清单', () => {
