@@ -378,8 +378,8 @@ export interface ElectronAPI {
     updatedAt?: string;
     offline?: boolean;
     needsOnlineVerification?: boolean;
-    trialExpired?: boolean;
-    accessSource?: 'trial' | 'complimentary' | 'paid' | 'legacy';
+    entitlementExpired?: boolean;
+    accessSource?: 'none' | 'trial' | 'complimentary' | 'paid' | 'legacy';
   }>;
   getLicenseInfo: () => Promise<{
     authorized: boolean;
@@ -718,7 +718,11 @@ const api: ElectronAPI = {
   redeemLicensePackageCode: (code) => ipcRenderer.invoke("auth:redeem-package-code", code),
   checkLicense: (params) => ipcRenderer.invoke("auth:check-license", params || {}),
   getLicenseInfo: () => ipcRenderer.invoke("auth:get-license-info"),
-  onLicenseStatusChanged: (cb) => ipcRenderer.on("license-status-changed", (_e, data) => cb(data)),
+  onLicenseStatusChanged: (cb) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: unknown) => cb(data);
+    ipcRenderer.on("license-status-changed", listener);
+    return () => ipcRenderer.removeListener("license-status-changed", listener);
+  },
   getPlatform: () => ipcRenderer.invoke("get-platform"),
 
   // 文件操作 API

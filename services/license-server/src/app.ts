@@ -182,7 +182,6 @@ export function createApplication(
     licenseKeyPepper: config.licenseKeyPepper,
     signingPrivateKey: config.signingPrivateKey,
     signingPublicKey,
-    ...(config.trialDays === undefined ? {} : { trialDays: config.trialDays }),
     ...(dependencies.now === undefined ? {} : { now: dependencies.now }),
   });
   const adminService = new AdminService({
@@ -251,8 +250,8 @@ export function createApplication(
           return jsonResponse(await service.listPublicPlans());
         }
 
-        if (request.method === 'POST' && (pathName === '/v1/devices/connect' || pathName === '/v1/trials/start')) {
-          if (!rateLimiter.consume(`trial:${sourceIp}`, 10, 10 * 60_000)) {
+        if (request.method === 'POST' && pathName === '/v1/devices/connect') {
+          if (!rateLimiter.consume(`device-connect:${sourceIp}`, 10, 10 * 60_000)) {
             throw new ApiError(429, 'DEVICE_CONNECT_RATE_LIMITED', '设备连接过于频繁');
           }
           const body = await parseJsonBody(request);

@@ -19,7 +19,7 @@ export interface PublicLicensePlanResult {
   error?: string;
 }
 
-export type LicenseAccessSource = 'trial' | 'complimentary' | 'paid' | 'legacy' | 'development';
+export type LicenseAccessSource = 'none' | 'trial' | 'complimentary' | 'paid' | 'legacy' | 'development';
 export type LicenseAccessMode = 'package' | 'default' | 'trial' | 'legacy' | 'none';
 export type LicenseAccessStatus = 'active' | 'suspended' | 'revoked' | 'expired';
 export type LicensePackageStatus = 'queued' | 'active' | 'completed' | 'withdrawn';
@@ -29,7 +29,7 @@ export interface LicensePackageSummary {
   planId: string;
   planName: string;
   term: PublicLicensePlan['term'];
-  source: Exclude<LicenseAccessSource, 'trial'>;
+  source: 'complimentary' | 'paid' | 'legacy' | 'development';
   reason?: string;
   assignedAt: string;
   waitsForDefault: boolean;

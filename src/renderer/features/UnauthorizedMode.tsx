@@ -10,6 +10,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Users,
+  WifiOff,
 } from 'lucide-react';
 import licenseRuntimeConfig from '@shared/config/license-runtime.json';
 import type { PublicLicensePlan } from '@shared/types/license';
@@ -21,8 +22,8 @@ interface LicenseStatusView {
   offline?: boolean;
   developmentMode?: boolean;
   needsOnlineVerification?: boolean;
-  trialExpired?: boolean;
-  accessSource?: 'trial' | 'complimentary' | 'paid' | 'legacy';
+  entitlementExpired?: boolean;
+  accessSource?: 'none' | 'trial' | 'complimentary' | 'paid' | 'legacy';
 }
 
 function isSafeExternalUrl(value: string | undefined): value is string {
@@ -69,7 +70,7 @@ const UnauthorizedMode = () => {
           offline: statusResult.offlineMode,
           developmentMode: statusResult.developmentMode,
           needsOnlineVerification: statusResult.needsOnlineVerification,
-          trialExpired: statusResult.trialExpired,
+          entitlementExpired: statusResult.entitlementExpired,
           accessSource: statusResult.accessSource,
         });
         if (statusResult.authorized) navigate('/', { replace: true });
@@ -93,7 +94,7 @@ const UnauthorizedMode = () => {
         offline: result.offlineMode,
         developmentMode: result.developmentMode,
         needsOnlineVerification: result.needsOnlineVerification,
-        trialExpired: result.trialExpired,
+        entitlementExpired: result.entitlementExpired,
         accessSource: result.accessSource,
       });
       if (result.authorized) navigate('/', { replace: true });
@@ -123,11 +124,18 @@ const UnauthorizedMode = () => {
     if (!result.success) setActionError(result.error || errorMessage);
   };
 
-  const trialExpired = licenseStatus.trialExpired === true;
-  const statusTitle = trialExpired ? '7 天试用已结束' : '等待套餐兑换';
-  const statusDescription = trialExpired
-    ? '当前阶段可加入 QQ 群领取免费套餐兑换码，然后在软件授权页自助兑换。'
-    : licenseStatus.reason || '请先获取套餐兑换码，再到软件授权页自助兑换。';
+  const needsOnlineVerification = licenseStatus.needsOnlineVerification === true;
+  const entitlementExpired = licenseStatus.entitlementExpired === true;
+  const statusTitle = needsOnlineVerification
+    ? '需要联网验证'
+    : entitlementExpired
+      ? '当前套餐已到期'
+      : '当前没有可用套餐';
+  const statusDescription = needsOnlineVerification
+    ? licenseStatus.reason || '请连接网络，确认当前授权状态后再继续使用。'
+    : entitlementExpired
+      ? '你可以续费或兑换新的套餐，完成后即可继续使用。'
+      : licenseStatus.reason || '请先获取套餐兑换码，再到软件授权页自助兑换。';
 
   return (
     <div className={`${workspaceSkinClassName} min-h-screen overflow-y-auto bg-black text-slate-100`}>
@@ -151,12 +159,16 @@ const UnauthorizedMode = () => {
         <section className="grid flex-1 items-center gap-10 py-10 lg:grid-cols-[minmax(0,1.12fr)_minmax(340px,0.88fr)] lg:gap-16">
           <div className="max-w-2xl">
             <div className={`mb-6 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium ${
-              trialExpired
+              needsOnlineVerification || entitlementExpired
                 ? 'bg-amber-500/10 text-amber-300'
                 : 'bg-violet-500/10 text-violet-300'
             }`}>
-              {trialExpired ? <CalendarClock className="size-4" /> : <Users className="size-4" />}
-              {trialExpired ? '免费试用已到期' : '等待授权'}
+              {needsOnlineVerification
+                ? <WifiOff className="size-4" />
+                : entitlementExpired
+                  ? <CalendarClock className="size-4" />
+                  : <Users className="size-4" />}
+              {needsOnlineVerification ? '等待联网验证' : entitlementExpired ? '套餐已到期' : '等待授权'}
             </div>
             <h1 className="max-w-xl text-3xl font-semibold tracking-[-0.025em] text-white sm:text-4xl">
               {statusTitle}
@@ -165,7 +177,7 @@ const UnauthorizedMode = () => {
               {statusDescription}
             </p>
 
-            <div className="mt-8 border-y border-slate-800 py-6">
+            {!needsOnlineVerification ? <div className="mt-8 border-y border-slate-800 py-6">
               <div className="flex items-start gap-4">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-violet-300">
                   <Users className="size-5" aria-hidden="true" />
@@ -202,7 +214,7 @@ const UnauthorizedMode = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> : null}
 
             <div className="mt-7">
               <div className="mb-2 flex items-center justify-between gap-4 text-xs text-slate-500">
@@ -226,28 +238,38 @@ const UnauthorizedMode = () => {
           <aside className="rounded-xl bg-neutral-900 p-6 ring-1 ring-inset ring-slate-800 sm:p-7" aria-labelledby="access-title">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 id="access-title" className="text-lg font-semibold text-white">开通步骤</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-400">免费领取或购买套餐码后，在当前设备上自助兑换。</p>
+                <h2 id="access-title" className="text-lg font-semibold text-white">
+                  {needsOnlineVerification ? '联网验证' : '开通步骤'}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  {needsOnlineVerification
+                    ? '连接网络后重新检查，服务器确认套餐状态后再决定是否需要续费。'
+                    : '免费领取或购买套餐码后，在当前设备上自助兑换。'}
+                </p>
               </div>
               <ShieldCheck className="size-5 text-slate-500" aria-hidden="true" />
             </div>
 
-            <ol className="mt-6 space-y-4 text-sm leading-6 text-slate-300">
+            {!needsOnlineVerification ? <ol className="mt-6 space-y-4 text-sm leading-6 text-slate-300">
               <li className="flex gap-3"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs">1</span><span>加入 QQ 群免费领取，或选择下方套餐购买。</span></li>
               <li className="flex gap-3"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs">2</span><span>获取一次性套餐兑换码。</span></li>
               <li className="flex gap-3"><span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs">3</span><span>打开“软件授权”，把兑换码兑换到当前设备。</span></li>
-            </ol>
+            </ol> : (
+              <div className="mt-6 rounded-lg bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-200">
+                当前只要求联网验证，不会在验证完成前判断套餐已经到期。
+              </div>
+            )}
 
             <div className="my-6 h-px bg-slate-800" />
 
-            <button
+            {!needsOnlineVerification ? <button
               type="button"
               onClick={() => navigate('/admin?tab=license')}
               className="mb-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 text-sm font-medium text-white transition-colors hover:bg-violet-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
             >
               <KeyRound className="size-4" />
               兑换套餐码或查看套餐
-            </button>
+            </button> : null}
 
             <button
               type="button"
@@ -260,7 +282,7 @@ const UnauthorizedMode = () => {
             </button>
 
             {licenseStatus.needsOnlineVerification ? (
-              <p className="mt-4 text-sm leading-6 text-amber-300">已超过离线使用期限，请联网完成验证。</p>
+              <p className="mt-4 text-sm leading-6 text-amber-300">当前授权状态需要联网确认。</p>
             ) : null}
             {licenseStatus.offline && !licenseStatus.needsOnlineVerification ? (
               <p className="mt-4 text-sm leading-6 text-amber-300">当前正在使用离线缓存授权。</p>
@@ -271,7 +293,7 @@ const UnauthorizedMode = () => {
           </aside>
         </section>
 
-        {plans.length > 0 ? (
+        {!needsOnlineVerification && plans.length > 0 ? (
           <section className="border-t border-slate-800 py-8" aria-labelledby="public-plan-title">
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div>

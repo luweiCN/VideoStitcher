@@ -197,7 +197,6 @@ interface ServiceOptions {
   licenseKeyPepper: string;
   signingPrivateKey: string;
   signingPublicKey: string;
-  trialDays?: number;
   now?: () => Date;
 }
 
@@ -210,12 +209,10 @@ interface PackageGrantBatchEvaluation {
 
 export class LicenseService {
   private readonly now: () => Date;
-  private readonly trialDays: number;
   private readonly redemptionCodeEncryptionKey: Buffer;
 
   public constructor(private readonly options: ServiceOptions) {
     this.now = options.now ?? (() => new Date());
-    this.trialDays = options.trialDays ?? 7;
     this.redemptionCodeEncryptionKey = Buffer.from(
       hashSensitiveValue('redemption-code-inventory-key:v1', options.licenseKeyPepper),
       'hex',
@@ -312,7 +309,7 @@ export class LicenseService {
           license.retiredMachineFingerprintHashes?.includes(fingerprintHash) === true
         ))
       ) {
-        throw new ApiError(403, 'DEVICE_REVOKED', '该设备 ID 已从原授权档案移除，不能自动创建新的试用');
+        throw new ApiError(403, 'DEVICE_REVOKED', '该设备 ID 已从原授权档案移除，不能自动创建新的设备档案');
       }
 
       if (existingLicense !== undefined && existingDevice !== undefined) {
@@ -325,16 +322,18 @@ export class LicenseService {
           && (existingDevice.installationId === undefined
             || legacyCredentialMatches
             || existingDevice.status === 'pending');
-        const canRotateTrialCredential = existingLicense.originSource === 'trial'
-          && !isLicenseExpired(existingLicense, now)
+        const canRotateUnlicensedCredential = (
+          existingLicense.originSource === 'none'
+          || (existingLicense.originSource === 'trial' && !isLicenseExpired(existingLicense, now))
+        )
           && existingLicense.deviceCredentialLockedAt === undefined;
         const publicKeyMatches = existingDevice.devicePublicKey === deviceInput.devicePublicKey;
         const canBindPublicKey = existingDevice.devicePublicKey === undefined
-          && (credentialMatches || canBindCredential || canRotateTrialCredential);
+          && (credentialMatches || canBindCredential || canRotateUnlicensedCredential);
         if (!publicKeyMatches && !canBindPublicKey) {
           throw new ApiError(403, 'DEVICE_CREDENTIAL_INVALID', '设备密钥已变化，请联系管理员重新绑定设备');
         }
-        if (!credentialMatches && !canBindCredential && !canRotateTrialCredential) {
+        if (!credentialMatches && !canBindCredential && !canRotateUnlicensedCredential) {
           throw new ApiError(403, 'DEVICE_CREDENTIAL_INVALID', '设备凭据已变化，请联系管理员重新绑定设备');
         }
         const credentialChanged = !credentialMatches;
@@ -356,7 +355,7 @@ export class LicenseService {
           addAuditEvent(database, {
             actorType: 'device',
             actorId: existingDevice.id,
-            action: canRotateTrialCredential ? 'trial.credential_rotated' : 'device.credential_bound',
+            action: canRotateUnlicensedCredential ? 'device.credential_rotated' : 'device.credential_bound',
             targetType: 'device',
             targetId: existingDevice.id,
           }, now);
@@ -379,13 +378,12 @@ export class LicenseService {
           id: randomUUID(),
           customerName: deviceInput.deviceName,
           tags: [],
-          plan: `${this.trialDays} 天免费试用`,
+          plan: '尚未分配套餐包',
           billingCycle: 'custom',
-          accessSource: 'trial',
-          originSource: 'trial',
+          accessSource: 'none',
+          originSource: 'none',
           status: 'active',
           maxDevices: 1,
-          expiresAt: new Date(now.getTime() + this.trialDays * 24 * 60 * 60 * 1000).toISOString(),
           createdAt: now.toISOString(),
           updatedAt: now.toISOString(),
           revision: 1,
@@ -430,10 +428,9 @@ export class LicenseService {
         addAuditEvent(database, {
           actorType: 'device',
           actorId: device.id,
-          action: 'trial.started',
+          action: 'device.registered',
           targetType: 'license',
           targetId: license.id,
-          metadata: { trialDays: this.trialDays },
         }, now);
       } else {
         const packageGrant = this.createPackageGrant(
@@ -2051,7 +2048,9 @@ export class LicenseService {
     if (license === undefined || device === undefined || device.licenseId !== license.id) {
       throw new ApiError(401, 'SESSION_INVALID', '设备会话无效');
     }
-    this.assertLicenseActive(database, license, now);
+    if (license.status !== 'active') {
+      throw new ApiError(403, 'LICENSE_INACTIVE', `授权当前状态为 ${license.status}`);
+    }
     if (device.status !== 'active') {
       throw new ApiError(403, 'DEVICE_INACTIVE', '设备授权已失效');
     }
@@ -2214,28 +2213,6 @@ export class LicenseService {
       throw new ApiError(401, 'SESSION_INVALID', '设备会话无效或已过期');
     }
     return claims;
-  }
-
-  private assertLicenseActive(
-    database: LicenseDatabase,
-    license: LicenseRecord,
-    now: Date,
-  ): ReturnType<typeof getEffectiveLicenseAccess> {
-    const effectiveAccess = getEffectiveLicenseAccess(
-      license,
-      database.packageGrants,
-      database.defaultAccess,
-      database.plans,
-      now,
-    );
-    const status = effectiveAccess.status;
-    if (status === 'expired' && getEntitlementSource(license) === 'trial') {
-      throw new ApiError(403, 'TRIAL_EXPIRED', '7 天免费试用已结束，请加入 QQ 群领取套餐兑换码');
-    }
-    if (status !== 'active') {
-      throw new ApiError(403, 'LICENSE_INACTIVE', `授权当前状态为 ${status}`);
-    }
-    return effectiveAccess;
   }
 
   private assertPlanInput(code: string, term: PlanTerm): void {

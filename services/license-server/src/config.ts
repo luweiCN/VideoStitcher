@@ -6,7 +6,6 @@ export interface LicenseServerConfig {
   allowAdminBootstrap?: boolean;
   licenseKeyPepper: string;
   signingPrivateKey: string;
-  trialDays?: number;
   storage:
     | { driver: 'file'; filePath: string }
     | {
@@ -44,7 +43,6 @@ export function loadConfig(
     ),
     licenseKeyPepper: requireEnvironment('LICENSE_KEY_PEPPER', environment),
     signingPrivateKey: requireEnvironment('LICENSE_SIGNING_PRIVATE_KEY', environment),
-    trialDays: parseTrialDays(environment.LICENSE_TRIAL_DAYS),
   };
 
   if (storageDriver === 'file') {
@@ -82,12 +80,4 @@ function parseBoolean(value: string | undefined, fallback: boolean, name: string
   if (value.trim().toLowerCase() === 'true') return true;
   if (value.trim().toLowerCase() === 'false') return false;
   throw new Error(`${name} 必须是 true 或 false`);
-}
-
-function parseTrialDays(value: string | undefined): number {
-  const trialDays = Number.parseInt(value?.trim() || '7', 10);
-  if (!Number.isInteger(trialDays) || trialDays < 1 || trialDays > 30) {
-    throw new Error('LICENSE_TRIAL_DAYS 必须是 1 到 30 的整数');
-  }
-  return trialDays;
 }

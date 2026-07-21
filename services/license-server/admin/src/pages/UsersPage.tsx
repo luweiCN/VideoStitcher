@@ -857,7 +857,7 @@ export function UsersPage({ token, overview, onChanged }: UsersPageProps) {
                 { value: 'all', label: '全部类型' },
                 { value: 'package', label: '单独套餐包' },
                 { value: 'default', label: '全局权益' },
-                { value: 'trial', label: '新设备试用' },
+                { value: 'trial', label: '历史试用记录' },
                 { value: 'legacy', label: '历史授权' },
                 { value: 'none', label: '没有可用权益' },
               ]}

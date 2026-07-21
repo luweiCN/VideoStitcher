@@ -52,7 +52,11 @@ export function OverviewPage({ overview, auditEvents, onOpenDevices }: OverviewP
 
   const metrics = [
     { label: '当前可用设备', value: overview.metrics.activeEntitlements, icon: IconUsers },
-    { label: '试用设备', value: overview.metrics.trialEntitlements, icon: IconClockHour4 },
+    {
+      label: '当前不可用设备',
+      value: overview.metrics.totalEntitlements - overview.metrics.activeEntitlements,
+      icon: IconClockHour4,
+    },
     {
       label: '今日前台使用',
       value: formatUsageDuration(overview.metrics.todayForegroundSeconds),

@@ -31,7 +31,7 @@ const INSTALLATION_FILENAME = 'cloud-installation.dat';
 const LEGACY_INSTALLATION_FILENAME = 'cloud-installation.json';
 const DEVICE_KEY_FILENAME = 'cloud-device-key.dat';
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
-const DEFAULT_OFFLINE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_OFFLINE_GRACE_MS = 14 * 24 * 60 * 60 * 1000;
 const DEFAULT_DEVELOPMENT_API_BASE_URL = 'http://127.0.0.1:8787';
 
 interface CloudSession {
@@ -69,7 +69,8 @@ export interface CloudLicenseStatus {
   authorized: boolean;
   reason?: string;
   offlineMode?: boolean;
-  trialExpired?: boolean;
+  needsOnlineVerification?: boolean;
+  entitlementExpired?: boolean;
   accessSource?: LicenseAccessSource;
   userInfo?: { user: string; machineId: string };
   licensePlan?: string;
@@ -147,7 +148,8 @@ class CloudRequestError extends Error {
 
 function isTransientCloudError(error: unknown): boolean {
   if (error instanceof CloudRequestError) {
-    return error.statusCode !== undefined && error.statusCode >= 500;
+    return error.statusCode !== undefined
+      && ([408, 425, 429].includes(error.statusCode) || error.statusCode >= 500);
   }
   return error instanceof TypeError
     || (error instanceof Error && error.name === 'AbortError');
@@ -157,6 +159,8 @@ let heartbeatTimer: NodeJS.Timeout | null = null;
 let statusListener: ((status: CloudLicenseStatus) => void) | null = null;
 let activityProvider: (() => boolean) | null = null;
 let developmentSigningPublicKey: string | null = null;
+let connectPromise: Promise<CloudLicenseStatus> | null = null;
+let statusPromise: Promise<CloudLicenseStatus> | null = null;
 
 function getApiBaseUrl(): string | null {
   const developmentValue = process.env.VIDEO_STITCHER_LICENSE_API_URL?.trim()
@@ -327,7 +331,7 @@ function readEntitlementReceipt(
       || !Number.isInteger(claims.sessionVersion)
       || typeof claims.authorized !== 'boolean'
       || typeof claims.plan !== 'string'
-      || !['trial', 'complimentary', 'paid', 'legacy'].includes(claims.accessSource ?? '')
+      || !['none', 'trial', 'complimentary', 'paid', 'legacy'].includes(claims.accessSource ?? '')
       || !['package', 'default', 'trial', 'legacy', 'none'].includes(claims.accessMode ?? '')
       || !['active', 'suspended', 'revoked', 'expired'].includes(claims.status ?? '')
       || !Number.isInteger(claims.issuedAt)
@@ -502,18 +506,42 @@ async function request<T>(
 
 function toCloudStatus(session: CloudSession, offlineMode = false): CloudLicenseStatus {
   const authorized = session.authorized ?? session.license.status === 'active';
-  const trialExpired = !authorized
-    && session.license.accessSource === 'trial'
+  const entitlementExpired = !authorized
+    && session.license.accessSource !== 'none'
     && session.license.status === 'expired';
+  const reason = session.license.status === 'suspended'
+    ? '当前设备授权已暂停'
+    : session.license.status === 'revoked'
+      ? '当前设备授权已撤销'
+      : entitlementExpired
+        ? '当前套餐已到期，请续费或兑换新的套餐'
+        : !authorized && session.license.accessSource === 'none'
+          ? '当前设备尚未获得可用套餐'
+          : undefined;
   return {
     configured: true,
     hasCloudCredential: true,
     authorized,
     offlineMode,
-    ...(trialExpired ? {
-      trialExpired: true,
-      reason: '7 天免费试用已结束，可加入 QQ 群领取套餐兑换码',
-    } : {}),
+    ...(entitlementExpired ? { entitlementExpired: true } : {}),
+    ...(reason === undefined ? {} : { reason }),
+    userInfo: {
+      user: session.license.customerName,
+      machineId: getMachineId(),
+    },
+    licensePlan: session.license.plan,
+    accessSource: session.license.accessSource,
+    ...(session.license.expiresAt === undefined ? {} : { licenseExpiresAt: session.license.expiresAt }),
+  };
+}
+
+function toOnlineVerificationRequiredStatus(session: CloudSession): CloudLicenseStatus {
+  return {
+    configured: true,
+    hasCloudCredential: true,
+    authorized: false,
+    needsOnlineVerification: true,
+    reason: '需要联网确认当前授权状态，请连接网络后重新验证',
     userInfo: {
       user: session.license.customerName,
       machineId: getMachineId(),
@@ -556,7 +584,7 @@ function isWithinOfflineGrace(session: CloudSession): boolean {
   return now - lastValidationAt <= graceMs;
 }
 
-export async function connectCloudDevice(): Promise<CloudLicenseStatus> {
+async function connectCloudDeviceInternal(): Promise<CloudLicenseStatus> {
   const apiBaseUrl = getApiBaseUrl();
   if (apiBaseUrl === null) {
     return { configured: false, hasCloudCredential: false, authorized: false, reason: '云授权服务尚未配置' };
@@ -568,12 +596,22 @@ export async function connectCloudDevice(): Promise<CloudLicenseStatus> {
     });
     const session = await createVerifiedSession(apiBaseUrl, activated);
     saveSession(session);
-    if (session.authorized) scheduleCloudHeartbeat();
-    else stopCloudHeartbeat();
+    scheduleCloudHeartbeat();
     return toCloudStatus(session);
   } catch (error: unknown) {
+    if (isTransientCloudError(error)) {
+      return {
+        configured: true,
+        hasCloudCredential: false,
+        authorized: false,
+        needsOnlineVerification: true,
+        reason: '请连接网络后重新检查使用权限',
+      };
+    }
     if (error instanceof CloudRequestError && [
       'TRIAL_EXPIRED',
+      'ENTITLEMENT_EXPIRED',
+      'ENTITLEMENT_REQUIRED',
       'DEVICE_CREDENTIAL_INVALID',
       'DEVICE_REVOKED',
       'LICENSE_INACTIVE',
@@ -582,11 +620,23 @@ export async function connectCloudDevice(): Promise<CloudLicenseStatus> {
         configured: true,
         hasCloudCredential: readSession() !== null,
         authorized: false,
-        ...(error.code === 'TRIAL_EXPIRED' ? { trialExpired: true, accessSource: 'trial' as const } : {}),
+        ...(['TRIAL_EXPIRED', 'ENTITLEMENT_EXPIRED'].includes(error.code ?? '')
+          ? { entitlementExpired: true }
+          : {}),
         reason: error.message,
       };
     }
     throw error;
+  }
+}
+
+export async function connectCloudDevice(): Promise<CloudLicenseStatus> {
+  if (connectPromise !== null) return connectPromise;
+  connectPromise = connectCloudDeviceInternal();
+  try {
+    return await connectPromise;
+  } finally {
+    connectPromise = null;
   }
 }
 
@@ -644,8 +694,7 @@ export async function redeemCloudPackageCode(code: string): Promise<{
     );
     const nextSession = await createVerifiedSession(session.apiBaseUrl, result.session);
     saveSession(nextSession);
-    if (nextSession.authorized) scheduleCloudHeartbeat();
-    else stopCloudHeartbeat();
+    scheduleCloudHeartbeat();
     return {
       center: result.packageCenter,
       alreadyRedeemed: result.alreadyRedeemed,
@@ -653,7 +702,7 @@ export async function redeemCloudPackageCode(code: string): Promise<{
   });
 }
 
-export async function getCloudLicenseStatus(): Promise<CloudLicenseStatus> {
+async function getCloudLicenseStatusInternal(): Promise<CloudLicenseStatus> {
   let apiBaseUrl: string | null = null;
   try {
     apiBaseUrl = getApiBaseUrl();
@@ -688,20 +737,24 @@ export async function getCloudLicenseStatus(): Promise<CloudLicenseStatus> {
         failure = recoveryError;
       }
     }
-    if (failure instanceof CloudRequestError && failure.code === 'TRIAL_EXPIRED') {
+    if (failure instanceof CloudRequestError && [
+      'TRIAL_EXPIRED',
+      'ENTITLEMENT_EXPIRED',
+    ].includes(failure.code ?? '')) {
       stopCloudHeartbeat();
       return {
         configured: true,
         hasCloudCredential: true,
         authorized: false,
-        trialExpired: true,
-        accessSource: 'trial',
+        entitlementExpired: true,
         reason: failure.message,
       };
     }
     const message = failure instanceof Error ? failure.message : String(failure);
-    if (isWithinOfflineGrace(session) && isTransientCloudError(failure)) {
-      return toCloudStatus(session, true);
+    if (isTransientCloudError(failure)) {
+      if (isWithinOfflineGrace(session)) return toCloudStatus(session, true);
+      scheduleCloudHeartbeat();
+      return toOnlineVerificationRequiredStatus(session);
     }
     stopCloudHeartbeat();
     return {
@@ -710,6 +763,16 @@ export async function getCloudLicenseStatus(): Promise<CloudLicenseStatus> {
       authorized: false,
       reason: message,
     };
+  }
+}
+
+export async function getCloudLicenseStatus(): Promise<CloudLicenseStatus> {
+  if (statusPromise !== null) return statusPromise;
+  statusPromise = getCloudLicenseStatusInternal();
+  try {
+    return await statusPromise;
+  } finally {
+    statusPromise = null;
   }
 }
 
@@ -769,22 +832,29 @@ function scheduleCloudHeartbeat(): void {
           error = recoveryError;
         }
       }
-      if (error instanceof CloudRequestError && error.code === 'TRIAL_EXPIRED') {
+      if (error instanceof CloudRequestError && [
+        'TRIAL_EXPIRED',
+        'ENTITLEMENT_EXPIRED',
+      ].includes(error.code ?? '')) {
         statusListener?.({
           configured: true,
           hasCloudCredential: true,
           authorized: false,
-          trialExpired: true,
-          accessSource: 'trial',
+          entitlementExpired: true,
           reason: error.message,
         });
         return;
       }
       const message = error instanceof Error ? error.message : String(error);
-      if (!isWithinOfflineGrace(currentSession) || !isTransientCloudError(error)) {
+      if (!isTransientCloudError(error)) {
         statusListener?.({ configured: true, hasCloudCredential: true, authorized: false, reason: message });
         return;
       }
+      statusListener?.(
+        isWithinOfflineGrace(currentSession)
+          ? toCloudStatus(currentSession, true)
+          : toOnlineVerificationRequiredStatus(currentSession),
+      );
     }
     scheduleCloudHeartbeat();
   }, intervalMs);

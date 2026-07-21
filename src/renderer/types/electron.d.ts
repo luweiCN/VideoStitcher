@@ -432,8 +432,8 @@ export interface ElectronAPI {
     updatedAt?: string;
     offline?: boolean;
     needsOnlineVerification?: boolean;
-    trialExpired?: boolean;
-    accessSource?: 'trial' | 'complimentary' | 'paid' | 'legacy';
+    entitlementExpired?: boolean;
+    accessSource?: 'none' | 'trial' | 'complimentary' | 'paid' | 'legacy';
   }>;
   getLicenseInfo: () => Promise<{
     authorized: boolean;

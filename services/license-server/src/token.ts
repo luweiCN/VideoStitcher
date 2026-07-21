@@ -42,7 +42,7 @@ export interface EntitlementReceiptClaims {
   authorized: boolean;
   plan: string;
   planId?: string;
-  accessSource: 'trial' | 'complimentary' | 'paid' | 'legacy';
+  accessSource: 'none' | 'trial' | 'complimentary' | 'paid' | 'legacy';
   accessMode: 'package' | 'default' | 'trial' | 'legacy' | 'none';
   status: 'active' | 'suspended' | 'revoked' | 'expired';
   expiresAt?: string;

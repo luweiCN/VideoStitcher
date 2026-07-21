@@ -551,13 +551,25 @@ const AppContent: React.FC = () => {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [isCheckingLicense, setIsCheckingLicense] = useState(true);
 
-  const handleUnauthorized = useCallback(async () => {
+  const handleUnauthorized = useCallback(async (status?: {
+    reason?: string;
+    needsOnlineVerification?: boolean;
+    entitlementExpired?: boolean;
+  }) => {
     try {
       const queue = await window.api.getQueueStatus();
       if (queue.running > 0) {
+        const title = status?.needsOnlineVerification
+          ? '需要联网验证'
+          : status?.entitlementExpired
+            ? '套餐已到期'
+            : '当前没有可用套餐';
+        const message = status?.needsOnlineVerification
+          ? '当前任务会继续完成，但不会再启动下一项。联网验证通过后会自动恢复队列。'
+          : '当前任务会继续完成，但不会再启动下一项。获得可用套餐后可恢复队列。';
         toast.warning(
-          '当前正在运行的任务会继续完成，但不会再启动下一项。续费或兑换套餐后可恢复队列。',
-          '套餐已到期',
+          message,
+          title,
           8000,
         );
         navigate('/taskCenter', { replace: true });
@@ -595,7 +607,7 @@ const AppContent: React.FC = () => {
         const result = await window.api.checkLicense();
         setIsAuthorized(result.authorized);
         if (!result.authorized && !canOpenWithoutAccess) {
-          await handleUnauthorized();
+          await handleUnauthorized(result);
         }
       } catch (error) {
         console.error('授权检查失败:', error);
@@ -606,12 +618,16 @@ const AppContent: React.FC = () => {
       }
     };
 
-    checkLicense();
+    if (location.pathname === '/unauthorized') {
+      setIsCheckingLicense(false);
+    } else {
+      void checkLicense();
+    }
 
     const cleanup = window.api.onLicenseStatusChanged((data) => {
       setIsAuthorized(data.authorized);
       if (!data.authorized && !canOpenWithoutAccess) {
-        void handleUnauthorized();
+        void handleUnauthorized(data);
       }
     });
 

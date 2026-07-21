@@ -76,7 +76,8 @@ export const deviceStatusLabels: Record<DeviceStatus, string> = {
 };
 
 export const accessSourceLabels: Record<AccessSource, string> = {
-  trial: '7 天试用',
+  none: '尚未获得权益',
+  trial: '历史试用',
   complimentary: '运营赠送',
   paid: '购买套餐',
   legacy: '历史授权',
@@ -141,11 +142,13 @@ export const auditActionLabels: Record<string, string> = {
   'new_device_default_access.updated': '更新新设备默认权益',
   'new_device_default_access.granted': '自动发放新设备默认权益',
   'device.credential_bound': '设备完成首次绑定',
+  'device.credential_rotated': '未发放套餐设备凭据已更新',
+  'device.registered': '客户端首次登记设备',
   'device.rebound': '更换授权设备',
   'device.deactivated': '电脑退出登录',
   'device.revoked': '禁用登录电脑',
-  'trial.started': '开始 7 天试用',
-  'trial.credential_rotated': '试用设备凭据已更新',
+  'trial.started': '历史试用开始记录',
+  'trial.credential_rotated': '历史试用设备凭据已更新',
 };
 
 export function getAuditActionLabel(action: string): string {

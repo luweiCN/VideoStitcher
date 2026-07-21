@@ -9,7 +9,7 @@ export type BillingCycle = (typeof BILLING_CYCLES)[number];
 export const SUBSCRIPTION_BILLING_CYCLES = ['monthly', 'quarterly', 'yearly'] as const;
 export type SubscriptionBillingCycle = (typeof SUBSCRIPTION_BILLING_CYCLES)[number];
 
-export const ENTITLEMENT_SOURCES = ['trial', 'complimentary', 'paid', 'legacy'] as const;
+export const ENTITLEMENT_SOURCES = ['none', 'trial', 'complimentary', 'paid', 'legacy'] as const;
 export type EntitlementSource = (typeof ENTITLEMENT_SOURCES)[number];
 
 export const PACKAGE_GRANT_SOURCES = ['complimentary', 'paid', 'legacy'] as const;
@@ -54,7 +54,7 @@ export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
 export const ONLINE_THRESHOLD_MS = 15 * 60 * 1000;
 export const HEARTBEAT_INTERVAL_SECONDS = 5 * 60;
 export const SESSION_TTL_SECONDS = 30 * 60;
-export const OFFLINE_GRACE_SECONDS = 7 * 24 * 60 * 60;
+export const OFFLINE_GRACE_SECONDS = 14 * 24 * 60 * 60;
 export const MAX_LICENSE_TAGS = 20;
 export const MAX_LICENSE_TAG_LENGTH = 24;
 

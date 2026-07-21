@@ -39,7 +39,8 @@ const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
 });
 
 const sourceLabels: Record<LicenseAccessSource, string> = {
-  trial: '免费试用',
+  none: '尚未获得权益',
+  trial: '历史试用',
   complimentary: '运营赠送',
   paid: '购买兑换',
   legacy: '历史授权',
@@ -170,6 +171,8 @@ export default function PackageCenterMode() {
     if (!result.success) setPurchaseError(result.error || '无法打开购买页面');
   };
 
+  const waitingForPackage = center?.access.mode === 'none' && center.access.source === 'none';
+
   return (
     <div className="text-slate-100">
         {loading ? (
@@ -191,7 +194,9 @@ export default function PackageCenterMode() {
                       {center.access.planName}
                     </h1>
                     <p className="mt-3 text-sm text-slate-400">
-                      {center.access.mode === 'default' ? '全局权益' : sourceLabels[center.access.source]} · {center.deviceLabel}
+                      {center.access.mode === 'default'
+                        ? center.deviceLabel
+                        : `${sourceLabels[center.access.source]} · ${center.deviceLabel}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -208,14 +213,22 @@ export default function PackageCenterMode() {
                         ? 'bg-emerald-500/10 text-emerald-300'
                         : 'bg-amber-500/10 text-amber-300'
                     }`}>
-                      {center.authorized ? '当前可用' : center.access.status === 'expired' ? '已到期' : '当前不可用'}
+                      {center.authorized
+                        ? '当前可用'
+                        : waitingForPackage
+                          ? '等待授权'
+                          : center.access.status === 'expired'
+                            ? '已到期'
+                            : '当前不可用'}
                     </span>
                   </div>
                 </div>
                 <div className="mt-8 grid gap-5 border-t border-slate-800 pt-6 sm:grid-cols-3">
                   <div>
-                    <p className="text-xs text-slate-500">可使用至</p>
-                    <p className="mt-2 text-sm font-medium text-slate-200">{formatDate(center.access.expiresAt)}</p>
+                    <p className="text-xs text-slate-500">{waitingForPackage ? '当前状态' : '可使用至'}</p>
+                    <p className="mt-2 text-sm font-medium text-slate-200">
+                      {waitingForPackage ? '尚未获得套餐' : formatDate(center.access.expiresAt)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-500">套餐包数量</p>
