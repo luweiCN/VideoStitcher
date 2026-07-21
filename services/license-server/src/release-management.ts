@@ -47,6 +47,7 @@ export interface ReleaseOperation {
 
 export interface ReleaseDashboard {
   sourceVersion: string;
+  sourceVersionPublished: boolean;
   catalog?: DesktopReleaseCatalog;
   operations: ReleaseOperation[];
 }
@@ -101,14 +102,16 @@ export class GithubReleaseManagement implements ReleaseManagement {
   }
 
   public async getDashboard(): Promise<ReleaseDashboard> {
-    const [sourceVersion, catalog, publishRuns, setCurrentRuns] = await Promise.all([
-      this.readSourceVersion(),
+    const sourceVersion = await this.readSourceVersion();
+    const [sourceVersionPublished, catalog, publishRuns, setCurrentRuns] = await Promise.all([
+      this.releaseTagExists(sourceVersion),
       this.readCatalog(),
       this.listWorkflowRuns(this.options.releaseWorkflow),
       this.listWorkflowRuns(this.options.setCurrentWorkflow),
     ]);
     return {
       sourceVersion,
+      sourceVersionPublished,
       ...(catalog === undefined ? {} : { catalog }),
       operations: [
         ...publishRuns.map((run) => this.toOperation(run, 'publish')),
@@ -120,12 +123,13 @@ export class GithubReleaseManagement implements ReleaseManagement {
   }
 
   public async publish(releaseNotes: string): Promise<ReleaseOperation> {
-    const [sourceVersion, catalog, activeRuns] = await Promise.all([
-      this.readSourceVersion(),
+    const sourceVersion = await this.readSourceVersion();
+    const [sourceVersionPublished, catalog, activeRuns] = await Promise.all([
+      this.releaseTagExists(sourceVersion),
       this.readCatalog(),
       this.listActiveRuns(),
     ]);
-    if (catalog?.releases.some((release) => release.version === sourceVersion)) {
+    if (sourceVersionPublished || catalog?.releases.some((release) => release.version === sourceVersion)) {
       throw new ApiError(409, 'RELEASE_VERSION_EXISTS', `版本 ${sourceVersion} 已经发布，版本号不能重复使用`);
     }
     this.assertNoActiveOperation(activeRuns);
@@ -213,6 +217,15 @@ export class GithubReleaseManagement implements ReleaseManagement {
     return assertVersion(packageJson.version);
   }
 
+  private async releaseTagExists(version: string): Promise<boolean> {
+    const response = await this.githubFetch(
+      `/repos/${this.options.githubRepository}/git/ref/tags/v${encodeURIComponent(version)}`,
+      {},
+      [404],
+    );
+    return response.status !== 404;
+  }
+
   private async readCatalog(): Promise<DesktopReleaseCatalog | undefined> {
     const url = new URL('releases/index.json', `${this.options.updateBaseUrl.replace(/\/+$/, '')}/`);
     url.searchParams.set('admin', Date.now().toString());
@@ -262,7 +275,11 @@ export class GithubReleaseManagement implements ReleaseManagement {
     return await response.json() as T;
   }
 
-  private async githubFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  private async githubFetch(
+    path: string,
+    init: RequestInit = {},
+    acceptedStatuses: number[] = [],
+  ): Promise<Response> {
     const headers = new Headers(init.headers);
     if (!headers.has('Accept')) headers.set('Accept', 'application/vnd.github+json');
     headers.set('Authorization', `Bearer ${this.options.githubToken}`);
@@ -273,7 +290,7 @@ export class GithubReleaseManagement implements ReleaseManagement {
       headers,
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) {
+    if (!response.ok && !acceptedStatuses.includes(response.status)) {
       console.error(`[版本管理] GitHub API 请求失败：${response.status} ${path}`);
       if (response.status === 401 || response.status === 403) {
         throw new ApiError(503, 'GITHUB_RELEASE_AUTH_FAILED', '版本发布凭据无效或权限不足');

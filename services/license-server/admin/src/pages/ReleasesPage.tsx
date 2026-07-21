@@ -151,9 +151,9 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
   };
 
   const isBusy = submitting || (operation !== undefined && operation.status !== 'completed');
-  const sourceAlreadyPublished = dashboard?.catalog?.releases.some(
+  const sourceAlreadyPublished = dashboard?.sourceVersionPublished || dashboard?.catalog?.releases.some(
     (release) => release.version === dashboard.sourceVersion,
-  ) ?? false;
+  ) || false;
   const operationHistory = dashboard?.operations.filter((item) => item.status === 'completed').slice(0, 8) ?? [];
 
   if (loading && !dashboard) return <Paper withBorder p="lg" className="surface"><Skeleton height={420} /></Paper>;
