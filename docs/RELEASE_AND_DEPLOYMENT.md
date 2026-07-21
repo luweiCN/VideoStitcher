@@ -24,16 +24,15 @@
 | Variable | `VIDEO_STITCHER_LICENSE_API_URL` | 正式授权 API 的 HTTPS 根地址 |
 | Secret | `VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64` | Ed25519 PEM 公钥的 Base64 |
 | Variable | `VIDEO_STITCHER_UPDATE_BASE_URL` | TOS/CDN 的 `stable` HTTPS 目录 |
-| Secret | `MACOS_CSC_LINK` / `MACOS_CSC_KEY_PASSWORD` | Developer ID 证书与密码 |
-| Secret | `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` | macOS 公证配置 |
-| Secret | `WINDOWS_CSC_LINK` / `WINDOWS_CSC_KEY_PASSWORD` | Windows Authenticode 证书与密码 |
 | Secret | `TOS_UPDATE_ACCESS_KEY_ID` / `TOS_UPDATE_SECRET_ACCESS_KEY` | 只允许写更新桶指定前缀的凭据 |
 | Secret | `TOS_UPDATE_SESSION_TOKEN` | 使用 STS 时设置，可留空 |
 | Variable | `TOS_UPDATE_REGION` / `TOS_UPDATE_ENDPOINT` / `TOS_UPDATE_BUCKET` | 更新桶配置 |
 | Variable | `TOS_UPDATE_PREFIX` | 默认 `stable`，需与更新 URL 对应 |
 | Variable | `RELEASE_NOTES_AI_MODEL` | 可选，GitHub Models 模型；默认 `openai/gpt-4o` |
 
-建议两个 Environment 都启用 Required reviewers。正式发布流程不会改写或推送版本提交：维护人员先提交并评审版本号，再手动输入相同版本触发 Workflow。任何测试、配置、签名、公证或产物检查失败都会阻止 Release。
+建议两个 Environment 都启用 Required reviewers。正式发布流程不会改写或推送版本提交：维护人员先提交并评审版本号，再手动输入相同版本触发 Workflow。任何测试、配置或产物检查失败都会阻止 Release。
+
+当前采用零证书费用的过渡发布方式：macOS 使用 ad-hoc 临时签名并保留 hardened runtime，同时固定 `com.videostitcher.app` 指定要求以维持版本间自动更新；Windows 安装包不签名。它与旧版的未签名发布方式兼容，不会使已经安装或下载的旧包失效；但 macOS Gatekeeper 和 Windows SmartScreen 仍可能提示未知开发者/未知发布者，需要用户手动放行。免费签名不能证明发布者身份，更新安全仍依赖 HTTPS、TOS 写权限隔离和清单哈希。开始大规模商业销售前，应再切换为固定的 Developer ID 与 Authenticode 发布者身份。
 
 - Workflow 自动读取上一个私有版本标签到当前提交之间的标题与正文，再由 GitHub Models 整理成面向用户的简体中文更新说明。提交内容只作为不可信数据，不上传源码差异。AI 超时、限流或格式异常时自动退回规则摘要，不会阻断发布；触发页面仍保留可选的人工覆盖字段处理特殊情况。
 - 最终同一份说明会写入 `latest.yml`、`latest-mac.yml`，客户端从 TOS 检查更新时直接展示；同时保存为不可变的 `stable/releases/<version>.json`。每次 TOS 发布成功后创建私有 Git 标签，作为下一版的提交比较基线。
@@ -54,5 +53,5 @@
 3. 手动触发“发布一次性 GitHub 桥接版本”，填写版本号，通常让更新说明覆盖字段保持为空。Workflow 自动生成说明且只构建一次，先按 pointer-last 顺序发布 TOS，再把完全相同的安装包、blockmap、manifest 和说明发布到 GitHub Release。
 4. 已安装的旧版本通过现有 GitHub 更新源发现并安装桥接版；桥接版启动后只从 TOS 检查后续版本，不保留 GitHub 网络故障回退。
 5. 通过授权心跳中的客户端版本确认活跃用户已经迁移，再使用“发布桌面客户端到 TOS”发布一个仅存在于 TOS 的更高版本，实测桥接版到新版本的增量更新。
-6. 验证成功后把 GitHub 仓库转为私有。遗漏迁移的旧客户端使用 TOS 上保留的签名桥接安装包手动覆盖安装，不能在客户端嵌入 GitHub Token。
+6. 验证成功后把 GitHub 仓库转为私有。遗漏迁移的旧客户端使用 TOS 上保留的桥接安装包手动覆盖安装，不能在客户端嵌入 GitHub Token。
 7. GitHub Actions 的临时构建产物只保留三天，不写入客户端，也不是更新回退源。

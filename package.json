@@ -15,8 +15,6 @@
     "build": "npm run build:icons && electron-vite build",
     "postbuild": "node scripts/verify-license-build.mjs",
     "verify:license-release-config": "node scripts/check-license-release-config.mjs",
-    "verify:signing:mac": "node scripts/check-desktop-signing-config.mjs --platform=darwin",
-    "verify:signing:win": "node scripts/check-desktop-signing-config.mjs --platform=win32",
     "predist": "npm run verify:license-release-config",
     "predist:win": "npm run verify:license-release-config",
     "predist:mac": "npm run verify:license-release-config",

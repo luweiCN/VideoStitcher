@@ -160,7 +160,7 @@ jobs:
             .release/release-notes.json
 
   build-macos:
-    name: 构建并签名 macOS
+    name: 构建 macOS（临时签名）
     needs: verify
     runs-on: macos-latest
     timeout-minutes: 45
@@ -169,11 +169,7 @@ jobs:
       VIDEO_STITCHER_LICENSE_API_URL: ${{ vars.VIDEO_STITCHER_LICENSE_API_URL }}
       VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64: ${{ secrets.VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64 }}
       VIDEO_STITCHER_UPDATE_BASE_URL: ${{ vars.VIDEO_STITCHER_UPDATE_BASE_URL }}
-      CSC_LINK: ${{ secrets.MACOS_CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.MACOS_CSC_KEY_PASSWORD }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
     steps:
       - name: 检出固定提交
@@ -188,20 +184,20 @@ jobs:
       - name: 安装依赖
         run: npm ci
 
-      - name: 校验签名配置
-        run: npm run verify:signing:mac
-
-      - name: 构建、签名并公证
+      - name: 构建临时签名安装包
         run: npm run dist:mac
 
-      - name: 验证签名身份与公证票据
+      - name: 验证临时签名
         run: |
-          APP_PATH="$(find dist -type d -name 'VideoStitcher.app' | head -n 1)"
+          APP_PATH="$(find dist -type d -name 'VideoStitcher.app' -print -quit)"
           test -n "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-          codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -F "TeamIdentifier=${APPLE_TEAM_ID}"
-          xcrun stapler validate "$APP_PATH"
-          find dist -maxdepth 1 -name '*.dmg' -print0 | xargs -0 -n1 xcrun stapler validate
+          SIGNATURE_INFO="$(codesign -dv --verbose=4 "$APP_PATH" 2>&1)"
+          echo "$SIGNATURE_INFO"
+          echo "$SIGNATURE_INFO" | grep -F 'Signature=adhoc'
+          REQUIREMENT_INFO="$(codesign -d -r- "$APP_PATH" 2>&1)"
+          echo "$REQUIREMENT_INFO"
+          echo "$REQUIREMENT_INFO" | grep -F 'identifier "com.videostitcher.app"'
 
       - name: 上传 macOS 产物
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -216,7 +212,7 @@ jobs:
             dist/latest-mac.yml
 
   build-windows:
-    name: 构建并签名 Windows
+    name: 构建 Windows（未签名）
     needs: verify
     runs-on: windows-latest
     timeout-minutes: 45
@@ -225,8 +221,7 @@ jobs:
       VIDEO_STITCHER_LICENSE_API_URL: ${{ vars.VIDEO_STITCHER_LICENSE_API_URL }}
       VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64: ${{ secrets.VIDEO_STITCHER_LICENSE_SIGNING_PUBLIC_KEY_BASE64 }}
       VIDEO_STITCHER_UPDATE_BASE_URL: ${{ vars.VIDEO_STITCHER_UPDATE_BASE_URL }}
-      CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
     steps:
       - name: 检出固定提交
@@ -241,21 +236,18 @@ jobs:
       - name: 安装依赖
         run: npm ci
 
-      - name: 校验签名配置
-        run: npm run verify:signing:win
-
-      - name: 构建并签名
+      - name: 构建未签名安装包
         run: npm run dist:win
 
-      - name: 验证安装包签名
+      - name: 验证未签名安装包
         shell: pwsh
         run: |
           $installers = Get-ChildItem dist -Filter *.exe
           if ($installers.Count -eq 0) { throw '没有找到 Windows 安装包' }
           foreach ($installer in $installers) {
             $signature = Get-AuthenticodeSignature $installer.FullName
-            if ($signature.Status -ne 'Valid') {
-              throw "安装包签名无效：$($installer.Name)，状态：$($signature.Status)"
+            if ($signature.Status -ne 'NotSigned') {
+              throw "安装包签名状态与免费发布配置不符：$($installer.Name)，状态：$($signature.Status)"
             }
           }
 

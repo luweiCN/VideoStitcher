@@ -15,6 +15,9 @@ publish:
   provider: generic
   url: ${env.VIDEO_STITCHER_UPDATE_BASE_URL}
 
+# macOS 完成常规签名后，仅重签最外层应用，固定免费签名的自动更新要求。
+afterSign: scripts/apply-macos-adhoc-requirement.mjs
+
 # 文件包含/排除（明确指定要打包进 asar 的文件）
 # out/ 目录包含编译后的主进程、预加载脚本和渲染进程
 files:
@@ -54,8 +57,10 @@ electronFuses:
   enableEmbeddedAsarIntegrityValidation: true
   onlyLoadAppFromAsar: true
 
-# macOS 配置 - DMG 用于手动安装，ZIP 用于自动更新
+# macOS 配置 - 免费临时签名，DMG 用于手动安装，ZIP 用于自动更新
 mac:
+  # 使用 ad-hoc 签名满足系统安全存储要求，但不会获得 Apple 开发者信任。
+  identity: "-"
   category: public.app-category.video
   target:
     - target: dmg      # 手动安装
@@ -68,7 +73,7 @@ mac:
         - arm64
   gatekeeperAssess: false
   hardenedRuntime: true
-  notarize: true
+  notarize: false
   # 确保 ZIP 包中的应用正确签名
   extendInfo:
     - NSCameraUsageDescription: 需要访问摄像头以进行视频处理
