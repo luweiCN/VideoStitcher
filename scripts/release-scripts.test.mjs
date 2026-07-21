@@ -139,6 +139,15 @@ test('将中文多行更新说明安全写入并读回更新清单', () => {
   assert.equal(extractReleaseNotesFromManifest(updatedManifest), releaseNotes);
 });
 
+test('八条更新说明经过生成和清单写入后不会被截断', () => {
+  const source = Array.from({ length: 8 }, (_, index) => `- 第 ${index + 1} 条用户可见更新`).join('\n');
+  const releaseNotes = normalizeAiReleaseNotes(source);
+  const updatedManifest = addReleaseNotesToManifest(baseManifest, releaseNotes, '2.9.0');
+
+  assert.equal(releaseNotes.split('\n').length, 8);
+  assert.equal(extractReleaseNotesFromManifest(updatedManifest), releaseNotes);
+});
+
 test('拒绝空更新说明、版本不一致和重复写入', () => {
   assert.throws(() => normalizeReleaseNotes('  \n  '), /更新说明不能为空/);
   assert.throws(

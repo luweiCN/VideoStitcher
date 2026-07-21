@@ -113,6 +113,9 @@ jobs:
       - name: 测试发布脚本
         run: npm run test:release-scripts
 
+      - name: 测试渲染进程安全配置
+        run: npm run test:renderer-security
+
       - name: 测试客户端更新状态
         run: npm run test:update-state
 

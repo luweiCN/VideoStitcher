@@ -10,6 +10,7 @@
     "build:icons": "node scripts/generate-icons.js",
     "build:icons:dev": "node scripts/generate-icons.js --dev",
     "test:release-scripts": "node --test scripts/release-scripts.test.mjs",
+    "test:renderer-security": "node --test scripts/renderer-security.test.mjs",
     "test:update-state": "node --test scripts/update-state.test.mjs",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json --noEmit",
     "dev": "npm run build:icons:dev && electron-vite dev",
