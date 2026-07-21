@@ -381,8 +381,7 @@ jobs:
     steps:
       - name: 创建不可变发布边界
         run: |
-          EXISTING_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null || true)"
-          if [ -n "$EXISTING_SHA" ]; then
+          if EXISTING_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${RELEASE_TAG}" --jq '.object.sha' 2>/dev/null)"; then
             if [ "$EXISTING_SHA" != "$GITHUB_SHA" ]; then
               echo "Git 标签 ${RELEASE_TAG} 已指向其他提交，禁止覆盖。"
               exit 1

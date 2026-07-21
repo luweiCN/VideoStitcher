@@ -52,6 +52,17 @@ test('TOS 桶权限检查按 SDK 要求直接传入桶名', async () => {
   assert.doesNotMatch(publishScript, /headBucket\(\{\s*bucket\s*\}\)/);
 });
 
+test('版本标签查询失败时不会把错误响应当作已有标签', async () => {
+  const scriptsDirectory = path.dirname(fileURLToPath(import.meta.url));
+  const workflow = await readFile(
+    path.join(scriptsDirectory, '..', '.github', 'workflows', 'release.yml'),
+    'utf8',
+  );
+
+  assert.match(workflow, /if EXISTING_SHA="\$\(gh api .* 2>\/dev\/null\)"; then/);
+  assert.doesNotMatch(workflow, /EXISTING_SHA=.*\|\| true/);
+});
+
 test('版本目录保存不可变清单、安装包大小和下载地址', () => {
   const manifestNames = readManifestArtifactNames(baseManifest);
   const release = createReleaseRecord({
