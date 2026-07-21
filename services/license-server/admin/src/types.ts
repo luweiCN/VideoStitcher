@@ -323,6 +323,7 @@ export interface ReleaseOperation {
 
 export interface ReleaseDashboard {
   sourceVersion: string;
+  sourceVersionPublished: boolean;
   catalog?: DesktopReleaseCatalog;
   operations: ReleaseOperation[];
 }

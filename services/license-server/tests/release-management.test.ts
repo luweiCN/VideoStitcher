@@ -26,6 +26,7 @@ test('发布请求读取 master 版本并把可选更新说明交给 GitHub Acti
     if (url.includes('/actions/workflows/') && url.includes('/runs?')) {
       return Response.json({ workflow_runs: [] });
     }
+    if (url.includes('/git/ref/tags/v2.9.6')) return new Response(null, { status: 404 });
     if (url.includes('/dispatches')) return new Response(null, { status: 204 });
     if (url.includes('/releases/index.json')) return Response.json(catalog);
     throw new Error(`未处理的测试请求：${url}`);
@@ -41,6 +42,25 @@ test('发布请求读取 master 版本并把可选更新说明交给 GitHub Acti
   assert.equal(body.inputs.version, '2.9.6');
   assert.equal(body.inputs.release_notes_override, '修复批量处理问题');
   assert.equal(body.inputs.release_request_id, operation.requestId);
+});
+
+test('TOS 目录尚未建立时也会通过私有标签阻止重复发布旧版本', async () => {
+  const management = createManagement(async (input) => {
+    const url = String(input);
+    if (url.includes('/contents/package.json')) {
+      return new Response(JSON.stringify({ version: '2.9.4' }));
+    }
+    if (url.includes('/git/ref/tags/v2.9.4')) return Response.json({ ref: 'refs/tags/v2.9.4' });
+    if (url.includes('/releases/index.json')) return new Response(null, { status: 404 });
+    if (url.includes('/actions/workflows/') && url.includes('/runs?')) {
+      return Response.json({ workflow_runs: [] });
+    }
+    throw new Error(`未处理的测试请求：${url}`);
+  });
+
+  const dashboard = await management.getDashboard();
+  assert.equal(dashboard.sourceVersionPublished, true);
+  await assert.rejects(management.publish(''), /版本 2.9.4 已经发布/);
 });
 
 test('降低当前版本时只签发限定来源和目标的短期回退指令', async () => {
