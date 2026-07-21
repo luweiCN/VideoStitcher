@@ -149,6 +149,7 @@ export const auditActionLabels: Record<string, string> = {
   'device.revoked': '禁用登录电脑',
   'trial.started': '历史试用开始记录',
   'trial.credential_rotated': '历史试用设备凭据已更新',
+  'release.current_changed': '切换软件当前版本',
 };
 
 export function getAuditActionLabel(action: string): string {

@@ -321,11 +321,27 @@ export interface ReleaseOperation {
   updatedAt?: string;
 }
 
-export interface ReleaseDashboard {
-  sourceVersion: string;
-  sourceVersionPublished: boolean;
+interface ReleaseDashboardBase {
+  tosCurrentSwitchEnabled: boolean;
+  tosCurrentVersion?: string;
+  tosCurrentVersionUpdatedAt?: string;
   catalog?: DesktopReleaseCatalog;
   operations: ReleaseOperation[];
 }
+
+export type ReleaseDashboard = ReleaseDashboardBase & (
+  | {
+      github: { status: 'connected' };
+      sourceVersion: string;
+      sourceVersionPublished: boolean;
+    }
+  | {
+      github: {
+        status: 'unavailable';
+        code: string;
+        message: string;
+      };
+    }
+);
 
 export type PageKey = 'overview' | 'devices' | 'usage' | 'plans' | 'codes' | 'releases' | 'admins';

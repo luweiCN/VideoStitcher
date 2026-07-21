@@ -142,7 +142,8 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
         { method: 'POST', token },
       );
       setOperation(nextOperation);
-      notifications.show({ color: 'violet', message: `版本 ${version} 已进入切换队列` });
+      notifications.show({ color: 'teal', message: `当前版本已切换为 ${version}` });
+      await loadDashboard();
     } catch (error: unknown) {
       notifications.show({ color: 'red', message: getErrorMessage(error, '切换当前版本失败') });
     } finally {
@@ -151,13 +152,27 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
   };
 
   const isBusy = submitting || (operation !== undefined && operation.status !== 'completed');
-  const sourceAlreadyPublished = dashboard?.sourceVersionPublished || dashboard?.catalog?.releases.some(
-    (release) => release.version === dashboard.sourceVersion,
-  ) || false;
+  const sourceVersion = dashboard && 'sourceVersion' in dashboard ? dashboard.sourceVersion : undefined;
+  const sourceVersionPublished = dashboard && 'sourceVersionPublished' in dashboard
+    ? dashboard.sourceVersionPublished
+    : false;
+  const sourceAlreadyPublished = sourceVersion !== undefined && (
+    sourceVersionPublished
+    || dashboard?.catalog?.releases.some((release) => release.version === sourceVersion) === true
+  );
+  const githubUnavailableMessage = dashboard?.github.status === 'unavailable'
+    ? dashboard.github.message
+    : undefined;
+  const publishHelp = githubUnavailableMessage
+    ?? (sourceAlreadyPublished
+      ? `无法发布：v${sourceVersion} 已经发布，请先由开发人员更新 package.json 中的版本号。`
+      : isBusy
+        ? '已有版本发布任务正在执行，完成后才能再次发布。'
+        : '发布会同时构建 Windows、Intel Mac 和 Apple Silicon Mac。');
   const operationHistory = dashboard?.operations.filter((item) => item.status === 'completed').slice(0, 8) ?? [];
 
   if (loading && !dashboard) return <Paper withBorder p="lg" className="surface"><Skeleton height={420} /></Paper>;
-  if (!dashboard) return <Alert color="red" title="版本管理不可用">请检查授权服务的 GitHub 发布配置。</Alert>;
+  if (!dashboard) return <Alert color="red" title="版本管理不可用">请检查授权服务的版本管理配置。</Alert>;
 
   return (
     <Stack gap="lg" aria-busy={isBusy}>
@@ -166,8 +181,12 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
           <Group justify="space-between" wrap="nowrap">
             <div>
               <Text size="xs" c="dimmed">TOS 当前版本</Text>
-              <Text fz={28} fw={700} mt={4}>v{dashboard.catalog?.currentVersion ?? '—'}</Text>
-              <Text size="xs" c="dimmed" mt={6}>{formatDateTime(dashboard.catalog?.updatedAt)}</Text>
+              <Text fz={28} fw={700} mt={4}>v{dashboard.tosCurrentVersion ?? '—'}</Text>
+              <Text size="xs" c="dimmed" mt={6}>
+                {dashboard.tosCurrentVersionUpdatedAt
+                  ? formatDateTime(dashboard.tosCurrentVersionUpdatedAt)
+                  : '尚未检测到已发布版本'}
+              </Text>
             </div>
             <ThemeIcon color="teal" variant="light" size={46} radius="md"><IconCheck size={23} /></ThemeIcon>
           </Group>
@@ -176,9 +195,13 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
           <Group justify="space-between" wrap="nowrap">
             <div>
               <Text size="xs" c="dimmed">master 待发布版本</Text>
-              <Text fz={28} fw={700} mt={4}>v{dashboard.sourceVersion}</Text>
-              <Text id="release-source-help" size="xs" c={sourceAlreadyPublished ? 'orange' : 'dimmed'} mt={6}>
-                {sourceAlreadyPublished ? '版本号已使用，请先由开发人员更新 package.json' : '可以提交自动构建'}
+              <Text fz={28} fw={700} mt={4}>{sourceVersion ? `v${sourceVersion}` : '—'}</Text>
+              <Text size="xs" c={sourceAlreadyPublished || githubUnavailableMessage ? 'orange' : 'dimmed'} mt={6}>
+                {githubUnavailableMessage
+                  ? 'GitHub 新版本发布暂不可用'
+                  : sourceAlreadyPublished
+                    ? '版本号已使用，请先由开发人员更新 package.json'
+                    : '可以提交自动构建'}
               </Text>
             </div>
             <ThemeIcon color="violet" variant="light" size={46} radius="md"><IconRocket size={23} /></ThemeIcon>
@@ -198,6 +221,18 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
 
       {operation ? <OperationPanel operation={operation} /> : null}
 
+      {githubUnavailableMessage ? (
+        <Alert color="orange" title="新版本发布暂不可用" icon={<IconAlertTriangle size={19} />}>
+          {githubUnavailableMessage}。TOS 版本历史和“设为当前”功能不受影响。
+        </Alert>
+      ) : null}
+
+      {!dashboard.tosCurrentSwitchEnabled ? (
+        <Alert color="orange" title="TOS 当前版本写入尚未配置" icon={<IconAlertTriangle size={19} />}>
+          版本历史仍可查看，但暂时不能把历史版本设为当前版本。
+        </Alert>
+      ) : null}
+
       <Paper withBorder p="lg" className="surface">
         <Group justify="space-between" align="flex-start" wrap="nowrap" mb="md">
           <div>
@@ -213,18 +248,21 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
           minRows={4}
           maxLength={8_000}
           value={releaseNotes}
+          disabled={sourceVersion === undefined}
           onChange={(event) => setReleaseNotes(event.currentTarget.value)}
         />
         <Group justify="space-between" mt="md">
-          <Text size="xs" c="dimmed">发布会同时构建 Windows、Intel Mac 和 Apple Silicon Mac。</Text>
+          <Text id="release-publish-help" size="xs" c={sourceAlreadyPublished ? 'orange' : 'dimmed'}>
+            {publishHelp}
+          </Text>
           <Button
             leftSection={<IconRocket size={17} />}
             loading={submitting}
-            disabled={isBusy || sourceAlreadyPublished}
-            aria-describedby="release-source-help"
+            disabled={isBusy || sourceAlreadyPublished || sourceVersion === undefined}
+            aria-describedby="release-publish-help"
             onClick={() => void publish()}
           >
-            发布 v{dashboard.sourceVersion}
+            {sourceVersion ? `发布 v${sourceVersion}` : '发布新版本'}
           </Button>
         </Group>
       </Paper>
@@ -232,7 +270,11 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
       <Paper withBorder className="surface table-surface">
         <div className="table-toolbar">
           <Title order={3}>版本历史</Title>
-          <Text size="sm" c="dimmed" mt={3}>可以把任意完整版本设为当前版本；这里不会提供删除操作。</Text>
+          <Text size="sm" c="dimmed" mt={3}>
+            {dashboard.tosCurrentSwitchEnabled
+              ? '可以把任意完整版本设为当前版本；这里不会提供删除操作。'
+              : '当前只能查看版本历史；配置 TOS 写入权限后可以切换当前版本。'}
+          </Text>
         </div>
         <ScrollArea>
           <Table verticalSpacing="sm" horizontalSpacing="lg" highlightOnHover miw={1050}>
@@ -260,7 +302,7 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
                       <Button
                         size="xs"
                         variant={isCurrent ? 'subtle' : 'light'}
-                        disabled={isCurrent || isBusy}
+                        disabled={isCurrent || isBusy || !dashboard.tosCurrentSwitchEnabled}
                         onClick={() => requestSetCurrent(release)}
                       >
                         {isCurrent ? '使用中' : '设为当前'}
@@ -284,7 +326,12 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
             {operationHistory.map((item) => (
               <Group key={`${item.requestId}-${item.updatedAt}`} justify="space-between" className="list-row">
                 <div>
-                  <Text size="sm" fw={600}>{item.kind === 'publish' ? '发布版本' : '切换当前版本'} {item.version ? `v${item.version}` : ''}</Text>
+                  <Group gap={7}>
+                    <Text size="sm" fw={600}>{item.kind === 'publish' ? '发布版本' : '切换当前版本'}</Text>
+                    <Badge size="sm" variant="light" color="violet">
+                      {item.version ? `v${item.version}` : '版本未知'}
+                    </Badge>
+                  </Group>
                   <Text size="xs" c="dimmed">{formatDateTime(item.createdAt)}</Text>
                 </div>
                 <Group gap="sm">
@@ -305,12 +352,19 @@ export function ReleasesPage({ token }: ReleasesPageProps) {
 function OperationPanel({ operation }: { operation: ReleaseOperation }) {
   const completed = operation.status === 'completed';
   const succeeded = operation.conclusion === 'success';
+  const isDirectSwitch = operation.kind === 'set-current';
   const progress = operation.status === 'waiting' ? 8 : operation.status === 'queued' ? 20 : completed ? 100 : 58;
   return (
     <Alert
       color={completed ? succeeded ? 'teal' : 'red' : 'violet'}
-      title={completed ? succeeded ? '版本任务已完成' : '版本任务执行失败' : '版本任务正在执行'}
-      icon={completed && !succeeded ? <IconAlertTriangle size={19} /> : <IconBrandGithub size={19} />}
+      title={completed
+        ? succeeded
+          ? isDirectSwitch ? '当前版本已切换' : '版本任务已完成'
+          : '版本任务执行失败'
+        : '版本任务正在执行'}
+      icon={completed && !succeeded
+        ? <IconAlertTriangle size={19} />
+        : isDirectSwitch ? <IconCheck size={19} /> : <IconBrandGithub size={19} />}
       role={completed && !succeeded ? 'alert' : 'status'}
       aria-live="polite"
     >
@@ -327,7 +381,9 @@ function OperationPanel({ operation }: { operation: ReleaseOperation }) {
           color={completed ? succeeded ? 'teal' : 'red' : 'violet'}
           aria-label="版本任务进度"
         />
-        {operation.status === 'waiting' ? <Text size="xs" c="dimmed">任务已提交，正在等待 GitHub 建立运行记录。</Text> : null}
+        {operation.kind === 'publish' && operation.status === 'waiting' ? (
+          <Text size="xs" c="dimmed">任务已提交，正在等待 GitHub 建立运行记录。</Text>
+        ) : null}
       </Stack>
     </Alert>
   );

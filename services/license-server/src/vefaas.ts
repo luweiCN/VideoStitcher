@@ -81,8 +81,22 @@ export function createRuntimeConfig(
   if (!context.accessKeyId || !context.secretAccessKey) {
     return config;
   }
+  const releaseChannel = config.releaseManagement?.channel;
+  const releaseManagement = config.releaseManagement && releaseChannel
+    && (!releaseChannel.accessKeyId || !releaseChannel.accessKeySecret)
+    ? {
+        ...config.releaseManagement,
+        channel: {
+          ...releaseChannel,
+          accessKeyId: context.accessKeyId,
+          accessKeySecret: context.secretAccessKey,
+          ...(context.sessionToken === undefined ? {} : { stsToken: context.sessionToken }),
+        },
+      }
+    : config.releaseManagement;
   return {
     ...config,
+    ...(releaseManagement === undefined ? {} : { releaseManagement }),
     storage: {
       ...config.storage,
       accessKeyId: context.accessKeyId,

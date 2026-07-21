@@ -9,9 +9,10 @@ import { ApiError } from './errors.js';
 import { readDeviceRequestProof, verifyDeviceRequestProof } from './device-proof.js';
 import { MemoryRateLimiter } from './rate-limit.js';
 import {
-  GithubReleaseManagement,
+  ReleaseManagementService,
   type ReleaseManagement,
 } from './release-management.js';
+import { TosReleaseChannel } from './release-channel.js';
 import {
   LicenseService,
   type ClientDeviceInput,
@@ -204,10 +205,26 @@ export function createApplication(
     }),
     ...(dependencies.now === undefined ? {} : { now: dependencies.now }),
   });
+  const releaseChannelConfig = config.releaseManagement?.channel;
+  const releaseChannel = releaseChannelConfig?.accessKeyId && releaseChannelConfig.accessKeySecret
+    ? new TosReleaseChannel({
+        ...releaseChannelConfig,
+        accessKeyId: releaseChannelConfig.accessKeyId,
+        accessKeySecret: releaseChannelConfig.accessKeySecret,
+        updateBaseUrl: config.releaseManagement?.updateBaseUrl ?? '',
+        ...(dependencies.now === undefined ? {} : { now: dependencies.now }),
+      })
+    : undefined;
   const releaseManagement = dependencies.releaseManagement ?? (config.releaseManagement
-    ? new GithubReleaseManagement({
-        ...config.releaseManagement,
+    ? new ReleaseManagementService({
+        githubToken: config.releaseManagement.github?.token,
+        githubRepository: config.releaseManagement.github?.repository ?? 'luweiCN/VideoStitcher',
+        githubRef: config.releaseManagement.github?.ref ?? 'master',
+        releaseWorkflow: config.releaseManagement.github?.releaseWorkflow ?? 'release.yml',
+        updateBaseUrl: config.releaseManagement.updateBaseUrl,
         signingPrivateKey: config.signingPrivateKey,
+        storage,
+        ...(releaseChannel === undefined ? {} : { releaseChannel }),
         ...(dependencies.now === undefined ? {} : { now: dependencies.now }),
       })
     : undefined);
@@ -402,14 +419,14 @@ export function createApplication(
         if (request.method === 'GET' && pathName === '/v1/admin/releases') {
           requireOwner();
           if (!releaseManagement) {
-            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置 GitHub 发布凭据');
+            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置');
           }
           return jsonResponse(await releaseManagement.getDashboard());
         }
         if (request.method === 'POST' && pathName === '/v1/admin/releases') {
           requireOwner();
           if (!releaseManagement) {
-            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置 GitHub 发布凭据');
+            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置');
           }
           const body = await parseJsonBody(request);
           const releaseNotes = asString(body.releaseNotes ?? '', 'releaseNotes', { min: 0, max: 8_000 }) ?? '';
@@ -417,17 +434,17 @@ export function createApplication(
         }
         const releaseCurrentMatch = pathName.match(/^\/v1\/admin\/releases\/([^/]+)\/current$/);
         if (request.method === 'POST' && releaseCurrentMatch?.[1]) {
-          requireOwner();
+          const owner = requireOwner();
           if (!releaseManagement) {
-            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置 GitHub 发布凭据');
+            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置');
           }
-          return jsonResponse(await releaseManagement.setCurrent(releaseCurrentMatch[1]), 202);
+          return jsonResponse(await releaseManagement.setCurrent(releaseCurrentMatch[1], owner.id));
         }
         const releaseOperationMatch = pathName.match(/^\/v1\/admin\/release-operations\/([^/]+)$/);
         if (request.method === 'GET' && releaseOperationMatch?.[1]) {
           requireOwner();
           if (!releaseManagement) {
-            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置 GitHub 发布凭据');
+            throw new ApiError(503, 'RELEASE_MANAGEMENT_DISABLED', '版本管理尚未配置');
           }
           return jsonResponse(await releaseManagement.getOperation(releaseOperationMatch[1]));
         }

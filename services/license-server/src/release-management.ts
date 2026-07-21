@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { addAuditEvent } from './domain.js';
 import { ApiError } from './errors.js';
+import { mutateDatabase, type LicenseStorage } from './storage.js';
 import { signReleaseRollbackDirective } from './token.js';
 
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
@@ -45,28 +47,62 @@ export interface ReleaseOperation {
   updatedAt?: string;
 }
 
-export interface ReleaseDashboard {
-  sourceVersion: string;
-  sourceVersionPublished: boolean;
+interface ReleaseDashboardBase {
+  tosCurrentSwitchEnabled: boolean;
+  tosCurrentVersion?: string;
+  tosCurrentVersionUpdatedAt?: string;
   catalog?: DesktopReleaseCatalog;
   operations: ReleaseOperation[];
 }
 
+export type ReleaseDashboard = ReleaseDashboardBase & (
+  | {
+      github: { status: 'connected' };
+      sourceVersion: string;
+      sourceVersionPublished: boolean;
+    }
+  | {
+      github: {
+        status: 'unavailable';
+        code: string;
+        message: string;
+      };
+    }
+);
+
 export interface ReleaseManagement {
   getDashboard(): Promise<ReleaseDashboard>;
   publish(releaseNotes: string): Promise<ReleaseOperation>;
-  setCurrent(targetVersion: string): Promise<ReleaseOperation>;
+  setCurrent(targetVersion: string, actorId?: string): Promise<ReleaseOperation>;
   getOperation(requestId: string): Promise<ReleaseOperation>;
 }
 
+export interface ReleaseChannelSwitchInput {
+  requestId: string;
+  expectedCurrentVersion: string;
+  targetVersion: string;
+  signedDirective: string;
+}
+
+export interface ReleaseChannelSwitchResult {
+  previousVersion: string;
+  currentVersion: string;
+  updatedAt: string;
+}
+
+export interface ReleaseChannel {
+  switchCurrent(input: ReleaseChannelSwitchInput): Promise<ReleaseChannelSwitchResult>;
+}
+
 interface ReleaseManagementOptions {
-  githubToken: string;
+  githubToken?: string;
   githubRepository: string;
   githubRef: string;
   releaseWorkflow: string;
-  setCurrentWorkflow: string;
   updateBaseUrl: string;
   signingPrivateKey: string;
+  releaseChannel?: ReleaseChannel;
+  storage?: LicenseStorage;
   fetchImplementation?: typeof fetch;
   now?: () => Date;
 }
@@ -74,6 +110,7 @@ interface ReleaseManagementOptions {
 interface GithubRun {
   id: number;
   display_title: string;
+  head_sha: string;
   status: string;
   conclusion: ReleaseOperation['conclusion'] | null;
   html_url: string;
@@ -85,7 +122,7 @@ interface GithubRunsResponse {
   workflow_runs: GithubRun[];
 }
 
-export class GithubReleaseManagement implements ReleaseManagement {
+export class ReleaseManagementService implements ReleaseManagement {
   private readonly fetchImplementation: typeof fetch;
   private readonly now: () => Date;
 
@@ -102,27 +139,51 @@ export class GithubReleaseManagement implements ReleaseManagement {
   }
 
   public async getDashboard(): Promise<ReleaseDashboard> {
-    const sourceVersion = await this.readSourceVersion();
-    const [sourceVersionPublished, catalog, publishRuns, setCurrentRuns] = await Promise.all([
-      this.releaseTagExists(sourceVersion),
+    const [catalogResult, githubResult, setCurrentOperationsResult] = await Promise.allSettled([
       this.readCatalog(),
-      this.listWorkflowRuns(this.options.releaseWorkflow),
-      this.listWorkflowRuns(this.options.setCurrentWorkflow),
+      this.readGithubDashboard(),
+      this.listSetCurrentOperations(),
     ]);
-    return {
-      sourceVersion,
-      sourceVersionPublished,
+    if (catalogResult.status === 'rejected') throw catalogResult.reason;
+    if (setCurrentOperationsResult.status === 'rejected') throw setCurrentOperationsResult.reason;
+    const catalog = catalogResult.value;
+    const setCurrentOperations = setCurrentOperationsResult.value;
+    const currentRelease = catalog === undefined
+      ? await this.readCurrentManifest()
+      : { version: catalog.currentVersion, updatedAt: catalog.updatedAt };
+    const tosDashboard = {
+      tosCurrentSwitchEnabled: this.options.releaseChannel !== undefined,
+      ...(currentRelease === undefined ? {} : {
+        tosCurrentVersion: currentRelease.version,
+        ...(currentRelease.updatedAt === undefined ? {} : {
+          tosCurrentVersionUpdatedAt: currentRelease.updatedAt,
+        }),
+      }),
       ...(catalog === undefined ? {} : { catalog }),
-      operations: [
-        ...publishRuns.map((run) => this.toOperation(run, 'publish')),
-        ...setCurrentRuns.map((run) => this.toOperation(run, 'set-current')),
-      ]
-        .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''))
-        .slice(0, 20),
+    };
+    if (githubResult.status === 'rejected') {
+      const error: unknown = githubResult.reason;
+      if (!isGithubReleaseError(error)) throw error;
+      return {
+        ...tosDashboard,
+        github: { status: 'unavailable', code: error.code, message: error.message },
+        operations: setCurrentOperations,
+      };
+    }
+    return {
+      ...tosDashboard,
+      github: { status: 'connected' },
+      sourceVersion: githubResult.value.sourceVersion,
+      sourceVersionPublished: githubResult.value.sourceVersionPublished,
+      operations: sortOperations([
+        ...githubResult.value.operations,
+        ...setCurrentOperations,
+      ]),
     };
   }
 
   public async publish(releaseNotes: string): Promise<ReleaseOperation> {
+    this.requireGithubToken();
     const sourceVersion = await this.readSourceVersion();
     const [sourceVersionPublished, catalog, activeRuns] = await Promise.all([
       this.releaseTagExists(sourceVersion),
@@ -142,9 +203,12 @@ export class GithubReleaseManagement implements ReleaseManagement {
     return { requestId, kind: 'publish', version: sourceVersion, status: 'waiting' };
   }
 
-  public async setCurrent(targetVersion: string): Promise<ReleaseOperation> {
+  public async setCurrent(targetVersion: string, actorId = 'admin'): Promise<ReleaseOperation> {
     assertVersion(targetVersion);
-    const [catalog, activeRuns] = await Promise.all([this.readCatalog(), this.listActiveRuns()]);
+    if (!this.options.releaseChannel) {
+      throw new ApiError(503, 'RELEASE_TOS_WRITE_NOT_CONFIGURED', 'TOS 当前版本写入尚未配置');
+    }
+    const catalog = await this.readCatalog();
     if (!catalog) throw new ApiError(409, 'RELEASE_CATALOG_MISSING', '版本目录尚未建立，请先发布一个新版客户端');
     const target = catalog.releases.find((release) => release.version === targetVersion);
     if (!target?.manifests.windows || !target.manifests.macos) {
@@ -153,8 +217,6 @@ export class GithubReleaseManagement implements ReleaseManagement {
     if (catalog.currentVersion === targetVersion) {
       throw new ApiError(409, 'RELEASE_ALREADY_CURRENT', `版本 ${targetVersion} 已经是当前版本`);
     }
-    this.assertNoActiveOperation(activeRuns);
-
     const requestId = randomUUID();
     const current = catalog.releases.find((release) => release.version === catalog.currentVersion);
     let signedDirective = '';
@@ -180,12 +242,23 @@ export class GithubReleaseManagement implements ReleaseManagement {
       }, this.options.signingPrivateKey);
     }
 
-    await this.dispatchWorkflow(this.options.setCurrentWorkflow, {
-      target_version: targetVersion,
-      signed_directive: signedDirective,
-      release_request_id: requestId,
+    const result = await this.options.releaseChannel.switchCurrent({
+      requestId,
+      expectedCurrentVersion: catalog.currentVersion,
+      targetVersion,
+      signedDirective,
     });
-    return { requestId, kind: 'set-current', version: targetVersion, status: 'waiting' };
+    const operation: ReleaseOperation = {
+      requestId,
+      kind: 'set-current',
+      version: targetVersion,
+      status: 'completed',
+      conclusion: 'success',
+      createdAt: result.updatedAt,
+      updatedAt: result.updatedAt,
+    };
+    await this.recordSetCurrentOperation(operation, result.previousVersion, actorId);
+    return operation;
   }
 
   public async getOperation(requestId: string): Promise<ReleaseOperation> {
@@ -193,24 +266,21 @@ export class GithubReleaseManagement implements ReleaseManagement {
     if (!REQUEST_ID_PATTERN.test(requestId) && manualRunId === undefined) {
       throw new ApiError(400, 'INVALID_RELEASE_REQUEST_ID', '版本操作编号格式无效');
     }
-    const [publishRuns, setCurrentRuns] = await Promise.all([
-      this.listWorkflowRuns(this.options.releaseWorkflow),
-      this.listWorkflowRuns(this.options.setCurrentWorkflow),
-    ]);
+    const setCurrentOperation = (await this.listSetCurrentOperations(50))
+      .find((operation) => operation.requestId === requestId);
+    if (setCurrentOperation) return setCurrentOperation;
+    this.requireGithubToken();
+    const publishRuns = await this.listWorkflowRuns(this.options.releaseWorkflow);
     const publishRun = publishRuns.find((run) => (
       manualRunId === undefined ? run.display_title.includes(requestId) : String(run.id) === manualRunId
     ));
-    if (publishRun) return this.toOperation(publishRun, 'publish', requestId);
-    const setCurrentRun = setCurrentRuns.find((run) => (
-      manualRunId === undefined ? run.display_title.includes(requestId) : String(run.id) === manualRunId
-    ));
-    if (setCurrentRun) return this.toOperation(setCurrentRun, 'set-current', requestId);
+    if (publishRun) return await this.toOperation(publishRun, 'publish', requestId);
     return { requestId, kind: 'publish', status: 'waiting' };
   }
 
-  private async readSourceVersion(): Promise<string> {
+  private async readSourceVersion(ref = this.options.githubRef): Promise<string> {
     const response = await this.githubFetch(
-      `/repos/${this.options.githubRepository}/contents/package.json?ref=${encodeURIComponent(this.options.githubRef)}`,
+      `/repos/${this.options.githubRepository}/contents/package.json?ref=${encodeURIComponent(ref)}`,
       { headers: { Accept: 'application/vnd.github.raw+json' } },
     );
     const packageJson = JSON.parse(await response.text()) as { version?: unknown };
@@ -238,17 +308,111 @@ export class GithubReleaseManagement implements ReleaseManagement {
     return parseCatalog(await response.json(), this.options.updateBaseUrl);
   }
 
-  private async listActiveRuns(): Promise<GithubRun[]> {
-    const [publishRuns, setCurrentRuns] = await Promise.all([
+  private async readCurrentManifest(): Promise<{ version: string; updatedAt?: string } | undefined> {
+    const url = new URL('latest.yml', `${this.options.updateBaseUrl.replace(/\/+$/, '')}/`);
+    url.searchParams.set('admin', Date.now().toString());
+    const response = await this.fetchImplementation(url, {
+      headers: { 'cache-control': 'no-cache' },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new ApiError(502, 'RELEASE_MANIFEST_UNAVAILABLE', '暂时无法读取 TOS 当前更新清单');
+    return parseCurrentManifest(await response.text());
+  }
+
+  private async readGithubDashboard(): Promise<{
+    sourceVersion: string;
+    sourceVersionPublished: boolean;
+    operations: ReleaseOperation[];
+  }> {
+    this.requireGithubToken();
+    const sourceVersion = await this.readSourceVersion();
+    const [sourceVersionPublished, publishRuns] = await Promise.all([
+      this.releaseTagExists(sourceVersion),
       this.listWorkflowRuns(this.options.releaseWorkflow),
-      this.listWorkflowRuns(this.options.setCurrentWorkflow),
     ]);
-    return [...publishRuns, ...setCurrentRuns].filter((run) => run.status !== 'completed');
+    const operations = await Promise.all(
+      [...publishRuns]
+        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .slice(0, 20)
+        .map((run) => this.toOperation(run, 'publish')),
+    );
+    return { sourceVersion, sourceVersionPublished, operations };
+  }
+
+  private async listActiveRuns(): Promise<GithubRun[]> {
+    return (await this.listWorkflowRuns(this.options.releaseWorkflow))
+      .filter((run) => run.status !== 'completed');
   }
 
   private assertNoActiveOperation(runs: GithubRun[]): void {
     if (runs.length > 0) {
-      throw new ApiError(409, 'RELEASE_OPERATION_ACTIVE', '已有版本发布或切换任务正在执行，请等待完成');
+      throw new ApiError(409, 'RELEASE_OPERATION_ACTIVE', '已有版本发布任务正在执行，请等待完成');
+    }
+  }
+
+  private requireGithubToken(): string {
+    const token = this.options.githubToken;
+    if (!token) {
+      throw new ApiError(503, 'GITHUB_RELEASE_NOT_CONFIGURED', 'GitHub 新版本发布尚未配置');
+    }
+    return token;
+  }
+
+  private async listSetCurrentOperations(limit = 20): Promise<ReleaseOperation[]> {
+    if (!this.options.storage) return [];
+    const { database } = await this.options.storage.read();
+    return database.auditEvents.flatMap((event): ReleaseOperation[] => {
+      if (event.action !== 'release.current_changed') return [];
+      const requestId = event.metadata?.requestId;
+      const targetVersion = event.metadata?.targetVersion;
+      if (
+        typeof requestId !== 'string'
+        || !REQUEST_ID_PATTERN.test(requestId)
+        || typeof targetVersion !== 'string'
+        || !VERSION_PATTERN.test(targetVersion)
+      ) {
+        return [];
+      }
+      return [{
+        requestId,
+        kind: 'set-current',
+        version: targetVersion,
+        status: 'completed',
+        conclusion: 'success',
+        createdAt: event.occurredAt,
+        updatedAt: event.occurredAt,
+      }];
+    }).slice(0, limit);
+  }
+
+  private async recordSetCurrentOperation(
+    operation: ReleaseOperation,
+    previousVersion: string,
+    actorId: string,
+  ): Promise<void> {
+    const storage = this.options.storage;
+    const targetVersion = operation.version;
+    const updatedAt = operation.updatedAt;
+    if (!storage || !targetVersion || !updatedAt) return;
+    try {
+      await mutateDatabase(storage, (database) => {
+        addAuditEvent(database, {
+          actorType: 'admin',
+          actorId,
+          action: 'release.current_changed',
+          targetType: 'system',
+          targetId: targetVersion,
+          reason: `从 ${previousVersion} 切换到 ${targetVersion}`,
+          metadata: {
+            requestId: operation.requestId,
+            previousVersion,
+            targetVersion,
+          },
+        }, new Date(updatedAt));
+      });
+    } catch (error: unknown) {
+      console.error('[版本切换] 已完成 TOS 切换，但写入审计日志失败:', error);
     }
   }
 
@@ -280,9 +444,10 @@ export class GithubReleaseManagement implements ReleaseManagement {
     init: RequestInit = {},
     acceptedStatuses: number[] = [],
   ): Promise<Response> {
+    const githubToken = this.requireGithubToken();
     const headers = new Headers(init.headers);
     if (!headers.has('Accept')) headers.set('Accept', 'application/vnd.github+json');
-    headers.set('Authorization', `Bearer ${this.options.githubToken}`);
+    headers.set('Authorization', `Bearer ${githubToken}`);
     headers.set('X-GitHub-Api-Version', '2022-11-28');
     headers.set('User-Agent', 'VideoStitcher-License-Server');
     const response = await this.fetchImplementation(`https://api.github.com${path}`, {
@@ -292,17 +457,45 @@ export class GithubReleaseManagement implements ReleaseManagement {
     });
     if (!response.ok && !acceptedStatuses.includes(response.status)) {
       console.error(`[版本管理] GitHub API 请求失败：${response.status} ${path}`);
+      if (
+        response.status === 429
+        || response.headers.get('x-ratelimit-remaining') === '0'
+        || response.headers.has('retry-after')
+      ) {
+        throw new ApiError(503, 'GITHUB_RELEASE_RATE_LIMITED', 'GitHub API 请求过于频繁，请稍后重新检测');
+      }
       if (response.status === 401 || response.status === 403) {
         throw new ApiError(503, 'GITHUB_RELEASE_AUTH_FAILED', '版本发布凭据无效或权限不足');
+      }
+      if (response.status === 404) {
+        throw new ApiError(
+          503,
+          'GITHUB_RELEASE_RESOURCE_NOT_FOUND',
+          `GitHub 仓库或发布 Workflow 不存在或无权访问，请检查 ${this.options.githubRepository}、${this.options.githubRef} 和 ${this.options.releaseWorkflow}`,
+        );
+      }
+      if (response.status === 422) {
+        throw new ApiError(503, 'GITHUB_RELEASE_CONFIG_INVALID', 'GitHub 发布分支或工作流配置无效');
       }
       throw new ApiError(502, 'GITHUB_RELEASE_UNAVAILABLE', 'GitHub 发布服务暂时不可用');
     }
     return response;
   }
 
-  private toOperation(run: GithubRun, kind: ReleaseOperationKind, requestId?: string): ReleaseOperation {
+  private async toOperation(
+    run: GithubRun,
+    kind: ReleaseOperationKind,
+    requestId?: string,
+  ): Promise<ReleaseOperation> {
     const parsedRequestId = requestId ?? run.display_title.match(REQUEST_ID_SEARCH_PATTERN)?.[0] ?? `github-${run.id}`;
-    const version = run.display_title.match(/v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/)?.[1];
+    let version = run.display_title.match(/v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/)?.[1];
+    if (version === undefined && kind === 'publish' && /^[0-9a-f]{40}$/i.test(run.head_sha)) {
+      try {
+        version = await this.readSourceVersion(run.head_sha);
+      } catch {
+        console.warn(`[版本管理] 无法读取发布任务 ${run.id} 对应的版本号`);
+      }
+    }
     return {
       requestId: parsedRequestId,
       kind,
@@ -316,13 +509,35 @@ export class GithubReleaseManagement implements ReleaseManagement {
   }
 }
 
+function isGithubReleaseError(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.code.startsWith('GITHUB_RELEASE_');
+}
+
+export function parseCurrentManifest(value: string): { version: string; updatedAt?: string } {
+  if (value.length > 100_000) {
+    throw new ApiError(502, 'RELEASE_MANIFEST_INVALID', 'TOS 当前更新清单格式无效');
+  }
+  const version = value.match(/^version:[ \t]*['"]?([0-9A-Za-z.-]+)['"]?[ \t]*\r?$/m)?.[1];
+  if (version === undefined || !VERSION_PATTERN.test(version)) {
+    throw new ApiError(502, 'RELEASE_MANIFEST_INVALID', 'TOS 当前更新清单格式无效');
+  }
+  const releaseDate = value.match(/^releaseDate:[ \t]*['"]?([^'"\r\n]+)['"]?[ \t]*\r?$/m)?.[1]?.trim();
+  if (releaseDate !== undefined && Number.isNaN(Date.parse(releaseDate))) {
+    throw new ApiError(502, 'RELEASE_MANIFEST_INVALID', 'TOS 当前更新清单格式无效');
+  }
+  return {
+    version,
+    ...(releaseDate === undefined ? {} : { updatedAt: releaseDate }),
+  };
+}
+
 function normalizeRunStatus(value: string): ReleaseOperationStatus {
   if (value === 'completed') return 'completed';
   if (value === 'in_progress') return 'in_progress';
   return 'queued';
 }
 
-function parseCatalog(value: unknown, updateBaseUrl: string): DesktopReleaseCatalog {
+export function parseCatalog(value: unknown, updateBaseUrl: string): DesktopReleaseCatalog {
   if (!value || typeof value !== 'object') throw new ApiError(502, 'RELEASE_CATALOG_INVALID', 'TOS 版本目录格式无效');
   const catalog = value as Partial<DesktopReleaseCatalog>;
   if (
@@ -417,7 +632,7 @@ function assertVersion(value: unknown): string {
   return value;
 }
 
-function compareVersions(left: string, right: string): number {
+export function compareVersions(left: string, right: string): number {
   const [leftCore, leftPreRelease] = left.split('-', 2);
   const [rightCore, rightPreRelease] = right.split('-', 2);
   const leftParts = (leftCore ?? '').split('.').map(Number);
@@ -429,4 +644,10 @@ function compareVersions(left: string, right: string): number {
   if (leftPreRelease === undefined && rightPreRelease !== undefined) return 1;
   if (leftPreRelease !== undefined && rightPreRelease === undefined) return -1;
   return (leftPreRelease ?? '').localeCompare(rightPreRelease ?? '');
+}
+
+function sortOperations(operations: ReleaseOperation[]): ReleaseOperation[] {
+  return [...operations]
+    .sort((left, right) => (right.createdAt ?? '').localeCompare(left.createdAt ?? ''))
+    .slice(0, 20);
 }

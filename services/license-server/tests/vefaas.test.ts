@@ -43,3 +43,30 @@ test('veFaaS 生产入口使用平台临时凭证访问 TOS', () => {
     objectKey: 'license-platform/state.json',
   });
 });
+
+test('veFaaS 平台临时凭证同时用于直接切换 TOS 当前版本', () => {
+  const config = createRuntimeConfig({
+    accessKeyId: 'platform-access-key',
+    secretAccessKey: 'platform-secret-key',
+    sessionToken: 'platform-session-token',
+  }, {
+    ...sharedEnvironment,
+    LICENSE_STORAGE_DRIVER: 'tos',
+    TOS_REGION: 'cn-beijing',
+    TOS_ENDPOINT: 'tos-cn-beijing.volces.com',
+    TOS_BUCKET: 'videostitcher-license-test',
+    TOS_UPDATE_BUCKET: 'videostitcher-updates-test',
+    TOS_UPDATE_PREFIX: 'stable',
+    VIDEO_STITCHER_UPDATE_BASE_URL: 'https://updates.example.com/stable',
+  });
+
+  assert.deepEqual(config.releaseManagement?.channel, {
+    accessKeyId: 'platform-access-key',
+    accessKeySecret: 'platform-secret-key',
+    stsToken: 'platform-session-token',
+    region: 'cn-beijing',
+    endpoint: 'tos-cn-beijing.volces.com',
+    bucket: 'videostitcher-updates-test',
+    prefix: 'stable',
+  });
+});

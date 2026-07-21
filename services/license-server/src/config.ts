@@ -7,12 +7,22 @@ export interface LicenseServerConfig {
   licenseKeyPepper: string;
   signingPrivateKey: string;
   releaseManagement?: {
-    githubToken: string;
-    githubRepository: string;
-    githubRef: string;
-    releaseWorkflow: string;
-    setCurrentWorkflow: string;
     updateBaseUrl: string;
+    github?: {
+      token: string;
+      repository: string;
+      ref: string;
+      releaseWorkflow: string;
+    };
+    channel?: {
+      accessKeyId?: string;
+      accessKeySecret?: string;
+      stsToken?: string;
+      region: string;
+      endpoint: string;
+      bucket: string;
+      prefix: string;
+    };
   };
   storage:
     | { driver: 'file'; filePath: string }
@@ -41,6 +51,17 @@ export function loadConfig(
   workingDirectory = process.cwd(),
 ): LicenseServerConfig {
   const storageDriver = requireEnvironment('LICENSE_STORAGE_DRIVER', environment);
+  const githubToken = environment.GITHUB_RELEASE_TOKEN?.trim();
+  const updateBucket = environment.TOS_UPDATE_BUCKET?.trim();
+  const updateBaseUrl = environment.VIDEO_STITCHER_UPDATE_BASE_URL?.trim();
+  const updateAccessKeyId = environment.TOS_UPDATE_ACCESS_KEY_ID?.trim();
+  const updateAccessKeySecret = environment.TOS_UPDATE_SECRET_ACCESS_KEY?.trim();
+  if ((githubToken || updateBucket) && !updateBaseUrl) {
+    throw new Error('缺少环境变量 VIDEO_STITCHER_UPDATE_BASE_URL');
+  }
+  if (Boolean(updateAccessKeyId) !== Boolean(updateAccessKeySecret)) {
+    throw new Error('TOS_UPDATE_ACCESS_KEY_ID 与 TOS_UPDATE_SECRET_ACCESS_KEY 必须同时配置');
+  }
   const sharedConfig = {
     adminTokenHash: requireEnvironment('LICENSE_ADMIN_TOKEN_HASH', environment),
     bootstrapAdminUsername: environment.LICENSE_BOOTSTRAP_ADMIN_USERNAME?.trim().toLowerCase() || 'owner',
@@ -51,14 +72,32 @@ export function loadConfig(
     ),
     licenseKeyPepper: requireEnvironment('LICENSE_KEY_PEPPER', environment),
     signingPrivateKey: requireEnvironment('LICENSE_SIGNING_PRIVATE_KEY', environment),
-    ...(environment.GITHUB_RELEASE_TOKEN?.trim() ? {
+    ...((githubToken || updateBucket) && updateBaseUrl ? {
       releaseManagement: {
-        githubToken: environment.GITHUB_RELEASE_TOKEN.trim(),
-        githubRepository: environment.GITHUB_RELEASE_REPOSITORY?.trim() || 'luweiCN/VideoStitcher',
-        githubRef: environment.GITHUB_RELEASE_REF?.trim() || 'master',
-        releaseWorkflow: environment.GITHUB_RELEASE_WORKFLOW?.trim() || 'release.yml',
-        setCurrentWorkflow: environment.GITHUB_SET_CURRENT_WORKFLOW?.trim() || 'set-current-release.yml',
-        updateBaseUrl: requireEnvironment('VIDEO_STITCHER_UPDATE_BASE_URL', environment),
+        updateBaseUrl,
+        ...(githubToken ? {
+          github: {
+            token: githubToken,
+            repository: environment.GITHUB_RELEASE_REPOSITORY?.trim() || 'luweiCN/VideoStitcher',
+            ref: environment.GITHUB_RELEASE_REF?.trim() || 'master',
+            releaseWorkflow: environment.GITHUB_RELEASE_WORKFLOW?.trim() || 'release.yml',
+          },
+        } : {}),
+        ...(updateBucket ? {
+          channel: {
+            ...(updateAccessKeyId ? { accessKeyId: updateAccessKeyId } : {}),
+            ...(updateAccessKeySecret ? { accessKeySecret: updateAccessKeySecret } : {}),
+            ...(environment.TOS_UPDATE_SESSION_TOKEN?.trim()
+              ? { stsToken: environment.TOS_UPDATE_SESSION_TOKEN.trim() }
+              : {}),
+            region: environment.TOS_UPDATE_REGION?.trim()
+              || requireEnvironment('TOS_REGION', environment),
+            endpoint: environment.TOS_UPDATE_ENDPOINT?.trim()
+              || requireEnvironment('TOS_ENDPOINT', environment),
+            bucket: updateBucket,
+            prefix: environment.TOS_UPDATE_PREFIX?.trim() || 'stable',
+          },
+        } : {}),
       },
     } : {}),
   };

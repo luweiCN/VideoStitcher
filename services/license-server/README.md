@@ -159,6 +159,7 @@ npm run deploy
    - `TOS_REGION`、`TOS_ENDPOINT`、`TOS_BUCKET`、`TOS_OBJECT_KEY`
    - `GITHUB_RELEASE_TOKEN`（Fine-grained Token，仅授予目标私有仓库 Contents 读取和 Actions 读写）
    - `VIDEO_STITCHER_UPDATE_BASE_URL`（更新桶 `stable` 目录的公网 HTTPS 地址）
+   - `TOS_UPDATE_BUCKET`（更新安装包专用桶；函数角色只需获得当前版本清单的最小读写权限）
 4. 为事件函数绑定只允许访问上述两个对象范围的 IAM 服务角色。代码会从 veFaaS Context 读取并轮换 STS 临时凭据；生产环境不需要设置 `TOS_ACCESS_KEY`、`TOS_SECRET_KEY` 和 `TOS_STS_TOKEN`。
 5. 通过弹性 API 网关暴露 HTTPS，配置：
    - `/v1/devices/connect`：单 IP 10 次/10 分钟；
@@ -172,7 +173,7 @@ npm run deploy
    - 每日预算告警和异常调用告警。
 6. 在 `desktop-release` GitHub Environment 中配置正式授权地址和 Ed25519 公钥；正式地址通过构建期常量写入 Bridge 安装包，不允许打包后的环境变量改写。
 
-“版本管理”不会把 GitHub Token 返回给管理后台页面。授权函数只负责读取版本目录、签发受限回退指令并触发 GitHub Actions；TOS 更新桶写凭据仍只存在于 `desktop-release` Environment。发布流水线会为每个版本保存不可变的 `stable/versions/<version>/latest*.yml`，并维护 `stable/releases/index.json`。已发布版本和安装包不提供删除操作，版本号也不能重复使用。
+“版本管理”不会把 GitHub Token 返回给管理后台页面。发布新版仍由授权函数触发 GitHub Actions，完整的 TOS 更新桶发布凭据只存在于 `desktop-release` Environment；“设为当前”则由授权函数使用 IAM 角色临时凭据直接更新指定清单和短期互斥锁。发布流水线会为每个版本保存不可变的 `stable/versions/<version>/latest*.yml`，并维护 `stable/releases/index.json`。已发布版本和安装包不提供删除操作，版本号也不能重复使用。
 
 从支持版本管理的客户端开始，降低 TOS 当前版本必须携带授权服务 Ed25519 私钥签发的回退指令。指令限定目标版本、允许回退的来源版本和有效期；客户端仅在本次检查验签成功时临时打开 `electron-updater` 降级能力，安装前会创建本地数据库备份。旧客户端没有这项能力，因此第一次受控回退前必须先让用户升级到包含该能力的新版本。
 
